@@ -1,61 +1,35 @@
-# Confusynth
+# CONFUsynth
 
-Confusynth is a browser-first prototype for a new commercial instrument that combines the strongest workflow ideas behind two influential performance samplers into an original hybrid product. The goal is not to clone hardware, branding, firmware, presets, or UI; it is to build a new digital instrument that merges fast drum-and-sample sequencing, live performance morphing, resampling, and deep routing into a modern open-source stack.
+CONFUsynth is an original experimental instrument focused on sequencing, sampling, live sound transformation, and performable modulation. The project explores a hybrid workflow that blends rhythmic composition, scene-based control, resampling, and flexible routing in a modern open-source stack.
 
 The current prototype runs in the browser, is installable as a PWA for desktop-like use, and includes a small local API bridge for optional OpenAI or Anthropic assistance. It is intentionally compact: plain HTML, CSS, and modern JavaScript on the frontend, plus a dependency-light Node server for static hosting and API proxying.
 
-## Research Summary
+## Instrument Direction
 
-This plan is grounded in current primary-source product capabilities from Elektron product pages and manuals.
-
-### Digitakt II
-
-Digitakt II is a stereo sampling drum computer and sequencer built around fast sample manipulation, Elektron sequencing, filters, envelopes, modulation, send effects, and deep MIDI control. Core takeaways for product planning:
-
-- 16 audio tracks and 16 MIDI tracks.
-- Stereo sample handling, internal storage, and RAM-centric sampling workflow.
-- Integrated sequencer, parameter locks, conditional triggering, retrigs, modulation, delay and reverb sends, filtering, and performance-oriented editing.
-- USB, audio I/O, MIDI I/O/Thru, and computer integration form a significant part of the product value.
-
-### Octatrack MKII
-
-Octatrack MKII is built around live sampling, complex routing, scene-based performance control, deep sequencing, and dynamic playback/recording machines. Core takeaways:
-
-- 8 audio tracks and 8 MIDI tracks.
-- Flex and Static style sample concepts, recorder buffers, live resampling, and longer-form playback workflows.
-- Scenes, crossfader performance morphing, arranger/song capabilities, cue routing, and advanced I/O behavior.
-- Inputs, main/cue outputs, MIDI I/O/Thru, CompactFlash storage, and live set design are central to its workflow identity.
-
-### Product Direction
-
-The strongest shared themes are:
+The core themes of CONFUsynth are:
 
 - Step sequencing with fast per-step editing.
 - Sample-first sound design.
 - Live capture and resampling.
 - Performance morphing and mixer control.
 - Strong MIDI and external routing concepts.
-
-The new instrument should combine:
-
-- Digitakt-style immediacy, compact sequencing, and sound sculpting.
-- Octatrack-style scenes, crossfader macros, recorder buffers, and routing depth.
+- Compact sequencing and sound sculpting.
+- Scene morphing, crossfader macros, recorder buffers, and routing depth.
 - An original interface and DSP engine designed for desktop, browser, and eventual plugin delivery.
 
-## Commercial and Legal Boundary
+## Product Position
 
-For commercial use, the safe path is to build an original product inspired by workflows rather than a “replica” or “emulation” in the branding or trade-dress sense.
+CONFUsynth should be described and developed as an original instrument with its own interface language, signal flow, and performance model.
 
-- Do not use Elektron names, panel layouts, screen graphics, manuals, patches, or copied firmware behavior as shipped assets.
-- Do not market the product as a clone or official recreation.
-- Re-implement concepts such as scene morphing, parameter locks, live recording buffers, conditional trigs, mixer sends, and arranger logic with original code and UI.
-- Treat this repository as a product architecture and prototype basis, not a legally complete release package.
+- Build the identity around experimental sequencing, live capture, and morphable performance control.
+- Keep the UI, terminology, presets, and interaction model original to the project.
+- Treat this repository as a product architecture and prototype basis for CONFUsynth itself.
 
 ## Architecture
 
 ### Product Shape
 
-Confusynth should evolve into a modular hybrid instrument with four major subsystems:
+CONFUsynth should evolve into a modular hybrid instrument with four major subsystems:
 
 1. DSP Core
 2. Sequencer Core
@@ -82,7 +56,7 @@ If “fully open-source” is a hard requirement, VST3 is a poor first target be
 2. Shared DSP/sequencer core in Rust.
 3. Tauri standalone desktop app.
 4. CLAP plugin.
-5. Optional VST3/AU wrappers later if commercial distribution requires Ableton-native plugin packaging.
+5. Optional VST3/AU wrappers later if commercial distribution requires broader host compatibility.
 
 This avoids locking the core architecture to one host SDK too early.
 
@@ -115,7 +89,7 @@ This avoids locking the core architecture to one host SDK too early.
 - Tauri desktop shell for filesystem, MIDI, and low-latency device access.
 - Optional local API bridge for OpenAI, Anthropic, or MCP-driven workflow helpers.
 
-## Feature Map For The Combined Instrument
+## Feature Map
 
 ### Phase 1
 
@@ -234,9 +208,6 @@ What is intentionally missing:
 5. Package the standalone app in Tauri.
 6. Expose a CLAP build target for DAW integration.
 
-## Sources
+## References
 
-- Digitakt II manual: https://elektron.se/wp-content/uploads/2025/03/Digitakt-2-User-Manual_ENG_OS1.10_250320.pdf
-- Octatrack MKII manual: https://www.elektron.se/wp-content/uploads/2024/09/Octatrack-MKII-User-Manual_ENG_OS1.40A_210414.pdf
-- Elektron Overbridge page: https://www.elektron.se/overbridge
-- Ableton supported plug-in formats: https://help.ableton.com/hc/en-us/articles/5937501570460-Supported-Plug-in-Formats
+- No external brand-specific references are required for the current prototype description.
