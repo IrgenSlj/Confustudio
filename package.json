@@ -1,0 +1,11 @@
+{
+  "name": "confusynth",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Hybrid sampler-sequencer prototype inspired by performance workflows from modern hardware samplers.",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "Confusynth Prototype",
+  "short_name": "Confusynth",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1111",
+  "theme_color": "#121212",
+  "icons": []
+}
