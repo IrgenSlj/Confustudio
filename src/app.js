@@ -119,6 +119,8 @@ const appState = {
     reverbSend: 0.18,
     midiChannel: index + 1,
     inputMode: index < 2 ? "external" : "internal",
+    mute: false,
+    solo: false,
     sceneA: { cutoff: 2200, decay: 0.22, delaySend: 0.1 },
     sceneB: { cutoff: 6400, decay: 0.8, delaySend: 0.45 },
     sampleBuffer: null,
@@ -131,6 +133,91 @@ const appState = {
 };
 
 const elements = {};
+
+const STORAGE_KEY = "confusynth-v1";
+
+function saveState() {
+  try {
+    const data = {
+      bpm: appState.bpm,
+      swing: appState.swing,
+      patternLength: appState.patternLength,
+      crossfader: appState.crossfader,
+      tracks: appState.tracks.map((t) => ({
+        id: t.id,
+        name: t.name,
+        machine: t.machine,
+        volume: t.volume,
+        pan: t.pan,
+        pitch: t.pitch,
+        decay: t.decay,
+        cutoff: t.cutoff,
+        resonance: t.resonance,
+        drive: t.drive,
+        delaySend: t.delaySend,
+        reverbSend: t.reverbSend,
+        midiChannel: t.midiChannel,
+        inputMode: t.inputMode,
+        mute: t.mute,
+        solo: t.solo,
+        steps: t.steps.map((s) => ({ active: s.active, accent: s.accent, note: s.note }))
+      }))
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (_) {}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data.bpm != null) appState.bpm = data.bpm;
+    if (data.swing != null) appState.swing = data.swing;
+    if (data.patternLength != null) appState.patternLength = data.patternLength;
+    if (data.crossfader != null) appState.crossfader = data.crossfader;
+    if (data.tracks) {
+      data.tracks.forEach((saved, i) => {
+        const t = appState.tracks[i];
+        if (!t) return;
+        const keys = ["name", "machine", "volume", "pan", "pitch", "decay", "cutoff", "resonance", "drive", "delaySend", "reverbSend", "midiChannel", "inputMode", "mute", "solo"];
+        keys.forEach((k) => { if (saved[k] != null) t[k] = saved[k]; });
+        if (saved.steps) {
+          saved.steps.forEach((s, si) => {
+            if (t.steps[si]) Object.assign(t.steps[si], s);
+          });
+        }
+      });
+    }
+    // Sync sliders to restored state
+    elements["bpm"].value = appState.bpm;
+    elements["swing"].value = appState.swing;
+    elements["pattern-length"].value = appState.patternLength;
+    elements["crossfader"].value = appState.crossfader;
+  } catch (_) {}
+}
+
+function euclidean(beats, steps) {
+  // Bresenham-based: maximally even distribution, first beat at step 0
+  if (beats <= 0) return Array(steps).fill(false);
+  return Array.from({ length: steps }, (_, i) =>
+    Math.floor(i * beats / steps) !== Math.floor((i - 1) * beats / steps)
+  );
+}
+
+function renderPlayhead() {
+  elements["status-pill"].textContent = appState.isPlaying
+    ? `Running ${appState.currentStep + 1}`
+    : "Idle";
+  elements["step-grid"].querySelectorAll(".step-button").forEach((btn, i) => {
+    btn.classList.toggle("playhead", i === appState.currentStep);
+  });
+  if (appState.currentPage === "pianoroll") {
+    elements["piano-roll"].querySelectorAll(".piano-cell").forEach((cell, i) => {
+      cell.classList.toggle("playhead", i % appState.patternLength === appState.currentStep);
+    });
+  }
+}
 
 class AudioEngine {
   constructor(context) {
@@ -327,7 +414,9 @@ function setupElements() {
     "screen-track-grid",
     "piano-roll",
     "keyboard-map",
-    "keyboard-hint"
+    "keyboard-hint",
+    "euclid-beats",
+    "euclid-apply"
   ].forEach((id) => {
     elements[id] = $(id);
   });
@@ -352,11 +441,26 @@ function renderTracks() {
   elements["track-list"].innerHTML = "";
   appState.tracks.forEach((track, index) => {
     const card = document.createElement("button");
-    card.className = `track-card ${index === appState.selectedTrackIndex ? "active" : ""}`;
-    card.innerHTML = `<h3>T${track.id} · ${track.machine}</h3><p>vol ${track.volume.toFixed(2)} · pan ${track.pan.toFixed(2)}</p>`;
-    card.addEventListener("click", () => {
-      appState.selectedTrackIndex = index;
-      syncControlsFromTrack();
+    const classes = ["track-card"];
+    if (index === appState.selectedTrackIndex) classes.push("active");
+    if (track.mute) classes.push("muted");
+    if (track.solo) classes.push("soloed");
+    card.className = classes.join(" ");
+    const muteLabel = track.mute ? "M" : "·";
+    const soloLabel = track.solo ? "S" : "·";
+    card.innerHTML = `<h3>T${track.id} · ${track.machine}</h3><p>vol ${track.volume.toFixed(2)} · pan ${track.pan.toFixed(2)}</p><p class="track-ms">${muteLabel} ${soloLabel}</p>`;
+    card.title = "Click to select · Shift+click to mute · Alt+click to solo";
+    card.addEventListener("click", (event) => {
+      if (event.shiftKey) {
+        track.mute = !track.mute;
+      } else if (event.altKey) {
+        const wasSolo = track.solo;
+        appState.tracks.forEach((t) => { t.solo = false; });
+        track.solo = !wasSolo;
+      } else {
+        appState.selectedTrackIndex = index;
+        syncControlsFromTrack();
+      }
       renderAll();
     });
     elements["track-list"].append(card);
@@ -464,8 +568,12 @@ function renderPianoRoll() {
       if (step.active && step.note === noteRow.midi) cell.classList.add("active");
       if (index === appState.currentStep) cell.classList.add("playhead");
       cell.addEventListener("click", () => {
-        step.active = true;
-        step.note = noteRow.midi;
+        if (step.active && step.note === noteRow.midi) {
+          step.active = false;
+        } else {
+          step.active = true;
+          step.note = noteRow.midi;
+        }
         renderAll();
       });
       elements["piano-roll"].append(cell);
@@ -515,6 +623,7 @@ function renderKeyboardMap() {
 }
 
 function renderAll() {
+  saveState();
   elements["bpm-value"].textContent = String(appState.bpm);
   elements["swing-value"].textContent = appState.swing.toFixed(2);
   elements["pattern-length-value"].textContent = String(appState.patternLength);
@@ -578,17 +687,20 @@ function scheduleLoop() {
     const secondsPerStep = (60 / appState.bpm) / 4;
     while (nextStepTime < appState.audioContext.currentTime + 0.12) {
       appState.currentStep = stepIndex;
+      const isSoloing = appState.tracks.some((t) => t.solo);
       appState.tracks.forEach((track) => {
+        if (track.mute || (isSoloing && !track.solo)) return;
         const step = track.steps[stepIndex];
         if (step?.active) {
           appState.engine.triggerTrack(track, nextStepTime, { accent: step.accent, note: step.note });
         }
       });
       stepIndex = (stepIndex + 1) % appState.patternLength;
-      const swingOffset = stepIndex % 2 === 0 ? appState.swing * secondsPerStep : 0;
+      // Correct swing: odd steps (off-beats) come late, even steps come early to compensate
+      const swingOffset = (stepIndex % 2 !== 0 ? 1 : -1) * appState.swing * secondsPerStep;
       nextStepTime += secondsPerStep + swingOffset;
-      renderAll();
     }
+    renderPlayhead();
     requestAnimationFrame(tick);
   }
 
@@ -598,6 +710,7 @@ function scheduleLoop() {
 async function togglePlay() {
   await ensureAudio();
   appState.isPlaying = !appState.isPlaying;
+  if (!appState.isPlaying) appState.currentStep = -1;
   elements["play-toggle"].textContent = appState.isPlaying ? "Stop" : "Play";
   renderAll();
   if (appState.isPlaying) scheduleLoop();
@@ -647,6 +760,14 @@ function bindGlobalControls() {
 
   document.querySelectorAll(".chapter-button").forEach((button) => {
     button.addEventListener("click", () => setPage(button.dataset.page));
+  });
+
+  elements["euclid-apply"].addEventListener("click", () => {
+    const beats = Math.max(1, Math.min(appState.patternLength, parseInt(elements["euclid-beats"].value) || 4));
+    const track = appState.tracks[appState.selectedTrackIndex];
+    const pattern = euclidean(beats, appState.patternLength);
+    track.steps.forEach((step, i) => { step.active = pattern[i] ?? false; });
+    renderAll();
   });
 }
 
@@ -847,6 +968,7 @@ function bindKeyboard() {
 
 async function boot() {
   setupElements();
+  loadState();
   bindGlobalControls();
   bindTrackControls();
   bindSampleRecorder();
