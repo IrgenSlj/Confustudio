@@ -343,10 +343,15 @@ function handleKnobChange(knobIndex, value) {
     pattern.kit.tracks[Number(idx)][field] = value;
   } else if (TRACK_PARAMS.includes(def.param)) {
     getActiveTrack(state)[def.param] = value;
-  } else {
-    if (def.param === 'bpm') state.bpm = Math.max(40, Math.min(240, value));
-    else state[def.param] = value;
+  } else if (def.param === 'bpm') {
+    state.bpm = Math.max(40, Math.min(240, value));
     updateTopbar();
+  } else if (def.param === 'length' || def.param === 'patternLength' || def.param === 'steps') {
+    const len = Math.max(4, Math.min(64, Math.round(value)));
+    pattern.length = len;
+    state.patternLength = len;
+  } else {
+    state[def.param] = value;
   }
 
   scheduleSave();
@@ -486,6 +491,7 @@ function renderAll() {
   renderKnobBar();
   renderPage();
   renderTrackStrip();
+  renderTrackSelector();
   renderKbdContext(el.kbdContext, state.currentPage, state._pressedKeys);
   renderPiano(el.kbdPiano, state);
   updateTransportUI();
@@ -572,6 +578,19 @@ function renderTrackStrip() {
       else emit('track:select', { trackIndex: i });
     });
     el.trackStrip.append(card);
+  });
+}
+
+function renderTrackSelector() {
+  if (!el.trackSelector) return;
+  const pattern = getActivePattern(state);
+  el.trackSelector.innerHTML = '';
+  pattern.kit.tracks.forEach((track, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'track-sel-btn' + (i === state.selectedTrackIndex ? ' active' : '');
+    btn.textContent = `T${i + 1}`;
+    btn.addEventListener('click', () => emit('track:select', { trackIndex: i }));
+    el.trackSelector.append(btn);
   });
 }
 

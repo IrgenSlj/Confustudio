@@ -549,6 +549,8 @@ button {
   overflow: hidden;
   min-height: 0;
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Pattern page layout */
@@ -1142,6 +1144,13 @@ button {
   overflow: hidden;
   background: #111;
   border: 1px solid var(--border);
+}
+
+.piano-wrapper {
+  display: flex;
+  position: relative;
+  flex: 1;
+  height: 100%;
 }
 
 .piano-white {

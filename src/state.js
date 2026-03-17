@@ -151,9 +151,34 @@ export function createAppState() {
 
     // Playback
     isPlaying:          false,
+    isRecording:        false,
     currentStep:        -1,
     arrangementMode:    false,
     arrangementCursor:  0,
+
+    // Global parameters (flat, knob-accessible)
+    bpm:           122,
+    swing:         0.0,
+    patternLength: 16,
+    euclidBeats:   4,
+    patternShift:  0,
+    defaultProb:   1,
+    trigMode:      0,
+    masterLevel:   0.82,
+
+    // FX globals
+    delayTime:     0.28,
+    delayFeedback: 0.38,
+    reverbSize:    1.8,
+    reverbMix:     0.22,
+    lfoRate:       2,
+    lfoDepth:      0,
+
+    // Settings
+    midiChannel:   1,
+    metronome:     false,
+    abletonLink:   false,
+    clockMode:     0,
 
     // Pattern editing
     octaveShift:       0,
