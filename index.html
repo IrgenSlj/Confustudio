@@ -1,271 +1,137 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#111111" />
-    <title>CONFUsynth</title>
-    <link rel="manifest" href="/public/manifest.webmanifest" />
-    <link rel="stylesheet" href="/src/styles.css" />
-  </head>
-  <body>
-    <main class="console-shell">
-      <section class="machine">
-        <div class="top-ports" aria-hidden="true">
-          <span>Audio In</span>
-          <span>Audio Out</span>
-          <span>MIDI In</span>
-          <span>MIDI Out</span>
-          <span>USB</span>
-          <span>Power</span>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <title>CONFUsynth</title>
+  <link rel="manifest" href="/public/manifest.webmanifest" />
+  <link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body>
+  <main class="chassis">
+
+    <!-- TOP PORTS BAR -->
+    <div class="ports-bar">
+      <span class="port">Audio In</span>
+      <span class="port">Audio Out</span>
+      <span class="port">MIDI In</span>
+      <span class="port">MIDI Out</span>
+      <span class="port">USB</span>
+    </div>
+
+    <!-- MAIN GRID: 3 cols -->
+    <div class="machine-grid">
+
+      <!-- LEFT KNOB COLUMN — 4 knobs + transport buttons -->
+      <aside class="left-col">
+        <div class="knob-stack" id="left-knobs">
+          <!-- 4 SVG knobs rendered by knobs.js -->
         </div>
-
-        <div class="machine-grid">
-          <aside class="left-column">
-            <div class="encoder-stack">
-              <div class="knob large"></div>
-              <div class="knob"></div>
-            </div>
-
-            <div class="transport-stack">
-              <button id="audio-toggle" class="machine-button function-key">Audio</button>
-              <button id="randomize" class="machine-button">Rand</button>
-              <button id="clear-pattern" class="machine-button">Clear</button>
-              <button id="mic-toggle" class="machine-button">Rec</button>
-            </div>
-          </aside>
-
-          <section class="screen-section">
-            <div class="screen-frame">
-              <div class="screen-header">
-                <h1>CONFUsynth</h1>
-                <span id="status-pill">Idle</span>
-              </div>
-
-              <div class="screen">
-                <div class="screen-topline">
-                  <span id="selected-track-label">Track 1</span>
-                  <span id="machine-label">Tone machine</span>
-                </div>
-
-                <div id="chapter-nav" class="chapter-nav">
-                  <button class="chapter-button active" data-page="sequencer">Seq</button>
-                  <button class="chapter-button" data-page="mixer">Mix</button>
-                  <button class="chapter-button" data-page="effects">FX</button>
-                  <button class="chapter-button" data-page="channels">Chan</button>
-                  <button class="chapter-button" data-page="midi">MIDI</button>
-                  <button class="chapter-button" data-page="io">I/O</button>
-                  <button class="chapter-button" data-page="tempo">Tempo</button>
-                  <button class="chapter-button" data-page="tracks">Tracks</button>
-                  <button class="chapter-button" data-page="pianoroll">Roll</button>
-                </div>
-
-                <div class="screen-pages">
-                  <section class="screen-page active" data-page="sequencer">
-                    <div class="screen-main">
-                      <div class="screen-block">
-                        <label>
-                          BPM
-                          <input id="bpm" type="range" min="72" max="172" step="1" value="122" />
-                          <output id="bpm-value">122</output>
-                        </label>
-                        <label>
-                          Swing
-                          <input id="swing" type="range" min="0" max="0.42" step="0.01" value="0.12" />
-                          <output id="swing-value">0.12</output>
-                        </label>
-                      </div>
-
-                      <div class="screen-block">
-                        <label>
-                          Length
-                          <input id="pattern-length" type="range" min="8" max="32" step="8" value="16" />
-                          <output id="pattern-length-value">16</output>
-                        </label>
-                        <label>
-                          Scene
-                          <input id="crossfader" type="range" min="0" max="1" step="0.01" value="0.0" />
-                          <output id="crossfader-value">0.00</output>
-                        </label>
-                      </div>
-                    </div>
-
-                    <div class="screen-sequencer">
-                      <div id="step-grid" class="step-grid"></div>
-                      <div class="screen-euclid">
-                        <label>Euclid</label>
-                        <input id="euclid-beats" type="number" min="1" max="32" value="4" />
-                        <button id="euclid-apply" class="chapter-button">Gen</button>
-                      </div>
-                      <div class="screen-caption">1-8 / Q-I = steps · Shift = accent · Shift+track = mute · Alt+track = solo</div>
-                    </div>
-                  </section>
-
-                  <section class="screen-page" data-page="mixer">
-                    <div id="mixer-grid" class="mini-matrix"></div>
-                  </section>
-
-                  <section class="screen-page" data-page="effects">
-                    <div id="fx-grid" class="status-grid"></div>
-                  </section>
-
-                  <section class="screen-page" data-page="channels">
-                    <div id="channels-grid" class="status-grid"></div>
-                  </section>
-
-                  <section class="screen-page" data-page="midi">
-                    <div class="screen-block">
-                      <div class="page-title">MIDI ROUTING</div>
-                      <div id="midi-grid" class="status-grid compact"></div>
-                    </div>
-                  </section>
-
-                  <section class="screen-page" data-page="io">
-                    <div class="screen-block">
-                      <div class="page-title">INPUT / OUTPUT</div>
-                      <div id="io-grid" class="status-grid compact"></div>
-                    </div>
-                  </section>
-
-                  <section class="screen-page" data-page="tempo">
-                    <div class="screen-main">
-                      <div class="screen-block">
-                        <div class="page-title">CLOCK</div>
-                        <div id="tempo-stats" class="status-grid compact"></div>
-                      </div>
-                      <div class="screen-block">
-                        <div class="page-title">PERFORMANCE</div>
-                        <div id="performance-stats" class="status-grid compact"></div>
-                      </div>
-                    </div>
-                  </section>
-
-                  <section class="screen-page" data-page="tracks">
-                    <div id="screen-track-grid" class="screen-track-grid"></div>
-                  </section>
-
-                  <section class="screen-page" data-page="pianoroll">
-                    <div class="page-title">PIANO ROLL</div>
-                    <div id="piano-roll" class="piano-roll"></div>
-                    <div class="screen-caption">Z-M trigger notes. Arrow keys change track or page.</div>
-                  </section>
-                </div>
-              </div>
-            </div>
-
-            <div class="screen-keys">
-              <button id="play-toggle" class="machine-button play-key">Play</button>
-              <label class="machine-button file-key">
-                Sample
-                <input id="sample-file" type="file" accept="audio/*" />
-              </label>
-              <button id="assistant-send" class="machine-button">Assist</button>
-            </div>
-          </section>
-
-          <aside class="right-column">
-            <div class="macro-grid" aria-hidden="true">
-              <div class="knob"></div>
-              <div class="knob"></div>
-              <div class="knob"></div>
-              <div class="knob"></div>
-              <div class="knob"></div>
-              <div class="knob"></div>
-              <div class="knob"></div>
-              <div class="knob"></div>
-            </div>
-
-            <div class="control-panel">
-              <label>
-                Machine
-                <select id="machine-type">
-                  <option value="tone">Tone</option>
-                  <option value="noise">Noise</option>
-                  <option value="sample">Sample</option>
-                </select>
-              </label>
-              <label>
-                Pitch
-                <input id="pitch" type="range" min="24" max="96" step="1" value="48" />
-                <output id="pitch-value">48</output>
-              </label>
-              <label>
-                Decay
-                <input id="decay" type="range" min="0.03" max="2.5" step="0.01" value="0.32" />
-                <output id="decay-value">0.32</output>
-              </label>
-              <label>
-                Cutoff
-                <input id="cutoff" type="range" min="180" max="10000" step="10" value="3200" />
-                <output id="cutoff-value">3200</output>
-              </label>
-              <label>
-                Resonance
-                <input id="resonance" type="range" min="0.1" max="15" step="0.1" value="1.8" />
-                <output id="resonance-value">1.8</output>
-              </label>
-              <label>
-                Drive
-                <input id="drive" type="range" min="0" max="1" step="0.01" value="0.18" />
-                <output id="drive-value">0.18</output>
-              </label>
-              <label>
-                Delay
-                <input id="delay-send" type="range" min="0" max="1" step="0.01" value="0.24" />
-                <output id="delay-send-value">0.24</output>
-              </label>
-              <label>
-                Reverb
-                <input id="reverb-send" type="range" min="0" max="1" step="0.01" value="0.18" />
-                <output id="reverb-send-value">0.18</output>
-              </label>
-              <label>
-                Volume
-                <input id="volume" type="range" min="0" max="1" step="0.01" value="0.72" />
-                <output id="volume-value">0.72</output>
-              </label>
-              <label>
-                Pan
-                <input id="pan" type="range" min="-1" max="1" step="0.01" value="0" />
-                <output id="pan-value">0.00</output>
-              </label>
-            </div>
-          </aside>
+        <div class="transport-buttons">
+          <button id="btn-audio" class="t-btn t-btn--audio">A</button>
+          <button id="btn-play" class="t-btn t-btn--play">&#9654;</button>
+          <button id="btn-stop" class="t-btn t-btn--stop">&#9632;</button>
+          <button id="btn-record" class="t-btn t-btn--record">&#9679;</button>
         </div>
+      </aside>
 
-        <div class="track-strip">
-          <div id="track-list" class="track-list"></div>
-        </div>
+      <!-- CENTER: SCREEN -->
+      <section class="screen-section">
 
-        <div class="footer-panel">
-          <div class="utility-panel">
-            <p id="recording-status">No sample loaded.</p>
-            <label>
-              Assistant
-              <select id="assistant-provider">
-                <option value="openai">OpenAI</option>
-                <option value="anthropic">Anthropic</option>
-                <option value="mcp">MCP Bridge</option>
-              </select>
-            </label>
+        <!-- Screen bezel -->
+        <div class="screen-bezel">
+
+          <!-- Top info bar -->
+          <div class="screen-topbar">
+            <span id="project-name" class="topbar-item">CONFUsynth</span>
+            <span id="bank-pattern" class="topbar-item">A&#xB7;01</span>
+            <span id="bpm-display" class="topbar-item topbar-bpm">122 BPM</span>
+            <span id="status-pill" class="topbar-item topbar-status">IDLE</span>
           </div>
 
-          <div class="assistant-panel">
-            <textarea id="assistant-input" rows="3" placeholder="Suggest a darker pattern, scene morph, or resampling trick."></textarea>
-            <pre id="assistant-output">Assistant offline.</pre>
+          <!-- 9 page tabs -->
+          <nav class="page-tabs" id="page-tabs">
+            <button class="tab active" data-page="pattern">PATTERN</button>
+            <button class="tab" data-page="piano-roll">ROLL</button>
+            <button class="tab" data-page="sound">SOUND</button>
+            <button class="tab" data-page="mixer">MIXER</button>
+            <button class="tab" data-page="fx">FX</button>
+            <button class="tab" data-page="scenes">SCENES</button>
+            <button class="tab" data-page="banks">BANKS</button>
+            <button class="tab" data-page="arranger">ARR</button>
+            <button class="tab" data-page="settings">SET</button>
+          </nav>
+
+          <!-- Page content area -->
+          <div class="page-content" id="page-content">
+            <!-- Rendered by page modules -->
+          </div>
+
+          <!-- Oscilloscope strip — always visible -->
+          <canvas id="oscilloscope" class="oscilloscope-strip"></canvas>
+
+        </div>
+
+        <!-- Below screen: sample file input -->
+        <div class="screen-below">
+          <label class="screen-btn file-btn">
+            Sample
+            <input id="sample-file" type="file" accept="audio/*" hidden />
+          </label>
+          <button id="btn-tap" class="screen-btn">Tap</button>
+          <div id="bpm-edit" class="bpm-edit">
+            <button id="bpm-dec" class="bpm-arrow">&#8722;</button>
+            <input id="bpm-input" type="number" min="40" max="240" value="122" />
+            <button id="bpm-inc" class="bpm-arrow">+</button>
           </div>
         </div>
 
-        <div class="keyboard-panel">
-          <div class="keyboard-header">
-            <span>Keyboard Map</span>
-            <span id="keyboard-hint">Space play • G sequencer</span>
-          </div>
-          <div id="keyboard-map" class="keyboard-map"></div>
-        </div>
       </section>
-    </main>
 
-    <script type="module" src="/src/app.js"></script>
-  </body>
+      <!-- RIGHT KNOB COLUMN — 4 knobs + track selector -->
+      <aside class="right-col">
+        <div class="knob-stack" id="right-knobs">
+          <!-- 4 SVG knobs rendered by knobs.js -->
+        </div>
+        <div class="track-selector" id="track-selector">
+          <!-- 8 track buttons rendered by app.js -->
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- KEYBOARD PANEL -->
+    <div class="kbd-panel">
+
+      <!-- Universal transport zone -->
+      <div class="kbd-universal">
+        <button id="kbd-play" class="kbd-btn kbd-play">PLAY</button>
+        <button id="kbd-stop" class="kbd-btn kbd-stop">STOP</button>
+        <button id="kbd-record" class="kbd-btn kbd-record">REC</button>
+        <button id="kbd-arm" class="kbd-btn">ARM</button>
+        <span class="kbd-bpm" id="kbd-bpm-display">122 BPM</span>
+      </div>
+
+      <!-- Context zone — changes per page -->
+      <div class="kbd-context" id="kbd-context">
+        <!-- Rendered by keyboard.js based on current page -->
+      </div>
+
+      <!-- Visual piano keys — always at bottom -->
+      <div class="kbd-piano" id="kbd-piano">
+        <!-- Rendered by keyboard.js -->
+      </div>
+
+    </div>
+
+    <!-- TRACK STRIP (below machine grid) -->
+    <div class="track-strip" id="track-strip">
+      <!-- 8 track cards rendered by app.js -->
+    </div>
+
+  </main>
+
+  <script type="module" src="/src/app.js"></script>
+</body>
 </html>
