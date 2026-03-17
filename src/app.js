@@ -4,7 +4,7 @@ import { createAppState, getActivePattern, getActiveTrack, getActiveStep,
          saveState, loadState, PROB_LEVELS, TRACK_COUNT } from './state.js';
 import { AudioEngine, drawOscilloscope, initMidi, midiOutputs } from './engine.js';
 import { initKeyboard, renderKbdContext, renderPiano, lightPianoKey,
-         PAGE_KEYS } from './keyboard.js';
+         pressKey, PAGE_KEYS } from './keyboard.js';
 import { renderKnobs, KNOB_MAPS } from './knobs.js';
 
 // Page modules
@@ -38,6 +38,10 @@ const PAGES = {
 // ─────────────────────────────────────────────
 let state = loadState() || createAppState();
 state._playingNotes = new Set(); // live note feedback for piano
+state._pressedKeys  = new Set(); // live key feedback for graphical keyboard
+
+let _activeKnobIndex = null; // which knob is currently being dragged
+let _activeKnobTimer = null;
 
 // Playback scheduler state
 let _schedNextTime = 0;
@@ -52,6 +56,7 @@ let _saveTimer     = null;
 const $ = id => document.getElementById(id);
 const el = {
   pageContent:   $('page-content'),
+  knobBar:       $('knob-bar'),
   pageTabs:      $('page-tabs'),
   leftKnobs:     $('left-knobs'),
   rightKnobs:    $('right-knobs'),
@@ -303,6 +308,17 @@ function emit(type, payload = {}) {
     case 'knob:change':
       handleKnobChange(payload.index, payload.value);
       break;
+
+    // ── Key press visual feedback ──
+    case 'key:down':
+      state._pressedKeys.add(payload.code);
+      pressKey(el.kbdContext, payload.code, true);
+      break;
+
+    case 'key:up':
+      state._pressedKeys.delete(payload.code);
+      pressKey(el.kbdContext, payload.code, false);
+      break;
   }
 }
 
@@ -315,26 +331,35 @@ function handleKnobChange(knobIndex, value) {
   const def = map[knobIndex];
   if (!def || !def.param) return;
 
+  _activeKnobIndex = knobIndex;
+
   const pattern = getActivePattern(state);
 
-  // Track-specific params (knob controls selected track)
   const TRACK_PARAMS = ['pitch','attack','decay','noteLength','cutoff','resonance',
                         'drive','volume','pan','lfoRate','lfoDepth','delaySend','reverbSend'];
 
   if (def.param.startsWith('track.')) {
-    // e.g. "track.0.volume"
     const [, idx, field] = def.param.split('.');
     pattern.kit.tracks[Number(idx)][field] = value;
   } else if (TRACK_PARAMS.includes(def.param)) {
     getActiveTrack(state)[def.param] = value;
   } else {
-    emit('state:change', { path: def.param, value });
-    return;
+    if (def.param === 'bpm') state.bpm = Math.max(40, Math.min(240, value));
+    else state[def.param] = value;
+    updateTopbar();
   }
 
   scheduleSave();
-  // Lightweight re-render: just update knob display + page
   renderKnobsForPage();
+  renderKnobBar();
+  renderPage();
+
+  // Clear active highlight after brief delay
+  clearTimeout(_activeKnobTimer);
+  _activeKnobTimer = setTimeout(() => {
+    _activeKnobIndex = null;
+    renderKnobBar();
+  }, 1200);
 }
 
 // ─────────────────────────────────────────────
@@ -458,9 +483,10 @@ function renderAll() {
   updateTopbar();
   renderPageTabs();
   renderKnobsForPage();
+  renderKnobBar();
   renderPage();
   renderTrackStrip();
-  renderKbdContext(el.kbdContext, state.currentPage);
+  renderKbdContext(el.kbdContext, state.currentPage, state._pressedKeys);
   renderPiano(el.kbdPiano, state);
   updateTransportUI();
 }
@@ -480,6 +506,52 @@ function renderPageTabs() {
 function renderKnobsForPage() {
   renderKnobs(el.leftKnobs,  state.currentPage, state, 0);
   renderKnobs(el.rightKnobs, state.currentPage, state, 4);
+}
+
+function renderKnobBar() {
+  if (!el.knobBar) return;
+  const map = KNOB_MAPS[state.currentPage] || [];
+  el.knobBar.innerHTML = '';
+  map.forEach((def, i) => {
+    const slot = document.createElement('div');
+    const side = i < 4 ? 'left' : 'right';
+    slot.className = 'knob-bar-slot';
+    slot.dataset.side = side;
+    if (!def.param) slot.classList.add('unused');
+    if (i === _activeKnobIndex) slot.classList.add('active');
+
+    const value = def.param ? getKnobBarValue(def) : null;
+    const displayVal = value != null ? formatKnobBarValue(value, def) : '—';
+
+    slot.innerHTML =
+      `<span class="knob-bar-label">${def.label}</span>` +
+      `<span class="knob-bar-value">${displayVal}</span>`;
+    el.knobBar.append(slot);
+  });
+}
+
+function getKnobBarValue(def) {
+  if (!def.param) return null;
+  if (def.param.startsWith('track.')) {
+    const [, idx, field] = def.param.split('.');
+    const pattern = getActivePattern(state);
+    return pattern?.kit?.tracks[Number(idx)]?.[field] ?? 0;
+  }
+  const TRACK_PARAMS = ['pitch','attack','decay','noteLength','cutoff','resonance',
+                        'drive','volume','pan','lfoRate','lfoDepth','delaySend','reverbSend'];
+  if (TRACK_PARAMS.includes(def.param)) {
+    return getActiveTrack(state)?.[def.param] ?? 0;
+  }
+  return state[def.param] ?? 0;
+}
+
+function formatKnobBarValue(v, def) {
+  if (typeof v !== 'number') return String(v);
+  if (Number.isInteger(v) || def.step >= 1) return String(Math.round(v));
+  if (v >= 1000) return `${(v/1000).toFixed(1)}k`;
+  if (Math.abs(v) < 0.1) return v.toFixed(3);
+  if (Math.abs(v) < 10)  return v.toFixed(2);
+  return v.toFixed(1);
 }
 
 function renderTrackStrip() {

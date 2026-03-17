@@ -475,6 +475,72 @@ button {
 }
 
 /* ============================================================
+   KNOB BAR — 8 knob slot labels between tabs and page content
+   ============================================================ */
+
+.knob-bar {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 3px;
+  margin-bottom: 6px;
+  flex-shrink: 0;
+}
+
+.knob-bar-slot {
+  background: #111;
+  border: 1px solid #1e1e1e;
+  border-radius: 4px;
+  padding: 4px 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 0;
+  transition: border-color 0.1s, background 0.1s;
+}
+
+/* Left bank slots (0-3) get a subtle left indicator */
+.knob-bar-slot[data-side="left"] {
+  border-left: 2px solid #252525;
+}
+
+/* Right bank slots (4-7) */
+.knob-bar-slot[data-side="right"] {
+  border-right: 2px solid #252525;
+}
+
+.knob-bar-slot.active {
+  background: rgba(240, 198, 64, 0.06);
+  border-color: rgba(240, 198, 64, 0.4) !important;
+}
+
+.knob-bar-label {
+  font-family: var(--font-mono);
+  font-size: 0.52rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.knob-bar-value {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--screen-text);
+  font-weight: 600;
+}
+
+.knob-bar-slot.active .knob-bar-label { color: var(--accent); }
+.knob-bar-slot.active .knob-bar-value { color: #fff; }
+
+/* Unused slot */
+.knob-bar-slot.unused .knob-bar-label { color: #2a2a2a; }
+.knob-bar-slot.unused .knob-bar-value { color: #2a2a2a; }
+
+/* ============================================================
    PAGE CONTENT
    ============================================================ */
 
@@ -913,37 +979,155 @@ button {
 }
 
 .kbd-context {
-  min-height: 44px;
+  /* Full QWERTY keyboard fills this area */
+  padding: 2px 0;
+}
+
+/* ============================================================
+   GRAPHICAL QWERTY KEYBOARD
+   ============================================================ */
+
+.qwerty-keyboard {
   display: flex;
-  gap: 4px;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  user-select: none;
+}
+
+.qwerty-row {
+  display: flex;
+  gap: 3px;
+}
+
+/* Base key */
+.qwerty-key {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  flex-wrap: wrap;
-}
-
-/* Context buttons for kbd-context area */
-.ctx-btn {
-  padding: 5px 10px;
+  justify-content: center;
+  min-width: 0;
+  height: 40px;
   border-radius: 5px;
-  border: 1px solid var(--border);
+  border: 1px solid #2a2a2a;
   background: #161616;
-  color: var(--muted);
+  cursor: default;
+  transition: background 0.07s, border-color 0.07s, transform 0.06s;
+  overflow: hidden;
+  padding: 2px 3px;
+  position: relative;
+}
+
+.qkey-cap {
   font-family: var(--font-mono);
-  font-size: 0.64rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #555;
+  line-height: 1;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  cursor: pointer;
-  transition: all 0.1s;
+  transition: color 0.07s;
 }
 
-.ctx-btn:hover {
-  color: var(--screen-text);
-  border-color: rgba(255, 255, 255, 0.12);
+.qkey-hint {
+  font-family: var(--font-mono);
+  font-size: 0.48rem;
+  line-height: 1;
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: transparent;   /* shown only on active roles */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  max-width: 100%;
+  transition: color 0.07s;
 }
 
-.ctx-btn.active {
-  color: var(--accent);
-  border-color: rgba(240, 198, 64, 0.35);
-  background: rgba(240, 198, 64, 0.07);
+/* ── Role colours ─────────────────────────────── */
+
+/* idle = no assignment */
+.qwerty-key.role-idle {
+  background: #111;
+  border-color: #1e1e1e;
+}
+.qwerty-key.role-idle .qkey-cap { color: #2e2e2e; }
+
+/* page navigation (F1-F9) */
+.qwerty-key.role-page {
+  background: #0e0e1a;
+  border-color: #252540;
+}
+.qwerty-key.role-page .qkey-cap  { color: #4a4aaa; }
+.qwerty-key.role-page .qkey-hint { color: #5555cc; }
+
+/* step trigger keys */
+.qwerty-key.role-step {
+  background: #0e1a0e;
+  border-color: rgba(90, 221, 113, 0.25);
+}
+.qwerty-key.role-step .qkey-cap  { color: #3a7a3a; }
+.qwerty-key.role-step .qkey-hint { color: var(--live); }
+
+/* white note keys */
+.qwerty-key.role-note {
+  background: #0a1a1a;
+  border-color: rgba(90, 200, 200, 0.3);
+}
+.qwerty-key.role-note .qkey-cap  { color: #2a7a7a; }
+.qwerty-key.role-note .qkey-hint { color: #5addcc; }
+
+/* black note keys */
+.qwerty-key.role-note-black {
+  background: #0a1010;
+  border-color: rgba(90, 170, 170, 0.25);
+}
+.qwerty-key.role-note-black .qkey-cap  { color: #1a5050; }
+.qwerty-key.role-note-black .qkey-hint { color: #3a9999; }
+
+/* play/stop */
+.qwerty-key.role-play {
+  background: #0e1a0e;
+  border-color: rgba(90, 221, 113, 0.4);
+}
+.qwerty-key.role-play .qkey-cap  { color: var(--live); }
+.qwerty-key.role-play .qkey-hint { color: var(--live); }
+
+/* utility (clear, copy, oct±, etc.) */
+.qwerty-key.role-util {
+  background: #1a1206;
+  border-color: rgba(240, 198, 64, 0.25);
+}
+.qwerty-key.role-util .qkey-cap  { color: #7a6010; }
+.qwerty-key.role-util .qkey-hint { color: var(--accent); }
+
+/* track controls */
+.qwerty-key.role-track {
+  background: #1a0e18;
+  border-color: rgba(200, 90, 200, 0.2);
+}
+.qwerty-key.role-track .qkey-cap  { color: #7a3a7a; }
+.qwerty-key.role-track .qkey-hint { color: #cc66cc; }
+
+/* scene / bank  */
+.qwerty-key.role-scene {
+  background: #1a100a;
+  border-color: rgba(240, 130, 64, 0.25);
+}
+.qwerty-key.role-scene .qkey-cap  { color: #7a5020; }
+.qwerty-key.role-scene .qkey-hint { color: #f08040; }
+
+/* ── Pressed state — bright amber flash ──────── */
+.qwerty-key.pressed {
+  transform: scale(0.93);
+  border-color: var(--accent) !important;
+  background: rgba(240, 198, 64, 0.18) !important;
+}
+.qwerty-key.pressed .qkey-cap  { color: var(--accent) !important; }
+.qwerty-key.pressed .qkey-hint { color: #fff !important; }
+
+/* hover on active keys */
+.qwerty-key:not(.role-idle):hover {
+  filter: brightness(1.3);
 }
 
 /* ============================================================
