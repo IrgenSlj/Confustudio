@@ -40,7 +40,24 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  background: #060606;
+  /* Rolex deep-green background with subtle fabric texture */
+  background-color: #0e2318;
+  background-image:
+    /* cross-hatch fibre texture */
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px, transparent 3px,
+      rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px, transparent 3px,
+      rgba(0,0,0,0.03) 3px, rgba(0,0,0,0.03) 4px
+    ),
+    /* radial light pools */
+    radial-gradient(ellipse at 22% 38%, rgba(38,90,52,0.45) 0%, transparent 55%),
+    radial-gradient(ellipse at 78% 68%, rgba(14,52,28,0.5)  0%, transparent 48%),
+    radial-gradient(ellipse at 55% 15%, rgba(20,68,38,0.3)  0%, transparent 40%);
   display: grid;
   place-items: center;
   font-family: var(--font-ui);
@@ -95,35 +112,64 @@ button {
 .chassis {
   width: min(860px, 100vw);
   min-height: min(860px, 100vh);
-  background: var(--chassis-bg);
+  /* Brushed aluminium — fine horizontal grain + luminous gradient */
+  background-color: #c8c8c8;
+  background-image:
+    /* micro brushed-grain lines */
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px, transparent 2px,
+      rgba(255,255,255,0.06) 2px, rgba(255,255,255,0.06) 3px,
+      transparent 3px, transparent 7px,
+      rgba(0,0,0,0.04) 7px, rgba(0,0,0,0.04) 8px
+    ),
+    /* main aluminium sheen — light hits top-left face */
+    linear-gradient(
+      162deg,
+      #5e5e5e  0%,
+      #9a9a9a  9%,
+      #d2d2d2 22%,
+      #eaeaea 36%,
+      #e0e0e0 46%,
+      #eeeeee 57%,
+      #d6d6d6 70%,
+      #999999 84%,
+      #707070 100%
+    );
   border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.8),
-    0 40px 120px rgba(0, 0, 0, 0.7),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    0 4px 0  rgba(255,255,255,0.35),
+    0 30px 70px  rgba(0, 0, 0, 0.65),
+    0 60px 140px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255,255,255,0.55),
+    inset 0 -1px 0 rgba(0,0,0,0.25);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
 }
 
-/* Corner screw details */
+/* Corner screw details — machined aluminium Phillips head */
 .chassis::before,
 .chassis::after {
   content: "";
   position: absolute;
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #2a2a2a, #0a0a0a 70%);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  background:
+    radial-gradient(circle at 38% 32%, #d8d8d8, #5a5a5a 60%, #3a3a3a 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.35),
+    0 1px 3px rgba(0,0,0,0.45);
   top: 10px;
   z-index: 10;
 }
 
-.chassis::before { left: 12px; }
-.chassis::after  { right: 12px; }
+.chassis::before { left: 14px; }
+.chassis::after  { right: 14px; }
 
 /* ============================================================
    PORTS BAR
@@ -136,7 +182,7 @@ button {
   padding: 10px 0 6px;
   font-family: var(--font-mono);
   font-size: 0.6rem;
-  color: #333;
+  color: rgba(0,0,0,0.35);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   flex-shrink: 0;
@@ -154,8 +200,9 @@ button {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #222;
-  border: 1px solid #333;
+  background: rgba(0,0,0,0.18);
+  border: 1px solid rgba(0,0,0,0.2);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
   flex-shrink: 0;
 }
 
@@ -223,7 +270,7 @@ button {
 .knob-label {
   font-family: var(--font-mono);
   font-size: 0.56rem;
-  color: var(--muted);
+  color: rgba(0,0,0,0.42);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   text-align: center;
@@ -232,11 +279,12 @@ button {
   text-overflow: ellipsis;
   white-space: nowrap;
   transition: color 0.15s;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.3);
 }
 
 .knob-wrap:hover .knob-label,
 .knob-wrap.active .knob-label {
-  color: var(--accent);
+  color: rgba(100, 60, 0, 0.85);
 }
 
 /* Knob tooltip — floating value on hover */
@@ -280,20 +328,27 @@ button {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  border: 1px solid var(--border);
-  background: #1a1a1a;
-  color: var(--muted);
+  border: 1px solid rgba(0,0,0,0.18);
+  background:
+    radial-gradient(circle at 40% 30%, #d8d8d8, #a0a0a0 60%, #888888 100%);
+  color: rgba(0,0,0,0.45);
   font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.1s;
   display: grid;
   place-items: center;
   line-height: 1;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.5),
+    0 2px 4px rgba(0,0,0,0.25);
 }
 
 .t-btn:hover {
-  border-color: rgba(255, 255, 255, 0.12);
-  color: var(--screen-text);
+  border-color: rgba(0,0,0,0.28);
+  color: rgba(0,0,0,0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.6),
+    0 3px 8px rgba(0,0,0,0.3);
 }
 
 .t-btn--play { color: var(--live); }
@@ -337,9 +392,9 @@ button {
   width: 100%;
   padding: 5px 4px;
   border-radius: 4px;
-  border: 1px solid var(--border);
-  background: #141414;
-  color: var(--muted);
+  border: 1px solid rgba(0,0,0,0.14);
+  background: rgba(0,0,0,0.08);
+  color: rgba(0,0,0,0.45);
   font-family: var(--font-mono);
   font-size: 0.58rem;
   text-align: center;
@@ -347,17 +402,20 @@ button {
   transition: all 0.1s;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.3);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.25);
 }
 
 .track-sel-btn:hover {
-  color: var(--screen-text);
-  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(0,0,0,0.7);
+  border-color: rgba(0,0,0,0.22);
 }
 
 .track-sel-btn.active {
-  color: var(--accent);
-  border-color: rgba(240, 198, 64, 0.4);
-  background: rgba(240, 198, 64, 0.07);
+  color: rgba(90,50,0,0.9);
+  border-color: rgba(180,120,0,0.45);
+  background: rgba(240,198,64,0.18);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 0 6px rgba(240,198,64,0.2);
 }
 
 /* ============================================================
@@ -625,9 +683,9 @@ button {
 .screen-btn {
   padding: 6px 12px;
   border-radius: 6px;
-  border: 1px solid var(--border);
-  background: #141414;
-  color: var(--muted);
+  border: 1px solid rgba(0,0,0,0.18);
+  background: rgba(0,0,0,0.1);
+  color: rgba(0,0,0,0.48);
   font-family: var(--font-mono);
   font-size: 0.68rem;
   text-transform: uppercase;
@@ -637,11 +695,13 @@ button {
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.25);
 }
 
 .screen-btn:hover {
-  color: var(--screen-text);
-  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(0,0,0,0.72);
+  border-color: rgba(0,0,0,0.28);
 }
 
 .file-btn {
@@ -659,9 +719,9 @@ button {
   width: 26px;
   height: 26px;
   border-radius: 4px;
-  border: 1px solid var(--border);
-  background: #141414;
-  color: var(--muted);
+  border: 1px solid rgba(0,0,0,0.18);
+  background: rgba(0,0,0,0.1);
+  color: rgba(0,0,0,0.45);
   font-size: 1rem;
   cursor: pointer;
   display: grid;
@@ -669,11 +729,12 @@ button {
   transition: all 0.1s;
   padding: 0;
   line-height: 1;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
 }
 
 .bpm-arrow:hover {
-  color: var(--accent);
-  border-color: rgba(240, 198, 64, 0.4);
+  color: rgba(90,50,0,0.85);
+  border-color: rgba(160,100,0,0.4);
 }
 
 #bpm-input {
@@ -681,12 +742,14 @@ button {
   text-align: center;
   padding: 3px 4px;
   border-radius: 4px;
-  border: 1px solid var(--border);
-  background: #141414;
-  color: var(--accent);
+  border: 1px solid rgba(0,0,0,0.18);
+  background: rgba(0,0,0,0.1);
+  color: rgba(90,50,0,0.9);
   font-family: var(--font-mono);
   font-size: 0.78rem;
+  font-weight: 600;
   -moz-appearance: textfield;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.3);
 }
 
 #bpm-input::-webkit-outer-spin-button,
@@ -836,8 +899,8 @@ button {
 }
 
 .track-card {
-  background: #141414;
-  border: 1px solid var(--border);
+  background: rgba(0,0,0,0.1);
+  border: 1px solid rgba(0,0,0,0.14);
   border-radius: 8px;
   padding: 8px 6px;
   cursor: pointer;
@@ -847,38 +910,42 @@ button {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.3);
 }
 
 .track-card:hover {
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(0,0,0,0.22);
+  background: rgba(0,0,0,0.14);
 }
 
 .track-card.active {
-  border-color: rgba(240, 198, 64, 0.5);
-  background: rgba(240, 198, 64, 0.06);
+  border-color: rgba(160,100,0,0.5);
+  background: rgba(240,198,64,0.15);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), 0 0 8px rgba(240,198,64,0.2);
 }
 
-.track-card.muted { opacity: 0.3; }
+.track-card.muted { opacity: 0.35; }
 
 .track-card.soloed {
-  border-color: rgba(90, 221, 113, 0.5);
-  background: rgba(90, 221, 113, 0.04);
+  border-color: rgba(60,160,80,0.5);
+  background: rgba(90,221,113,0.12);
 }
 
 .track-card h3 {
   margin: 0;
   font-size: 0.72rem;
-  color: var(--screen-text);
+  color: rgba(0,0,0,0.7);
   font-family: var(--font-mono);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.2);
 }
 
 .track-card p {
   margin: 0;
   font-size: 0.6rem;
-  color: var(--muted);
+  color: rgba(0,0,0,0.42);
   font-family: var(--font-mono);
   white-space: nowrap;
   overflow: hidden;
@@ -986,13 +1053,13 @@ button {
 }
 
 /* ============================================================
-   GRAPHICAL QWERTY KEYBOARD
+   GRAPHICAL QWERTY KEYBOARD  (simplified 4 rows: Q-P, A-L, Z-M, Space)
    ============================================================ */
 
 .qwerty-keyboard {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   width: 100%;
   user-select: none;
 }
@@ -1002,6 +1069,12 @@ button {
   gap: 3px;
 }
 
+/* Row-specific heights */
+.qrow-fn    .qwerty-key { height: 34px; }
+.qrow-home  .qwerty-key { height: 52px; }
+.qrow-bot   .qwerty-key { height: 52px; }
+.qrow-space .qwerty-key { height: 30px; border-radius: 6px; }
+
 /* Base key */
 .qwerty-key {
   display: flex;
@@ -1009,35 +1082,40 @@ button {
   align-items: center;
   justify-content: center;
   min-width: 0;
-  height: 40px;
   border-radius: 5px;
-  border: 1px solid #2a2a2a;
-  background: #161616;
+  border: 1px solid rgba(255,255,255,0.07);
+  background: #141414;
   cursor: default;
   transition: background 0.07s, border-color 0.07s, transform 0.06s;
   overflow: hidden;
-  padding: 2px 3px;
+  padding: 3px 3px 2px;
   position: relative;
 }
 
 .qkey-cap {
   font-family: var(--font-mono);
-  font-size: 0.62rem;
-  font-weight: 600;
-  color: #555;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.22);
   line-height: 1;
   text-transform: uppercase;
   transition: color 0.07s;
+  letter-spacing: 0.02em;
 }
+
+/* In the fn row, cap is at top-left (smaller) */
+.qrow-fn .qwerty-key { align-items: flex-start; padding: 5px 6px 4px; flex-direction: row; gap: 3px; }
+.qrow-fn .qkey-cap   { font-size: 0.58rem; align-self: flex-start; }
+.qrow-fn .qkey-hint  { align-self: flex-end; margin: 0; font-size: 0.5rem; }
 
 .qkey-hint {
   font-family: var(--font-mono);
-  font-size: 0.48rem;
+  font-size: 0.5rem;
   line-height: 1;
-  margin-top: 2px;
+  margin-top: 3px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: transparent;   /* shown only on active roles */
+  color: transparent;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: clip;
@@ -1047,89 +1125,99 @@ button {
 
 /* ── Role colours ─────────────────────────────── */
 
-/* idle = no assignment */
 .qwerty-key.role-idle {
-  background: #111;
-  border-color: #1e1e1e;
+  background: #0f0f0f;
+  border-color: rgba(255,255,255,0.04);
 }
-.qwerty-key.role-idle .qkey-cap { color: #2e2e2e; }
+.qwerty-key.role-idle .qkey-cap { color: rgba(255,255,255,0.1); }
 
-/* page navigation (F1-F9) */
+/* page navigation (Q-O) */
 .qwerty-key.role-page {
-  background: #0e0e1a;
-  border-color: #252540;
+  background: #0e1020;
+  border-color: rgba(80,80,200,0.3);
 }
-.qwerty-key.role-page .qkey-cap  { color: #4a4aaa; }
-.qwerty-key.role-page .qkey-hint { color: #5555cc; }
+.qwerty-key.role-page .qkey-cap  { color: rgba(100,100,220,0.7); }
+.qwerty-key.role-page .qkey-hint { color: rgba(130,130,255,0.9); }
+
+/* P — record */
+.qwerty-key.role-record {
+  background: #1a0c0c;
+  border-color: rgba(220,70,60,0.35);
+}
+.qwerty-key.role-record .qkey-cap  { color: rgba(200,70,60,0.7); }
+.qwerty-key.role-record .qkey-hint { color: var(--record); }
 
 /* step trigger keys */
 .qwerty-key.role-step {
-  background: #0e1a0e;
-  border-color: rgba(90, 221, 113, 0.25);
+  background: #0d1a0e;
+  border-color: rgba(90,221,113,0.28);
 }
-.qwerty-key.role-step .qkey-cap  { color: #3a7a3a; }
+.qwerty-key.role-step .qkey-cap  { color: rgba(60,160,70,0.7); }
 .qwerty-key.role-step .qkey-hint { color: var(--live); }
 
 /* white note keys */
 .qwerty-key.role-note {
-  background: #0a1a1a;
-  border-color: rgba(90, 200, 200, 0.3);
+  background: #0a1c1c;
+  border-color: rgba(80,200,200,0.32);
 }
-.qwerty-key.role-note .qkey-cap  { color: #2a7a7a; }
-.qwerty-key.role-note .qkey-hint { color: #5addcc; }
+.qwerty-key.role-note .qkey-cap  { color: rgba(50,160,160,0.7); }
+.qwerty-key.role-note .qkey-hint { color: #5addd8; }
 
 /* black note keys */
 .qwerty-key.role-note-black {
-  background: #0a1010;
-  border-color: rgba(90, 170, 170, 0.25);
+  background: #080f0f;
+  border-color: rgba(60,150,150,0.28);
 }
-.qwerty-key.role-note-black .qkey-cap  { color: #1a5050; }
-.qwerty-key.role-note-black .qkey-hint { color: #3a9999; }
+.qwerty-key.role-note-black .qkey-cap  { color: rgba(30,110,110,0.65); }
+.qwerty-key.role-note-black .qkey-hint { color: rgba(80,180,180,0.9); }
 
-/* play/stop */
+/* play (Space) */
 .qwerty-key.role-play {
-  background: #0e1a0e;
-  border-color: rgba(90, 221, 113, 0.4);
+  background: #0c1a0e;
+  border-color: rgba(90,221,113,0.45);
+  letter-spacing: 0.12em;
 }
-.qwerty-key.role-play .qkey-cap  { color: var(--live); }
-.qwerty-key.role-play .qkey-hint { color: var(--live); }
+.qwerty-key.role-play .qkey-cap  { color: var(--live); font-size: 0.6rem; }
+.qwerty-key.role-play .qkey-hint { color: rgba(90,221,113,0.8); display: none; }
 
-/* utility (clear, copy, oct±, etc.) */
+/* utility */
 .qwerty-key.role-util {
-  background: #1a1206;
-  border-color: rgba(240, 198, 64, 0.25);
+  background: #181208;
+  border-color: rgba(240,198,64,0.28);
 }
-.qwerty-key.role-util .qkey-cap  { color: #7a6010; }
+.qwerty-key.role-util .qkey-cap  { color: rgba(180,130,20,0.7); }
 .qwerty-key.role-util .qkey-hint { color: var(--accent); }
 
 /* track controls */
 .qwerty-key.role-track {
-  background: #1a0e18;
-  border-color: rgba(200, 90, 200, 0.2);
+  background: #160e18;
+  border-color: rgba(180,80,200,0.22);
 }
-.qwerty-key.role-track .qkey-cap  { color: #7a3a7a; }
-.qwerty-key.role-track .qkey-hint { color: #cc66cc; }
+.qwerty-key.role-track .qkey-cap  { color: rgba(140,50,160,0.7); }
+.qwerty-key.role-track .qkey-hint { color: #c060d0; }
 
-/* scene / bank  */
+/* scene */
 .qwerty-key.role-scene {
-  background: #1a100a;
-  border-color: rgba(240, 130, 64, 0.25);
+  background: #18100a;
+  border-color: rgba(240,130,50,0.28);
 }
-.qwerty-key.role-scene .qkey-cap  { color: #7a5020; }
+.qwerty-key.role-scene .qkey-cap  { color: rgba(190,100,30,0.7); }
 .qwerty-key.role-scene .qkey-hint { color: #f08040; }
 
-/* ── Pressed state — bright amber flash ──────── */
+/* ── Pressed — amber flash + depress ─────────── */
 .qwerty-key.pressed {
-  transform: scale(0.93);
+  transform: scale(0.91) translateY(1px);
   border-color: var(--accent) !important;
-  background: rgba(240, 198, 64, 0.18) !important;
+  background: rgba(240,198,64,0.22) !important;
+  box-shadow: 0 0 8px rgba(240,198,64,0.35);
 }
 .qwerty-key.pressed .qkey-cap  { color: var(--accent) !important; }
 .qwerty-key.pressed .qkey-hint { color: #fff !important; }
 
-/* hover on active keys */
+/* hover brightness on active-role keys */
 .qwerty-key:not(.role-idle):hover {
-  filter: brightness(1.3);
+  filter: brightness(1.35);
+  cursor: default;
 }
 
 /* ============================================================

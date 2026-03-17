@@ -1,282 +1,148 @@
-// src/keyboard.js
-// CONFUsynth v3 — keyboard module
-// Full graphical QWERTY keyboard + note preview + global shortcuts
+// src/keyboard.js — CONFUsynth v3
+// Simplified graphical keyboard: Q-P · A-L · Z-M · SPACE
+// Q-P = permanent page nav + record
+// A-L = sequencer steps 1-9 (pattern) / white piano notes (sound, roll)
+// Z-M = sequencer steps 10-16     (pattern) / black piano notes (sound, roll)
+// Space = play / pause
+
+// ─── Note offsets ─────────────────────────────────────────────────────────────
+// A row = white notes starting C4
+// Z row = black notes (sharps) starting C#4
 
 export const NOTE_KEY_OFFSETS = {
-  KeyZ: 0, KeyS: 1, KeyX: 2, KeyD: 3, KeyC: 4,
-  KeyV: 5, KeyG: 6, KeyB: 7, KeyH: 8, KeyN: 9,
-  KeyJ: 10, KeyM: 11, Comma: 12,
+  KeyA: 0,  KeyS: 2,  KeyD: 4,  KeyF: 5,  KeyG: 7,
+  KeyH: 9,  KeyJ: 11, KeyK: 12, KeyL: 14,          // white: C D E F G A B C' D'
+  KeyZ: 1,  KeyX: 3,  KeyC: 6,  KeyV: 8,  KeyB: 10,
+  KeyN: 13, KeyM: 15,                                // black: C# D# F# G# A# C#' D#'
 };
 
 export const PAGE_KEYS = {
-  F1: 'pattern', F2: 'piano-roll', F3: 'sound', F4: 'mixer',
-  F5: 'fx', F6: 'scenes', F7: 'banks', F8: 'arranger', F9: 'settings',
+  KeyQ: 'pattern', KeyW: 'piano-roll', KeyE: 'sound',
+  KeyR: 'mixer',   KeyT: 'fx',         KeyY: 'scenes',
+  KeyU: 'banks',   KeyI: 'arranger',   KeyO: 'settings',
 };
 
 export const STEP_KEYS = [
-  'Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','Digit7','Digit8',
-  'KeyQ','KeyW','KeyE','KeyR','KeyT','KeyY','KeyU','KeyI',
+  'KeyA','KeyS','KeyD','KeyF','KeyG','KeyH','KeyJ','KeyK','KeyL', // 1-9
+  'KeyZ','KeyX','KeyC','KeyV','KeyB','KeyN','KeyM',               // 10-16
 ];
 
-// ─── QWERTY physical layout ────────────────────────────────────────────────────
-// Each key: { code, cap, w }  — w is flex-grow weight (1 = standard key)
+// ─── Keyboard rows (simplified — only letters + space) ────────────────────────
+// pad = left-offset in key-units to simulate keyboard stagger
 
 const QWERTY_ROWS = [
-  // Row 0: Function row
-  [
-    { code:'Escape',  cap:'ESC',  w:1   },
-    { code:'F1',      cap:'F1',   w:1   },
-    { code:'F2',      cap:'F2',   w:1   },
-    { code:'F3',      cap:'F3',   w:1   },
-    { code:'F4',      cap:'F4',   w:1   },
-    { code:'F5',      cap:'F5',   w:1   },
-    { code:'F6',      cap:'F6',   w:1   },
-    { code:'F7',      cap:'F7',   w:1   },
-    { code:'F8',      cap:'F8',   w:1   },
-    { code:'F9',      cap:'F9',   w:1   },
-    { code:'F10',     cap:'F10',  w:1   },
-    { code:'F11',     cap:'F11',  w:1   },
-    { code:'F12',     cap:'F12',  w:1   },
-  ],
-  // Row 1: Number row
-  [
-    { code:'Backquote',    cap:'`',   w:1   },
-    { code:'Digit1',       cap:'1',   w:1   },
-    { code:'Digit2',       cap:'2',   w:1   },
-    { code:'Digit3',       cap:'3',   w:1   },
-    { code:'Digit4',       cap:'4',   w:1   },
-    { code:'Digit5',       cap:'5',   w:1   },
-    { code:'Digit6',       cap:'6',   w:1   },
-    { code:'Digit7',       cap:'7',   w:1   },
-    { code:'Digit8',       cap:'8',   w:1   },
-    { code:'Digit9',       cap:'9',   w:1   },
-    { code:'Digit0',       cap:'0',   w:1   },
-    { code:'Minus',        cap:'-',   w:1   },
-    { code:'Equal',        cap:'=',   w:1   },
-    { code:'Backspace',    cap:'⌫',   w:2   },
-  ],
-  // Row 2: QWERTY
-  [
-    { code:'Tab',          cap:'TAB', w:1.5 },
-    { code:'KeyQ',         cap:'Q',   w:1   },
-    { code:'KeyW',         cap:'W',   w:1   },
-    { code:'KeyE',         cap:'E',   w:1   },
-    { code:'KeyR',         cap:'R',   w:1   },
-    { code:'KeyT',         cap:'T',   w:1   },
-    { code:'KeyY',         cap:'Y',   w:1   },
-    { code:'KeyU',         cap:'U',   w:1   },
-    { code:'KeyI',         cap:'I',   w:1   },
-    { code:'KeyO',         cap:'O',   w:1   },
-    { code:'KeyP',         cap:'P',   w:1   },
-    { code:'BracketLeft',  cap:'[',   w:1   },
-    { code:'BracketRight', cap:']',   w:1   },
-    { code:'Backslash',    cap:'\\',  w:1.5 },
-  ],
-  // Row 3: Home row
-  [
-    { code:'CapsLock',     cap:'CAPS',w:1.75},
-    { code:'KeyA',         cap:'A',   w:1   },
-    { code:'KeyS',         cap:'S',   w:1   },
-    { code:'KeyD',         cap:'D',   w:1   },
-    { code:'KeyF',         cap:'F',   w:1   },
-    { code:'KeyG',         cap:'G',   w:1   },
-    { code:'KeyH',         cap:'H',   w:1   },
-    { code:'KeyJ',         cap:'J',   w:1   },
-    { code:'KeyK',         cap:'K',   w:1   },
-    { code:'KeyL',         cap:'L',   w:1   },
-    { code:'Semicolon',    cap:';',   w:1   },
-    { code:'Quote',        cap:"'",   w:1   },
-    { code:'Enter',        cap:'↵',   w:2.25},
-  ],
-  // Row 4: Shift row
-  [
-    { code:'ShiftLeft',    cap:'⇧',   w:2.25},
-    { code:'KeyZ',         cap:'Z',   w:1   },
-    { code:'KeyX',         cap:'X',   w:1   },
-    { code:'KeyC',         cap:'C',   w:1   },
-    { code:'KeyV',         cap:'V',   w:1   },
-    { code:'KeyB',         cap:'B',   w:1   },
-    { code:'KeyN',         cap:'N',   w:1   },
-    { code:'KeyM',         cap:'M',   w:1   },
-    { code:'Comma',        cap:',',   w:1   },
-    { code:'Period',       cap:'.',   w:1   },
-    { code:'Slash',        cap:'/',   w:1   },
-    { code:'ShiftRight',   cap:'⇧',   w:2.75},
-  ],
-  // Row 5: Bottom row
-  [
-    { code:'ControlLeft',  cap:'CTRL',w:1.5 },
-    { code:'AltLeft',      cap:'ALT', w:1.25},
-    { code:'Space',        cap:'SPACE',w:6  },
-    { code:'AltRight',     cap:'ALT', w:1.25},
-    { code:'ControlRight', cap:'CTRL',w:1.5 },
-  ],
+  {
+    cls: 'qrow-fn',
+    pad: 0,
+    keys: [
+      { code:'KeyQ', cap:'Q', w:1 }, { code:'KeyW', cap:'W', w:1 },
+      { code:'KeyE', cap:'E', w:1 }, { code:'KeyR', cap:'R', w:1 },
+      { code:'KeyT', cap:'T', w:1 }, { code:'KeyY', cap:'Y', w:1 },
+      { code:'KeyU', cap:'U', w:1 }, { code:'KeyI', cap:'I', w:1 },
+      { code:'KeyO', cap:'O', w:1 }, { code:'KeyP', cap:'P', w:1 },
+    ],
+  },
+  {
+    cls: 'qrow-home',
+    pad: 0.55,
+    keys: [
+      { code:'KeyA', cap:'A', w:1 }, { code:'KeyS', cap:'S', w:1 },
+      { code:'KeyD', cap:'D', w:1 }, { code:'KeyF', cap:'F', w:1 },
+      { code:'KeyG', cap:'G', w:1 }, { code:'KeyH', cap:'H', w:1 },
+      { code:'KeyJ', cap:'J', w:1 }, { code:'KeyK', cap:'K', w:1 },
+      { code:'KeyL', cap:'L', w:1 },
+    ],
+  },
+  {
+    cls: 'qrow-bot',
+    pad: 1.3,
+    keys: [
+      { code:'KeyZ', cap:'Z', w:1 }, { code:'KeyX', cap:'X', w:1 },
+      { code:'KeyC', cap:'C', w:1 }, { code:'KeyV', cap:'V', w:1 },
+      { code:'KeyB', cap:'B', w:1 }, { code:'KeyN', cap:'N', w:1 },
+      { code:'KeyM', cap:'M', w:1 },
+    ],
+  },
+  {
+    cls: 'qrow-space',
+    pad: 0.55,
+    keys: [
+      { code:'Space', cap:'SPACE', w: 9 },
+    ],
+  },
 ];
 
 // ─── Key role definitions per page ────────────────────────────────────────────
-// role values → CSS class → color in styles.css
-// roles: 'page' | 'step' | 'note' | 'note-black' | 'play' | 'util' | 'track' | 'scene'
+
+const PAGE_NAV = {
+  KeyQ:{ role:'page',   hint:'PATN'  }, KeyW:{ role:'page',   hint:'ROLL'  },
+  KeyE:{ role:'page',   hint:'SOUND' }, KeyR:{ role:'page',   hint:'MIX'   },
+  KeyT:{ role:'page',   hint:'FX'    }, KeyY:{ role:'page',   hint:'SCENE' },
+  KeyU:{ role:'page',   hint:'BANKS' }, KeyI:{ role:'page',   hint:'ARR'   },
+  KeyO:{ role:'page',   hint:'SET'   }, KeyP:{ role:'record', hint:'REC'   },
+  Space:{ role:'play',  hint:'PLAY'  },
+};
+
+const NOTE_ROLES = {
+  KeyA:{ role:'note',       hint:'C'   }, KeyS:{ role:'note',       hint:'D'   },
+  KeyD:{ role:'note',       hint:'E'   }, KeyF:{ role:'note',       hint:'F'   },
+  KeyG:{ role:'note',       hint:'G'   }, KeyH:{ role:'note',       hint:'A'   },
+  KeyJ:{ role:'note',       hint:'B'   }, KeyK:{ role:'note',       hint:"C'"  },
+  KeyL:{ role:'note',       hint:"D'"  },
+  KeyZ:{ role:'note-black', hint:'C#'  }, KeyX:{ role:'note-black', hint:'D#'  },
+  KeyC:{ role:'note-black', hint:'F#'  }, KeyV:{ role:'note-black', hint:'G#'  },
+  KeyB:{ role:'note-black', hint:'A#'  }, KeyN:{ role:'note-black', hint:"C#'" },
+  KeyM:{ role:'note-black', hint:"D#'" },
+};
 
 const KEY_ROLES = {
   pattern: {
-    // F1-F9: page navigation
-    F1:{ role:'page',  hint:'PATTERN'  }, F2:{ role:'page', hint:'ROLL'    },
-    F3:{ role:'page',  hint:'SOUND'    }, F4:{ role:'page', hint:'MIXER'   },
-    F5:{ role:'page',  hint:'FX'       }, F6:{ role:'page', hint:'SCENES'  },
-    F7:{ role:'page',  hint:'BANKS'    }, F8:{ role:'page', hint:'ARR'     },
-    F9:{ role:'page',  hint:'SET'      },
-    // Steps 1-8
-    Digit1:{ role:'step', hint:'ST1'  }, Digit2:{ role:'step', hint:'ST2'  },
-    Digit3:{ role:'step', hint:'ST3'  }, Digit4:{ role:'step', hint:'ST4'  },
-    Digit5:{ role:'step', hint:'ST5'  }, Digit6:{ role:'step', hint:'ST6'  },
-    Digit7:{ role:'step', hint:'ST7'  }, Digit8:{ role:'step', hint:'ST8'  },
-    // Steps 9-16
-    KeyQ:{ role:'step', hint:'ST9'   }, KeyW:{ role:'step', hint:'ST10'  },
-    KeyE:{ role:'step', hint:'ST11'  }, KeyR:{ role:'step', hint:'ST12'  },
-    KeyT:{ role:'step', hint:'ST13'  }, KeyY:{ role:'step', hint:'ST14'  },
-    KeyU:{ role:'step', hint:'ST15'  }, KeyI:{ role:'step', hint:'ST16'  },
-    // Note keys (white keys)
-    KeyZ:{ role:'note',       hint:'C'   }, KeyX:{ role:'note',       hint:'D'   },
-    KeyC:{ role:'note',       hint:'E'   }, KeyV:{ role:'note',       hint:'F'   },
-    KeyB:{ role:'note',       hint:'G'   }, KeyN:{ role:'note',       hint:'A'   },
-    KeyM:{ role:'note',       hint:'B'   }, Comma:{ role:'note',      hint:"C'"  },
-    // Black keys
-    KeyS:{ role:'note-black', hint:'C#'  }, KeyD:{ role:'note-black', hint:'D#'  },
-    KeyG:{ role:'note-black', hint:'F#'  }, KeyH:{ role:'note-black', hint:'G#'  },
-    KeyJ:{ role:'note-black', hint:'A#'  },
-    // Transport & utils
-    Space:       { role:'play',  hint:'PLAY'   },
-    Minus:       { role:'util',  hint:'OCT−'   },
-    Equal:       { role:'util',  hint:'OCT+'   },
-    Backspace:   { role:'util',  hint:'CLEAR'  },
-    Delete:      { role:'util',  hint:'CLEAR'  },
-    BracketLeft: { role:'track', hint:'TRK−'   },
-    BracketRight:{ role:'track', hint:'TRK+'   },
+    ...PAGE_NAV,
+    KeyA:{ role:'step', hint:'1'  }, KeyS:{ role:'step', hint:'2'  },
+    KeyD:{ role:'step', hint:'3'  }, KeyF:{ role:'step', hint:'4'  },
+    KeyG:{ role:'step', hint:'5'  }, KeyH:{ role:'step', hint:'6'  },
+    KeyJ:{ role:'step', hint:'7'  }, KeyK:{ role:'step', hint:'8'  },
+    KeyL:{ role:'step', hint:'9'  },
+    KeyZ:{ role:'step', hint:'10' }, KeyX:{ role:'step', hint:'11' },
+    KeyC:{ role:'step', hint:'12' }, KeyV:{ role:'step', hint:'13' },
+    KeyB:{ role:'step', hint:'14' }, KeyN:{ role:'step', hint:'15' },
+    KeyM:{ role:'step', hint:'16' },
   },
-  'piano-roll': {
-    F1:{ role:'page', hint:'PATTERN' }, F2:{ role:'page', hint:'ROLL'   },
-    F3:{ role:'page', hint:'SOUND'   }, F4:{ role:'page', hint:'MIXER'  },
-    F5:{ role:'page', hint:'FX'      }, F6:{ role:'page', hint:'SCENES' },
-    F7:{ role:'page', hint:'BANKS'   }, F8:{ role:'page', hint:'ARR'    },
-    F9:{ role:'page', hint:'SET'     },
-    Space: { role:'play', hint:'PLAY' },
-    Minus: { role:'util', hint:'OCT−' }, Equal: { role:'util', hint:'OCT+' },
-    KeyZ:{ role:'note',       hint:'C'   }, KeyX:{ role:'note',       hint:'D'   },
-    KeyC:{ role:'note',       hint:'E'   }, KeyV:{ role:'note',       hint:'F'   },
-    KeyB:{ role:'note',       hint:'G'   }, KeyN:{ role:'note',       hint:'A'   },
-    KeyM:{ role:'note',       hint:'B'   }, Comma:{ role:'note',      hint:"C'"  },
-    KeyS:{ role:'note-black', hint:'C#'  }, KeyD:{ role:'note-black', hint:'D#'  },
-    KeyG:{ role:'note-black', hint:'F#'  }, KeyH:{ role:'note-black', hint:'G#'  },
-    KeyJ:{ role:'note-black', hint:'A#'  },
-    BracketLeft: { role:'track', hint:'TRK−' }, BracketRight: { role:'track', hint:'TRK+' },
-  },
-  sound: {
-    F1:{ role:'page', hint:'PATTERN' }, F2:{ role:'page', hint:'ROLL'   },
-    F3:{ role:'page', hint:'SOUND'   }, F4:{ role:'page', hint:'MIXER'  },
-    F5:{ role:'page', hint:'FX'      }, F6:{ role:'page', hint:'SCENES' },
-    F7:{ role:'page', hint:'BANKS'   }, F8:{ role:'page', hint:'ARR'    },
-    F9:{ role:'page', hint:'SET'     },
-    Space: { role:'play', hint:'PLAY'    },
-    Digit1:{ role:'util', hint:'TONE'   }, Digit2:{ role:'util', hint:'NOISE'  },
-    Digit3:{ role:'util', hint:'SAMPLE' }, Digit4:{ role:'util', hint:'MIDI'   },
-    KeyQ:  { role:'util', hint:'SINE'   }, KeyW:  { role:'util', hint:'TRI'    },
-    KeyE:  { role:'util', hint:'SAW'    }, KeyR:  { role:'util', hint:'SQR'    },
-    KeyZ:{ role:'note',       hint:'C'   }, KeyX:{ role:'note',       hint:'D'   },
-    KeyC:{ role:'note',       hint:'E'   }, KeyV:{ role:'note',       hint:'F'   },
-    KeyB:{ role:'note',       hint:'G'   }, KeyN:{ role:'note',       hint:'A'   },
-    KeyM:{ role:'note',       hint:'B'   }, Comma:{ role:'note',      hint:"C'"  },
-    KeyS:{ role:'note-black', hint:'C#'  }, KeyD:{ role:'note-black', hint:'D#'  },
-    KeyG:{ role:'note-black', hint:'F#'  }, KeyH:{ role:'note-black', hint:'G#'  },
-    KeyJ:{ role:'note-black', hint:'A#'  },
-    Minus:{ role:'util', hint:'OCT−' }, Equal:{ role:'util', hint:'OCT+' },
-    BracketLeft:{ role:'track', hint:'TRK−' }, BracketRight:{ role:'track', hint:'TRK+' },
-  },
+  'piano-roll': { ...PAGE_NAV, ...NOTE_ROLES },
+  sound:        { ...PAGE_NAV, ...NOTE_ROLES },
   mixer: {
-    F1:{ role:'page', hint:'PATTERN' }, F2:{ role:'page', hint:'ROLL'   },
-    F3:{ role:'page', hint:'SOUND'   }, F4:{ role:'page', hint:'MIXER'  },
-    F5:{ role:'page', hint:'FX'      }, F6:{ role:'page', hint:'SCENES' },
-    F7:{ role:'page', hint:'BANKS'   }, F8:{ role:'page', hint:'ARR'    },
-    F9:{ role:'page', hint:'SET'     },
-    Space: { role:'play',  hint:'PLAY'   },
-    Digit1:{ role:'track', hint:'TRK1'  }, Digit2:{ role:'track', hint:'TRK2'  },
-    Digit3:{ role:'track', hint:'TRK3'  }, Digit4:{ role:'track', hint:'TRK4'  },
-    Digit5:{ role:'track', hint:'TRK5'  }, Digit6:{ role:'track', hint:'TRK6'  },
-    Digit7:{ role:'track', hint:'TRK7'  }, Digit8:{ role:'track', hint:'TRK8'  },
-    KeyM:{ role:'util',  hint:'MUTE'   },
-    KeyS:{ role:'util',  hint:'SOLO'   },
-    BracketLeft:{ role:'track', hint:'TRK−' }, BracketRight:{ role:'track', hint:'TRK+' },
+    ...PAGE_NAV,
+    KeyA:{ role:'track', hint:'TRK1' }, KeyS:{ role:'track', hint:'TRK2' },
+    KeyD:{ role:'track', hint:'TRK3' }, KeyF:{ role:'track', hint:'TRK4' },
+    KeyG:{ role:'track', hint:'TRK5' }, KeyH:{ role:'track', hint:'TRK6' },
+    KeyJ:{ role:'track', hint:'TRK7' }, KeyK:{ role:'track', hint:'TRK8' },
+    KeyL:{ role:'util',  hint:'MUTE' }, KeyM:{ role:'util',  hint:'SOLO' },
   },
-  fx: {
-    F1:{ role:'page', hint:'PATTERN' }, F2:{ role:'page', hint:'ROLL'   },
-    F3:{ role:'page', hint:'SOUND'   }, F4:{ role:'page', hint:'MIXER'  },
-    F5:{ role:'page', hint:'FX'      }, F6:{ role:'page', hint:'SCENES' },
-    F7:{ role:'page', hint:'BANKS'   }, F8:{ role:'page', hint:'ARR'    },
-    F9:{ role:'page', hint:'SET'     },
-    Space: { role:'play', hint:'PLAY' },
-    BracketLeft:{ role:'track', hint:'TRK−' }, BracketRight:{ role:'track', hint:'TRK+' },
-  },
+  fx:       { ...PAGE_NAV },
   scenes: {
-    F1:{ role:'page', hint:'PATTERN' }, F2:{ role:'page', hint:'ROLL'   },
-    F3:{ role:'page', hint:'SOUND'   }, F4:{ role:'page', hint:'MIXER'  },
-    F5:{ role:'page', hint:'FX'      }, F6:{ role:'page', hint:'SCENES' },
-    F7:{ role:'page', hint:'BANKS'   }, F8:{ role:'page', hint:'ARR'    },
-    F9:{ role:'page', hint:'SET'     },
-    Space:  { role:'play',  hint:'PLAY'    },
-    Digit1: { role:'scene', hint:'SCN1'   }, Digit2: { role:'scene', hint:'SCN2'   },
-    Digit3: { role:'scene', hint:'SCN3'   }, Digit4: { role:'scene', hint:'SCN4'   },
-    Digit5: { role:'scene', hint:'SCN5'   }, Digit6: { role:'scene', hint:'SCN6'   },
-    Digit7: { role:'scene', hint:'SCN7'   }, Digit8: { role:'scene', hint:'SCN8'   },
-    KeyA:   { role:'util',  hint:'ASGN A' },
-    KeyB:   { role:'util',  hint:'ASGN B' },
-    KeyS:   { role:'util',  hint:'SNAP'   },
+    ...PAGE_NAV,
+    KeyA:{ role:'scene', hint:'SCN1' }, KeyS:{ role:'scene', hint:'SCN2' },
+    KeyD:{ role:'scene', hint:'SCN3' }, KeyF:{ role:'scene', hint:'SCN4' },
+    KeyG:{ role:'scene', hint:'SCN5' }, KeyH:{ role:'scene', hint:'SCN6' },
+    KeyJ:{ role:'scene', hint:'SCN7' }, KeyK:{ role:'scene', hint:'SCN8' },
+    KeyL:{ role:'util',  hint:'SNAP' },
   },
   banks: {
-    F1:{ role:'page', hint:'PATTERN' }, F2:{ role:'page', hint:'ROLL'   },
-    F3:{ role:'page', hint:'SOUND'   }, F4:{ role:'page', hint:'MIXER'  },
-    F5:{ role:'page', hint:'FX'      }, F6:{ role:'page', hint:'SCENES' },
-    F7:{ role:'page', hint:'BANKS'   }, F8:{ role:'page', hint:'ARR'    },
-    F9:{ role:'page', hint:'SET'     },
-    Space:  { role:'play',  hint:'PLAY'   },
-    KeyA:   { role:'util',  hint:'BNK A'  }, KeyB:{ role:'util', hint:'BNK B' },
-    KeyC:   { role:'util',  hint:'BNK C'  }, KeyD:{ role:'util', hint:'BNK D' },
-    KeyE:   { role:'util',  hint:'BNK E'  }, KeyF:{ role:'util', hint:'BNK F' },
-    KeyG:   { role:'util',  hint:'BNK G'  }, KeyH:{ role:'util', hint:'BNK H' },
-    Digit1: { role:'step',  hint:'PAT1'   }, Digit2:{ role:'step', hint:'PAT2' },
-    Digit3: { role:'step',  hint:'PAT3'   }, Digit4:{ role:'step', hint:'PAT4' },
-    Digit5: { role:'step',  hint:'PAT5'   }, Digit6:{ role:'step', hint:'PAT6' },
-    Digit7: { role:'step',  hint:'PAT7'   }, Digit8:{ role:'step', hint:'PAT8' },
-    Enter:  { role:'util',  hint:'CUE'    },
+    ...PAGE_NAV,
+    KeyA:{ role:'util', hint:'BNK A' }, KeyS:{ role:'util', hint:'BNK B' },
+    KeyD:{ role:'util', hint:'BNK C' }, KeyF:{ role:'util', hint:'BNK D' },
+    KeyG:{ role:'util', hint:'BNK E' }, KeyH:{ role:'util', hint:'BNK F' },
+    KeyJ:{ role:'util', hint:'BNK G' }, KeyK:{ role:'util', hint:'BNK H' },
   },
-  arranger: {
-    F1:{ role:'page', hint:'PATTERN' }, F2:{ role:'page', hint:'ROLL'   },
-    F3:{ role:'page', hint:'SOUND'   }, F4:{ role:'page', hint:'MIXER'  },
-    F5:{ role:'page', hint:'FX'      }, F6:{ role:'page', hint:'SCENES' },
-    F7:{ role:'page', hint:'BANKS'   }, F8:{ role:'page', hint:'ARR'    },
-    F9:{ role:'page', hint:'SET'     },
-    Space:  { role:'play',  hint:'PLAY'   },
-    Insert: { role:'util',  hint:'ADD'    },
-    Delete: { role:'util',  hint:'DEL'    },
-  },
-  settings: {
-    F1:{ role:'page', hint:'PATTERN' }, F2:{ role:'page', hint:'ROLL'   },
-    F3:{ role:'page', hint:'SOUND'   }, F4:{ role:'page', hint:'MIXER'  },
-    F5:{ role:'page', hint:'FX'      }, F6:{ role:'page', hint:'SCENES' },
-    F7:{ role:'page', hint:'BANKS'   }, F8:{ role:'page', hint:'ARR'    },
-    F9:{ role:'page', hint:'SET'     },
-    Space: { role:'play', hint:'PLAY'    },
-    KeyA:  { role:'util', hint:'AUDIO'   },
-  },
+  arranger: { ...PAGE_NAV },
+  settings: { ...PAGE_NAV },
 };
 
 // ─── Graphical keyboard renderer ──────────────────────────────────────────────
 
-/**
- * Render a full graphical QWERTY keyboard into containerEl.
- * Keys are color-coded by role for the current page.
- * @param {HTMLElement} containerEl   — #kbd-context
- * @param {string}      page
- * @param {Set}         activeKeys    — set of currently pressed key codes
- */
+// 1 key-unit ≈ key-width + gap. Used to calculate row stagger padding.
+const KEY_UNIT = 46; // px  (key ~43px + 3px gap)
+
 export function renderKbdContext(containerEl, page, activeKeys = new Set()) {
   containerEl.innerHTML = '';
 
@@ -284,11 +150,20 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set()) {
   const kb = document.createElement('div');
   kb.className = 'qwerty-keyboard';
 
-  QWERTY_ROWS.forEach((row, rowIdx) => {
+  QWERTY_ROWS.forEach(({ cls, pad, keys }) => {
     const rowEl = document.createElement('div');
-    rowEl.className = 'qwerty-row';
+    rowEl.className = `qwerty-row ${cls}`;
 
-    row.forEach(({ code, cap, w }) => {
+    // Left stagger spacer
+    if (pad > 0) {
+      const spacer = document.createElement('div');
+      spacer.className = 'qkey-spacer';
+      spacer.style.flexBasis = `${pad * KEY_UNIT}px`;
+      spacer.style.flexShrink = '0';
+      rowEl.append(spacer);
+    }
+
+    keys.forEach(({ code, cap, w }) => {
       const keyEl = document.createElement('div');
       const roleInfo = roles[code];
       const role = roleInfo?.role || 'idle';
@@ -296,7 +171,7 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set()) {
 
       keyEl.className = `qwerty-key role-${role}`;
       keyEl.style.flexGrow = w;
-      keyEl.style.flexBasis = `${w * 30}px`;
+      keyEl.style.flexBasis = `${w * (KEY_UNIT - 3)}px`;
       keyEl.dataset.code = code;
 
       if (activeKeys.has(code)) keyEl.classList.add('pressed');
@@ -314,12 +189,6 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set()) {
   containerEl.append(kb);
 }
 
-/**
- * Toggle the pressed visual on a single key without re-rendering.
- * @param {HTMLElement} containerEl
- * @param {string}      code   — KeyboardEvent.code
- * @param {boolean}     pressed
- */
 export function pressKey(containerEl, code, pressed) {
   const el = containerEl.querySelector(`[data-code="${code}"]`);
   if (el) el.classList.toggle('pressed', pressed);
@@ -337,7 +206,7 @@ export function renderPiano(containerEl, state) {
 
   const octaves     = [3, 4];
   const active      = state._playingNotes instanceof Set ? state._playingNotes : new Set();
-  const totalWhites = octaves.length * WHITE_SEMITONES.length; // 14
+  const totalWhites = octaves.length * WHITE_SEMITONES.length;
 
   octaves.forEach(oct => {
     WHITE_SEMITONES.forEach(semi => {
@@ -373,99 +242,83 @@ export function lightPianoKey(containerEl, midi, lit = true) {
 // ─── Global keyboard handler ───────────────────────────────────────────────────
 
 export function initKeyboard(state, emit) {
-  const pressed = new Set();
-
   window.addEventListener('keydown', (e) => {
     const tag = e.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
-    pressed.add(e.code);
     emit('key:down', { code: e.code });
 
-    // Page navigation F1–F9
-    if (PAGE_KEYS[e.key]) {
+    // Q-O → page navigation (no modifier)
+    if (PAGE_KEYS[e.code] && !e.ctrlKey && !e.altKey && !e.metaKey) {
       e.preventDefault();
-      emit('page:set', { page: PAGE_KEYS[e.key] });
+      emit('page:set', { page: PAGE_KEYS[e.code] });
       return;
     }
 
-    // Space = transport
+    // P → record toggle
+    if (e.code === 'KeyP' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      e.preventDefault();
+      emit('transport:record');
+      return;
+    }
+
+    // Space → play / pause
     if (e.code === 'Space') {
       e.preventDefault();
       emit('transport:toggle');
       return;
     }
 
-    // Ctrl/Cmd shortcuts
+    // Ctrl/Cmd shortcuts (copy/paste work across all pages)
     if (e.ctrlKey || e.metaKey) {
       if (e.code === 'KeyC') { e.preventDefault(); emit('pattern:copy');  return; }
       if (e.code === 'KeyV') { e.preventDefault(); emit('pattern:paste'); return; }
     }
 
-    // Delete/Backspace = clear
-    if ((e.code === 'Delete' || e.code === 'Backspace') && !e.ctrlKey) {
-      emit('pattern:clear'); return;
-    }
-
-    // Octave shift
-    if (e.code === 'Minus') { e.preventDefault(); emit('octave:shift', { delta:-1 }); return; }
-    if (e.code === 'Equal') { e.preventDefault(); emit('octave:shift', { delta:+1 }); return; }
-
-    // Track cycle
-    if (e.code === 'BracketLeft')  { emit('track:cycle', { delta:-1 }); return; }
-    if (e.code === 'BracketRight') { emit('track:cycle', { delta:+1 }); return; }
-
     const page = state.currentPage;
 
-    // Pattern: step keys
+    // Pattern page: A-M = step toggles
     if (page === 'pattern') {
       const stepIdx = STEP_KEYS.indexOf(e.code);
       if (stepIdx >= 0) {
-        if (e.altKey) emit('step:plockMode', { stepIndex: stepIdx });
-        else          emit('step:toggle',    { stepIndex: stepIdx, shiftKey: e.shiftKey });
+        if (e.altKey)        emit('step:plockMode', { stepIndex: stepIdx });
+        else if (e.shiftKey) emit('step:toggle',    { stepIndex: stepIdx, shiftKey: true });
+        else                 emit('step:toggle',    { stepIndex: stepIdx, shiftKey: false });
         return;
       }
     }
 
-    // Note preview
-    if (page === 'pattern' || page === 'piano-roll' || page === 'sound') {
+    // Sound / piano-roll: A-M = note preview
+    if (page === 'piano-roll' || page === 'sound') {
       const offset = NOTE_KEY_OFFSETS[e.code];
       if (offset != null) {
-        emit('note:preview', { note: 60 + state.octaveShift * 12 + offset });
+        emit('note:preview', { note: 60 + (state.octaveShift ?? 0) * 12 + offset });
         return;
       }
     }
 
-    // Mixer
+    // Mixer: A-K = select track, L = mute, M = solo
     if (page === 'mixer') {
-      if (e.key >= '1' && e.key <= '8') {
-        const ti = Number(e.key) - 1;
-        e.shiftKey ? emit('track:muteToggle',{trackIndex:ti}) : emit('track:select',{trackIndex:ti});
-        return;
-      }
-      if (e.code === 'KeyM') { emit('track:mute', { trackIndex: state.selectedTrackIndex }); return; }
-      if (e.code === 'KeyS') { emit('track:solo', { trackIndex: state.selectedTrackIndex }); return; }
+      const MIXER_TRACK_KEYS = ['KeyA','KeyS','KeyD','KeyF','KeyG','KeyH','KeyJ','KeyK'];
+      const ti = MIXER_TRACK_KEYS.indexOf(e.code);
+      if (ti >= 0) { emit('track:select', { trackIndex: ti }); return; }
+      if (e.code === 'KeyL') { emit('track:mute', { trackIndex: state.selectedTrackIndex }); return; }
+      if (e.code === 'KeyM') { emit('track:solo', { trackIndex: state.selectedTrackIndex }); return; }
     }
 
-    // Banks
+    // Banks: A-K = select bank A-H
     if (page === 'banks') {
-      const bi = 'ABCDEFGH'.indexOf(e.key.toUpperCase());
+      const BANK_KEYS = ['KeyA','KeyS','KeyD','KeyF','KeyG','KeyH','KeyJ','KeyK'];
+      const bi = BANK_KEYS.indexOf(e.code);
       if (bi >= 0) { emit('bank:select', { bankIndex: bi }); return; }
-    }
-
-    // Settings
-    if (page === 'settings') {
-      if (e.code === 'KeyA') { emit('audio:init'); return; }
     }
   });
 
   window.addEventListener('keyup', (e) => {
-    pressed.delete(e.code);
     emit('key:up', { code: e.code });
-
     const offset = NOTE_KEY_OFFSETS[e.code];
     if (offset != null) {
-      emit('note:off', { note: 60 + state.octaveShift * 12 + offset });
+      emit('note:off', { note: 60 + (state.octaveShift ?? 0) * 12 + offset });
     }
   });
 }

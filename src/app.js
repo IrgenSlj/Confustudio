@@ -107,6 +107,11 @@ function emit(type, payload = {}) {
       stopPlay();
       break;
 
+    case 'transport:record':
+      state.isRecording = !state.isRecording;
+      updateTransportUI();
+      break;
+
     // ── Note preview ──
     case 'note:preview':
       if (state.audioContext) {
