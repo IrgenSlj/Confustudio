@@ -7,6 +7,7 @@ export default {
     container.innerHTML = '';
 
     const { project, activeBank, activePattern, copyBuffer } = state;
+    const hasPatternCopy = copyBuffer?.type === 'pattern';
 
     const header = document.createElement('div');
     header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0';
@@ -80,8 +81,8 @@ export default {
     const pasteBtn = document.createElement('button');
     pasteBtn.className = 'seq-btn';
     pasteBtn.textContent = 'Paste';
-    pasteBtn.disabled = !copyBuffer;
-    pasteBtn.style.opacity = copyBuffer ? '1' : '0.4';
+    pasteBtn.disabled = !hasPatternCopy;
+    pasteBtn.style.opacity = hasPatternCopy ? '1' : '0.4';
     pasteBtn.addEventListener('click', () =>
       emit('state:change', { path: 'action_pastePattern', value: { bank: activeBank, pattern: activePattern } })
     );

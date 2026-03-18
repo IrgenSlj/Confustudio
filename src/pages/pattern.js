@@ -127,10 +127,15 @@ export default {
 
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'seq-actions';
+    const hasStepCopy = state.copyBuffer?.type === 'steps';
     ['Copy', 'Paste', 'Clear'].forEach(label => {
       const btn = document.createElement('button');
       btn.className = 'seq-btn';
       btn.textContent = label;
+      if (label === 'Paste' && !hasStepCopy) {
+        btn.disabled = true;
+        btn.style.opacity = '0.4';
+      }
       btn.addEventListener('click', () => emit('state:change', { path: `action_${label.toLowerCase()}`, value: true }));
       actionsDiv.append(btn);
     });

@@ -1,7 +1,7 @@
 // CONFUsynth v3 — main bootstrap & integration
 import { createAppState, getActivePattern, getActiveTrack, getActiveStep,
          applyParamLock, setScene, interpolateScenes,
-         saveState, loadState, PROB_LEVELS, TRACK_COUNT } from './state.js';
+         saveState, loadState, PROB_LEVELS, TRACK_COUNT, STORAGE_KEY } from './state.js';
 import { AudioEngine, drawOscilloscope, initMidi, midiOutputs } from './engine.js';
 import { initKeyboard, renderKbdContext, renderPiano, lightPianoKey,
          pressKey, PAGE_KEYS } from './keyboard.js';
@@ -50,6 +50,8 @@ let _schedRafId    = null;
 let _oscAnimRef    = { id: null };
 let _saveTimer     = null;
 
+const LEGACY_STORAGE_KEY = 'confusynth-v2';
+
 // ─────────────────────────────────────────────
 // DOM REFS
 // ─────────────────────────────────────────────
@@ -83,6 +85,200 @@ const el = {
   bpmInc:        $('bpm-inc'),
   sampleFile:    $('sample-file'),
 };
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function moveArrangerSection(index, delta) {
+  const nextIndex = index + delta;
+  if (
+    !Array.isArray(state.arranger) ||
+    index < 0 ||
+    nextIndex < 0 ||
+    index >= state.arranger.length ||
+    nextIndex >= state.arranger.length
+  ) {
+    return false;
+  }
+
+  const [section] = state.arranger.splice(index, 1);
+  state.arranger.splice(nextIndex, 0, section);
+  state.arrangementCursor = nextIndex;
+  return true;
+}
+
+function setNestedStateValue(path, value) {
+  const arrangerBars = path.match(/^arranger\[(\d+)\]\.bars$/);
+  if (arrangerBars) {
+    const index = Number(arrangerBars[1]);
+    if (!state.arranger[index]) return false;
+    state.arranger[index].bars = Math.max(1, Math.min(64, Number(value)));
+    return true;
+  }
+  return false;
+}
+
+function handleAction(path, value, pattern) {
+  switch (path) {
+    case 'action_copy':
+      state.copyBuffer = {
+        type: 'steps',
+        data: cloneJson(pattern.kit.tracks[state.selectedTrackIndex].steps),
+      };
+      renderPage();
+      return true;
+
+    case 'action_paste':
+      if (state.copyBuffer?.type !== 'steps') return true;
+      pattern.kit.tracks[state.selectedTrackIndex].steps.forEach((step, index) => {
+        const source = state.copyBuffer.data[index];
+        if (source) Object.assign(step, source);
+      });
+      scheduleSave();
+      renderPage();
+      renderTrackStrip();
+      return true;
+
+    case 'action_clear':
+      pattern.kit.tracks[state.selectedTrackIndex].steps.forEach(step => {
+        step.active = false;
+        step.accent = false;
+        step.paramLocks = {};
+      });
+      scheduleSave();
+      renderPage();
+      renderTrackStrip();
+      return true;
+
+    case 'action_snapshot':
+      emit('scene:snapshot', value || {});
+      return true;
+
+    case 'action_initAudio':
+      ensureAudio();
+      return true;
+
+    case 'action_clearStorage':
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+      state = createAppState();
+      state._playingNotes = new Set();
+      state._pressedKeys = new Set();
+      renderAll();
+      return true;
+
+    case 'action_loadSample':
+      if (typeof value === 'number') state.selectedTrackIndex = value;
+      el.sampleFile?.click();
+      return true;
+
+    case 'action_arrAdd':
+      state.arranger.push({
+        sceneIdx: Math.max(0, Math.min(7, Number(value?.sceneIdx ?? 0))),
+        bars: Math.max(1, Math.min(64, Number(value?.bars ?? 2))),
+      });
+      state.arrangementCursor = state.arranger.length - 1;
+      scheduleSave();
+      renderPage();
+      return true;
+
+    case 'action_arrRemove':
+      if (!state.arranger[value]) return true;
+      state.arranger.splice(value, 1);
+      state.arrangementCursor = Math.max(0, Math.min(state.arrangementCursor, state.arranger.length - 1));
+      scheduleSave();
+      renderPage();
+      return true;
+
+    case 'action_arrMoveUp':
+      if (moveArrangerSection(Number(value), -1)) {
+        scheduleSave();
+        renderPage();
+      }
+      return true;
+
+    case 'action_arrMoveDown':
+      if (moveArrangerSection(Number(value), 1)) {
+        scheduleSave();
+        renderPage();
+      }
+      return true;
+
+    case 'action_copyPattern': {
+      const bankIndex = Number(value?.bank ?? state.activeBank);
+      const patternIndex = Number(value?.pattern ?? state.activePattern);
+      const sourcePattern = state.project.banks[bankIndex]?.patterns[patternIndex];
+      if (!sourcePattern) return true;
+      state.copyBuffer = {
+        type: 'pattern',
+        data: cloneJson(sourcePattern),
+      };
+      renderPage();
+      return true;
+    }
+
+    case 'action_pastePattern': {
+      if (state.copyBuffer?.type !== 'pattern') return true;
+      const bankIndex = Number(value?.bank ?? state.activeBank);
+      const patternIndex = Number(value?.pattern ?? state.activePattern);
+      const targetPattern = state.project.banks[bankIndex]?.patterns[patternIndex];
+      if (!targetPattern) return true;
+      Object.assign(targetPattern, cloneJson(state.copyBuffer.data));
+      scheduleSave();
+      renderPage();
+      renderTrackStrip();
+      return true;
+    }
+
+    default:
+      return false;
+  }
+}
+
+function handleStateChange(path, value, pattern) {
+  if (path === 'bpm') {
+    state.bpm = Math.max(40, Math.min(240, Number(value)));
+    updateTopbar();
+    scheduleSave();
+    return;
+  }
+
+  if (path === 'swing') {
+    state.swing = value;
+    scheduleSave();
+    return;
+  }
+
+  if (path === 'crossfader') {
+    state.crossfader = value;
+    scheduleSave();
+    renderPage();
+    return;
+  }
+
+  if (path === 'length' || path === 'patternLength') {
+    pattern.length = Math.max(4, Math.min(64, Number(value)));
+    state.patternLength = pattern.length;
+    scheduleSave();
+    renderPage();
+    renderTrackStrip();
+    return;
+  }
+
+  if (setNestedStateValue(path, value)) {
+    scheduleSave();
+    renderPage();
+    return;
+  }
+
+  if (handleAction(path, value, pattern)) {
+    return;
+  }
+
+  state[path] = value;
+  scheduleSave();
+}
 
 // ─────────────────────────────────────────────
 // EVENT BUS
@@ -170,19 +366,7 @@ function emit(type, payload = {}) {
 
     // ── State changes ──
     case 'state:change':
-      if (payload.path === 'bpm') {
-        state.bpm = Math.max(40, Math.min(240, Number(payload.value)));
-        updateTopbar();
-      } else if (payload.path === 'swing') {
-        state.swing = payload.value;
-      } else if (payload.path === 'crossfader') {
-        state.crossfader = payload.value;
-      } else if (payload.path === 'length') {
-        pattern.length = Math.max(4, Math.min(64, Number(payload.value)));
-      } else {
-        state[payload.path] = payload.value;
-      }
-      scheduleSave();
+      handleStateChange(payload.path, payload.value, pattern);
       break;
 
     // ── Track changes ──
@@ -243,15 +427,16 @@ function emit(type, payload = {}) {
 
     // ── Pattern operations ──
     case 'pattern:copy':
-      state.copyBuffer = JSON.parse(JSON.stringify(
-        pattern.kit.tracks[state.selectedTrackIndex].steps
-      ));
+      state.copyBuffer = {
+        type: 'steps',
+        data: cloneJson(pattern.kit.tracks[state.selectedTrackIndex].steps),
+      };
       break;
 
     case 'pattern:paste':
-      if (state.copyBuffer) {
+      if (state.copyBuffer?.type === 'steps') {
         const steps = pattern.kit.tracks[state.selectedTrackIndex].steps;
-        state.copyBuffer.forEach((s, i) => { if (steps[i]) Object.assign(steps[i], s); });
+        state.copyBuffer.data.forEach((s, i) => { if (steps[i]) Object.assign(steps[i], s); });
         scheduleSave();
         renderPage();
       }
