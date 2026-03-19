@@ -1,4 +1,5 @@
 // src/pages/sound.js — Machine type, waveform, ADSR, filter
+import { openSampleBrowser } from '../sample-browser.js';
 
 const MACHINES  = ['tone', 'noise', 'sample', 'midi', 'plaits', 'clouds', 'rings'];
 const WAVEFORMS = ['sine', 'triangle', 'sawtooth', 'square'];
@@ -129,6 +130,12 @@ export default {
 
     if (track.machine === 'sample') {
       makeSampleLoader(track, ti, emit, machCard);
+      const browseBtn = document.createElement('button');
+      browseBtn.className = 'screen-btn';
+      browseBtn.style.marginTop = '4px';
+      browseBtn.textContent = 'Browse Library';
+      browseBtn.addEventListener('click', () => openSampleBrowser(state, emit, ti));
+      machCard.append(browseBtn);
     }
 
     grid.append(machCard);
@@ -181,6 +188,12 @@ export default {
       );
 
       makeSampleLoader(track, ti, emit, cloudsCard);
+      const browseBtn = document.createElement('button');
+      browseBtn.className = 'screen-btn';
+      browseBtn.style.marginTop = '4px';
+      browseBtn.textContent = 'Browse Library';
+      browseBtn.addEventListener('click', () => openSampleBrowser(state, emit, ti));
+      cloudsCard.append(browseBtn);
 
       grid.append(cloudsCard);
     }

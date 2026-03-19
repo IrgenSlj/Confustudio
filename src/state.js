@@ -21,6 +21,7 @@ export function createStep(stepIndex, trackIndex) {
     probability:   1,
     trigCondition: "always",  // "always"|"fill"|"first"|"not:first"|"1:2"|"1:4"|"3:4"
     paramLocks:    {},
+    microTime:     0,         // -0.5 to +0.5, fraction of one step duration
   };
 }
 
@@ -61,6 +62,9 @@ export function createTrack(index) {
     // MIDI
     midiChannel:  index + 1,
     midiPort:     null,
+
+    // Per-track length (0 = follow pattern.length)
+    trackLength:  0,
 
     // Mixer
     mute:         false,

@@ -45,10 +45,14 @@ let _activeKnobTimer = null;
 
 // Playback scheduler state
 let _schedNextTime = 0;
-let _schedStepIdx  = 0;
+let _schedStepIdx  = 0;  // kept for backward compat; mirrors _trackStepIdx[0]
+let _trackStepIdx  = Array(8).fill(0); // per-track step counters for polyrhythm
 let _schedRafId    = null;
 let _oscAnimRef    = { id: null };
 let _saveTimer     = null;
+
+// Fill mode
+state._fillActive = false;
 
 const LEGACY_STORAGE_KEY = 'confusynth-v2';
 
@@ -84,6 +88,7 @@ const el = {
   bpmDec:        $('bpm-dec'),
   bpmInc:        $('bpm-inc'),
   sampleFile:    $('sample-file'),
+  btnFill:       $('btn-fill'),
 };
 
 function cloneJson(value) {
@@ -231,9 +236,25 @@ function handleAction(path, value, pattern) {
       return true;
     }
 
+    case 'action_fill':
+      state._fillActive = !state._fillActive;
+      renderFillBtn();
+      renderPage(); // re-render to update fill button style
+      return true;
+
     default:
       return false;
   }
+}
+
+function toggleFill() {
+  state._fillActive = !state._fillActive;
+  renderFillBtn();
+}
+
+function renderFillBtn() {
+  const btn = el.btnFill;
+  if (btn) btn.classList.toggle('active', state._fillActive);
 }
 
 function handleStateChange(path, value, pattern) {
@@ -586,9 +607,14 @@ function scheduleLoop() {
     const isSoloing = pattern.kit.tracks.some(t => t.solo);
 
     while (_schedNextTime < ctx.currentTime + 0.12) {
-      const stepIdx = _schedStepIdx;
-      pattern.kit.tracks.forEach(track => {
+      // Resolve scene interpolation once per tick slot (shared across tracks)
+      const sceneParams = interpolateScenes(state);
+
+      // Per-track scheduling with individual step counters for polyrhythm
+      pattern.kit.tracks.forEach((track, ti) => {
         if (track.mute || (isSoloing && !track.solo)) return;
+        const trackLen = (track.trackLength > 0) ? track.trackLength : pattern.length;
+        const stepIdx = _trackStepIdx[ti];
         const step = track.steps[stepIdx];
         if (!step?.active) return;
 
@@ -596,12 +622,12 @@ function scheduleLoop() {
         if (!evalTrigCondition(step.trigCondition, stepIdx)) return;
         if (Math.random() >= step.probability) return;
 
-        // Resolve scene interpolation
-        const sceneParams = interpolateScenes(state);
-        const trackIdx = pattern.kit.tracks.indexOf(track);
-        const sceneOverride = sceneParams[trackIdx] || {};
+        const sceneOverride = sceneParams[ti] || {};
 
-        state.engine.triggerTrack(track, _schedNextTime, secsPerStep, {
+        // Micro-timing offset: fraction of one step duration, range -0.5 to +0.5
+        const microOffset = (step.microTime ?? 0) * secsPerStep;
+
+        state.engine.triggerTrack(track, _schedNextTime + microOffset, secsPerStep, {
           accent:      step.accent,
           note:        step.note,
           velocity:    step.velocity ?? 1,
@@ -609,9 +635,18 @@ function scheduleLoop() {
         });
       });
 
-      state.currentStep = stepIdx;
-      _schedStepIdx = (stepIdx + 1) % pattern.length;
-      const swing = (_schedStepIdx % 2 !== 0 ? 1 : -1) * state.swing * secsPerStep;
+      // Advance all per-track step counters individually
+      pattern.kit.tracks.forEach((track, ti) => {
+        const trackLen = (track.trackLength > 0) ? track.trackLength : pattern.length;
+        _trackStepIdx[ti] = (_trackStepIdx[ti] + 1) % trackLen;
+      });
+
+      // state.currentStep tracks track 0 for the playhead display
+      state.currentStep = _trackStepIdx[0];
+      _schedStepIdx = _trackStepIdx[0]; // keep alias in sync
+
+      // Swing is applied based on track 0's next step parity
+      const swing = (_trackStepIdx[0] % 2 !== 0 ? 1 : -1) * state.swing * secsPerStep;
       _schedNextTime += secsPerStep + swing;
     }
 
@@ -643,6 +678,7 @@ async function togglePlay() {
     state.isPlaying = true;
     _schedNextTime = state.audioContext.currentTime + 0.05;
     _schedStepIdx  = 0;
+    _trackStepIdx  = Array(8).fill(0);
     updateTransportUI();
     scheduleLoop();
   }
@@ -651,6 +687,8 @@ async function togglePlay() {
 function stopPlay() {
   state.isPlaying = false;
   state.currentStep = -1;
+  _trackStepIdx = Array(8).fill(0);
+  _schedStepIdx = 0;
   if (_schedRafId) { cancelAnimationFrame(_schedRafId); _schedRafId = null; }
   updateTransportUI();
   renderPlayhead();
@@ -844,7 +882,8 @@ function bindUI() {
   el.btnStop.addEventListener('click',   () => stopPlay());
   el.kbdPlay.addEventListener('click',   () => togglePlay());
   el.kbdStop.addEventListener('click',   () => stopPlay());
-  if (el.btnTap) el.btnTap.addEventListener('click', tapTempo);
+  if (el.btnTap)  el.btnTap.addEventListener('click', tapTempo);
+  if (el.btnFill) el.btnFill.addEventListener('click', toggleFill);
 
   // BPM edit
   if (el.bpmInput) {
