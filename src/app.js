@@ -62,7 +62,7 @@ const LEGACY_STORAGE_KEY = 'confusynth-v2';
 const $ = id => document.getElementById(id);
 const el = {
   pageContent:   $('page-content'),
-  knobBar:       $('knob-bar'),
+
   pageTabs:      $('page-tabs'),
   leftKnobs:     $('left-knobs'),
   rightKnobs:    $('right-knobs'),
@@ -637,7 +637,7 @@ function startMeterAnimation() {
     el.signalMeter.querySelectorAll('.seg').forEach(seg => {
       const n = Number(seg.dataset.seg);
       if (n <= lit) {
-        seg.className = n <= 10 ? 'seg lit-green' : n <= 13 ? 'seg lit-orange' : 'seg lit-red';
+        seg.className = n <= 8 ? 'seg lit green' : n <= 12 ? 'seg lit orange' : 'seg lit red';
       } else {
         seg.className = 'seg';
       }
@@ -767,8 +767,6 @@ function tapTempo() {
 function renderAll() {
   updateTopbar();
   renderPageTabs();
-  renderKnobsForPage();
-  renderKnobBar();
   renderPage();
   renderTrackStrip();
   renderTrackSelector();
@@ -861,37 +859,35 @@ function renderTrackStrip() {
   });
 }
 
-const MACHINE_SHORT = {
-  tone: 'TONE', noise: 'NOIS', sample: 'SAMP', midi: 'MIDI',
-  plaits: 'PLAI', clouds: 'CLOU', rings: 'RING',
-};
-
 function renderTrackSelector() {
-  if (!el.trackSelector) return;
+  const el_cs = document.getElementById('track-selector');
+  if (!el_cs) return;
   const pattern = getActivePattern(state);
-  el.trackSelector.innerHTML = '';
+  el_cs.innerHTML = '';
   pattern.kit.tracks.forEach((track, i) => {
     const row = document.createElement('div');
-    row.className = 'track-ch' + (i === state.selectedTrackIndex ? ' active' : '');
+    const isActive = i === state.selectedTrackIndex;
+    const hasTriggers = track.steps.slice(0, track.trackLength || pattern.length).some(s => s.active);
+    row.className = 'track-ch' + (isActive ? ' active' : '') + (track.mute ? ' muted' : '');
 
-    const led = document.createElement('span');
-    led.className = 'track-led' + (track.mute ? ' muted' : '');
-
-    const info = document.createElement('div');
-    info.className = 'track-ch-info';
-
-    const num = document.createElement('span');
-    num.className = 'track-ch-num';
-    num.textContent = `T${i + 1}`;
+    const led = document.createElement('div');
+    led.className = 'track-led' + (track.mute ? ' muted' : hasTriggers ? ' on' : '');
 
     const name = document.createElement('span');
     name.className = 'track-ch-name';
-    name.textContent = MACHINE_SHORT[track.machine] || track.machine.toUpperCase().slice(0, 4);
+    name.textContent = `T${i + 1}`;
 
-    info.append(num, name);
-    row.append(led, info);
-    row.addEventListener('click', () => emit('track:select', { trackIndex: i }));
-    el.trackSelector.append(row);
+    const machine = document.createElement('span');
+    machine.className = 'track-ch-machine';
+    machine.textContent = track.machine.slice(0, 4);
+
+    row.append(led, name, machine);
+    row.addEventListener('click', e => {
+      if (e.shiftKey) emit('track:mute',  { trackIndex: i });
+      else if (e.altKey) emit('track:solo', { trackIndex: i });
+      else emit('track:select', { trackIndex: i });
+    });
+    el_cs.append(row);
   });
 }
 

@@ -5,24 +5,40 @@
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap");
 
 :root {
-  --chassis-bg: #31453a;
-  --screen-bg: #16241f;
-  --screen-text: #f3fff8;
-  --muted: #7d9488;
-  --accent: #f0c640;
-  --live: #5add71;
-  --record: #f05b52;
-  --electric: #67d7ff;
-  --glass-highlight: rgba(255, 255, 255, 0.08);
-  --knob-bg: #1a1a1a;
-  --knob-indicator: #f0c640;
-  --step-off: #1c1c1c;
-  --step-on: #2a4a2e;
-  --step-accent: #4a3a00;
-  --step-plock: #1a1a4a;
-  --border: rgba(255, 255, 255, 0.06);
+  /* Army green chassis */
+  --chassis-bg:     #4e5f3c;
+  --chassis-dark:   #3d4d2e;
+  --chassis-light:  #5e7048;
+  --chassis-text:   #b8c8a0;
+  --chassis-metal:  #8a9a72;
+
+  /* Screen */
+  --screen-bg:      #111810;
+  --screen-text:    #e8f4e0;
+  --muted:          #6a8060;
+  --border:         rgba(255,255,255,0.07);
+
+  /* Accents */
+  --accent:         #f0c640;
+  --live:           #5add71;
+  --record:         #f05b52;
+  --electric:       #67d7ff;
+
+  /* Step grid */
+  --step-off:       #1c2018;
+  --step-on:        #2a4a2e;
+  --step-accent:    #4a3a00;
+  --step-plock:     #1a1a4a;
+
+  /* Keyboard */
+  --key-white:      #d8d0be;
+  --key-black:      #1c1c1e;
+  --key-white-edge: #b0a890;
+  --key-black-edge: #0a0a0c;
+
+  /* Fonts */
   --font-mono: "IBM Plex Mono", "SFMono-Regular", monospace;
-  --font-ui: "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
+  --font-ui:   "Space Grotesk", "Avenir Next", sans-serif;
 }
 
 /* ============================================================
@@ -39,27 +55,23 @@ html {
   color-scheme: dark;
 }
 
+/* Oak wood tabletop background */
 body {
   margin: 0;
   min-height: 100vh;
-  /* Rolex deep-green background with subtle fabric texture */
-  background-color: #0e2318;
+  background-color: #9e7040;
   background-image:
-    /* cross-hatch fibre texture */
-    repeating-linear-gradient(
-      0deg,
-      transparent 0px, transparent 3px,
-      rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px
-    ),
-    repeating-linear-gradient(
-      90deg,
-      transparent 0px, transparent 3px,
-      rgba(0,0,0,0.03) 3px, rgba(0,0,0,0.03) 4px
-    ),
-    /* radial light pools */
-    radial-gradient(ellipse at 22% 38%, rgba(38,90,52,0.45) 0%, transparent 55%),
-    radial-gradient(ellipse at 78% 68%, rgba(14,52,28,0.5)  0%, transparent 48%),
-    radial-gradient(ellipse at 55% 15%, rgba(20,68,38,0.3)  0%, transparent 40%);
+    repeating-linear-gradient(88deg,
+      transparent 0px, transparent 18px,
+      rgba(0,0,0,0.06) 18px, rgba(0,0,0,0.06) 20px,
+      transparent 20px, transparent 42px,
+      rgba(0,0,0,0.03) 42px, rgba(0,0,0,0.03) 43px),
+    repeating-linear-gradient(92deg,
+      transparent 0px, transparent 60px,
+      rgba(255,255,255,0.04) 60px, rgba(255,255,255,0.04) 61px),
+    radial-gradient(ellipse at 25% 40%, #b8864a 0%, transparent 55%),
+    radial-gradient(ellipse at 75% 65%, #8a6030 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 15%, #c09050 0%, transparent 40%);
   display: grid;
   place-items: center;
   font-family: var(--font-ui);
@@ -108,75 +120,29 @@ button {
 }
 
 /* ============================================================
-   CHASSIS
+   CHASSIS — matte army green, square, powder-coat finish
    ============================================================ */
 
 .chassis {
-  width: min(860px, 100vw);
-  min-height: min(860px, 100vh);
-  /* Green-tinted brushed aluminium */
-  background-color: #718578;
+  width: 860px;
+  height: 860px;
+  background-color: var(--chassis-bg);
   background-image:
-    /* micro brushed-grain lines */
-    repeating-linear-gradient(
-      90deg,
+    repeating-linear-gradient(135deg,
       transparent 0px, transparent 2px,
-      rgba(236,255,243,0.08) 2px, rgba(236,255,243,0.08) 3px,
-      transparent 3px, transparent 7px,
-      rgba(10,28,16,0.08) 7px, rgba(10,28,16,0.08) 8px
-    ),
-    radial-gradient(circle at 18% 16%, rgba(225, 244, 226, 0.34), transparent 28%),
-    /* main aluminium sheen — military green metal */
-    linear-gradient(
-      162deg,
-      #35443a 0%,
-      #4f6154 10%,
-      #7b907f 24%,
-      #b6c8b3 38%,
-      #95aa96 50%,
-      #c8d8c3 60%,
-      #869886 72%,
-      #58685b 86%,
-      #39463d 100%
-    );
-  border-radius: 18px;
-  border: 1px solid rgba(221, 244, 221, 0.22);
+      rgba(0,0,0,0.015) 2px, rgba(0,0,0,0.015) 3px),
+    repeating-linear-gradient(45deg,
+      transparent 0px, transparent 2px,
+      rgba(255,255,255,0.01) 2px, rgba(255,255,255,0.01) 3px);
+  border-radius: 8px;
   box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.55),
-    0 4px 0 rgba(226,242,226,0.24),
-    0 30px 70px  rgba(0, 0, 0, 0.65),
-    0 60px 140px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(236,255,240,0.38),
-    inset 0 -1px 0 rgba(9,20,10,0.28);
+    0 20px 60px rgba(0,0,0,0.7),
+    0 2px 0 rgba(255,255,255,0.06) inset,
+    0 -2px 0 rgba(0,0,0,0.3) inset;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  position: relative;
-}
-
-/* Corner screw details — machined aluminium Phillips head */
-.chassis::before,
-.chassis::after {
-  content: "";
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 38% 32%, #d8d8d8, #5a5a5a 60%, #3a3a3a 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.35),
-    0 1px 3px rgba(0,0,0,0.45);
-  top: 10px;
-  z-index: 10;
-}
-
-.chassis::before { left: 14px; }
-.chassis::after  { right: 14px; }
-
-.chassis > * {
-  position: relative;
-  z-index: 1;
+  font-family: var(--font-mono);
 }
 
 /* ============================================================
@@ -185,18 +151,20 @@ button {
 
 .ports-bar {
   display: flex;
+  align-items: center;
   justify-content: center;
-  gap: 24px;
-  padding: 10px 0 6px;
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  color: rgba(0,0,0,0.35);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  gap: 20px;
+  padding: 6px 16px;
+  background: var(--chassis-dark);
+  border-bottom: 1px solid rgba(0,0,0,0.4);
   flex-shrink: 0;
 }
 
 .port {
+  font-size: 0.52rem;
+  letter-spacing: 0.12em;
+  color: var(--chassis-metal);
+  text-transform: uppercase;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -205,424 +173,186 @@ button {
 .port::before {
   content: "";
   display: inline-block;
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
-  background: rgba(0,0,0,0.18);
-  border: 1px solid rgba(0,0,0,0.2);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(0,0,0,0.3);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.15);
   flex-shrink: 0;
 }
 
 /* ============================================================
-   MACHINE GRID — 3 columns
+   MACHINE GRID — 3-col layout
    ============================================================ */
 
 .machine-grid {
   display: grid;
-  grid-template-columns: 96px 1fr 96px;
-  gap: 12px;
-  padding: 0 12px;
+  grid-template-columns: 82px 1fr 148px;
   flex: 1;
   min-height: 0;
-  align-items: stretch;
+  gap: 0;
 }
 
 /* ============================================================
-   LEFT / RIGHT COLUMNS
+   LEFT COLUMN — signal meter + fader + transport + BPM
    ============================================================ */
 
-.left-col,
-.right-col {
+.left-col {
+  background: var(--chassis-dark);
+  border-right: 1px solid rgba(0,0,0,0.35);
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding: 10px 6px;
   gap: 8px;
-  padding: 8px 0;
 }
 
-/* ============================================================
-   KNOB STACK
-   ============================================================ */
-
-.knob-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 12px 0;
-  align-items: center;
-  flex: 1;
-}
-
-.knob-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  position: relative;
-  padding: 4px 0;
-}
-
-.knob-svg {
-  width: 52px;
-  height: 52px;
-  transition: filter 0.12s, transform 0.12s;
-  display: block;
-}
-
-.knob-wrap:hover .knob-svg {
-  filter: drop-shadow(0 0 6px rgba(240, 198, 64, 0.5));
-  transform: translateY(-1px) scale(1.06);
-}
-
-.knob-wrap:active .knob-svg,
-.knob-wrap.active .knob-svg {
-  transform: translateY(2px) scale(0.98);
-  filter: drop-shadow(0 0 10px rgba(240, 198, 64, 0.4));
-}
-
-.knob-label {
-  font-family: var(--font-mono);
-  font-size: 0.56rem;
-  color: rgba(0,0,0,0.42);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  text-align: center;
-  max-width: 52px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: color 0.15s;
-  text-shadow: 0 1px 0 rgba(255,255,255,0.3);
-}
-
-.knob-wrap:hover .knob-label,
-.knob-wrap.active .knob-label {
-  color: rgba(100, 60, 0, 0.85);
-}
-
-/* Knob tooltip — floating value on hover */
-.knob-tooltip {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: #1a1a1a;
-  border: 1px solid rgba(240, 198, 64, 0.3);
-  color: var(--accent);
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  padding: 3px 7px;
-  border-radius: 4px;
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.1s;
-  z-index: 100;
-}
-
-.knob-wrap:hover .knob-tooltip {
-  opacity: 1;
-}
-
-/* ============================================================
-   TRANSPORT BUTTONS
-   ============================================================ */
-
-.transport-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: center;
-  padding: 8px 0;
-  flex-shrink: 0;
-}
-
-.t-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 1px solid rgba(0,0,0,0.18);
-  background:
-    radial-gradient(circle at 40% 30%, #d8d8d8, #a0a0a0 60%, #888888 100%);
-  color: rgba(0,0,0,0.45);
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: all 0.1s;
-  display: grid;
-  place-items: center;
-  line-height: 1;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.5),
-    inset 0 -5px 10px rgba(0,0,0,0.18),
-    0 2px 0 rgba(70,70,70,0.85),
-    0 8px 14px rgba(0,0,0,0.28);
-}
-
-.t-btn--play,
-.t-btn--record {
-  border-radius: 10px;
-}
-
-.t-btn:hover {
-  border-color: rgba(0,0,0,0.28);
-  color: rgba(0,0,0,0.7);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.6),
-    inset 0 -5px 10px rgba(0,0,0,0.14),
-    0 3px 0 rgba(70,70,70,0.8),
-    0 10px 18px rgba(0,0,0,0.32);
-  transform: translateY(-1px);
-}
-
-.t-btn:active {
-  transform: translateY(2px);
-  box-shadow:
-    inset 0 2px 4px rgba(255,255,255,0.28),
-    inset 0 -3px 8px rgba(0,0,0,0.24),
-    0 1px 0 rgba(70,70,70,0.75),
-    0 3px 8px rgba(0,0,0,0.2);
-}
-
-.t-btn--play { color: var(--live); }
-
-.t-btn--play.active {
-  background: rgba(90, 221, 113, 0.15);
-  border-color: var(--live);
-  box-shadow: 0 0 12px rgba(90, 221, 113, 0.3);
-}
-
-.t-btn--stop:hover { color: var(--screen-text); }
-
-.t-btn--record { color: var(--record); }
-
-.t-btn--record.active {
-  background: rgba(240, 91, 82, 0.15);
-  border-color: var(--record);
-  box-shadow: 0 0 12px rgba(240, 91, 82, 0.3);
-}
-
-.t-btn--audio.active {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: rgba(240, 198, 64, 0.1);
-}
-
-/* ============================================================
-   TRACK SELECTOR (right col)
-   ============================================================ */
-
-.track-selector {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  width: 100%;
-  padding: 0 8px;
-  flex-shrink: 0;
-}
-
-.track-sel-btn {
-  width: 100%;
-  padding: 5px 4px;
-  border-radius: 4px;
-  border: 1px solid rgba(0,0,0,0.14);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.02) 30%, rgba(0,0,0,0.12) 100%),
-    rgba(0,0,0,0.08);
-  color: rgba(0,0,0,0.45);
-  font-family: var(--font-mono);
-  font-size: 0.58rem;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.1s;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.32),
-    inset 0 -4px 8px rgba(0,0,0,0.12),
-    0 2px 0 rgba(90,90,90,0.45);
-  text-shadow: 0 1px 0 rgba(255,255,255,0.25);
-}
-
-.track-sel-btn:hover {
-  color: rgba(0,0,0,0.7);
-  border-color: rgba(0,0,0,0.22);
-  transform: translateY(-1px);
-}
-
-.track-sel-btn.active {
-  color: rgba(90,50,0,0.9);
-  border-color: rgba(180,120,0,0.45);
-  background:
-    linear-gradient(180deg, rgba(255,244,191,0.68), rgba(240,198,64,0.24) 45%, rgba(122,80,0,0.18) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.34),
-    inset 0 -6px 10px rgba(120,70,0,0.18),
-    0 2px 0 rgba(120,90,10,0.42),
-    0 0 10px rgba(240,198,64,0.22);
-}
-
-/* ============================================================
-   SIGNAL METER (left col)
-   ============================================================ */
-
+/* Signal meter */
 .meter-section {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  flex-shrink: 0;
+  width: 100%;
 }
 
 .meter-label {
-  font-family: var(--font-mono);
-  font-size: 0.52rem;
-  color: rgba(0,0,0,0.38);
+  font-size: 0.5rem;
+  letter-spacing: 0.15em;
+  color: var(--chassis-metal);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  text-shadow: 0 1px 0 rgba(255,255,255,0.3);
 }
 
 .signal-meter {
   display: flex;
   flex-direction: column-reverse;
   gap: 2px;
+  width: 18px;
   align-items: center;
-  width: 16px;
 }
 
 .signal-meter .seg {
-  width: 10px;
+  width: 14px;
   height: 5px;
   border-radius: 1px;
-  background: rgba(0,0,0,0.22);
-  box-shadow: inset 0 1px 1px rgba(0,0,0,0.3);
-  transition: background 0.05s;
+  background: rgba(0,0,0,0.5);
+  transition: background 60ms;
 }
 
-/* seg-1..10 = green, 11-13 = orange, 14-16 = red */
-.signal-meter .seg.lit-green  { background: #5add71; box-shadow: 0 0 4px rgba(90,221,113,0.7); }
-.signal-meter .seg.lit-orange { background: #f0a840; box-shadow: 0 0 4px rgba(240,168,64,0.7); }
-.signal-meter .seg.lit-red    { background: #f05b52; box-shadow: 0 0 4px rgba(240,91,82,0.7); }
+.signal-meter .seg.lit.green  { background: #3add60; box-shadow: 0 0 4px #3add60; }
+.signal-meter .seg.lit.orange { background: #f0a030; box-shadow: 0 0 4px #f0a030; }
+.signal-meter .seg.lit.red    { background: #f04040; box-shadow: 0 0 4px #f04040; }
 
-/* ============================================================
-   MASTER FADER (left col)
-   ============================================================ */
-
+/* Master fader */
 .fader-section {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
   flex: 1;
-  min-height: 60px;
 }
 
 .fader-master {
-  -webkit-appearance: slider-vertical;
   writing-mode: vertical-lr;
   direction: rtl;
+  appearance: slider-vertical;
+  -webkit-appearance: slider-vertical;
   width: 22px;
   flex: 1;
-  min-height: 50px;
   cursor: pointer;
-  accent-color: var(--accent);
+  accent-color: var(--chassis-metal);
 }
 
-/* ============================================================
-   CHANNEL STRIP (right col)
-   ============================================================ */
-
-.channel-strip {
+/* Transport buttons */
+.transport-buttons {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  width: 100%;
-  padding: 4px 6px;
-  flex: 1;
-}
-
-.track-ch {
-  display: flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 5px;
-  border-radius: 4px;
-  border: 1px solid rgba(0,0,0,0.14);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.14), rgba(0,0,0,0.1) 100%),
-    rgba(0,0,0,0.08);
-  cursor: pointer;
-  transition: all 0.1s;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.25),
-    0 2px 0 rgba(60,60,60,0.4);
+  width: 100%;
 }
 
-.track-ch:hover {
-  border-color: rgba(0,0,0,0.24);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.22), rgba(0,0,0,0.06) 100%),
-    rgba(0,0,0,0.08);
-}
-
-.track-ch.active {
-  border-color: rgba(180,120,0,0.5);
-  background:
-    linear-gradient(180deg, rgba(255,244,191,0.55), rgba(240,198,64,0.18) 50%, rgba(100,60,0,0.15) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.3),
-    0 2px 0 rgba(120,90,10,0.4),
-    0 0 8px rgba(240,198,64,0.18);
-}
-
-.track-led {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  background: #5add71;
-  box-shadow: 0 0 4px rgba(90,221,113,0.6);
-  transition: background 0.1s, box-shadow 0.1s;
-}
-
-.track-led.muted {
-  background: rgba(0,0,0,0.22);
-  box-shadow: none;
-}
-
-.track-ch-info {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  flex: 1;
-}
-
-.track-ch-num {
+.t-btn {
+  width: 52px;
+  height: 28px;
+  font-size: 0.56rem;
   font-family: var(--font-mono);
-  font-size: 0.5rem;
-  color: rgba(0,0,0,0.35);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
+  background: var(--chassis-bg);
+  color: var(--chassis-text);
+  border: 1px solid rgba(0,0,0,0.5);
+  border-radius: 3px;
+  box-shadow: 0 2px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.07);
+  transition: transform 80ms, box-shadow 80ms;
+  display: grid;
+  place-items: center;
   line-height: 1;
 }
 
-.track-ch-name {
-  font-family: var(--font-mono);
-  font-size: 0.52rem;
-  color: rgba(0,0,0,0.55);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  line-height: 1.2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.t-btn:hover {
+  background: var(--chassis-light);
 }
 
-.track-ch.active .track-ch-name,
-.track-ch.active .track-ch-num {
-  color: rgba(80,40,0,0.85);
+.t-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(0,0,0,0.1);
+}
+
+.t-btn.active            { background: #2a3a20; color: var(--live); }
+.t-btn--play.active      { color: var(--live); }
+.t-btn--record.active    { color: var(--record); }
+.t-btn--fill.active      { color: var(--accent); }
+.t-btn--audio.active     { color: var(--accent); }
+
+/* BPM edit */
+.bpm-edit {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+}
+
+.bpm-arrow {
+  flex: 0 0 18px;
+  height: 20px;
+  padding: 0;
+  font-size: 0.7rem;
+  background: rgba(0,0,0,0.3);
+  color: var(--chassis-text);
+  border: 1px solid rgba(0,0,0,0.4);
+  border-radius: 2px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.bpm-arrow:hover {
+  background: rgba(0,0,0,0.5);
+  color: var(--accent);
+}
+
+.bpm-edit input,
+#bpm-input {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  height: 20px;
+  padding: 0 2px;
+  text-align: center;
+  font-size: 0.55rem;
+  font-family: var(--font-mono);
+  background: rgba(0,0,0,0.4);
+  color: var(--accent);
+  border: 1px solid rgba(0,0,0,0.4);
+  border-radius: 2px;
+  -moz-appearance: textfield;
+  font-weight: 600;
+}
+
+#bpm-input::-webkit-outer-spin-button,
+#bpm-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
 }
 
 /* ============================================================
@@ -632,9 +362,8 @@ button {
 .screen-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  background: var(--chassis-bg);
   min-width: 0;
-  padding: 8px 0;
 }
 
 /* ============================================================
@@ -642,46 +371,19 @@ button {
    ============================================================ */
 
 .screen-bezel {
-  background:
-    radial-gradient(circle at 50% 0%, rgba(255,255,255,0.08), transparent 55%),
-    linear-gradient(180deg, #1b2924 0%, #09100d 100%);
-  border-radius: 14px;
-  border: 1px solid rgba(190, 231, 206, 0.12);
-  padding: 10px;
+  flex: 1;
+  margin: 10px 8px 4px;
+  background: var(--screen-bg);
+  border-radius: 4px;
+  border: 2px solid rgba(0,0,0,0.6);
+  box-shadow:
+    inset 0 2px 8px rgba(0,0,0,0.6),
+    0 1px 0 rgba(255,255,255,0.04);
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
-    inset 0 12px 30px rgba(255,255,255,0.04),
-    inset 0 -30px 40px rgba(0, 0, 0, 0.42),
-    0 8px 18px rgba(0,0,0,0.45);
-  position: relative;
   overflow: hidden;
-}
-
-.screen-bezel::before {
-  content: "";
-  position: absolute;
-  inset: 10px 12px auto;
-  height: 22px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.09), transparent);
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-.screen-bezel::after {
-  content: "";
-  position: absolute;
-  inset: 28px 12px 12px;
-  border-radius: 10px;
-  background:
-    linear-gradient(135deg, rgba(103,215,255,0.08), transparent 28%, transparent 68%, rgba(90,221,113,0.09)),
-    radial-gradient(circle at 50% 45%, rgba(120,220,170,0.12), transparent 65%);
-  pointer-events: none;
-  mix-blend-mode: screen;
+  min-height: 0;
+  padding: 10px;
 }
 
 /* ============================================================
@@ -697,7 +399,7 @@ button {
   color: #b7e0c4;
   margin-bottom: 6px;
   flex-shrink: 0;
-  text-shadow: 0 0 8px rgba(90, 221, 113, 0.08);
+  text-shadow: 0 0 8px rgba(90,221,113,0.08);
 }
 
 .topbar-item {
@@ -708,7 +410,7 @@ button {
   color: var(--accent);
   font-size: 0.78rem;
   font-weight: 500;
-  text-shadow: 0 0 10px rgba(240, 198, 64, 0.35);
+  text-shadow: 0 0 10px rgba(240,198,64,0.35);
 }
 
 .topbar-status {
@@ -717,7 +419,7 @@ button {
   border-radius: 999px;
   background:
     linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
-    rgba(255, 255, 255, 0.03);
+    rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.08);
   font-size: 0.62rem;
   letter-spacing: 0.08em;
@@ -728,14 +430,14 @@ button {
 
 .topbar-status.playing {
   color: var(--live);
-  background: rgba(90, 221, 113, 0.08);
-  border-color: rgba(90, 221, 113, 0.3);
+  background: rgba(90,221,113,0.08);
+  border-color: rgba(90,221,113,0.3);
 }
 
 .topbar-status.recording {
   color: var(--record);
-  background: rgba(240, 91, 82, 0.08);
-  border-color: rgba(240, 91, 82, 0.3);
+  background: rgba(240,91,82,0.08);
+  border-color: rgba(240,91,82,0.3);
 }
 
 /* ============================================================
@@ -754,7 +456,7 @@ button {
 .tab {
   background:
     linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015) 32%, rgba(0,0,0,0.3)),
-    rgba(9, 12, 12, 0.92);
+    rgba(9,12,12,0.92);
   border: 1px solid rgba(255,255,255,0.05);
   color: #6c8f77;
   font-family: var(--font-mono);
@@ -773,10 +475,10 @@ button {
 
 .tab.active {
   color: #fff4c9;
-  border-color: rgba(240, 198, 64, 0.38);
+  border-color: rgba(240,198,64,0.38);
   background:
     linear-gradient(180deg, rgba(255,239,167,0.22), rgba(240,198,64,0.08) 40%, rgba(46,30,0,0.42)),
-    rgba(240, 198, 64, 0.08);
+    rgba(240,198,64,0.08);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.14),
     inset 0 -10px 14px rgba(84,56,0,0.26),
@@ -788,84 +490,6 @@ button {
   border-color: rgba(103,215,255,0.15);
   transform: translateY(-1px);
 }
-
-/* ============================================================
-   KNOB BAR — 8 knob slot labels between tabs and page content
-   ============================================================ */
-
-.knob-bar {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 3px;
-  margin-bottom: 6px;
-  flex-shrink: 0;
-}
-
-.knob-bar-slot {
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015) 28%, rgba(0,0,0,0.28)),
-    #0d1212;
-  border: 1px solid #1a2622;
-  border-radius: 6px;
-  padding: 4px 5px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  min-width: 0;
-  transition: border-color 0.1s, background 0.1s, transform 0.1s;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.04),
-    inset 0 -8px 12px rgba(0,0,0,0.18);
-}
-
-/* Left bank slots (0-3) get a subtle left indicator */
-.knob-bar-slot[data-side="left"] {
-  border-left: 2px solid #252525;
-}
-
-/* Right bank slots (4-7) */
-.knob-bar-slot[data-side="right"] {
-  border-right: 2px solid #252525;
-}
-
-.knob-bar-slot.active {
-  background:
-    linear-gradient(180deg, rgba(255,239,167,0.12), rgba(240,198,64,0.04) 45%, rgba(0,0,0,0.24)),
-    rgba(240, 198, 64, 0.06);
-  border-color: rgba(240, 198, 64, 0.4) !important;
-  transform: translateY(-1px);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.08),
-    inset 0 -10px 16px rgba(100,64,0,0.18),
-    0 0 14px rgba(240,198,64,0.08);
-}
-
-.knob-bar-label {
-  font-family: var(--font-mono);
-  font-size: 0.52rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
-.knob-bar-value {
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  color: var(--screen-text);
-  font-weight: 600;
-}
-
-.knob-bar-slot.active .knob-bar-label { color: var(--accent); }
-.knob-bar-slot.active .knob-bar-value { color: #fff; }
-
-/* Unused slot */
-.knob-bar-slot.unused .knob-bar-label { color: #2a2a2a; }
-.knob-bar-slot.unused .knob-bar-value { color: #2a2a2a; }
 
 /* ============================================================
    PAGE CONTENT
@@ -881,15 +505,15 @@ button {
   border-radius: 10px;
   background:
     linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0) 18%),
-    radial-gradient(circle at 50% 28%, rgba(90, 221, 113, 0.08), transparent 58%),
-    radial-gradient(circle at 50% 18%, rgba(103, 215, 255, 0.09), transparent 34%),
+    radial-gradient(circle at 50% 28%, rgba(90,221,113,0.08), transparent 58%),
+    radial-gradient(circle at 50% 18%, rgba(103,215,255,0.09), transparent 34%),
     linear-gradient(180deg, rgba(18,34,28,0.96), rgba(7,14,11,0.99));
-  border: 1px solid rgba(103, 215, 255, 0.09);
+  border: 1px solid rgba(103,215,255,0.09);
   box-shadow:
     inset 0 0 0 1px rgba(255,255,255,0.03),
     inset 0 14px 30px rgba(255,255,255,0.02),
     inset 0 -20px 30px rgba(0,0,0,0.28),
-    0 0 26px rgba(86, 187, 146, 0.08);
+    0 0 26px rgba(86,187,146,0.08);
 }
 
 /* Pattern page layout */
@@ -907,7 +531,7 @@ button {
 }
 
 .param-block {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255,255,255,0.02);
   border: 1px solid var(--border);
   border-radius: 5px;
   padding: 6px 8px;
@@ -956,14 +580,11 @@ button {
 }
 
 /* ============================================================
-   SCREEN BELOW (sample + bpm)
+   SCREEN BELOW (hidden — kept for compatibility)
    ============================================================ */
 
 .screen-below {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
+  display: none;
 }
 
 .screen-btn {
@@ -1010,60 +631,84 @@ button {
   cursor: pointer;
 }
 
-.bpm-edit {
+/* ============================================================
+   RIGHT COLUMN — channel strip
+   ============================================================ */
+
+.right-col {
+  background: var(--chassis-dark);
+  border-left: 1px solid rgba(0,0,0,0.35);
+  display: flex;
+  flex-direction: column;
+  padding: 8px 6px;
+  gap: 0;
+}
+
+.channel-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+
+.track-ch {
   display: flex;
   align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.bpm-arrow {
-  width: 26px;
-  height: 26px;
-  border-radius: 4px;
-  border: 1px solid rgba(0,0,0,0.18);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.04) 34%, rgba(0,0,0,0.16)),
-    rgba(0,0,0,0.1);
-  color: rgba(0,0,0,0.45);
-  font-size: 1rem;
+  gap: 5px;
+  padding: 5px 6px;
+  border-radius: 3px;
   cursor: pointer;
-  display: grid;
-  place-items: center;
-  transition: all 0.1s;
-  padding: 0;
-  line-height: 1;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.35),
-    inset 0 -5px 8px rgba(0,0,0,0.1),
-    0 2px 0 rgba(90,90,90,0.45);
+  background: rgba(0,0,0,0.15);
+  border: 1px solid rgba(0,0,0,0.2);
+  transition: background 80ms;
 }
 
-.bpm-arrow:hover {
-  color: rgba(90,50,0,0.85);
-  border-color: rgba(160,100,0,0.4);
-  transform: translateY(-1px);
+.track-ch:hover { background: rgba(255,255,255,0.05); }
+
+.track-ch.active {
+  background: rgba(240,198,64,0.12);
+  border-color: rgba(240,198,64,0.3);
 }
 
-#bpm-input {
-  width: 56px;
-  text-align: center;
-  padding: 3px 4px;
-  border-radius: 4px;
-  border: 1px solid rgba(0,0,0,0.18);
-  background: rgba(0,0,0,0.1);
-  color: rgba(90,50,0,0.9);
+.track-ch.muted { opacity: 0.45; }
+
+.track-led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.5);
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+}
+
+.track-led.on {
+  background: var(--live);
+  box-shadow: 0 0 5px var(--live), 0 0 2px var(--live);
+}
+
+.track-led.muted {
+  background: rgba(255,80,60,0.4);
+}
+
+.track-ch-name {
+  font-size: 0.52rem;
   font-family: var(--font-mono);
-  font-size: 0.78rem;
-  font-weight: 600;
-  -moz-appearance: textfield;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.3);
+  color: var(--chassis-text);
+  letter-spacing: 0.04em;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-#bpm-input::-webkit-outer-spin-button,
-#bpm-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
+.track-ch-machine {
+  font-size: 0.45rem;
+  color: var(--chassis-metal);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
+
+.track-ch.active .track-ch-name { color: var(--accent); }
 
 /* ============================================================
    STEP GRID
@@ -1097,7 +742,7 @@ button {
 }
 
 .step-btn:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255,255,255,0.12);
   color: #9ab0aa;
   transform: translateY(-1px);
 }
@@ -1106,7 +751,7 @@ button {
   background:
     linear-gradient(180deg, rgba(181,255,192,0.14), rgba(255,255,255,0.02) 28%, rgba(0,0,0,0.2)),
     var(--step-on);
-  border-color: rgba(90, 221, 113, 0.4);
+  border-color: rgba(90,221,113,0.4);
   color: var(--live);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.08),
@@ -1118,7 +763,7 @@ button {
   background:
     linear-gradient(180deg, rgba(255,236,172,0.16), rgba(255,255,255,0.02) 26%, rgba(0,0,0,0.2)),
     var(--step-accent);
-  border-color: rgba(240, 198, 64, 0.5);
+  border-color: rgba(240,198,64,0.5);
   color: var(--accent);
 }
 
@@ -1126,7 +771,7 @@ button {
   background:
     linear-gradient(180deg, rgba(120,160,255,0.14), rgba(255,255,255,0.015) 24%, rgba(0,0,0,0.22)),
     var(--step-plock);
-  border-color: rgba(90, 130, 240, 0.4);
+  border-color: rgba(90,130,240,0.4);
 }
 
 .step-btn.playhead {
@@ -1134,7 +779,6 @@ button {
   outline-offset: 1px;
 }
 
-/* Probability indicator bar */
 .step-btn::after {
   content: "";
   position: absolute;
@@ -1145,18 +789,17 @@ button {
   border-radius: 0 0 3px 3px;
 }
 
-.step-btn[data-prob="0.75"]::after { background: rgba(240, 198, 64, 0.7); }
-.step-btn[data-prob="0.5"]::after  { background: rgba(240, 140, 64, 0.7); }
-.step-btn[data-prob="0.25"]::after { background: rgba(240, 80, 64, 0.7); }
+.step-btn[data-prob="0.75"]::after { background: rgba(240,198,64,0.7); }
+.step-btn[data-prob="0.5"]::after  { background: rgba(240,140,64,0.7); }
+.step-btn[data-prob="0.25"]::after { background: rgba(240,80,64,0.7); }
 
-/* P-lock dot indicator */
 .step-btn.plock::before {
   content: "\25C6";
   position: absolute;
   top: 1px;
   right: 2px;
   font-size: 0.42rem;
-  color: rgba(90, 130, 240, 0.8);
+  color: rgba(90,130,240,0.8);
 }
 
 /* ============================================================
@@ -1169,7 +812,7 @@ button {
   right: 0;
   width: 180px;
   background: #0e0e0e;
-  border: 1px solid rgba(240, 198, 64, 0.3);
+  border: 1px solid rgba(240,198,64,0.3);
   border-radius: 6px;
   padding: 10px;
   z-index: 50;
@@ -1212,11 +855,11 @@ button {
 }
 
 /* ============================================================
-   TRACK STRIP
+   TRACK STRIP — hidden (replaced by channel strip)
    ============================================================ */
 
 .track-strip {
-  display: grid;
+  display: none;
   grid-template-columns: repeat(8, 1fr);
   gap: 6px;
   padding: 8px 12px;
@@ -1304,80 +947,75 @@ button {
 }
 
 .track-ms-btn.mute-active {
-  background: rgba(240, 91, 82, 0.15);
-  border-color: rgba(240, 91, 82, 0.4);
+  background: rgba(240,91,82,0.15);
+  border-color: rgba(240,91,82,0.4);
   color: var(--record);
 }
 
 .track-ms-btn.solo-active {
-  background: rgba(240, 198, 64, 0.15);
-  border-color: rgba(240, 198, 64, 0.4);
+  background: rgba(240,198,64,0.15);
+  border-color: rgba(240,198,64,0.4);
   color: var(--accent);
 }
 
 /* ============================================================
-   KEYBOARD PANEL
+   KEYBOARD PANEL — 3D physical button look
    ============================================================ */
 
 .kbd-panel {
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0) 16%),
-    linear-gradient(180deg, #12181a, #080a0c);
-  border-top: 1px solid var(--border);
-  padding: 10px 12px;
+  background: var(--chassis-dark);
+  border-top: 2px solid rgba(0,0,0,0.5);
+  padding: 10px 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
 }
 
 .kbd-universal {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .kbd-btn {
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.07);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.02) 30%, rgba(0,0,0,0.3)),
-    #14181a;
-  color: var(--muted);
+  height: 32px;
+  padding: 0 12px;
+  font-size: 0.58rem;
   font-family: var(--font-mono);
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  cursor: pointer;
-  transition: all 0.1s;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.05),
-    inset 0 -8px 12px rgba(0,0,0,0.24),
-    0 2px 0 rgba(28,36,38,0.85);
+  letter-spacing: 0.1em;
+  background: linear-gradient(180deg, #6a7c54 0%, #5a6a44 100%);
+  color: var(--chassis-text);
+  border: 1px solid rgba(0,0,0,0.5);
+  border-radius: 4px;
+  box-shadow: 0 3px 0 #2a3a1c, 0 4px 2px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12);
+  transition: transform 60ms, box-shadow 60ms;
 }
 
 .kbd-btn:hover {
-  color: var(--screen-text);
-  border-color: rgba(255, 255, 255, 0.15);
+  filter: brightness(1.15);
+}
+
+.kbd-btn:active,
+.kbd-btn.pressed {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #2a3a1c, 0 2px 1px rgba(0,0,0,0.3), inset 0 1px 0 rgba(0,0,0,0.1);
 }
 
 .kbd-play { color: var(--live); }
 
-.kbd-play.active {
-  background: rgba(90, 221, 113, 0.1);
-  border-color: var(--live);
-  box-shadow: 0 0 8px rgba(90, 221, 113, 0.2);
+.kbd-btn.kbd-play.active {
+  background: linear-gradient(180deg, #3a6040 0%, #2a5030 100%);
+  color: var(--live);
+  box-shadow: 0 3px 0 #1a3020, 0 4px 2px rgba(0,0,0,0.4), 0 0 8px rgba(90,221,113,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
 }
-
-.kbd-stop:hover { color: var(--screen-text); }
 
 .kbd-record { color: var(--record); }
 
-.kbd-record.active {
-  background: rgba(240, 91, 82, 0.1);
-  border-color: var(--record);
-  box-shadow: 0 0 8px rgba(240, 91, 82, 0.2);
+.kbd-btn.kbd-record.active {
+  background: linear-gradient(180deg, #6a3030 0%, #5a2020 100%);
+  color: var(--record);
+  box-shadow: 0 3px 0 #301010, 0 4px 2px rgba(0,0,0,0.4), 0 0 8px rgba(240,91,82,0.3), inset 0 1px 0 rgba(255,255,255,0.08);
 }
 
 .kbd-bpm {
@@ -1388,18 +1026,17 @@ button {
 }
 
 .kbd-context {
-  /* Full QWERTY keyboard fills this area */
   padding: 2px 0;
 }
 
 /* ============================================================
-   GRAPHICAL QWERTY KEYBOARD  (simplified 4 rows: Q-P, A-L, Z-M, Space)
+   GRAPHICAL QWERTY KEYBOARD — 3D physical hardware keys
    ============================================================ */
 
 .qwerty-keyboard {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   width: 100%;
   user-select: none;
 }
@@ -1409,56 +1046,89 @@ button {
   gap: 3px;
 }
 
-/* Row-specific heights */
 .qrow-fn    .qwerty-key { height: 34px; }
-.qrow-home  .qwerty-key { height: 52px; }
-.qrow-bot   .qwerty-key { height: 52px; }
-.qrow-space .qwerty-key { height: 30px; border-radius: 6px; }
+.qrow-home  .qwerty-key { height: 42px; }
+.qrow-bot   .qwerty-key { height: 42px; }
+.qrow-space .qwerty-key { height: 30px; }
 
-/* Base key */
 .qwerty-key {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
+  padding-bottom: 5px;
   min-width: 0;
-  border-radius: 7px;
-  border: 1px solid rgba(255,255,255,0.07);
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.015) 26%, rgba(0,0,0,0.3)),
-    #141414;
-  cursor: default;
-  transition: background 0.07s, border-color 0.07s, transform 0.06s, box-shadow 0.07s;
-  overflow: hidden;
-  padding: 3px 3px 2px;
-  position: relative;
+  background: linear-gradient(180deg, #d8d4c4 0%, #c8c0b0 70%, #b8b0a0 100%);
+  color: #3a3228;
+  border: 1px solid #a09080;
+  border-radius: 3px 3px 4px 4px;
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.04),
-    inset 0 -10px 14px rgba(0,0,0,0.28),
-    0 2px 0 rgba(18,22,24,0.95);
+    0 4px 0 #7a6a54,
+    0 5px 3px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.5),
+    inset 0 -1px 0 rgba(0,0,0,0.1);
+  cursor: default;
+  transition: transform 50ms, box-shadow 50ms;
+  overflow: hidden;
+  position: relative;
+}
+
+.qwerty-key:active,
+.qwerty-key.pressed {
+  transform: translateY(3px);
+  box-shadow:
+    0 1px 0 #7a6a54,
+    0 2px 1px rgba(0,0,0,0.4),
+    inset 0 1px 0 rgba(0,0,0,0.08),
+    inset 0 2px 3px rgba(0,0,0,0.15);
+}
+
+.qrow-fn .qwerty-key {
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 5px 5px 4px;
+  gap: 2px;
+}
+
+.qrow-fn .qkey-cap {
+  font-size: 0.55rem;
+  align-self: flex-start;
+}
+
+.qrow-fn .qkey-hint {
+  font-size: 0.45rem;
+  align-self: flex-end;
+  margin: 0;
+}
+
+.qrow-space .qwerty-key {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px 3px 5px 5px;
+  box-shadow:
+    0 5px 0 #7a6a54,
+    0 6px 4px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.4);
 }
 
 .qkey-cap {
   font-family: var(--font-mono);
-  font-size: 0.65rem;
+  font-size: 0.58rem;
   font-weight: 700;
-  color: rgba(255,255,255,0.22);
+  color: #3a3228;
   line-height: 1;
   text-transform: uppercase;
-  transition: color 0.07s;
   letter-spacing: 0.02em;
+  transition: color 0.07s;
 }
-
-/* In the fn row, cap is at top-left (smaller) */
-.qrow-fn .qwerty-key { align-items: flex-start; padding: 5px 6px 4px; flex-direction: row; gap: 3px; }
-.qrow-fn .qkey-cap   { font-size: 0.58rem; align-self: flex-start; }
-.qrow-fn .qkey-hint  { align-self: flex-end; margin: 0; font-size: 0.5rem; }
 
 .qkey-hint {
   font-family: var(--font-mono);
-  font-size: 0.5rem;
+  font-size: 0.42rem;
   line-height: 1;
-  margin-top: 3px;
+  margin-bottom: 1px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: transparent;
@@ -1469,120 +1139,114 @@ button {
   transition: color 0.07s;
 }
 
-/* ── Role colours ─────────────────────────────── */
+/* Role colours */
 
 .qwerty-key.role-idle {
-  background: #0f0f0f;
-  border-color: rgba(255,255,255,0.04);
+  background: linear-gradient(180deg, #c8c4b4 0%, #b8b0a0 100%);
+  border-color: #988878;
 }
-.qwerty-key.role-idle .qkey-cap { color: rgba(255,255,255,0.1); }
+.qwerty-key.role-idle .qkey-cap { color: rgba(58,50,40,0.4); }
 
-/* page navigation (Q-O) */
 .qwerty-key.role-page {
-  background: #0e1020;
-  border-color: rgba(80,80,200,0.3);
+  background: linear-gradient(180deg, #c8c8d8 0%, #b0b0c8 70%, #9898b8 100%);
+  border-color: #8080a8;
+  box-shadow: 0 4px 0 #505080, 0 5px 3px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.5);
 }
-.qwerty-key.role-page .qkey-cap  { color: rgba(100,100,220,0.7); }
-.qwerty-key.role-page .qkey-hint { color: rgba(130,130,255,0.9); }
+.qwerty-key.role-page .qkey-cap  { color: rgba(40,40,140,0.75); }
+.qwerty-key.role-page .qkey-hint { color: rgba(80,80,200,0.95); }
 
-/* P — record */
 .qwerty-key.role-record {
-  background: #1a0c0c;
-  border-color: rgba(220,70,60,0.35);
+  background: linear-gradient(180deg, #d8c0c0 0%, #c8a8a8 70%, #b89090 100%);
+  border-color: #a07070;
+  box-shadow: 0 4px 0 #704040, 0 5px 3px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.4);
 }
-.qwerty-key.role-record .qkey-cap  { color: rgba(200,70,60,0.7); }
+.qwerty-key.role-record .qkey-cap  { color: rgba(160,40,30,0.8); }
 .qwerty-key.role-record .qkey-hint { color: var(--record); }
 
-/* step trigger keys */
 .qwerty-key.role-step {
-  background: #0d1a0e;
-  border-color: rgba(90,221,113,0.28);
+  background: linear-gradient(180deg, #c0d4c0 0%, #a8c0a8 70%, #90b090 100%);
+  border-color: #709070;
+  box-shadow: 0 4px 0 #405040, 0 5px 3px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.5);
 }
-.qwerty-key.role-step .qkey-cap  { color: rgba(60,160,70,0.7); }
+.qwerty-key.role-step .qkey-cap  { color: rgba(30,100,40,0.8); }
 .qwerty-key.role-step .qkey-hint { color: var(--live); }
 
-/* white note keys */
 .qwerty-key.role-note {
-  background: #0a1c1c;
-  border-color: rgba(80,200,200,0.32);
+  background: linear-gradient(180deg, #c0d8d8 0%, #a8c8c8 70%, #90b8b8 100%);
+  border-color: #709090;
+  box-shadow: 0 4px 0 #406060, 0 5px 3px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.5);
 }
-.qwerty-key.role-note .qkey-cap  { color: rgba(50,160,160,0.7); }
+.qwerty-key.role-note .qkey-cap  { color: rgba(20,100,100,0.8); }
 .qwerty-key.role-note .qkey-hint { color: #5addd8; }
 
-/* black note keys */
 .qwerty-key.role-note-black {
-  background: #080f0f;
-  border-color: rgba(60,150,150,0.28);
+  background: linear-gradient(180deg, #a0b8b8 0%, #88a8a8 70%, #709898 100%);
+  border-color: #508080;
+  box-shadow: 0 4px 0 #304848, 0 5px 3px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.4);
 }
-.qwerty-key.role-note-black .qkey-cap  { color: rgba(30,110,110,0.65); }
+.qwerty-key.role-note-black .qkey-cap  { color: rgba(10,70,70,0.75); }
 .qwerty-key.role-note-black .qkey-hint { color: rgba(80,180,180,0.9); }
 
-/* play (Space) */
 .qwerty-key.role-play {
-  background: #0c1a0e;
-  border-color: rgba(90,221,113,0.45);
-  letter-spacing: 0.12em;
+  background: linear-gradient(180deg, #c0d4b8 0%, #a8c4a0 70%, #90b488 100%);
+  border-color: #70906a;
+  box-shadow: 0 5px 0 #405038, 0 6px 4px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.5);
 }
-.qwerty-key.role-play .qkey-cap  { color: var(--live); font-size: 0.6rem; }
-.qwerty-key.role-play .qkey-hint { color: rgba(90,221,113,0.8); display: none; }
+.qwerty-key.role-play .qkey-cap { color: var(--live); font-size: 0.6rem; }
 
-/* utility */
 .qwerty-key.role-util {
-  background: #181208;
-  border-color: rgba(240,198,64,0.28);
+  background: linear-gradient(180deg, #d8d0b0 0%, #c8c098 70%, #b8b080 100%);
+  border-color: #988870;
+  box-shadow: 0 4px 0 #605828, 0 5px 3px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.5);
 }
-.qwerty-key.role-util .qkey-cap  { color: rgba(180,130,20,0.7); }
+.qwerty-key.role-util .qkey-cap  { color: rgba(120,90,10,0.8); }
 .qwerty-key.role-util .qkey-hint { color: var(--accent); }
 
-/* track controls */
 .qwerty-key.role-track {
-  background: #160e18;
-  border-color: rgba(180,80,200,0.22);
+  background: linear-gradient(180deg, #d0c0d8 0%, #c0a8c8 70%, #b098b8 100%);
+  border-color: #907098;
+  box-shadow: 0 4px 0 #503860, 0 5px 3px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.5);
 }
-.qwerty-key.role-track .qkey-cap  { color: rgba(140,50,160,0.7); }
+.qwerty-key.role-track .qkey-cap  { color: rgba(100,30,120,0.8); }
 .qwerty-key.role-track .qkey-hint { color: #c060d0; }
 
-/* scene */
 .qwerty-key.role-scene {
-  background: #18100a;
-  border-color: rgba(240,130,50,0.28);
+  background: linear-gradient(180deg, #d8c8b0 0%, #c8b098 70%, #b89888 100%);
+  border-color: #987868;
+  box-shadow: 0 4px 0 #604830, 0 5px 3px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.5);
 }
-.qwerty-key.role-scene .qkey-cap  { color: rgba(190,100,30,0.7); }
+.qwerty-key.role-scene .qkey-cap  { color: rgba(140,70,20,0.8); }
 .qwerty-key.role-scene .qkey-hint { color: #f08040; }
 
-/* ── Pressed — amber flash + depress ─────────── */
+/* Pressed — amber flash */
 .qwerty-key.pressed {
-  transform: scale(0.91) translateY(1px);
-  border-color: var(--accent) !important;
-  background: rgba(240,198,64,0.22) !important;
-  box-shadow: 0 0 8px rgba(240,198,64,0.35);
+  transform: translateY(3px);
+  border-color: #c8a030 !important;
+  background: linear-gradient(180deg, #f0d870 0%, #d8c050 70%, #c0a830 100%) !important;
+  box-shadow:
+    0 1px 0 #7a6a00,
+    0 2px 1px rgba(0,0,0,0.4),
+    inset 0 1px 0 rgba(255,255,255,0.3) !important;
 }
-.qwerty-key.pressed .qkey-cap  { color: var(--accent) !important; }
-.qwerty-key.pressed .qkey-hint { color: #fff !important; }
+.qwerty-key.pressed .qkey-cap  { color: #3a2800 !important; }
+.qwerty-key.pressed .qkey-hint { color: #3a2800 !important; }
 
-/* hover brightness on active-role keys */
 .qwerty-key:not(.role-idle):hover {
-  filter: brightness(1.35);
+  filter: brightness(1.08);
   cursor: default;
 }
 
 /* ============================================================
-   VISUAL PIANO
+   VISUAL PIANO — 3D physical piano keys
    ============================================================ */
 
 .kbd-piano {
   display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 52px;
+  padding: 0 2px;
   position: relative;
-  height: 44px;
-  border-radius: 4px;
-  overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0)),
-    #111;
-  border: 1px solid rgba(255,255,255,0.07);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.05),
-    inset 0 -12px 18px rgba(0,0,0,0.28);
 }
 
 .piano-wrapper {
@@ -1594,42 +1258,70 @@ button {
 
 .piano-white {
   flex: 1;
-  background: linear-gradient(180deg, #ffffff 0%, #f2f2f2 55%, #d8d8d8 100%);
-  border-right: 1px solid #aaa;
-  border-radius: 0 0 4px 4px;
+  background: linear-gradient(180deg, #e0d8c8 0%, #cec6b4 70%, #beb6a4 100%);
+  border: 1px solid #a09080;
+  border-radius: 2px 2px 5px 5px;
   cursor: pointer;
-  transition: background 0.08s;
-  box-shadow: inset 0 -10px 14px rgba(0,0,0,0.08);
+  transition: transform 40ms, box-shadow 40ms, background 40ms;
+  box-shadow:
+    0 5px 0 #8a7a64,
+    0 6px 3px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.5);
+  height: 100%;
 }
 
 .piano-white:last-child {
   border-right: none;
 }
 
-.piano-white:hover,
+.piano-white:hover {
+  filter: brightness(1.1);
+}
+
+.piano-white:active,
 .piano-white.lit {
-  background: var(--accent);
+  transform: translateY(3px);
+  box-shadow:
+    0 1px 0 #8a7a64,
+    0 2px 2px rgba(0,0,0,0.4),
+    inset 0 1px 0 rgba(0,0,0,0.08);
+}
+
+.piano-white.lit {
+  background: linear-gradient(180deg, #a8e8a0 0%, #78c870 100%) !important;
 }
 
 .piano-black {
   position: absolute;
   width: 3%;
-  height: 65%;
-  background: linear-gradient(180deg, #30353a 0%, #121416 35%, #060708 100%);
-  border-radius: 0 0 3px 3px;
-  border: 1px solid #333;
+  background: linear-gradient(180deg, #282420 0%, #1a1814 60%, #0e0c0a 100%);
+  border: 1px solid #0a0806;
+  border-radius: 2px 2px 4px 4px;
   z-index: 2;
   cursor: pointer;
-  transition: background 0.08s, transform 0.08s;
+  transition: transform 40ms, box-shadow 40ms, background 40ms;
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.07),
-    inset 0 -8px 12px rgba(0,0,0,0.32),
-    0 6px 8px rgba(0,0,0,0.24);
+    0 3px 0 #050402,
+    0 4px 3px rgba(0,0,0,0.6),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+  height: 65%;
 }
 
-.piano-black:hover,
+.piano-black:hover {
+  filter: brightness(1.2);
+}
+
+.piano-black:active,
 .piano-black.lit {
-  background: var(--accent);
+  transform: translateY(2px);
+  box-shadow:
+    0 1px 0 #050402,
+    0 2px 2px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(0,0,0,0.1);
+}
+
+.piano-black.lit {
+  background: linear-gradient(180deg, #a8e8a0 0%, #78c870 100%) !important;
 }
 
 /* ============================================================
@@ -1652,7 +1344,7 @@ button {
   border-radius: 10px;
   background:
     linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01) 22%, rgba(0,0,0,0.2)),
-    rgba(10, 13, 14, 0.65);
+    rgba(10,13,14,0.65);
   border: 1px solid rgba(255,255,255,0.05);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.04),
@@ -1703,13 +1395,13 @@ button {
 }
 
 .fader-mute.active {
-  background: rgba(240, 91, 82, 0.2);
+  background: rgba(240,91,82,0.2);
   color: var(--record);
   border-color: var(--record);
 }
 
 .fader-solo.active {
-  background: rgba(240, 198, 64, 0.2);
+  background: rgba(240,198,64,0.2);
   color: var(--accent);
   border-color: var(--accent);
 }
@@ -1729,7 +1421,7 @@ button {
 .page-card {
   background:
     linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01) 20%, rgba(0,0,0,0.22)),
-    rgba(255, 255, 255, 0.02);
+    rgba(255,255,255,0.02);
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: 10px;
   padding: 10px;
@@ -1827,12 +1519,12 @@ button {
 
 .scene-btn:hover {
   color: var(--screen-text);
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255,255,255,0.12);
 }
 
 .scene-btn.active {
-  background: rgba(240, 198, 64, 0.08);
-  border-color: rgba(240, 198, 64, 0.4);
+  background: rgba(240,198,64,0.08);
+  border-color: rgba(240,198,64,0.4);
   color: var(--accent);
 }
 
@@ -1874,14 +1566,14 @@ button {
 
 .bank-btn:hover {
   color: var(--screen-text);
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255,255,255,0.12);
   transform: translateY(-1px);
 }
 
 .bank-btn.active {
   color: var(--accent);
-  border-color: rgba(240, 198, 64, 0.4);
-  background: rgba(240, 198, 64, 0.06);
+  border-color: rgba(240,198,64,0.4);
+  background: rgba(240,198,64,0.06);
 }
 
 /* ============================================================
@@ -1920,17 +1612,17 @@ button {
   min-width: 32px;
   border-radius: 3px;
   background: #2a3a2a;
-  border: 1px solid rgba(90, 221, 113, 0.2);
+  border: 1px solid rgba(90,221,113,0.2);
   cursor: pointer;
   transition: all 0.1s;
 }
 
 .arr-block:hover {
-  border-color: rgba(90, 221, 113, 0.4);
+  border-color: rgba(90,221,113,0.4);
 }
 
 .arr-block.active {
-  background: rgba(90, 221, 113, 0.2);
+  background: rgba(90,221,113,0.2);
   border-color: var(--live);
 }
 
@@ -1962,19 +1654,19 @@ button {
   font-family: var(--font-mono);
   font-size: 0.48rem;
   color: var(--muted);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255,255,255,0.02);
   cursor: pointer;
   transition: background 0.08s;
 }
 
 .roll-key.black-key {
-  background: rgba(0, 0, 0, 0.3);
-  color: rgba(255, 255, 255, 0.2);
+  background: rgba(0,0,0,0.3);
+  color: rgba(255,255,255,0.2);
 }
 
 .roll-key:hover,
 .roll-key.lit {
-  background: rgba(240, 198, 64, 0.1);
+  background: rgba(240,198,64,0.1);
   color: var(--accent);
 }
 
@@ -1986,32 +1678,32 @@ button {
 .roll-row {
   display: flex;
   height: 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255,255,255,0.02);
 }
 
 .roll-row.black-row {
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(0,0,0,0.15);
 }
 
 .roll-cell {
   flex: 1;
   min-width: 20px;
-  border-right: 1px solid rgba(255, 255, 255, 0.02);
+  border-right: 1px solid rgba(255,255,255,0.02);
   cursor: pointer;
   transition: background 0.06s;
 }
 
 .roll-cell:nth-child(4n+1) {
-  border-right-color: rgba(255, 255, 255, 0.05);
+  border-right-color: rgba(255,255,255,0.05);
 }
 
 .roll-cell:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255,255,255,0.04);
 }
 
 .roll-cell.active {
-  background: rgba(90, 221, 113, 0.4);
-  border-color: rgba(90, 221, 113, 0.3);
+  background: rgba(90,221,113,0.4);
+  border-color: rgba(90,221,113,0.3);
 }
 
 .roll-cell.playhead {
@@ -2019,8 +1711,30 @@ button {
   outline-offset: -1px;
 }
 
+.piano-cell {
+  flex: 1;
+  min-width: 20px;
+  border-right: 1px solid rgba(255,255,255,0.02);
+  cursor: pointer;
+  transition: background 0.06s;
+}
+
+.piano-cell:hover {
+  background: rgba(255,255,255,0.04);
+}
+
+.piano-cell.active {
+  background: rgba(90,221,113,0.4);
+  border-color: rgba(90,221,113,0.3);
+}
+
+.piano-cell.playhead {
+  outline: 1px solid var(--record);
+  outline-offset: -1px;
+}
+
 /* ============================================================
-   STATUS / INFO CARDS (FX, channels, MIDI, I/O)
+   STATUS / INFO CARDS
    ============================================================ */
 
 .status-grid {
@@ -2032,7 +1746,7 @@ button {
 }
 
 .status-card {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255,255,255,0.02);
   border: 1px solid var(--border);
   border-radius: 5px;
   padding: 8px;
@@ -2054,7 +1768,7 @@ button {
 }
 
 /* ============================================================
-   SEQUENCER TOOLBAR (euclid, copy/paste, etc.)
+   SEQUENCER TOOLBAR
    ============================================================ */
 
 .seq-toolbar {
@@ -2125,7 +1839,7 @@ button {
 
 .seq-btn:hover {
   color: var(--screen-text);
-  border-color: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255,255,255,0.15);
   transform: translateY(-1px);
 }
 
@@ -2146,6 +1860,34 @@ button {
   margin-top: 2px;
 }
 
+/* ctx-btn */
+.ctx-btn {
+  padding: 4px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.01) 30%, rgba(0,0,0,0.24)),
+    #1a1a1a;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.ctx-btn:hover {
+  color: var(--screen-text);
+  border-color: rgba(255,255,255,0.15);
+}
+
+.ctx-btn.active {
+  color: var(--accent);
+  border-color: rgba(240,198,64,0.35);
+  background: rgba(240,198,64,0.06);
+}
+
 /* ============================================================
    SETTINGS PAGE
    ============================================================ */
@@ -2161,7 +1903,7 @@ button {
 .settings-section {
   background:
     linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01) 20%, rgba(0,0,0,0.22)),
-    rgba(255, 255, 255, 0.02);
+    rgba(255,255,255,0.02);
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: 10px;
   padding: 10px;
@@ -2226,64 +1968,4 @@ button {
   text-transform: none;
   letter-spacing: 0;
   opacity: 0.7;
-}
-
-/* ============================================================
-   RESPONSIVE
-   ============================================================ */
-
-@media (max-width: 600px) {
-  .machine-grid {
-    grid-template-columns: 64px 1fr 64px;
-    gap: 6px;
-    padding: 0 6px;
-  }
-
-  .left-col,
-  .right-col {
-    gap: 6px;
-  }
-
-  .knob-svg {
-    width: 40px;
-    height: 40px;
-  }
-
-  .t-btn {
-    width: 36px;
-    height: 36px;
-    font-size: 0.75rem;
-  }
-
-  .track-strip {
-    grid-template-columns: repeat(4, 1fr);
-    padding: 6px 8px;
-  }
-
-  .page-tabs {
-    grid-template-columns: repeat(5, 1fr);
-    gap: 2px;
-  }
-
-  .tab {
-    font-size: 0.52rem;
-  }
-}
-
-@media (max-width: 400px) {
-  .chassis {
-    border-radius: 0;
-  }
-
-  .ports-bar {
-    gap: 12px;
-  }
-
-  .machine-grid {
-    grid-template-columns: 52px 1fr 52px;
-  }
-
-  .track-strip {
-    grid-template-columns: repeat(4, 1fr);
-  }
 }
