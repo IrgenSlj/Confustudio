@@ -38,7 +38,7 @@ export function createTrack(index) {
   return {
     // Identity
     name:         `Track ${index + 1}`,
-    machine:      isMidi ? "midi" : "tone", // "tone"|"noise"|"sample"|"midi"
+    machine:      isMidi ? "midi" : "tone", // "tone"|"noise"|"sample"|"midi"|"plaits"|"clouds"|"rings"
     isMidi,
 
     // Sound
@@ -70,6 +70,24 @@ export function createTrack(index) {
     filterType:   "lowpass",  // "lowpass"|"bandpass"|"highpass"
     bitDepth:     16,         // 1–16, integer
     srDiv:        1,          // 1–32, sample rate reduction divisor
+
+    // Plaits multi-engine synth
+    plEngine:    0,
+    plTimbre:    0.5,
+    plHarmonics: 0.5,
+    plMorph:     0.5,
+
+    // Clouds granular
+    clPosition: 0.5,
+    clSize:     0.3,
+    clDensity:  0.5,
+    clTexture:  0.5,
+
+    // Rings modal resonator
+    rnStructure:  0.5,
+    rnBrightness: 0.7,
+    rnDamping:    0.7,
+    rnExciter:    0,
 
     // Runtime (not serialized)
     sampleBuffer: null,

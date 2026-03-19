@@ -1,5 +1,5 @@
 import { createReadStream, existsSync } from "node:fs";
-import { stat } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -201,6 +201,34 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname.startsWith("/public/")) {
     await serveFile(res, path.join(rootDir, url.pathname));
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/samples") {
+    const samplesDir = path.join(rootDir, "samples");
+    const audioExts  = new Set(['.wav', '.mp3', '.ogg', '.flac', '.aif', '.aiff']);
+    try {
+      const entries = await readdir(samplesDir);
+      const results = [];
+      for (const name of entries) {
+        if (!audioExts.has(path.extname(name).toLowerCase())) continue;
+        try {
+          const fileStat = await stat(path.join(samplesDir, name));
+          if (fileStat.isFile()) {
+            results.push({ name, path: `/samples/${name}`, size: fileStat.size });
+          }
+        } catch (_) {}
+      }
+      sendJson(res, 200, results);
+    } catch (_) {
+      sendJson(res, 200, []);
+    }
+    return;
+  }
+
+  if (url.pathname.startsWith('/samples/')) {
+    const filename = path.basename(url.pathname);
+    await serveFile(res, path.join(rootDir, 'samples', filename));
     return;
   }
 

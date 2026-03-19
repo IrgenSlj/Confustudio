@@ -73,8 +73,11 @@ export class AudioEngine {
     this.midiOutput = null;
     this._midiClockInterval = null;
 
-    // AudioWorklet readiness flag — set true after initWorklets() resolves
+    // AudioWorklet readiness flags — set true after initWorklets() resolves
     this._workletReady = false;
+    this._plaitsReady  = false;
+    this._cloudsReady  = false;
+    this._ringsReady   = false;
 
     // Routing
     this.delay.connect(this.delayFeedback);
@@ -197,12 +200,20 @@ export class AudioEngine {
   // ——————————————————————————————————————————————
 
   async initWorklets() {
-    try {
-      await this.context.audioWorklet.addModule('/src/worklets/resampler-worklet.js');
-      this._workletReady = true;
-    } catch (err) {
-      console.warn('AudioWorklet (cs-resampler) failed to load:', err);
-    }
+    const load = async (path, flagName) => {
+      try {
+        await this.context.audioWorklet.addModule(path);
+        this[flagName] = true;
+      } catch (err) {
+        console.warn(`AudioWorklet ${path} failed:`, err);
+      }
+    };
+    await Promise.all([
+      load('/src/worklets/resampler-worklet.js', '_workletReady'),
+      load('/src/worklets/plaits-worklet.js',    '_plaitsReady'),
+      load('/src/worklets/clouds-worklet.js',    '_cloudsReady'),
+      load('/src/worklets/rings-worklet.js',     '_ringsReady'),
+    ]);
   }
 
   // ——————————————————————————————————————————————
@@ -397,6 +408,80 @@ export class AudioEngine {
       }
       lfo.start(when);
       lfo.stop(when + totalTime + 0.05);
+    }
+
+    // Plaits multi-engine synth
+    if (params.machine === 'plaits' && this._plaitsReady) {
+      try {
+        const node = new AudioWorkletNode(this.context, 'cs-plaits');
+        node.port.postMessage({
+          type:      'trigger',
+          engine:    params.plEngine    ?? 0,
+          frequency: 440 * Math.pow(2, ((note || 69) - 69) / 12),
+          timbre:    params.plTimbre    ?? 0.5,
+          harmonics: params.plHarmonics ?? 0.5,
+          morph:     params.plMorph     ?? 0.5,
+          sampleRate: this.context.sampleRate,
+        });
+        node.connect(output);
+        setTimeout(() => {
+          node.port.postMessage({ type: 'stop' });
+          try { node.disconnect(); } catch (_) {}
+        }, (totalTime + 0.3) * 1000);
+        return;
+      } catch (_) {}
+    }
+
+    // Clouds granular
+    if (params.machine === 'clouds' && this._cloudsReady) {
+      try {
+        const node = new AudioWorkletNode(this.context, 'cs-clouds');
+        if (params.sampleBuffer) {
+          const ch   = params.sampleBuffer.getChannelData(0);
+          const copy = ch.buffer.slice(0);
+          node.port.postMessage(
+            { type: 'load', buffer: copy, sampleRate: params.sampleBuffer.sampleRate, ctxRate: this.context.sampleRate },
+            [copy]
+          );
+        }
+        node.port.postMessage({
+          type:     'trigger',
+          position: params.clPosition ?? 0.5,
+          size:     params.clSize     ?? 0.3,
+          density:  params.clDensity  ?? 0.5,
+          texture:  params.clTexture  ?? 0.5,
+          pitch:    Math.pow(2, ((note || 60) - 60) / 12),
+          duration: totalTime,
+        });
+        node.connect(output);
+        setTimeout(() => {
+          node.port.postMessage({ type: 'stop' });
+          try { node.disconnect(); } catch (_) {}
+        }, (totalTime + 0.5) * 1000);
+        return;
+      } catch (_) {}
+    }
+
+    // Rings modal resonator
+    if (params.machine === 'rings' && this._ringsReady) {
+      try {
+        const node = new AudioWorkletNode(this.context, 'cs-rings');
+        node.port.postMessage({
+          type:       'trigger',
+          frequency:  440 * Math.pow(2, ((note || 69) - 69) / 12),
+          structure:  params.rnStructure  ?? 0.5,
+          brightness: params.rnBrightness ?? 0.7,
+          damping:    params.rnDamping    ?? 0.7,
+          exciter:    params.rnExciter    ?? 0,
+          sampleRate: this.context.sampleRate,
+        });
+        node.connect(output);
+        setTimeout(() => {
+          node.port.postMessage({ type: 'stop' });
+          try { node.disconnect(); } catch (_) {}
+        }, (totalTime + 0.5) * 1000);
+        return;
+      } catch (_) {}
     }
 
     // Sample machine

@@ -1,7 +1,21 @@
 // src/pages/sound.js — Machine type, waveform, ADSR, filter
 
-const MACHINES  = ['tone', 'noise', 'sample', 'midi'];
+const MACHINES  = ['tone', 'noise', 'sample', 'midi', 'plaits', 'clouds', 'rings'];
 const WAVEFORMS = ['sine', 'triangle', 'sawtooth', 'square'];
+
+const PLAITS_ENGINES = [
+  { label: 'VA',     value: 0 },
+  { label: 'Wave',   value: 1 },
+  { label: 'FM2',    value: 2 },
+  { label: 'String', value: 3 },
+  { label: 'Chord',  value: 4 },
+];
+
+const RINGS_EXCITERS = [
+  { label: 'Impulse', value: 0 },
+  { label: 'Noise',   value: 1 },
+  { label: 'Bow',     value: 2 },
+];
 
 function buildEnvelopeSVG(attack, decay, sustain = 0.6, release = 0.3) {
   const W = 180, H = 48;
@@ -45,6 +59,18 @@ function makeSlider(label, param, min, max, step, value, emit, trackIndex) {
     emit('track:change', { trackIndex, param, value: v });
   });
   return row;
+}
+
+function makeSampleLoader(track, ti, emit, machCard) {
+  const sampleInfo = document.createElement('div');
+  sampleInfo.style.cssText = 'margin-top:8px;font-family:var(--font-mono);font-size:0.62rem;color:var(--muted)';
+  sampleInfo.textContent = track.sampleBuffer ? 'Sample loaded' : 'No sample loaded';
+  const loadBtn = document.createElement('button');
+  loadBtn.className = 'screen-btn';
+  loadBtn.style.marginTop = '6px';
+  loadBtn.textContent = 'Load Sample';
+  loadBtn.addEventListener('click', () => emit('state:change', { path: 'action_loadSample', value: ti }));
+  machCard.append(sampleInfo, loadBtn);
 }
 
 export default {
@@ -102,18 +128,94 @@ export default {
     }
 
     if (track.machine === 'sample') {
-      const sampleInfo = document.createElement('div');
-      sampleInfo.style.cssText = 'margin-top:8px;font-family:var(--font-mono);font-size:0.62rem;color:var(--muted)';
-      sampleInfo.textContent = track.sampleBuffer ? 'Sample loaded' : 'No sample loaded';
-      const loadBtn = document.createElement('button');
-      loadBtn.className = 'screen-btn';
-      loadBtn.style.marginTop = '6px';
-      loadBtn.textContent = 'Load Sample';
-      loadBtn.addEventListener('click', () => emit('state:change', { path: 'action_loadSample', value: ti }));
-      machCard.append(sampleInfo, loadBtn);
+      makeSampleLoader(track, ti, emit, machCard);
     }
 
     grid.append(machCard);
+
+    // ── Plaits card ──
+    if (track.machine === 'plaits') {
+      const plaitsCard = document.createElement('div');
+      plaitsCard.className = 'page-card';
+      plaitsCard.innerHTML = '<h4>Plaits Engine</h4>';
+
+      const engRow = document.createElement('div');
+      engRow.style.cssText = 'display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px';
+      PLAITS_ENGINES.forEach(({ label, value }) => {
+        const btn = document.createElement('button');
+        btn.className = 'ctx-btn' + (track.plEngine === value ? ' active' : '');
+        btn.textContent = label;
+        btn.addEventListener('click', () => {
+          engRow.querySelectorAll('.ctx-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          emit('track:change', { trackIndex: ti, param: 'plEngine', value });
+        });
+        engRow.append(btn);
+      });
+      plaitsCard.append(engRow);
+
+      [
+        { label: 'Timbre',    param: 'plTimbre',    min: 0, max: 1, step: 0.01 },
+        { label: 'Harmonics', param: 'plHarmonics', min: 0, max: 1, step: 0.01 },
+        { label: 'Morph',     param: 'plMorph',     min: 0, max: 1, step: 0.01 },
+      ].forEach(({ label, param, min, max, step }) =>
+        plaitsCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti))
+      );
+
+      grid.append(plaitsCard);
+    }
+
+    // ── Clouds card ──
+    if (track.machine === 'clouds') {
+      const cloudsCard = document.createElement('div');
+      cloudsCard.className = 'page-card';
+      cloudsCard.innerHTML = '<h4>Clouds Grains</h4>';
+
+      [
+        { label: 'Position', param: 'clPosition', min: 0, max: 1, step: 0.01 },
+        { label: 'Size',     param: 'clSize',     min: 0, max: 1, step: 0.01 },
+        { label: 'Density',  param: 'clDensity',  min: 0, max: 1, step: 0.01 },
+        { label: 'Texture',  param: 'clTexture',  min: 0, max: 1, step: 0.01 },
+      ].forEach(({ label, param, min, max, step }) =>
+        cloudsCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti))
+      );
+
+      makeSampleLoader(track, ti, emit, cloudsCard);
+
+      grid.append(cloudsCard);
+    }
+
+    // ── Rings card ──
+    if (track.machine === 'rings') {
+      const ringsCard = document.createElement('div');
+      ringsCard.className = 'page-card';
+      ringsCard.innerHTML = '<h4>Rings Resonator</h4>';
+
+      const excRow = document.createElement('div');
+      excRow.style.cssText = 'display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px';
+      RINGS_EXCITERS.forEach(({ label, value }) => {
+        const btn = document.createElement('button');
+        btn.className = 'ctx-btn' + (track.rnExciter === value ? ' active' : '');
+        btn.textContent = label;
+        btn.addEventListener('click', () => {
+          excRow.querySelectorAll('.ctx-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          emit('track:change', { trackIndex: ti, param: 'rnExciter', value });
+        });
+        excRow.append(btn);
+      });
+      ringsCard.append(excRow);
+
+      [
+        { label: 'Structure',  param: 'rnStructure',  min: 0, max: 1, step: 0.01 },
+        { label: 'Brightness', param: 'rnBrightness', min: 0, max: 1, step: 0.01 },
+        { label: 'Damping',    param: 'rnDamping',    min: 0, max: 1, step: 0.01 },
+      ].forEach(({ label, param, min, max, step }) =>
+        ringsCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti))
+      );
+
+      grid.append(ringsCard);
+    }
 
     // ── ADSR card ──
     const adsrCard = document.createElement('div');
@@ -164,14 +266,14 @@ export default {
   },
 
   knobMap: [
-    { label: 'Pitch',   param: 'pitch',     min: 0,    max: 127, step: 1 },
-    { label: 'Attack',  param: 'attack',    min: 0.001,max: 2,   step: 0.001 },
-    { label: 'Decay',   param: 'decay',     min: 0.01, max: 2,   step: 0.01 },
-    { label: 'Gate',    param: 'noteLength',min: 0.01, max: 1,   step: 0.01 },
-    { label: 'Cutoff',  param: 'cutoff',    min: 80,   max: 16000,step: 10 },
-    { label: 'Res',     param: 'resonance', min: 0.5,  max: 15,  step: 0.1 },
-    { label: 'Drive',   param: 'drive',     min: 0,    max: 1,   step: 0.01 },
-    { label: 'Vol',     param: 'volume',    min: 0,    max: 1,   step: 0.01 },
+    { label: 'Pitch',  param: 'pitch',       min: 0,    max: 127, step: 1 },
+    { label: 'Timbre', param: 'plTimbre',    min: 0,    max: 1,   step: 0.01 },
+    { label: 'Harm',   param: 'plHarmonics', min: 0,    max: 1,   step: 0.01 },
+    { label: 'Morph',  param: 'plMorph',     min: 0,    max: 1,   step: 0.01 },
+    { label: 'Attack', param: 'attack',      min: 0.001,max: 2,   step: 0.001 },
+    { label: 'Decay',  param: 'decay',       min: 0.01, max: 2,   step: 0.01 },
+    { label: 'Drive',  param: 'drive',       min: 0,    max: 1,   step: 0.01 },
+    { label: 'Vol',    param: 'volume',      min: 0,    max: 1,   step: 0.01 },
   ],
 
   keyboardContext: 'sound',
