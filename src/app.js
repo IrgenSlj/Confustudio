@@ -89,6 +89,8 @@ const el = {
   bpmInc:        $('bpm-inc'),
   sampleFile:    $('sample-file'),
   btnFill:       $('btn-fill'),
+  signalMeter:   $('signal-meter'),
+  masterVolume:  $('master-volume'),
 };
 
 function cloneJson(value) {
@@ -592,7 +594,56 @@ async function ensureAudio() {
   state.engine.initWorklets(); // async — loads cs-resampler worklet in background
   el.btnAudio.classList.add('active');
   drawOscilloscope(el.oscilloscope, state.engine, _oscAnimRef);
+  initSignalMeter();
+  startMeterAnimation();
+  if (el.masterVolume) {
+    el.masterVolume.addEventListener('input', e => {
+      const v = parseFloat(e.target.value);
+      state.masterLevel = v;
+      if (state.engine) state.engine.setMasterLevel(v);
+    });
+  }
   await initMidi();
+}
+
+function initSignalMeter() {
+  if (!el.signalMeter) return;
+  el.signalMeter.innerHTML = '';
+  for (let i = 1; i <= 16; i++) {
+    const seg = document.createElement('span');
+    seg.className = 'seg';
+    seg.dataset.seg = i;
+    el.signalMeter.appendChild(seg);
+  }
+}
+
+let _meterRaf = null;
+function startMeterAnimation() {
+  if (_meterRaf || !el.signalMeter) return;
+  const dataArr = new Uint8Array(32);
+  function tick() {
+    _meterRaf = requestAnimationFrame(tick);
+    const analyser = state.engine?.analyser;
+    if (!analyser) return;
+    analyser.getByteTimeDomainData(dataArr);
+    // RMS
+    let sum = 0;
+    for (let i = 0; i < dataArr.length; i++) {
+      const s = (dataArr[i] - 128) / 128;
+      sum += s * s;
+    }
+    const rms = Math.sqrt(sum / dataArr.length);
+    const lit = Math.round(rms * 80); // 0-16 range
+    el.signalMeter.querySelectorAll('.seg').forEach(seg => {
+      const n = Number(seg.dataset.seg);
+      if (n <= lit) {
+        seg.className = n <= 10 ? 'seg lit-green' : n <= 13 ? 'seg lit-orange' : 'seg lit-red';
+      } else {
+        seg.className = 'seg';
+      }
+    });
+  }
+  tick();
 }
 
 // ─────────────────────────────────────────────
@@ -810,16 +861,37 @@ function renderTrackStrip() {
   });
 }
 
+const MACHINE_SHORT = {
+  tone: 'TONE', noise: 'NOIS', sample: 'SAMP', midi: 'MIDI',
+  plaits: 'PLAI', clouds: 'CLOU', rings: 'RING',
+};
+
 function renderTrackSelector() {
   if (!el.trackSelector) return;
   const pattern = getActivePattern(state);
   el.trackSelector.innerHTML = '';
   pattern.kit.tracks.forEach((track, i) => {
-    const btn = document.createElement('button');
-    btn.className = 'track-sel-btn' + (i === state.selectedTrackIndex ? ' active' : '');
-    btn.textContent = `T${i + 1}`;
-    btn.addEventListener('click', () => emit('track:select', { trackIndex: i }));
-    el.trackSelector.append(btn);
+    const row = document.createElement('div');
+    row.className = 'track-ch' + (i === state.selectedTrackIndex ? ' active' : '');
+
+    const led = document.createElement('span');
+    led.className = 'track-led' + (track.mute ? ' muted' : '');
+
+    const info = document.createElement('div');
+    info.className = 'track-ch-info';
+
+    const num = document.createElement('span');
+    num.className = 'track-ch-num';
+    num.textContent = `T${i + 1}`;
+
+    const name = document.createElement('span');
+    name.className = 'track-ch-name';
+    name.textContent = MACHINE_SHORT[track.machine] || track.machine.toUpperCase().slice(0, 4);
+
+    info.append(num, name);
+    row.append(led, info);
+    row.addEventListener('click', () => emit('track:select', { trackIndex: i }));
+    el.trackSelector.append(row);
   });
 }
 

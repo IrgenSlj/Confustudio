@@ -195,6 +195,10 @@ export class AudioEngine {
     }
   }
 
+  setMasterLevel(v) {
+    this.master.gain.setTargetAtTime(Math.max(0, Math.min(1, v)), this.context.currentTime, 0.01);
+  }
+
   // ——————————————————————————————————————————————
   // AudioWorklet init
   // ——————————————————————————————————————————————

@@ -464,6 +464,168 @@ button {
 }
 
 /* ============================================================
+   SIGNAL METER (left col)
+   ============================================================ */
+
+.meter-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.meter-label {
+  font-family: var(--font-mono);
+  font-size: 0.52rem;
+  color: rgba(0,0,0,0.38);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+}
+
+.signal-meter {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+  align-items: center;
+  width: 16px;
+}
+
+.signal-meter .seg {
+  width: 10px;
+  height: 5px;
+  border-radius: 1px;
+  background: rgba(0,0,0,0.22);
+  box-shadow: inset 0 1px 1px rgba(0,0,0,0.3);
+  transition: background 0.05s;
+}
+
+/* seg-1..10 = green, 11-13 = orange, 14-16 = red */
+.signal-meter .seg.lit-green  { background: #5add71; box-shadow: 0 0 4px rgba(90,221,113,0.7); }
+.signal-meter .seg.lit-orange { background: #f0a840; box-shadow: 0 0 4px rgba(240,168,64,0.7); }
+.signal-meter .seg.lit-red    { background: #f05b52; box-shadow: 0 0 4px rgba(240,91,82,0.7); }
+
+/* ============================================================
+   MASTER FADER (left col)
+   ============================================================ */
+
+.fader-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-height: 60px;
+}
+
+.fader-master {
+  -webkit-appearance: slider-vertical;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 22px;
+  flex: 1;
+  min-height: 50px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+/* ============================================================
+   CHANNEL STRIP (right col)
+   ============================================================ */
+
+.channel-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 4px 6px;
+  flex: 1;
+}
+
+.track-ch {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(0,0,0,0.14);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.14), rgba(0,0,0,0.1) 100%),
+    rgba(0,0,0,0.08);
+  cursor: pointer;
+  transition: all 0.1s;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.25),
+    0 2px 0 rgba(60,60,60,0.4);
+}
+
+.track-ch:hover {
+  border-color: rgba(0,0,0,0.24);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.22), rgba(0,0,0,0.06) 100%),
+    rgba(0,0,0,0.08);
+}
+
+.track-ch.active {
+  border-color: rgba(180,120,0,0.5);
+  background:
+    linear-gradient(180deg, rgba(255,244,191,0.55), rgba(240,198,64,0.18) 50%, rgba(100,60,0,0.15) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.3),
+    0 2px 0 rgba(120,90,10,0.4),
+    0 0 8px rgba(240,198,64,0.18);
+}
+
+.track-led {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #5add71;
+  box-shadow: 0 0 4px rgba(90,221,113,0.6);
+  transition: background 0.1s, box-shadow 0.1s;
+}
+
+.track-led.muted {
+  background: rgba(0,0,0,0.22);
+  box-shadow: none;
+}
+
+.track-ch-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.track-ch-num {
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  color: rgba(0,0,0,0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.track-ch-name {
+  font-family: var(--font-mono);
+  font-size: 0.52rem;
+  color: rgba(0,0,0,0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-ch.active .track-ch-name,
+.track-ch.active .track-ch-num {
+  color: rgba(80,40,0,0.85);
+}
+
+/* ============================================================
    SCREEN SECTION
    ============================================================ */
 
@@ -852,7 +1014,7 @@ button {
   display: flex;
   align-items: center;
   gap: 4px;
-  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .bpm-arrow {

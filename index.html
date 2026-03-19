@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="theme-color" content="#4e5f3c" />
   <title>CONFUsynth</title>
   <link rel="manifest" href="/public/manifest.webmanifest" />
   <link rel="stylesheet" href="/src/styles.css" />
@@ -20,35 +20,58 @@
       <span class="port">USB</span>
     </div>
 
-    <!-- MAIN GRID: 3 cols -->
+    <!-- MAIN GRID: left-col | screen | right-col -->
     <div class="machine-grid">
 
-      <!-- LEFT KNOB COLUMN — 4 knobs + transport buttons -->
+      <!-- LEFT COLUMN -->
       <aside class="left-col">
-        <div class="knob-stack" id="left-knobs">
-          <!-- 4 SVG knobs rendered by knobs.js -->
+        <!-- hidden knob container — keeps JS happy -->
+        <div id="left-knobs" style="display:none"></div>
+
+        <!-- Signal meter: 16 vertical LED segments -->
+        <div class="meter-section">
+          <div class="meter-label">SIG</div>
+          <div class="signal-meter" id="signal-meter">
+            <!-- 16 spans, JS will light them -->
+            <!-- seg-16 = top/loudest, seg-1 = bottom/quietest -->
+          </div>
         </div>
+
+        <!-- Master volume fader (vertical) -->
+        <div class="fader-section">
+          <div class="meter-label">VOL</div>
+          <input type="range" id="master-volume" class="fader-master"
+            orient="vertical" min="0" max="1" step="0.01" value="0.82" />
+        </div>
+
+        <!-- Transport buttons -->
         <div class="transport-buttons">
-          <button id="btn-audio" class="t-btn t-btn--audio">A</button>
-          <button id="btn-play" class="t-btn t-btn--play">&#9654;</button>
-          <button id="btn-stop" class="t-btn t-btn--stop">&#9632;</button>
+          <button id="btn-audio"  class="t-btn t-btn--audio">A</button>
+          <button id="btn-play"   class="t-btn t-btn--play">&#9654;</button>
+          <button id="btn-stop"   class="t-btn t-btn--stop">&#9632;</button>
           <button id="btn-record" class="t-btn t-btn--record">&#9679;</button>
-          <button id="btn-fill" class="t-btn t-btn--fill">Fill</button>
+          <button id="btn-fill"   class="t-btn t-btn--fill">Fill</button>
+          <button id="btn-tap"    class="t-btn">Tap</button>
+        </div>
+
+        <!-- BPM edit (moved here from screen-below) -->
+        <div id="bpm-edit" class="bpm-edit">
+          <button id="bpm-dec" class="bpm-arrow">&#8722;</button>
+          <input id="bpm-input" type="number" min="40" max="240" value="122" />
+          <button id="bpm-inc" class="bpm-arrow">+</button>
         </div>
       </aside>
 
       <!-- CENTER: SCREEN -->
       <section class="screen-section">
-
-        <!-- Screen bezel -->
         <div class="screen-bezel">
 
           <!-- Top info bar -->
           <div class="screen-topbar">
             <span id="project-name" class="topbar-item">CONFUsynth</span>
             <span id="bank-pattern" class="topbar-item">A&#xB7;01</span>
-            <span id="bpm-display" class="topbar-item topbar-bpm">122 BPM</span>
-            <span id="status-pill" class="topbar-item topbar-status">IDLE</span>
+            <span id="bpm-display"  class="topbar-item topbar-bpm">122 BPM</span>
+            <span id="status-pill"  class="topbar-item topbar-status">IDLE</span>
           </div>
 
           <!-- 9 page tabs -->
@@ -64,10 +87,7 @@
             <button class="tab" data-page="settings">SET</button>
           </nav>
 
-          <!-- Knob parameter bar — shows which knob → which param → current value -->
-          <div class="knob-bar" id="knob-bar">
-            <!-- Rendered by app.js -->
-          </div>
+          <!-- NO knob-bar here — removed -->
 
           <!-- Page content area -->
           <div class="page-content" id="page-content">
@@ -79,30 +99,18 @@
 
         </div>
 
-        <!-- Below screen: sample file input -->
-        <div class="screen-below">
-          <label class="screen-btn file-btn">
-            Sample
-            <input id="sample-file" type="file" accept="audio/*" hidden />
-          </label>
-          <button id="btn-tap" class="screen-btn">Tap</button>
-          <div id="bpm-edit" class="bpm-edit">
-            <button id="bpm-dec" class="bpm-arrow">&#8722;</button>
-            <input id="bpm-input" type="number" min="40" max="240" value="122" />
-            <button id="bpm-inc" class="bpm-arrow">+</button>
-          </div>
-        </div>
-
+        <!-- sample file input, hidden, kept for JS -->
+        <label class="screen-btn file-btn" style="display:none">
+          Sample <input id="sample-file" type="file" accept="audio/*" hidden />
+        </label>
       </section>
 
-      <!-- RIGHT KNOB COLUMN — 4 knobs + track selector -->
+      <!-- RIGHT COLUMN: Channel strip -->
       <aside class="right-col">
-        <div class="knob-stack" id="right-knobs">
-          <!-- 4 SVG knobs rendered by knobs.js -->
-        </div>
-        <div class="track-selector" id="track-selector">
-          <!-- 8 track buttons rendered by app.js -->
-        </div>
+        <!-- hidden knob container — keeps JS happy -->
+        <div id="right-knobs" style="display:none"></div>
+        <!-- Channel strip — 8 rows rendered by app.js -->
+        <div class="channel-strip" id="track-selector"></div>
       </aside>
 
     </div>
@@ -112,10 +120,10 @@
 
       <!-- Universal transport zone -->
       <div class="kbd-universal">
-        <button id="kbd-play" class="kbd-btn kbd-play">PLAY</button>
-        <button id="kbd-stop" class="kbd-btn kbd-stop">STOP</button>
+        <button id="kbd-play"   class="kbd-btn kbd-play">PLAY</button>
+        <button id="kbd-stop"   class="kbd-btn kbd-stop">STOP</button>
         <button id="kbd-record" class="kbd-btn kbd-record">REC</button>
-        <button id="kbd-arm" class="kbd-btn">ARM</button>
+        <button id="kbd-arm"    class="kbd-btn">ARM</button>
         <span class="kbd-bpm" id="kbd-bpm-display">122 BPM</span>
       </div>
 
@@ -131,10 +139,8 @@
 
     </div>
 
-    <!-- TRACK STRIP (below machine grid) -->
-    <div class="track-strip" id="track-strip">
-      <!-- 8 track cards rendered by app.js -->
-    </div>
+    <!-- TRACK STRIP — hidden (replaced by right channel strip) -->
+    <div class="track-strip" id="track-strip" style="display:none"></div>
 
   </main>
 
