@@ -1,190 +1,222 @@
-// src/pages/settings.js — MIDI, clock, audio, storage, version
+// src/pages/settings.js — MIDI, clock, audio, storage, sync, version
+
+import { saveState } from '../state.js';
 
 const VERSION = 'v3.0.0';
 
+function infoRow(label, value, color) {
+  return `<div class="settings-row">
+    <label>${label}</label>
+    <span style="font-family:var(--font-mono);font-size:0.62rem;color:${color || 'var(--screen-text)'}">${value}</span>
+  </div>`;
+}
+
 export default {
   render(container, state, emit) {
-    container.innerHTML = '';
+    const midiOutputs = state.engine?.midiOutputs || state.midiOutputs || [];
+    const sampleRate  = state.audioContext?.sampleRate ?? '—';
+    const latencyMs   = state.audioContext?.baseLatency != null
+      ? (state.audioContext.baseLatency * 1000).toFixed(1) + 'ms'
+      : '—';
+    const workletReady = state.engine?._workletReady !== false;
+    const linkBpm     = state.abletonLink && state._linkBpm ? state._linkBpm.toFixed(1) : null;
 
-    const header = document.createElement('div');
-    header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0';
-    header.innerHTML = `<span class="page-title" style="margin:0">Settings</span>
-      <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);margin-left:auto">CONFUsynth ${VERSION}</span>`;
-    container.append(header);
+    container.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0">
+        <span class="page-title" style="margin:0">Settings</span>
+        <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);margin-left:auto">CONFUsynth ${VERSION}</span>
+      </div>
+      <div class="settings-grid" style="flex:1;min-height:0">
 
-    const grid = document.createElement('div');
-    grid.className = 'settings-grid';
-    grid.style.cssText = 'flex:1;min-height:0';
+        <!-- MIDI -->
+        <div class="settings-section">
+          <h4>MIDI</h4>
+          <div class="settings-row">
+            <label>Output</label>
+            <select data-action="midiOutput">
+              <option value="">— none —</option>
+              ${midiOutputs.map(o => `<option value="${o.id || o.name}"${state.engine?.midiOutput === o ? ' selected' : ''}>${o.name || o.id}</option>`).join('')}
+            </select>
+          </div>
+          <div class="settings-row">
+            <label>Channel</label>
+            <input type="number" min="1" max="16" value="${state.midiChannel ?? 1}" data-action="midiChannel"
+                   style="width:48px;font-family:var(--font-mono);font-size:0.62rem;background:var(--screen-bg);color:var(--screen-text);border:1px solid var(--border);padding:2px 4px">
+          </div>
+          <div class="settings-row" style="margin-top:6px">
+            <label>Clock Out</label>
+            <button class="ctx-btn${state.midiClockOut ? ' active' : ''}" data-action="midiClockOut">
+              ${state.midiClockOut ? 'ON' : 'OFF'}
+            </button>
+          </div>
+        </div>
 
-    // ── MIDI ──
-    const midiSec = document.createElement('div');
-    midiSec.className = 'settings-section';
-    midiSec.innerHTML = '<h4>MIDI</h4>';
+        <!-- Clock -->
+        <div class="settings-section">
+          <h4>Clock</h4>
+          <div class="settings-row">
+            <label>Source</label>
+            <div style="display:flex;gap:4px">
+              ${['internal', 'midi', 'link'].map(src => `
+                <button class="ctx-btn${(state.clockSource || 'internal') === src ? ' active' : ''}"
+                        data-action="clockSource" data-value="${src}">
+                  ${src === 'internal' ? 'INT' : src === 'midi' ? 'MIDI' : 'LINK'}
+                </button>`).join('')}
+            </div>
+          </div>
+          <div class="settings-row" style="margin-top:6px">
+            <label>Swing</label>
+            <span style="font-family:var(--font-mono);font-size:0.62rem;color:var(--accent)">${Math.round((state.swing ?? 0) * 100)}%</span>
+          </div>
+        </div>
 
-    const midiInputs  = state.midiInputs  || [];
-    const midiOutputs = state.midiOutputs || [];
+        <!-- Sync -->
+        <div class="settings-section">
+          <h4>SYNC</h4>
+          <div class="settings-row">
+            <label>Ableton Link</label>
+            <button class="ctx-btn${state.abletonLink ? ' active' : ''}" data-action="abletonLink">
+              ${state.abletonLink ? 'ON' : 'OFF'}
+            </button>
+          </div>
+          ${linkBpm ? `<div class="settings-row">${infoRow('', 'LINK: ' + linkBpm + ' BPM', 'var(--accent)')}</div>` : ''}
+        </div>
 
-    const midiRow1 = document.createElement('div');
-    midiRow1.className = 'settings-row';
-    midiRow1.innerHTML = `<label>MIDI Channel</label>`;
-    const midiChSel = document.createElement('select');
-    for (let i = 1; i <= 16; i++) {
-      const opt = document.createElement('option');
-      opt.value = i;
-      opt.textContent = `Ch ${i}`;
-      if (i === (state.midiChannel ?? 1)) opt.selected = true;
-      midiChSel.append(opt);
-    }
-    midiChSel.addEventListener('change', () =>
-      emit('state:change', { path: 'midiChannel', value: parseInt(midiChSel.value) })
-    );
-    midiRow1.append(midiChSel);
-    midiSec.append(midiRow1);
+        <!-- Audio -->
+        <div class="settings-section">
+          <h4>AUDIO</h4>
+          ${infoRow('Status',
+            state.audioContext ? (state.audioContext.state === 'running' ? 'Running' : state.audioContext.state) : 'Not initialised',
+            state.audioContext ? 'var(--live)' : 'var(--muted)')}
+          <button class="screen-btn" data-action="initAudio" style="margin:6px 0">Init Audio</button>
+          ${infoRow('RATE',    'RATE: ' + sampleRate + (sampleRate !== '—' ? ' Hz' : ''), 'var(--screen-text)')}
+          ${infoRow('LATENCY', 'LATENCY: ' + latencyMs, 'var(--screen-text)')}
+          ${infoRow('RESAMPLER',
+            'RESAMPLER: ' + (workletReady ? 'READY' : 'PENDING'),
+            workletReady ? 'var(--live)' : 'var(--muted)')}
+          <div class="settings-row" style="margin-top:8px">
+            <label>Metronome</label>
+            <button class="ctx-btn${state.metronome ? ' active' : ''}" data-action="metronome">
+              ${state.metronome ? 'On' : 'Off'}
+            </button>
+          </div>
+        </div>
 
-    // MIDI ports list
-    const portsLabel = document.createElement('div');
-    portsLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);text-transform:uppercase;margin:8px 0 4px;letter-spacing:0.06em';
-    portsLabel.textContent = 'Outputs';
-    midiSec.append(portsLabel);
+        <!-- Storage -->
+        <div class="settings-section">
+          <h4>Storage</h4>
+          <button class="screen-btn" data-action="clearStorage"
+                  style="border-color:rgba(240,91,82,0.3);color:var(--record)">
+            Clear Saved State
+          </button>
+          <div style="font-family:var(--font-mono);font-size:0.56rem;color:var(--muted);margin-top:10px;line-height:1.6">
+            CONFUsynth ${VERSION}<br>Web Audio API sequencer<br>ES modules
+          </div>
+        </div>
 
-    if (midiOutputs.length === 0) {
-      const none = document.createElement('span');
-      none.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted)';
-      none.textContent = 'No MIDI outputs detected';
-      midiSec.append(none);
-    } else {
-      midiOutputs.forEach(out => {
-        const item = document.createElement('div');
-        item.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;color:var(--screen-text);padding:2px 0';
-        item.textContent = out.name || out.id;
-        midiSec.append(item);
-      });
-    }
+      </div>`;
 
-    grid.append(midiSec);
+    container.addEventListener('click', e => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn || btn.tagName === 'SELECT' || btn.tagName === 'INPUT') return;
+      const action = btn.dataset.action;
 
-    // ── Clock ──
-    const clockSec = document.createElement('div');
-    clockSec.className = 'settings-section';
-    clockSec.innerHTML = '<h4>Clock</h4>';
+      if (action === 'midiClockOut') {
+        const next = !state.midiClockOut;
+        state.midiClockOut = next;
+        btn.classList.toggle('active', next);
+        btn.textContent = next ? 'ON' : 'OFF';
+        if (next && state.engine?.startMidiClock) state.engine.startMidiClock(state.bpm);
+        else if (!next && state.engine?.stopMidiClock) state.engine.stopMidiClock();
+        saveState(state);
+      }
 
-    const clockRow = document.createElement('div');
-    clockRow.className = 'settings-row';
-    clockRow.innerHTML = '<label>Source</label>';
-    const clockBtns = document.createElement('div');
-    clockBtns.style.cssText = 'display:flex;gap:4px';
-    ['Internal', 'External'].forEach(label => {
-      const btn = document.createElement('button');
-      const active = label === 'Internal' ? !(state.externalClock) : !!(state.externalClock);
-      btn.className = 'ctx-btn' + (active ? ' active' : '');
-      btn.textContent = label;
-      btn.addEventListener('click', () => {
-        clockBtns.querySelectorAll('.ctx-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        emit('state:change', { path: 'externalClock', value: label === 'External' });
-      });
-      clockBtns.append(btn);
-    });
-    clockRow.append(clockBtns);
-    clockSec.append(clockRow);
+      if (action === 'clockSource') {
+        const src = btn.dataset.value;
+        state.clockSource = src;
+        container.querySelectorAll('[data-action="clockSource"]').forEach(b =>
+          b.classList.toggle('active', b.dataset.value === src)
+        );
+        saveState(state);
+      }
 
-    // Swing
-    const swingRow = document.createElement('div');
-    swingRow.className = 'settings-row';
-    swingRow.innerHTML = `<label>Swing</label><span style="font-family:var(--font-mono);font-size:0.62rem;color:var(--accent)">${Math.round((state.swing ?? 0) * 100)}%</span>`;
-    clockSec.append(swingRow);
+      if (action === 'abletonLink') {
+        const next = !state.abletonLink;
+        state.abletonLink = next;
+        btn.classList.toggle('active', next);
+        btn.textContent = next ? 'ON' : 'OFF';
+        if (next) {
+          const ws = new WebSocket('ws://127.0.0.1:4173/link');
+          state._linkWs = ws;
+          ws.addEventListener('message', ev => {
+            try {
+              const msg = JSON.parse(ev.data);
+              if (typeof msg.bpm === 'number') {
+                state.bpm = msg.bpm;
+                state._linkBpm = msg.bpm;
+                if (state.engine?.startMidiClock) state.engine.startMidiClock(msg.bpm);
+                emit('state:change', { path: 'bpm', value: msg.bpm });
+              }
+            } catch (_) {}
+          });
+        } else {
+          if (state._linkWs) { state._linkWs.close(); state._linkWs = null; }
+          state._linkBpm = null;
+        }
+        saveState(state);
+      }
 
-    // Link (placeholder)
-    const linkRow = document.createElement('div');
-    linkRow.className = 'settings-row';
-    linkRow.innerHTML = '<label>Ableton Link</label>';
-    const linkBtn = document.createElement('button');
-    linkBtn.className = 'ctx-btn' + (state.linkEnabled ? ' active' : '');
-    linkBtn.textContent = state.linkEnabled ? 'Enabled' : 'Disabled';
-    linkBtn.addEventListener('click', () => {
-      emit('state:change', { path: 'linkEnabled', value: !state.linkEnabled });
-      linkBtn.classList.toggle('active');
-      linkBtn.textContent = !state.linkEnabled ? 'Enabled' : 'Disabled';
-    });
-    linkRow.append(linkBtn);
-    clockSec.append(linkRow);
-    grid.append(clockSec);
+      if (action === 'metronome') {
+        const next = !state.metronome;
+        state.metronome = next;
+        btn.classList.toggle('active', next);
+        btn.textContent = next ? 'On' : 'Off';
+        emit('state:change', { path: 'metronome', value: next });
+        saveState(state);
+      }
 
-    // ── Audio ──
-    const audioSec = document.createElement('div');
-    audioSec.className = 'settings-section';
-    audioSec.innerHTML = '<h4>Audio</h4>';
+      if (action === 'initAudio') {
+        emit('state:change', { path: 'action_initAudio', value: true });
+      }
 
-    const audioRow = document.createElement('div');
-    audioRow.className = 'settings-row';
-    audioRow.innerHTML = '<label>AudioContext</label>';
-    const audioState = state.audioContext
-      ? (state.audioContext.state === 'running' ? 'Running' : state.audioContext.state)
-      : 'Not initialised';
-    const audioStatus = document.createElement('span');
-    audioStatus.style.cssText = `font-family:var(--font-mono);font-size:0.62rem;color:${state.audioContext ? 'var(--live)' : 'var(--muted)'}`;
-    audioStatus.textContent = audioState;
-    audioRow.append(audioStatus);
-    audioSec.append(audioRow);
-
-    const initBtn = document.createElement('button');
-    initBtn.className = 'screen-btn';
-    initBtn.style.marginTop = '6px';
-    initBtn.textContent = 'Init Audio';
-    initBtn.addEventListener('click', () => emit('state:change', { path: 'action_initAudio', value: true }));
-    audioSec.append(initBtn);
-
-    // Metronome
-    const metRow = document.createElement('div');
-    metRow.className = 'settings-row';
-    metRow.style.marginTop = '8px';
-    metRow.innerHTML = '<label>Metronome</label>';
-    const metBtn = document.createElement('button');
-    metBtn.className = 'ctx-btn' + (state.metronome ? ' active' : '');
-    metBtn.textContent = state.metronome ? 'On' : 'Off';
-    metBtn.addEventListener('click', () => {
-      emit('state:change', { path: 'metronome', value: !state.metronome });
-      metBtn.classList.toggle('active');
-      metBtn.textContent = !state.metronome ? 'On' : 'Off';
-    });
-    metRow.append(metBtn);
-    audioSec.append(metRow);
-    grid.append(audioSec);
-
-    // ── Storage ──
-    const storeSec = document.createElement('div');
-    storeSec.className = 'settings-section';
-    storeSec.innerHTML = '<h4>Storage</h4>';
-
-    const clearBtn = document.createElement('button');
-    clearBtn.className = 'screen-btn';
-    clearBtn.style.cssText = 'border-color:rgba(240,91,82,0.3);color:var(--record)';
-    clearBtn.textContent = 'Clear Saved State';
-    clearBtn.addEventListener('click', () => {
-      if (confirm('Clear all saved state? This cannot be undone.')) {
-        emit('state:change', { path: 'action_clearStorage', value: true });
+      if (action === 'clearStorage') {
+        if (confirm('Clear all saved state? This cannot be undone.')) {
+          emit('state:change', { path: 'action_clearStorage', value: true });
+        }
       }
     });
-    storeSec.append(clearBtn);
 
-    const verInfo = document.createElement('div');
-    verInfo.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--muted);margin-top:10px;line-height:1.6';
-    verInfo.innerHTML = `CONFUsynth ${VERSION}<br>Web Audio API sequencer<br>ES modules`;
-    storeSec.append(verInfo);
-    grid.append(storeSec);
+    container.addEventListener('change', e => {
+      const el = e.target;
+      if (!el.dataset.action) return;
+      const action = el.dataset.action;
 
-    container.append(grid);
+      if (action === 'midiChannel') {
+        const v = Math.max(1, Math.min(16, parseInt(el.value, 10) || 1));
+        el.value = v;
+        state.midiChannel = v;
+        emit('state:change', { path: 'midiChannel', value: v });
+        saveState(state);
+      }
+
+      if (action === 'midiOutput') {
+        const id = el.value;
+        const out = midiOutputs.find(o => (o.id || o.name) === id) || null;
+        if (state.engine) state.engine.midiOutput = out;
+        saveState(state);
+      }
+    });
   },
 
   knobMap: [
-    { label: 'MIDI Ch',   param: 'midiChannel',  min: 1,  max: 16, step: 1 },
-    { label: 'Sync',      param: 'syncMode',     min: 0,  max: 2,  step: 1 },
-    { label: 'I/O Lvl',   param: 'ioLevel',      min: 0,  max: 1,  step: 0.01 },
-    { label: 'Swing',     param: 'swing',        min: 0,  max: 0.42,step: 0.01 },
-    { label: 'Link',      param: 'linkEnabled',  min: 0,  max: 1,  step: 1 },
-    { label: 'Clock',     param: 'externalClock',min: 0,  max: 1,  step: 1 },
-    { label: 'Metro',     param: 'metronome',    min: 0,  max: 1,  step: 1 },
-    { label: '—',         param: null,           min: 0,  max: 1,  step: 1 },
+    { label: 'MIDI Ch',  param: 'midiChannel',  min: 1,  max: 16,   step: 1    },
+    { label: 'Swing',    param: 'swing',         min: 0,  max: 0.42, step: 0.01 },
+    { label: 'I/O Lvl',  param: 'ioLevel',       min: 0,  max: 1,    step: 0.01 },
+    { label: 'Link',     param: 'abletonLink',   min: 0,  max: 1,    step: 1    },
+    { label: 'Clock',    param: 'clockSource',   min: 0,  max: 2,    step: 1    },
+    { label: 'Metro',    param: 'metronome',     min: 0,  max: 1,    step: 1    },
+    { label: 'ClkOut',   param: 'midiClockOut',  min: 0,  max: 1,    step: 1    },
+    { label: '—',        param: null,            min: 0,  max: 1,    step: 1    },
   ],
 
   keyboardContext: 'settings',

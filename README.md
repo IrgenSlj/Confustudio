@@ -177,36 +177,36 @@ export ANTHROPIC_API_KEY=...
 export ANTHROPIC_MODEL=claude-3-5-sonnet-latest
 ```
 
-## Current Prototype Notes
+## Current Build State
 
-What works now:
+What is implemented:
 
-- Transport with BPM, swing, and 16-step scheduling.
-- Eight selectable tracks.
-- Tone, noise, and sample playback machines.
-- Crossfader-driven scene interpolation for cutoff, decay, and delay amount.
-- Global delay and reverb buses.
-- File import and microphone capture into the selected track.
-- Simple assistant UI with local proxy.
+- Transport: BPM, swing, tap tempo, 64-step scheduling with trig conditions and probability.
+- 8 audio tracks + 8 MIDI tracks, per-track mute/solo.
+- Machines: tone (4 waveforms), noise, sample playback, MIDI.
+- ADSR envelope, LFO (cutoff/volume/pan targets), per-track filter (LP/BP/HP), drive, pan.
+- Parameter locks per step, scene A/B crossfader morphing.
+- 8 banks × 16 patterns per bank, arranger / song mode.
+- Freeverb reverb (Schroeder-Moorer, 8 comb + 4 allpass native nodes).
+- Delay with feedback, per-track reverb and delay sends.
+- Per-track bitcrusher (BITS) and sample rate reduction (SRR) controls.
+- AudioWorklet sinc resampler (`cs-resampler`) — 4-point cubic Hermite interpolation for pitched samples.
+- MIDI Clock out (24ppqn) with drift correction, MIDI start/stop transport.
+- Ableton Link WebSocket bridge ready (requires `node-abletonlink` server integration to activate).
+- WebMIDI I/O, MIDI output selection.
+- File sample import, microphone capture.
+- COOP/COEP headers — SharedArrayBuffer enabled for AudioWorklet.
+- Assistant bridge: OpenAI, Anthropic, MCP stub.
 - Installable PWA shell.
-
-What is intentionally missing:
-
-- True parameter locks.
-- Native plugin packaging.
-- AudioWorklet DSP.
-- MIDI I/O.
-- Song mode and arranger.
-- Cue routing and advanced recorder matrix.
+- Electron desktop packaging (`npm install && npm run electron`).
 
 ## Recommended Next Build Steps
 
-1. Move the sequencer state and scheduler into TypeScript modules with unit tests.
-2. Introduce AudioWorklet for sample-accurate transport and lower-jitter scheduling.
-3. Build a Rust core for sequencing, voice allocation, and DSP parameter interpolation.
-4. Add proper pattern memory, banks, scenes, fills, and parameter locks.
-5. Package the standalone app in Tauri.
-6. Expose a CLAP build target for DAW integration.
+1. Add Mutable Instruments Plaits/Clouds/Rings as WASM synthesis machines (16-engine wavetable, granular, physical modeling).
+2. Integrate `node-abletonlink` into `server.mjs` to complete the Ableton Link tempo sync bridge.
+3. Build the Rust/WASM DSP core for sequencing and voice allocation.
+4. Package the standalone app in Tauri (replaces Electron once the Rust core exists).
+5. Expose a CLAP plugin build target for DAW integration.
 
 ## References
 

@@ -17,27 +17,39 @@ const mimeTypes = {
   ".js": "text/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".svg": "image/svg+xml; charset=utf-8",
-  ".webmanifest": "application/manifest+json; charset=utf-8"
+  ".webmanifest": "application/manifest+json; charset=utf-8",
+  ".wasm": "application/wasm",
+  ".wav": "audio/wav",
+  ".mp3": "audio/mpeg",
+  ".ogg": "audio/ogg",
+  ".flac": "audio/flac"
+};
+
+// COOP/COEP headers — required for SharedArrayBuffer and AudioWorklet coordination
+const ISOLATION_HEADERS = {
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "Cross-Origin-Embedder-Policy": "require-corp"
 };
 
 function sendJson(res, statusCode, data) {
   res.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "no-store"
+    "Cache-Control": "no-store",
+    ...ISOLATION_HEADERS
   });
   res.end(JSON.stringify(data));
 }
 
 async function serveFile(res, filePath) {
   if (!existsSync(filePath)) {
-    res.writeHead(404);
+    res.writeHead(404, ISOLATION_HEADERS);
     res.end("Not found");
     return;
   }
 
   const fileStats = await stat(filePath);
   if (!fileStats.isFile()) {
-    res.writeHead(403);
+    res.writeHead(403, ISOLATION_HEADERS);
     res.end("Forbidden");
     return;
   }
@@ -45,7 +57,8 @@ async function serveFile(res, filePath) {
   const ext = path.extname(filePath);
   res.writeHead(200, {
     "Content-Type": mimeTypes[ext] || "application/octet-stream",
-    "Cache-Control": ext === ".html" ? "no-store" : "public, max-age=60"
+    "Cache-Control": ext === ".html" ? "no-store" : "public, max-age=60",
+    ...ISOLATION_HEADERS
   });
   createReadStream(filePath).pipe(res);
 }
@@ -191,7 +204,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  res.writeHead(404);
+  res.writeHead(404, ISOLATION_HEADERS);
   res.end("Not found");
 });
 

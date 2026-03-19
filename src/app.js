@@ -568,6 +568,7 @@ async function ensureAudio() {
   const ctx = new AudioContext();
   state.audioContext = ctx;
   state.engine = new AudioEngine(ctx);
+  state.engine.initWorklets(); // async — loads cs-resampler worklet in background
   el.btnAudio.classList.add('active');
   drawOscilloscope(el.oscilloscope, state.engine, _oscAnimRef);
   await initMidi();

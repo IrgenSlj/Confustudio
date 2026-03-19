@@ -66,6 +66,11 @@ export function createTrack(index) {
     mute:         false,
     solo:         false,
 
+    // Per-track FX
+    filterType:   "lowpass",  // "lowpass"|"bandpass"|"highpass"
+    bitDepth:     16,         // 1–16, integer
+    srDiv:        1,          // 1–32, sample rate reduction divisor
+
     // Runtime (not serialized)
     sampleBuffer: null,
 
@@ -171,6 +176,8 @@ export function createAppState() {
     delayFeedback: 0.38,
     reverbSize:    1.8,
     reverbMix:     0.22,
+    reverbDamping: 0.5,
+    masterDrive:   0,
     lfoRate:       2,
     lfoDepth:      0,
 
@@ -179,6 +186,8 @@ export function createAppState() {
     metronome:     false,
     abletonLink:   false,
     clockMode:     0,
+    midiClockOut:  false,
+    clockSource:   "internal",
 
     // Pattern editing
     octaveShift:       0,

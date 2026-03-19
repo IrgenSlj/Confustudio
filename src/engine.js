@@ -3,6 +3,11 @@
 
 const WAVEFORMS = ["sine", "triangle", "sawtooth", "square"];
 
+// Freeverb comb filter delay times in samples @ 44100 Hz
+const COMB_DELAYS_44100 = [1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617];
+// Freeverb allpass delay times in samples @ 44100 Hz
+const ALLPASS_DELAYS_44100 = [556, 441, 341, 225];
+
 // ——————————————————————————————————————————————
 // MIDI
 // ——————————————————————————————————————————————
@@ -52,21 +57,30 @@ export class AudioEngine {
     this.delayWet = context.createGain();
     this.delayWet.gain.value = 0.28;
 
-    // Reverb
-    this.reverb = context.createConvolver();
-    this.reverb.buffer = this.createImpulseResponse();
+    // Freeverb-inspired Schroeder-Moorer reverb (pure Web Audio node graph)
+    this.reverbRoomSize = 0.84; // comb feedback gain (0–0.98)
+    this.reverbDamping = 0.5;   // lowpass cutoff ratio in comb feedback (0–1)
     this.reverbWet = context.createGain();
     this.reverbWet.gain.value = 0.22;
 
+    // reverbInput is the entry point for tracks; alias this.reverb for back-compat
+    this.reverbInput = context.createGain();
+    this.reverb = this.reverbInput; // backward compatibility
+
+    this._buildReverbGraph();
+
     // MIDI output (set externally or via sendMidiNote)
     this.midiOutput = null;
+    this._midiClockInterval = null;
+
+    // AudioWorklet readiness flag — set true after initWorklets() resolves
+    this._workletReady = false;
 
     // Routing
     this.delay.connect(this.delayFeedback);
     this.delayFeedback.connect(this.delay);
     this.delay.connect(this.delayWet);
     this.delayWet.connect(this.master);
-    this.reverb.connect(this.reverbWet);
     this.reverbWet.connect(this.master);
 
     this.master.connect(this.analyser);
@@ -77,22 +91,123 @@ export class AudioEngine {
   }
 
   // ——————————————————————————————————————————————
-  // Audio init helpers
+  // Freeverb reverb graph construction
   // ——————————————————————————————————————————————
 
-  createImpulseResponse() {
-    const sampleRate = this.context.sampleRate;
-    const length = Math.floor(sampleRate * 1.8);
-    const buffer = this.context.createBuffer(2, length, sampleRate);
-    for (let ch = 0; ch < 2; ch++) {
-      const data = buffer.getChannelData(ch);
-      for (let i = 0; i < length; i++) {
-        const decay = Math.pow(1 - i / length, 2.4);
-        data[i] = (Math.random() * 2 - 1) * decay;
-      }
+  _buildReverbGraph() {
+    const ctx = this.context;
+    const sr = ctx.sampleRate;
+    const scale = sr / 44100;
+
+    // Sum node — all 8 comb outputs feed here
+    const combSum = ctx.createGain();
+    combSum.gain.value = 0.125; // normalize 8 parallel combs
+
+    this._combFilters = [];
+
+    for (const delaySamples of COMB_DELAYS_44100) {
+      const delayTime = (delaySamples * scale) / sr;
+
+      const delayNode = ctx.createDelay(delayTime + 0.01);
+      delayNode.delayTime.value = delayTime;
+
+      // Lowpass in feedback loop for damping
+      const damplp = ctx.createBiquadFilter();
+      damplp.type = "lowpass";
+      damplp.frequency.value = 5500 * (1 - this.reverbDamping * 0.8);
+      damplp.Q.value = 0.5;
+
+      const feedbackGain = ctx.createGain();
+      feedbackGain.gain.value = this.reverbRoomSize;
+
+      // Comb loop: delayNode → damplp → feedbackGain → back to delayNode
+      this.reverbInput.connect(delayNode);
+      delayNode.connect(damplp);
+      damplp.connect(feedbackGain);
+      feedbackGain.connect(delayNode);
+
+      // Tap the delay output to sum node
+      delayNode.connect(combSum);
+
+      this._combFilters.push({ feedbackGain, damplp });
     }
-    return buffer;
+
+    // 4 series allpass sections after comb sum
+    let allpassIn = combSum;
+    this._allpassNodes = [];
+
+    for (const delaySamples of ALLPASS_DELAYS_44100) {
+      const delayTime = (delaySamples * scale) / sr;
+
+      // Web Audio doesn't have a native allpass delay, so we approximate with a
+      // DelayNode in a feedback/feedforward arrangement:
+      //   out = -0.5*in + delay + 0.5*delay_feedback
+      const delayNode = ctx.createDelay(delayTime + 0.01);
+      delayNode.delayTime.value = delayTime;
+
+      const passGain = ctx.createGain();   // feedforward path, gain = 1
+      const feedGain = ctx.createGain();   // feedback into delay, gain = 0.5
+      const negGain = ctx.createGain();    // invert input, gain = -0.5
+
+      passGain.gain.value = 1;
+      feedGain.gain.value = 0.5;
+      negGain.gain.value = -0.5;
+
+      // Input → delay
+      allpassIn.connect(delayNode);
+      // Input → negGain (invert)
+      allpassIn.connect(negGain);
+      // delay → feedGain → delay (feedback loop with 0.5)
+      delayNode.connect(feedGain);
+      feedGain.connect(delayNode);
+
+      // Output merger: negGain + delayOutput
+      const apOut = ctx.createGain();
+      apOut.gain.value = 1;
+      negGain.connect(apOut);
+      delayNode.connect(apOut);
+
+      allpassIn = apOut;
+      this._allpassNodes.push(delayNode);
+    }
+
+    // Final allpass output → reverbWet → master
+    allpassIn.connect(this.reverbWet);
   }
+
+  // Update all comb feedback gains (roomSize 0–0.98)
+  setReverbRoomSize(v) {
+    this.reverbRoomSize = Math.max(0, Math.min(0.98, v));
+    for (const { feedbackGain } of this._combFilters) {
+      feedbackGain.gain.setTargetAtTime(this.reverbRoomSize, this.context.currentTime, 0.01);
+    }
+  }
+
+  // Update all comb damping lowpass cutoffs (damping 0–1)
+  setReverbDamping(v) {
+    this.reverbDamping = Math.max(0, Math.min(1, v));
+    const freq = 5500 * (1 - this.reverbDamping * 0.8);
+    for (const { damplp } of this._combFilters) {
+      damplp.frequency.setTargetAtTime(freq, this.context.currentTime, 0.01);
+    }
+  }
+
+  // ——————————————————————————————————————————————
+  // AudioWorklet init
+  // ——————————————————————————————————————————————
+
+  async initWorklets() {
+    try {
+      await this.context.audioWorklet.addModule('/src/worklets/resampler-worklet.js');
+      this._workletReady = true;
+    } catch (err) {
+      console.warn('AudioWorklet (cs-resampler) failed to load:', err);
+    }
+  }
+
+  // ——————————————————————————————————————————————
+  // Audio init helpers
+  // ——————————————————————————————————————————————
 
   createNoiseBuffer(duration = 2) {
     const len = Math.floor(this.context.sampleRate * duration);
@@ -141,6 +256,44 @@ export class AudioEngine {
     setTimeout(() => this.midiOutput.send([0x80 | ch, note, 0]), durationSec * 1000);
   }
 
+  // MIDI Clock — 24 pulses per quarter note (0xF8), with drift correction
+  startMidiClock(bpm) {
+    this.stopMidiClock(); // clear any existing clock
+    if (!this.midiOutput) return;
+
+    const intervalMs = (60000 / bpm) / 24;
+    let nextTick = performance.now();
+
+    this.sendMidiStart();
+
+    this._midiClockInterval = setInterval(() => {
+      const now = performance.now();
+      // Drift correction: fire immediately if we're behind, stay on schedule
+      if (now >= nextTick) {
+        if (this.midiOutput) this.midiOutput.send([0xf8]);
+        nextTick += intervalMs;
+        // If we've drifted more than one interval behind, resync
+        if (nextTick < now) nextTick = now + intervalMs;
+      }
+    }, Math.max(1, intervalMs * 0.5)); // poll at ~2x rate for accuracy
+  }
+
+  stopMidiClock() {
+    if (this._midiClockInterval !== null) {
+      clearInterval(this._midiClockInterval);
+      this._midiClockInterval = null;
+    }
+    this.sendMidiStop();
+  }
+
+  sendMidiStart() {
+    if (this.midiOutput) this.midiOutput.send([0xfa]);
+  }
+
+  sendMidiStop() {
+    if (this.midiOutput) this.midiOutput.send([0xfc]);
+  }
+
   // ——————————————————————————————————————————————
   // Preview (keyboard note preview — fires immediately)
   // ——————————————————————————————————————————————
@@ -180,7 +333,7 @@ export class AudioEngine {
 
     // Signal chain: source → output (ADSR env gain) → panner → filter → saturator → master
     //   saturator → delaySend → delay ↺ feedback
-    //   saturator → reverbSend → reverb → reverbWet → master
+    //   saturator → reverbSend → reverbInput → reverb graph → reverbWet → master
 
     const output = this.context.createGain();
     output.gain.value = 0.0001;
@@ -189,7 +342,7 @@ export class AudioEngine {
     panner.pan.value = params.pan;
 
     const filter = this.context.createBiquadFilter();
-    filter.type = "lowpass";
+    filter.type = params.filterType || "lowpass";
     filter.frequency.value = cutoff;
     filter.Q.value = params.resonance;
 
@@ -215,7 +368,7 @@ export class AudioEngine {
     const reverbSend = this.context.createGain();
     reverbSend.gain.value = params.reverbSend;
     saturator.connect(reverbSend);
-    reverbSend.connect(this.reverb);
+    reverbSend.connect(this.reverb); // this.reverb === this.reverbInput
 
     // ADSR-lite: attack → hold → decay
     output.gain.setValueAtTime(0.0001, when);
@@ -248,12 +401,29 @@ export class AudioEngine {
 
     // Sample machine
     if (params.machine === "sample" && params.sampleBuffer) {
-      const source = this.context.createBufferSource();
-      source.buffer = params.sampleBuffer;
-      source.playbackRate.value = Math.pow(2, ((note || 48) - 48) / 12);
-      source.connect(output);
-      source.start(when, 0, Math.min(totalTime, params.sampleBuffer.duration));
-      source.stop(when + totalTime + 0.02);
+      if (this._workletReady) {
+        // High-quality 4-point Hermite resampler via AudioWorklet
+        const node = new AudioWorkletNode(this.context, 'cs-resampler');
+        const channelData = params.sampleBuffer.getChannelData(0);
+        const copy = channelData.buffer.slice(0); // transferable copy
+        const playbackRate = Math.pow(2, ((note || 48) - 48) / 12);
+        const duration = params.sampleBuffer.duration / playbackRate;
+        node.port.postMessage(
+          { type: 'load', buffer: copy, playbackRate, sampleRate: params.sampleBuffer.sampleRate, ctxRate: this.context.sampleRate },
+          [copy]
+        );
+        node.connect(output);
+        // Disconnect after playback completes — no BufferSource stop() equivalent
+        setTimeout(() => { try { node.disconnect(); } catch (e) {} }, (totalTime + 0.1) * 1000);
+      } else {
+        // Fallback: native BufferSourceNode (browser linear interpolation)
+        const source = this.context.createBufferSource();
+        source.buffer = params.sampleBuffer;
+        source.playbackRate.value = Math.pow(2, ((note || 48) - 48) / 12);
+        source.connect(output);
+        source.start(when, 0, Math.min(totalTime, params.sampleBuffer.duration));
+        source.stop(when + totalTime + 0.02);
+      }
       return;
     }
 
