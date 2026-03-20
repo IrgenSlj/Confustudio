@@ -12,8 +12,39 @@ export function initStudio() {
   const MODULE_W = 860;
   const MODULE_H = 860;
 
+  const STUDIO_LAYOUT_KEY = 'confusynth-studio-layout';
+
+  function saveLayout() {
+    const layout = [];
+    canvas.querySelectorAll('.studio-module').forEach((mod, i) => {
+      layout.push({
+        id: mod.id || `module-${i}`,
+        left: mod.style.left,
+        top:  mod.style.top,
+      });
+    });
+    try { localStorage.setItem(STUDIO_LAYOUT_KEY, JSON.stringify(layout)); } catch(e) {}
+  }
+
+  function restoreLayout() {
+    try {
+      const raw = localStorage.getItem(STUDIO_LAYOUT_KEY);
+      if (!raw) return;
+      const layout = JSON.parse(raw);
+      layout.forEach(item => {
+        const mod = canvas.querySelector(`#${item.id}`);
+        if (mod && item.left) {
+          mod.style.left = item.left;
+          mod.style.top  = item.top;
+        }
+      });
+    } catch(e) {}
+  }
+
   function applyTransform() {
     canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+    const indicator = document.getElementById('zoom-level');
+    if (indicator) indicator.textContent = Math.round(scale * 100) + '%';
   }
 
   function centreModules() {
@@ -30,7 +61,14 @@ export function initStudio() {
   }
 
   // Defer centering to after first layout paint
-  requestAnimationFrame(() => requestAnimationFrame(centreModules));
+  let _layoutRestored = false;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    centreModules();
+    if (!_layoutRestored) {
+      _layoutRestored = true;
+      restoreLayout();
+    }
+  }));
 
   // Zoom buttons — zoom toward canvas centre
   document.getElementById('zoom-in')?.addEventListener('click', () => {
@@ -108,6 +146,7 @@ export function initStudio() {
     function onUp() {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
+      saveLayout();
     }
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);

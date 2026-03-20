@@ -16,11 +16,11 @@
 
           <!-- TOP PORTS BAR -->
           <div class="ports-bar">
-            <span class="port">Audio In</span>
-            <span class="port">Audio Out</span>
-            <span class="port">MIDI In</span>
-            <span class="port">MIDI Out</span>
-            <span class="port">USB</span>
+            <span class="port" data-port="audio-in">Audio In</span>
+            <span class="port" data-port="audio-out">Audio Out</span>
+            <span class="port" data-port="midi-in">MIDI In</span>
+            <span class="port" data-port="midi-out">MIDI Out</span>
+            <span class="port" data-port="usb">USB</span>
             <button id="btn-duplicate" class="chassis-dup-btn" title="Duplicate this synth">⧉</button>
           </div>
 
@@ -145,6 +145,7 @@
       <button id="zoom-in" title="Zoom in">＋</button>
       <button id="zoom-out" title="Zoom out">－</button>
       <button id="zoom-reset" title="Reset zoom">⊡</button>
+      <span id="zoom-level" style="font-family:monospace;font-size:0.6rem;color:rgba(255,255,255,0.5);padding:0 6px;line-height:36px">100%</span>
       <button id="add-module" title="Add module">＋ Module</button>
     </div>
   </div>

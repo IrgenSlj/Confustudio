@@ -594,6 +594,7 @@ async function ensureAudio() {
   const ctx = new AudioContext();
   state.audioContext = ctx;
   state.engine = new AudioEngine(ctx);
+  window._confusynthEngine = state.engine;
   state.engine.initWorklets(); // async — loads cs-resampler worklet in background
   state.engine.setMasterLevel(state.masterLevel);
   if (el.masterVolume) el.masterVolume.value = state.masterLevel;

@@ -70,6 +70,9 @@ export default {
     // Step grid
     const grid = document.createElement('div');
     grid.className = 'step-grid';
+    const cols = 16; // always 16 columns
+    grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    grid.style.gap = '3px';
 
     let plockStep = null;
 
@@ -142,7 +145,7 @@ export default {
       if (Object.keys(step.paramLocks).length)   btn.classList.add('plock');
       if (i === state.currentStep)               btn.classList.add('playhead');
       if (Math.abs(step.microTime ?? 0) > 0.05)  btn.classList.add('micro');
-      btn.textContent  = String(i + 1).padStart(2, '0');
+      btn.textContent  = (i % 4 === 0) ? String(i + 1) : '';
       btn.dataset.prob = String(step.probability);
       // Visual micro-timing indicator: top border highlight
       if (Math.abs(step.microTime ?? 0) > 0.05) {

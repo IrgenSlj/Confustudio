@@ -847,46 +847,65 @@ button {
 .step-grid {
   display: grid;
   grid-template-columns: repeat(16, 1fr);
-  gap: 4px;
+  gap: 3px;
+  padding: 4px;
+}
+
+/* Visual group separator every 4 steps */
+.step-btn:nth-child(4n+1) {
+  margin-left: 4px;
+}
+.step-btn:first-child {
+  margin-left: 0;
 }
 
 .step-btn {
   aspect-ratio: 1;
-  border-radius: 7px;
-  border: 1px solid var(--border);
+  min-height: 28px;
+  border-radius: 5px;
+  border: 1px solid rgba(255,255,255,0.06);
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015) 26%, rgba(0,0,0,0.25)),
+    linear-gradient(160deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.01) 40%, rgba(0,0,0,0.3) 100%),
     var(--step-off);
-  color: #56615f;
+  color: rgba(255,255,255,0.18);
   font-family: var(--font-mono);
-  font-size: 0.6rem;
+  font-size: 0.5rem;
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  transition: all 0.08s;
+  transition: all 0.06s;
   padding: 0;
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.05),
-    inset 0 -10px 14px rgba(0,0,0,0.22),
-    0 2px 6px rgba(0,0,0,0.18);
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    inset 0 -4px 8px rgba(0,0,0,0.35),
+    0 1px 3px rgba(0,0,0,0.4),
+    0 3px 0 rgba(0,0,0,0.5);
 }
 
 .step-btn:hover {
   border-color: rgba(255,255,255,0.12);
-  color: #9ab0aa;
+  color: rgba(255,255,255,0.4);
   transform: translateY(-1px);
 }
 
 .step-btn.active {
   background:
-    linear-gradient(180deg, rgba(181,255,192,0.14), rgba(255,255,255,0.02) 28%, rgba(0,0,0,0.2)),
+    linear-gradient(160deg, rgba(180,255,200,0.2) 0%, rgba(90,221,113,0.08) 40%, rgba(0,0,0,0.15) 100%),
     var(--step-on);
-  border-color: rgba(90,221,113,0.4);
+  border-color: rgba(90,221,113,0.5);
   color: var(--live);
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.08),
-    inset 0 -12px 18px rgba(0,0,0,0.18),
-    0 0 12px rgba(90,221,113,0.08);
+    inset 0 1px 0 rgba(255,255,255,0.1),
+    inset 0 -4px 8px rgba(0,40,0,0.3),
+    0 0 8px rgba(90,221,113,0.2),
+    0 3px 0 rgba(0,60,0,0.6);
+}
+
+.step-btn:active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 2px 4px rgba(0,0,0,0.4),
+    0 1px 0 rgba(0,0,0,0.5);
 }
 
 .step-btn.accent {
@@ -906,7 +925,13 @@ button {
 
 .step-btn.playhead {
   outline: 2px solid var(--record);
-  outline-offset: 1px;
+  outline-offset: -2px;
+  animation: playhead-pulse 0.1s ease-out;
+}
+
+@keyframes playhead-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(240,91,82,0.6); }
+  100% { box-shadow: 0 0 12px 4px rgba(240,91,82,0); }
 }
 
 .step-btn::after {

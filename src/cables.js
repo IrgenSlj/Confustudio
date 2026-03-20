@@ -95,9 +95,40 @@ export function initCables() {
     cables.push(cable);
     drawCable(cable);
 
+    // Audio routing: if connecting synth audio-out to DJ mixer input
+    const fromPort = fromEl.closest('.studio-module');
+    const toPort   = toEl.closest('.studio-module');
+    const fromType = fromEl.textContent.trim().toLowerCase();
+    const toType   = toEl.textContent.trim().toLowerCase();
+
+    if (fromPort && toPort) {
+      const engine = window._confusynthEngine;
+      const djmixer = toPort.querySelector('[data-djm]') || fromPort.querySelector('[data-djm]');
+
+      if (engine && djmixer?._djmAudio) {
+        const audio = djmixer._djmAudio;
+        const isCh1 = toType.includes('ch1') || toType.includes('1');
+        const targetInput = isCh1 ? audio.ch1Input : audio.ch2Input;
+        // Disconnect engine from destination, connect to DJ mixer input
+        try {
+          engine.master.disconnect(engine.context.destination);
+        } catch(e) {}
+        engine.master.connect(targetInput);
+        // DJ mixer already connects to destination via masterGain
+        cable._audioRouted = true;
+        cable._engine = engine;
+        cable._djmAudio = audio;
+      }
+    }
+
     // Right-click to remove
     path.addEventListener('contextmenu', e => {
       e.preventDefault();
+      // Undo audio routing if this cable had routed audio
+      if (cable._audioRouted && cable._engine) {
+        try { cable._engine.master.disconnect(); } catch(e) {}
+        cable._engine.master.connect(cable._engine.context.destination);
+      }
       svg.removeChild(path);
       svg.removeChild(dot);
       const idx = cables.indexOf(cable);
