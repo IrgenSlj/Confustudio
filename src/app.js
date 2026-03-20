@@ -7,6 +7,7 @@ import { initKeyboard, renderKbdContext, renderPiano, lightPianoKey,
          pressKey, PAGE_KEYS } from './keyboard.js';
 import { renderKnobs, KNOB_MAPS } from './knobs.js';
 import { initStudio } from '/src/studio.js';
+import { initCables } from '/src/cables.js';
 
 // Page modules
 import patternPage  from './pages/pattern.js';
@@ -1037,6 +1038,7 @@ function boot() {
   renderAll();
   if (el.masterVolume) el.masterVolume.value = state.masterLevel;
   initStudio();
+  initCables();
   console.log('CONFUsynth v3 ready — press A to init audio, Space to play');
 }
 

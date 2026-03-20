@@ -97,13 +97,19 @@ body {
   top: 0;
   left: 0;
   transform-origin: 0 0;
+  overflow: visible;
   /* JS will set transform: scale() translate() */
 }
 
 .studio-module {
   position: absolute;
-  cursor: grab;
-  filter: drop-shadow(0 20px 60px rgba(0,0,0,0.6));
+  cursor: default;
+  filter: drop-shadow(0 24px 48px rgba(0,0,0,0.65)) drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+  transition: filter 0.2s;
+}
+
+.studio-module:hover {
+  filter: drop-shadow(0 28px 56px rgba(0,0,0,0.7)) drop-shadow(0 6px 12px rgba(0,0,0,0.5));
 }
 
 .studio-module:active {
@@ -567,8 +573,7 @@ button {
 
 .page-content {
   width: 100%;
-  aspect-ratio: 1 / 1;
-  flex: none;
+  flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 0;
@@ -2382,4 +2387,54 @@ button {
 #module-picker button:hover {
   background: rgba(255,255,255,0.12);
   color: #fff;
+}
+
+/* ============================================================
+   PATCH CABLES
+   ============================================================ */
+
+.port {
+  cursor: crosshair;
+  transition: color 0.1s, text-shadow 0.1s;
+  user-select: none;
+}
+
+.port.port-hover,
+.djm-port.port-hover {
+  color: var(--accent) !important;
+  text-shadow: 0 0 8px var(--accent);
+}
+
+.port::before {
+  transition: background 0.1s, box-shadow 0.1s;
+}
+
+.port.port-hover::before {
+  background: var(--accent) !important;
+  box-shadow: 0 0 6px var(--accent);
+}
+
+/* ============================================================
+   CHASSIS DUPLICATE BUTTON
+   ============================================================ */
+
+.chassis-dup-btn {
+  margin-left: auto;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--chassis-metal);
+  font-size: 0.8rem;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  transition: all 0.1s;
+}
+
+.chassis-dup-btn:hover {
+  background: rgba(255,255,255,0.12);
+  color: var(--chassis-text);
 }

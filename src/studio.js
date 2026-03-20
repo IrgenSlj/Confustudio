@@ -113,6 +113,11 @@ export function initStudio() {
     window.addEventListener('mouseup', onUp);
   });
 
+  // Duplicate button — clones the main chassis as a new module
+  document.getElementById('btn-duplicate')?.addEventListener('click', () => {
+    addModule('synth');
+  });
+
   // Add Module button — shows picker
   document.getElementById('add-module')?.addEventListener('click', () => {
     showModulePicker();
@@ -147,7 +152,18 @@ export function initStudio() {
     mod.style.top  = (100 + offset) + 'px';
 
     if (type === 'synth') {
-      mod.innerHTML = `<div class="mini-chassis"><div class="mini-chassis-label">CONFUsynth</div><div class="mini-chassis-body"></div></div>`;
+      // Clone the full chassis from the first module
+      const original = document.querySelector('#module-0 .chassis');
+      if (original) {
+        const clone = original.cloneNode(true);
+        // Give cloned elements unique IDs to avoid conflicts
+        clone.querySelectorAll('[id]').forEach(el => {
+          el.id = el.id + '-clone-' + Date.now();
+        });
+        mod.appendChild(clone);
+      } else {
+        mod.innerHTML = `<div style="width:860px;height:860px;background:#4e5f3c;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#b8c8a0;font-size:1.2rem">CONFUsynth</div>`;
+      }
     } else if (type === 'djmixer') {
       import('/src/modules/djmixer.js').then(m => {
         mod.appendChild(m.createDJMixer());
