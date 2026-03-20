@@ -841,7 +841,79 @@ button {
 .track-ch.active .track-ch-name { color: var(--accent); }
 
 /* ============================================================
-   STEP GRID
+   MULTI-TRACK GRID (pattern page)
+   ============================================================ */
+
+.multi-track-grid {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.mtg-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  border-left: 3px solid var(--track-color, #555);
+  background: rgba(0,0,0,0.12);
+  transition: background 0.06s;
+  flex-shrink: 0;
+}
+
+.mtg-row.active {
+  background: rgba(255,255,255,0.045);
+}
+
+.mtg-row:hover {
+  background: rgba(255,255,255,0.03);
+}
+
+.mtg-row.muted { opacity: 0.35; }
+
+.mtg-label-wrap {
+  width: 38px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-right: 4px;
+  cursor: pointer;
+}
+
+.mtg-label {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  color: var(--track-color, var(--chassis-text));
+  line-height: 1;
+  font-weight: 500;
+}
+
+.mtg-machine {
+  font-family: var(--font-mono);
+  font-size: 0.4rem;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+
+/* Compact step buttons for multi-track view */
+.step-sm {
+  min-height: 0 !important;
+  height: 26px;
+  aspect-ratio: 1;
+  font-size: 0.36rem !important;
+}
+
+.step-sm.dim {
+  opacity: 0.2;
+}
+
+/* ============================================================
+   STEP GRID (legacy single-track, kept for future use)
    ============================================================ */
 
 .step-grid {
@@ -852,11 +924,8 @@ button {
 }
 
 /* Visual group separator every 4 steps */
-.step-btn:nth-child(4n+1) {
+.step-group-start {
   margin-left: 4px;
-}
-.step-btn:first-child {
-  margin-left: 0;
 }
 
 .step-btn {
@@ -891,7 +960,7 @@ button {
 .step-btn.active {
   background:
     linear-gradient(160deg, rgba(180,255,200,0.2) 0%, rgba(90,221,113,0.08) 40%, rgba(0,0,0,0.15) 100%),
-    var(--step-on);
+    var(--track-color, #2a4a2e);
   border-color: rgba(90,221,113,0.5);
   color: var(--live);
   box-shadow:
@@ -910,8 +979,7 @@ button {
 
 .step-btn.accent {
   background:
-    linear-gradient(180deg, rgba(255,236,172,0.16), rgba(255,255,255,0.02) 26%, rgba(0,0,0,0.2)),
-    var(--step-accent);
+    color-mix(in srgb, var(--track-color, #2a4a2e) 60%, #8b6600 40%);
   border-color: rgba(240,198,64,0.5);
   color: var(--accent);
 }
@@ -1559,6 +1627,28 @@ button {
   background: rgba(240,198,64,0.2);
   color: var(--accent);
   border-color: var(--accent);
+}
+
+.mixer-meter-wrap {
+  width: 8px;
+  height: 64px;
+  background: rgba(0,0,0,0.4);
+  border-radius: 4px;
+  overflow: hidden;
+  align-self: center;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.mixer-meter-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 0%;
+  background: linear-gradient(to top, var(--live) 0%, var(--accent) 65%, var(--record) 100%);
+  border-radius: 4px;
+  transition: height 60ms linear;
 }
 
 /* ============================================================

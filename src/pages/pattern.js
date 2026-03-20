@@ -1,9 +1,9 @@
-// src/pages/pattern.js — Step sequencer + euclidean + p-lock panel
+// src/pages/pattern.js — Multi-track step sequencer with euclidean + p-lock
+
+import { TRACK_COLORS } from '../state.js';
 
 // ─── Euclidean rhythm generator (Bjorklund algorithm) ────────────────────────
 function euclidean(beats, steps) {
-  // Distribute `beats` pulses as evenly as possible across `steps` slots.
-  // Returns a boolean array of length `steps`.
   if (beats <= 0) return Array(steps).fill(false);
   if (beats >= steps) return Array(steps).fill(true);
   beats = Math.min(beats, steps);
@@ -45,36 +45,29 @@ export default {
     container.innerHTML = '';
 
     const pattern = state.project.banks[state.activeBank].patterns[state.activePattern];
-    const track   = pattern.kit.tracks[state.selectedTrackIndex];
+    const selTi   = state.selectedTrackIndex;
+    const track   = pattern.kit.tracks[selTi];
 
-    // Header row
+    // ── Header ────────────────────────────────────────────────────────────────
     const header = document.createElement('div');
-    header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0';
-    const ti = state.selectedTrackIndex;
-    const trackLenDisplay = track.trackLength > 0 ? track.trackLength : pattern.length;
+    header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-shrink:0';
     header.innerHTML = `
       <span class="page-title" style="margin:0">${pattern.name}</span>
-      <span style="font-family:var(--font-mono);font-size:0.6rem;color:var(--muted)">
-        ${track.name} &bull; ${pattern.length} steps &bull; T${ti + 1}: ${trackLenDisplay} steps
-      </span>
-      <span style="margin-left:auto;font-family:var(--font-mono);font-size:0.6rem;color:var(--accent)">
-        ${state.bpm ?? 120} BPM
+      <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted)">
+        ${pattern.length} steps &bull; ${state.bpm ?? 120} BPM
       </span>
     `;
     container.append(header);
 
-    // Wrapper for relative positioning (p-lock panel)
+    // ── Outer wrapper ─────────────────────────────────────────────────────────
     const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'position:relative;flex:1;display:flex;flex-direction:column;gap:8px';
+    wrapper.style.cssText = 'position:relative;flex:1;display:flex;flex-direction:column;gap:6px;min-height:0';
 
-    // Step grid
-    const grid = document.createElement('div');
-    grid.className = 'step-grid';
-    const cols = 16; // always 16 columns
-    grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-    grid.style.gap = '3px';
+    // ── Multi-track grid ──────────────────────────────────────────────────────
+    const multiGrid = document.createElement('div');
+    multiGrid.className = 'multi-track-grid';
 
-    let plockStep = null;
+    let plockPanel = null;
 
     const buildPlockPanel = (stepIndex) => {
       const step = track.steps[stepIndex];
@@ -82,7 +75,6 @@ export default {
       panel.className = 'plock-panel visible';
       panel.innerHTML = `<h4>P-Lock Step ${stepIndex + 1}</h4>`;
 
-      // Micro-timing row (above PLOCK_PARAMS)
       const microRow = document.createElement('div');
       microRow.className = 'plock-row';
       const microVal = step.microTime ?? 0;
@@ -100,7 +92,7 @@ export default {
         microSpan.textContent = (v >= 0 ? '+' : '') + v.toFixed(2);
         const s = track.steps[stepIndex];
         if (s) s.microTime = v;
-        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats }); // trigger save
+        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
       });
       panel.append(microRow);
 
@@ -131,56 +123,90 @@ export default {
       closeBtn.textContent = 'Close';
       closeBtn.addEventListener('click', () => {
         panel.remove();
-        plockStep = null;
+        plockPanel = null;
       });
       panel.append(closeBtn);
       return panel;
     };
 
-    track.steps.slice(0, pattern.length).forEach((step, i) => {
-      const btn = document.createElement('button');
-      btn.className = 'step-btn';
-      if (step.active)                           btn.classList.add('active');
-      if (step.accent)                           btn.classList.add('accent');
-      if (Object.keys(step.paramLocks).length)   btn.classList.add('plock');
-      if (i === state.currentStep)               btn.classList.add('playhead');
-      if (Math.abs(step.microTime ?? 0) > 0.05)  btn.classList.add('micro');
-      btn.textContent  = (i % 4 === 0) ? String(i + 1) : '';
-      btn.dataset.prob = String(step.probability);
-      // Visual micro-timing indicator: top border highlight
-      if (Math.abs(step.microTime ?? 0) > 0.05) {
-        btn.style.borderTop = '2px solid var(--live)';
-      }
+    // Render each of the 8 tracks as a row
+    pattern.kit.tracks.forEach((trk, ti) => {
+      const isSelected = ti === selTi;
+      const trackLen   = trk.trackLength > 0 ? trk.trackLength : pattern.length;
 
-      btn.addEventListener('click', e => emit('step:toggle', { stepIndex: i, shiftKey: e.shiftKey }));
-      btn.addEventListener('contextmenu', e => { e.preventDefault(); emit('step:prob', { stepIndex: i }); });
+      const row = document.createElement('div');
+      row.className = 'mtg-row' + (isSelected ? ' active' : '') + (trk.mute ? ' muted' : '');
+      row.style.setProperty('--track-color', TRACK_COLORS[ti]);
 
-      // Long-press = open p-lock panel
-      let holdTimer = null;
-      btn.addEventListener('pointerdown', () => {
-        holdTimer = setTimeout(() => {
-          holdTimer = null;
-          plockStep = i;
-          wrapper.querySelectorAll('.plock-panel').forEach(p => p.remove());
-          wrapper.append(buildPlockPanel(i));
-        }, 500);
+      // Track label
+      const labelWrap = document.createElement('div');
+      labelWrap.className = 'mtg-label-wrap';
+      labelWrap.innerHTML = `
+        <span class="mtg-label">T${ti + 1}</span>
+        <span class="mtg-machine">${(trk.machine || 'tone').slice(0, 4).toUpperCase()}</span>
+      `;
+      labelWrap.addEventListener('click', () => emit('track:select', { trackIndex: ti }));
+      row.append(labelWrap);
+
+      // Step buttons
+      trk.steps.slice(0, pattern.length).forEach((step, si) => {
+        const btn = document.createElement('button');
+        btn.className = 'step-btn step-sm';
+        if (step.active)                          btn.classList.add('active');
+        if (step.accent)                          btn.classList.add('accent');
+        if (Object.keys(step.paramLocks).length)  btn.classList.add('plock');
+        if (si === state.currentStep)             btn.classList.add('playhead');
+        if (si >= trackLen)                       btn.classList.add('dim');
+        if (Math.abs(step.microTime ?? 0) > 0.05) btn.style.borderTop = '2px solid var(--live)';
+        btn.textContent  = (si % 4 === 0) ? String(si + 1) : '';
+        btn.dataset.prob = String(step.probability);
+        btn.dataset.step = si;
+        btn.dataset.track = ti;
+        if (si > 0 && si % 4 === 0) btn.classList.add('step-group-start');
+
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          if (ti !== state.selectedTrackIndex) {
+            emit('track:select', { trackIndex: ti });
+          }
+          emit('step:toggle', { stepIndex: si, shiftKey: e.shiftKey });
+        });
+
+        btn.addEventListener('contextmenu', e => {
+          e.preventDefault();
+          if (ti === state.selectedTrackIndex) {
+            emit('step:prob', { stepIndex: si });
+          }
+        });
+
+        // Long-press p-lock (only on selected track)
+        let holdTimer = null;
+        btn.addEventListener('pointerdown', () => {
+          if (ti !== selTi) return;
+          holdTimer = setTimeout(() => {
+            holdTimer = null;
+            wrapper.querySelectorAll('.plock-panel').forEach(p => p.remove());
+            plockPanel = si;
+            wrapper.append(buildPlockPanel(si));
+          }, 500);
+        });
+        btn.addEventListener('pointerup',    () => clearTimeout(holdTimer));
+        btn.addEventListener('pointerleave', () => clearTimeout(holdTimer));
+
+        row.append(btn);
       });
-      btn.addEventListener('pointerup',    () => clearTimeout(holdTimer));
-      btn.addEventListener('pointerleave', () => clearTimeout(holdTimer));
 
-      grid.append(btn);
+      multiGrid.append(row);
     });
 
-    wrapper.append(grid);
+    wrapper.append(multiGrid);
 
-    // Toolbar
+    // ── Toolbar ───────────────────────────────────────────────────────────────
     const toolbar = document.createElement('div');
     toolbar.className = 'seq-toolbar';
 
-    // ── Track length control ───────────────────────────────────────────────────
     const trackLenDiv = document.createElement('div');
     trackLenDiv.style.cssText = 'display:flex;align-items:center;gap:4px';
-    const defaultSteps = track.trackLength || pattern.length;
     trackLenDiv.innerHTML = `
       <label style="font-family:var(--font-mono);font-size:0.6rem;color:var(--muted)">T.LEN</label>
       <input type="number" min="0" max="64" value="${track.trackLength || 0}"
@@ -194,7 +220,6 @@ export default {
     });
     toolbar.prepend(trackLenDiv);
 
-    // ── Euclidean rhythm generator ─────────────────────────────────────────────
     const euclidDiv = document.createElement('div');
     euclidDiv.className = 'seq-euclid';
     const euclidStepDefault = track.trackLength || pattern.length;
@@ -214,10 +239,9 @@ export default {
       result.forEach((active, i) => {
         if (track.steps[i]) track.steps[i].active = active;
       });
-      emit('state:change', { path: 'euclidBeats', value: beats }); // saves state + re-renders
+      emit('state:change', { path: 'euclidBeats', value: beats });
     });
 
-    // ── Actions: Fill, Copy, Paste, Clear ──────────────────────────────────────
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'seq-actions';
     const hasStepCopy = state.copyBuffer?.type === 'steps';
@@ -229,16 +253,19 @@ export default {
         btn.disabled = true;
         btn.style.opacity = '0.4';
       }
-      btn.addEventListener('click', () => emit('state:change', { path: `action_${label.toLowerCase()}`, value: true }));
+      btn.addEventListener('click', () =>
+        emit('state:change', { path: `action_${label.toLowerCase()}`, value: true })
+      );
       actionsDiv.append(btn);
     });
 
-    // Fill button (prepend so it appears first)
     const fillBtn = document.createElement('button');
     fillBtn.className = 'seq-btn' + (state._fillActive ? ' active' : '');
     fillBtn.textContent = 'Fill';
     fillBtn.style.color = state._fillActive ? 'var(--accent)' : '';
-    fillBtn.addEventListener('click', () => emit('state:change', { path: 'action_fill', value: true }));
+    fillBtn.addEventListener('click', () =>
+      emit('state:change', { path: 'action_fill', value: true })
+    );
     actionsDiv.prepend(fillBtn);
 
     toolbar.append(euclidDiv, actionsDiv);

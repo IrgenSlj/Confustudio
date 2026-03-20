@@ -1,7 +1,8 @@
 // CONFUsynth v3 — main bootstrap & integration
 import { createAppState, getActivePattern, getActiveTrack, getActiveStep,
          applyParamLock, setScene, interpolateScenes,
-         saveState, loadState, PROB_LEVELS, TRACK_COUNT, STORAGE_KEY } from './state.js';
+         saveState, loadState, PROB_LEVELS, TRACK_COUNT, STORAGE_KEY,
+         TRACK_COLORS } from './state.js';
 import { AudioEngine, drawOscilloscope, initMidi, midiOutputs } from './engine.js';
 import { initKeyboard, renderKbdContext, renderPiano, lightPianoKey,
          pressKey, PAGE_KEYS } from './keyboard.js';
@@ -876,9 +877,11 @@ function renderTrackSelector() {
 
     const row = document.createElement('div');
     row.className = 'track-ch' + (isActive ? ' active' : '') + (track.mute ? ' muted' : '');
+    row.style.borderLeft = '3px solid ' + TRACK_COLORS[i];
 
     const led = document.createElement('div');
     led.className = 'track-led' + (track.mute ? ' muted' : hasTriggers ? ' on' : '');
+    if (!track.mute) led.style.background = TRACK_COLORS[i];
 
     const info = document.createElement('div');
     info.className = 'track-ch-info';
@@ -917,9 +920,9 @@ function renderPlayhead() {
     : 'IDLE';
   el.statusPill.className = 'topbar-item topbar-status' + (state.isPlaying ? ' playing' : '');
 
-  // Update step buttons if on pattern page
-  el.pageContent.querySelectorAll('.step-btn').forEach((btn, i) => {
-    btn.classList.toggle('playhead', i === state.currentStep);
+  // Update step buttons — data-step attr means all track rows show playhead
+  el.pageContent.querySelectorAll('.step-btn[data-step]').forEach(btn => {
+    btn.classList.toggle('playhead', Number(btn.dataset.step) === state.currentStep);
   });
 
   // Update piano roll cells if on piano-roll page

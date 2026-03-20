@@ -571,10 +571,10 @@ export function drawOscilloscope(canvas, engine, animRef) {
 
   const loop = () => {
     if (!engine?.analyser) {
-      ctx.fillStyle = "#0a0b0d";
+      ctx.fillStyle = '#0a0b0d';
       ctx.fillRect(0, 0, W, H);
       ctx.beginPath();
-      ctx.strokeStyle = "rgba(90,221,113,0.3)";
+      ctx.strokeStyle = 'rgba(90,221,113,0.2)';
       ctx.lineWidth = 1;
       ctx.moveTo(0, H / 2);
       ctx.lineTo(W, H / 2);
@@ -586,7 +586,6 @@ export function drawOscilloscope(canvas, engine, animRef) {
     const analyser = engine.analyser;
     const bufLen = analyser.frequencyBinCount;
 
-    // Preallocate / resize only when necessary
     if (!_oscDataBuffer || _oscDataBuffer.length !== bufLen) {
       _oscDataBuffer = new Uint8Array(bufLen);
     }
@@ -594,33 +593,48 @@ export function drawOscilloscope(canvas, engine, animRef) {
     analyser.getByteTimeDomainData(_oscDataBuffer);
     const data = _oscDataBuffer;
 
-    ctx.fillStyle = "#080a0c";
+    ctx.fillStyle = '#080a0c';
     ctx.fillRect(0, 0, W, H);
 
-    // Grid lines
-    ctx.strokeStyle = "rgba(255,255,255,0.04)";
-    ctx.lineWidth = 1;
-    for (let g = 1; g < 4; g++) {
-      ctx.beginPath();
-      ctx.moveTo(0, (H / 4) * g);
-      ctx.lineTo(W, (H / 4) * g);
-      ctx.stroke();
-    }
-
-    // Waveform
+    // Center line
     ctx.beginPath();
-    ctx.strokeStyle = "#5add71";
-    ctx.lineWidth = 1.5;
-    ctx.shadowColor = "#5add71";
-    ctx.shadowBlur = 4;
-    const sliceW = W / bufLen;
-    let x = 0;
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    ctx.moveTo(0, H / 2);
+    ctx.lineTo(W, H / 2);
+    ctx.stroke();
+
+    // Filled gradient below waveform
+    const gradient = ctx.createLinearGradient(0, 0, 0, H);
+    gradient.addColorStop(0, 'rgba(90,221,113,0.28)');
+    gradient.addColorStop(0.5, 'rgba(90,221,113,0.1)');
+    gradient.addColorStop(1, 'rgba(90,221,113,0.0)');
+
+    ctx.beginPath();
+    ctx.moveTo(0, H / 2);
     for (let i = 0; i < bufLen; i++) {
       const v = data[i] / 128;
       const y = (v * H) / 2;
+      const x = (i / (bufLen - 1)) * W;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(W, H / 2);
+    ctx.closePath();
+    ctx.fillStyle = gradient;
+    ctx.fill();
+
+    // Bright glow stroke
+    ctx.beginPath();
+    ctx.strokeStyle = '#5add71';
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = '#5add71';
+    ctx.shadowBlur = 6;
+    for (let i = 0; i < bufLen; i++) {
+      const v = data[i] / 128;
+      const y = (v * H) / 2;
+      const x = (i / (bufLen - 1)) * W;
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
-      x += sliceW;
     }
     ctx.stroke();
     ctx.shadowBlur = 0;

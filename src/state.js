@@ -10,6 +10,17 @@ export const BANK_COUNT    = 8;
 export const PATTERN_COUNT = 16;
 export const PROB_LEVELS   = [1, 0.75, 0.5, 0.25];
 
+export const TRACK_COLORS = [
+  '#f0c640', // amber  — T1
+  '#5add71', // green  — T2
+  '#67d7ff', // sky    — T3
+  '#ff8c52', // orange — T4
+  '#c67dff', // violet — T5
+  '#ff6eb4', // pink   — T6
+  '#40e0d0', // teal   — T7
+  '#f05b52', // red    — T8
+];
+
 // ─── Factory: Step ────────────────────────────────────────────────────────────
 
 export function createStep(stepIndex, trackIndex) {

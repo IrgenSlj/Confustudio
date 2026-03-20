@@ -13,6 +13,9 @@ export default {
       <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted)">8 tracks</span>`;
     container.append(header);
 
+    const meterData = new Uint8Array(32);
+    const meterEls = [];
+
     const faderGrid = document.createElement('div');
     faderGrid.className = 'mixer-fader-grid';
     faderGrid.style.cssText = 'flex:1;min-height:0;padding-bottom:4px';
@@ -54,14 +57,14 @@ export default {
       );
       strip.append(fader);
 
-      // Level meter bar (static placeholder — driven by engine at runtime)
-      const meter = document.createElement('div');
-      meter.style.cssText = `
-        width: 6px; flex:0 0 auto; height: 60px;
-        background: linear-gradient(to top, var(--live) 0%, var(--accent) 70%, var(--record) 100%);
-        opacity: 0.3; border-radius: 3px; align-self: center;
-      `;
-      strip.append(meter);
+      // Level meter bar (animated)
+      const meterWrap = document.createElement('div');
+      meterWrap.className = 'mixer-meter-wrap';
+      const meterBar = document.createElement('div');
+      meterBar.className = 'mixer-meter-bar';
+      meterWrap.append(meterBar);
+      strip.append(meterWrap);
+      meterEls.push({ bar: meterBar, track });
 
       // Volume readout
       const vol = document.createElement('span');
@@ -97,6 +100,25 @@ export default {
     });
 
     container.append(faderGrid);
+
+    // Single rAF loop animates all 8 meters
+    (function updateMeters() {
+      if (!faderGrid.isConnected) return;
+      if (state.engine?.analyser) {
+        state.engine.analyser.getByteTimeDomainData(meterData);
+        let sum = 0;
+        for (let i = 0; i < meterData.length; i++) {
+          const s = (meterData[i] - 128) / 128;
+          sum += s * s;
+        }
+        const rms = Math.sqrt(sum / meterData.length);
+        meterEls.forEach(({ bar, track: t }) => {
+          const h = t.mute ? 0 : Math.min(100, Math.round(rms * 140 * (t.volume + 0.15)));
+          bar.style.height = h + '%';
+        });
+      }
+      requestAnimationFrame(updateMeters);
+    })();
   },
 
   knobMap: [
