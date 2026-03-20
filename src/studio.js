@@ -7,58 +7,58 @@ export function initStudio() {
   let scale = 1;
   let panX = 0;
   let panY = 0;
-  const MIN_SCALE = 0.25;
+  const MIN_SCALE = 0.2;
   const MAX_SCALE = 2.0;
-
-  // Centre the main module on load
-  const firstModule = canvas.querySelector('.studio-module');
-  if (firstModule) {
-    const ww = wrap.offsetWidth;
-    const wh = wrap.offsetHeight;
-    const mw = 860; // chassis width
-    const mh = 860;
-    panX = (ww - mw) / 2;
-    panY = (wh - mh) / 2;
-    firstModule.style.left = '0px';
-    firstModule.style.top  = '0px';
-    applyTransform();
-  }
+  const MODULE_W = 860;
+  const MODULE_H = 860;
 
   function applyTransform() {
     canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
   }
 
-  // Zoom buttons
-  document.getElementById('zoom-in')?.addEventListener('click', () => {
-    scale = Math.min(MAX_SCALE, scale * 1.2);
+  function centreModules() {
+    const ww = wrap.offsetWidth  || window.innerWidth;
+    const wh = wrap.offsetHeight || window.innerHeight;
+    panX = (ww - MODULE_W) / 2;
+    panY = Math.max(20, (wh - MODULE_H) / 2);
+    const firstModule = canvas.querySelector('.studio-module');
+    if (firstModule) {
+      firstModule.style.left = '0px';
+      firstModule.style.top  = '0px';
+    }
     applyTransform();
+  }
+
+  // Defer centering to after first layout paint
+  requestAnimationFrame(() => requestAnimationFrame(centreModules));
+
+  // Zoom buttons — zoom toward canvas centre
+  document.getElementById('zoom-in')?.addEventListener('click', () => {
+    zoomBy(1.2, wrap.offsetWidth / 2, wrap.offsetHeight / 2);
   });
   document.getElementById('zoom-out')?.addEventListener('click', () => {
-    scale = Math.max(MIN_SCALE, scale / 1.2);
-    applyTransform();
+    zoomBy(1 / 1.2, wrap.offsetWidth / 2, wrap.offsetHeight / 2);
   });
   document.getElementById('zoom-reset')?.addEventListener('click', () => {
     scale = 1;
-    const ww = wrap.offsetWidth;
-    const wh = wrap.offsetHeight;
-    panX = (ww - 860) / 2;
-    panY = (wh - 860) / 2;
-    applyTransform();
+    centreModules();
   });
+
+  function zoomBy(factor, cx, cy) {
+    const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * factor));
+    const ratio = newScale / scale;
+    panX = cx - ratio * (cx - panX);
+    panY = cy - ratio * (cy - panY);
+    scale = newScale;
+    applyTransform();
+  }
 
   // Ctrl+scroll to zoom
   wrap.addEventListener('wheel', e => {
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
-    const factor = e.deltaY > 0 ? 0.9 : 1.1;
     const rect = wrap.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
-    // Zoom toward mouse cursor
-    panX = mx - (mx - panX) * factor;
-    panY = my - (my - panY) * factor;
-    scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * factor));
-    applyTransform();
+    zoomBy(e.deltaY > 0 ? 0.9 : 1.1, e.clientX - rect.left, e.clientY - rect.top);
   }, { passive: false });
 
   // Middle-click or space+drag to pan

@@ -415,7 +415,7 @@ function emit(type, payload = {}) {
 
     case 'track:mute': {
       const t = pattern.kit.tracks[payload.trackIndex ?? state.selectedTrackIndex];
-      if (t) { t.mute = !t.mute; scheduleSave(); renderTrackStrip(); }
+      if (t) { t.mute = !t.mute; scheduleSave(); renderTrackStrip(); renderTrackSelector(); }
       break;
     }
 
@@ -427,13 +427,14 @@ function emit(type, payload = {}) {
         t.solo = !wasSolo;
         scheduleSave();
         renderTrackStrip();
+        renderTrackSelector();
       }
       break;
     }
 
     case 'track:muteToggle': {
       const t = pattern.kit.tracks[payload.trackIndex];
-      if (t) { t.mute = !t.mute; scheduleSave(); renderTrackStrip(); }
+      if (t) { t.mute = !t.mute; scheduleSave(); renderTrackStrip(); renderTrackSelector(); }
       break;
     }
 
