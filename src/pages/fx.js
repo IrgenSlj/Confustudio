@@ -121,7 +121,8 @@ function _applyGlobal(param, v, state) {
   if (!eng) return;
   if (param === 'reverbSize' && eng.setReverbRoomSize) eng.setReverbRoomSize(v);
   if (param === 'reverbDamping' && eng.setReverbDamping) eng.setReverbDamping(v);
-  if (param === 'delayTime' && eng.delay?.delayTime) eng.delay.delayTime.value = v;
-  if (param === 'delayFeedback' && eng.delayFeedback?.gain) eng.delayFeedback.gain.value = v;
-  if (param === 'masterLevel' && eng.master?.gain) eng.master.gain.value = v;
+  if (param === 'delayTime' && eng.setDelayTime) eng.setDelayTime(v);
+  if (param === 'delayFeedback' && eng.setDelayFeedback) eng.setDelayFeedback(v);
+  if (param === 'delayWet' && eng.setDelayMix) eng.setDelayMix(v);
+  if (param === 'masterLevel' && eng.setMasterLevel) eng.setMasterLevel(v);
 }

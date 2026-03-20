@@ -9,141 +9,144 @@
   <link rel="stylesheet" href="/src/styles.css" />
 </head>
 <body>
-  <main class="chassis">
+  <div id="studio-wrap">
+    <div id="studio-canvas">
+      <div class="studio-module" id="module-0">
+        <main class="chassis">
 
-    <!-- TOP PORTS BAR -->
-    <div class="ports-bar">
-      <span class="port">Audio In</span>
-      <span class="port">Audio Out</span>
-      <span class="port">MIDI In</span>
-      <span class="port">MIDI Out</span>
-      <span class="port">USB</span>
-    </div>
-
-    <!-- MAIN GRID: left-col | screen | right-col -->
-    <div class="machine-grid">
-
-      <!-- LEFT COLUMN -->
-      <aside class="left-col">
-        <!-- hidden knob container — keeps JS happy -->
-        <div id="left-knobs" style="display:none"></div>
-
-        <!-- Signal meter: 16 vertical LED segments -->
-        <div class="meter-section">
-          <div class="meter-label">SIG</div>
-          <div class="signal-meter" id="signal-meter">
-            <!-- 16 spans, JS will light them -->
-            <!-- seg-16 = top/loudest, seg-1 = bottom/quietest -->
-          </div>
-        </div>
-
-        <!-- Master volume fader (vertical) -->
-        <div class="fader-section">
-          <div class="meter-label">VOL</div>
-          <input type="range" id="master-volume" class="fader-master"
-            orient="vertical" min="0" max="1" step="0.01" value="0.82" />
-        </div>
-
-        <!-- Transport buttons -->
-        <div class="transport-buttons">
-          <button id="btn-audio"  class="t-btn t-btn--audio">A</button>
-          <button id="btn-play"   class="t-btn t-btn--play">&#9654;</button>
-          <button id="btn-stop"   class="t-btn t-btn--stop">&#9632;</button>
-          <button id="btn-record" class="t-btn t-btn--record">&#9679;</button>
-          <button id="btn-fill"   class="t-btn t-btn--fill">Fill</button>
-          <button id="btn-tap"    class="t-btn">Tap</button>
-        </div>
-
-        <!-- BPM edit (moved here from screen-below) -->
-        <div id="bpm-edit" class="bpm-edit">
-          <button id="bpm-dec" class="bpm-arrow">&#8722;</button>
-          <input id="bpm-input" type="number" min="40" max="240" value="122" />
-          <button id="bpm-inc" class="bpm-arrow">+</button>
-        </div>
-      </aside>
-
-      <!-- CENTER: SCREEN -->
-      <section class="screen-section">
-        <div class="screen-bezel">
-
-          <!-- Top info bar -->
-          <div class="screen-topbar">
-            <span id="project-name" class="topbar-item">CONFUsynth</span>
-            <span id="bank-pattern" class="topbar-item">A&#xB7;01</span>
-            <span id="bpm-display"  class="topbar-item topbar-bpm">122 BPM</span>
-            <span id="status-pill"  class="topbar-item topbar-status">IDLE</span>
+          <!-- TOP PORTS BAR -->
+          <div class="ports-bar">
+            <span class="port">Audio In</span>
+            <span class="port">Audio Out</span>
+            <span class="port">MIDI In</span>
+            <span class="port">MIDI Out</span>
+            <span class="port">USB</span>
           </div>
 
-          <!-- 9 page tabs -->
-          <nav class="page-tabs" id="page-tabs">
-            <button class="tab active" data-page="pattern">PATTERN</button>
-            <button class="tab" data-page="piano-roll">ROLL</button>
-            <button class="tab" data-page="sound">SOUND</button>
-            <button class="tab" data-page="mixer">MIXER</button>
-            <button class="tab" data-page="fx">FX</button>
-            <button class="tab" data-page="scenes">SCENES</button>
-            <button class="tab" data-page="banks">BANKS</button>
-            <button class="tab" data-page="arranger">ARR</button>
-            <button class="tab" data-page="settings">SET</button>
-          </nav>
+          <!-- MAIN GRID: left-col | screen | right-col -->
+          <div class="machine-grid">
 
-          <!-- NO knob-bar here — removed -->
+            <!-- LEFT COLUMN -->
+            <aside class="left-col">
+              <!-- hidden knob container — keeps JS happy -->
+              <div id="left-knobs" style="display:none"></div>
 
-          <!-- Page content area -->
-          <div class="page-content" id="page-content">
-            <!-- Rendered by page modules -->
+              <!-- Signal meter: 16 vertical LED segments -->
+              <div class="meter-section">
+                <div class="meter-label">SIG</div>
+                <div class="signal-meter" id="signal-meter">
+                  <!-- 16 spans, JS will light them -->
+                  <!-- seg-16 = top/loudest, seg-1 = bottom/quietest -->
+                </div>
+              </div>
+
+              <!-- Master volume fader (vertical) -->
+              <div class="fader-section">
+                <div class="meter-label">VOL</div>
+                <input type="range" id="master-volume" class="fader-master"
+                  orient="vertical" min="0" max="1" step="0.01" value="0.82" />
+              </div>
+
+              <!-- Transport buttons -->
+              <div class="transport-buttons">
+                <button id="btn-audio"  class="t-btn t-btn--audio">A</button>
+                <button id="btn-play"   class="t-btn t-btn--play">&#9654;</button>
+                <button id="btn-stop"   class="t-btn t-btn--stop">&#9632;</button>
+                <button id="btn-record" class="t-btn t-btn--record">&#9679;</button>
+                <button id="btn-fill"   class="t-btn t-btn--fill">Fill</button>
+                <button id="btn-tap"    class="t-btn">Tap</button>
+              </div>
+
+              <!-- BPM edit (moved here from screen-below) -->
+              <div id="bpm-edit" class="bpm-edit">
+                <button id="bpm-dec" class="bpm-arrow">&#8722;</button>
+                <input id="bpm-input" type="number" min="40" max="240" value="122" />
+                <button id="bpm-inc" class="bpm-arrow">+</button>
+              </div>
+            </aside>
+
+            <!-- CENTER: SCREEN -->
+            <section class="screen-section">
+              <div class="screen-bezel">
+
+                <!-- Top info bar -->
+                <div class="screen-topbar">
+                  <span id="project-name" class="topbar-item">CONFUsynth</span>
+                  <span id="bank-pattern" class="topbar-item">A&#xB7;01</span>
+                  <span id="bpm-display"  class="topbar-item topbar-bpm">122 BPM</span>
+                  <span id="status-pill"  class="topbar-item topbar-status">IDLE</span>
+                </div>
+
+                <!-- 9 page tabs -->
+                <nav class="page-tabs" id="page-tabs">
+                  <button class="tab active" data-page="pattern">PATTERN</button>
+                  <button class="tab" data-page="piano-roll">ROLL</button>
+                  <button class="tab" data-page="sound">SOUND</button>
+                  <button class="tab" data-page="mixer">MIXER</button>
+                  <button class="tab" data-page="fx">FX</button>
+                  <button class="tab" data-page="scenes">SCENES</button>
+                  <button class="tab" data-page="banks">BANKS</button>
+                  <button class="tab" data-page="arranger">ARR</button>
+                  <button class="tab" data-page="settings">SET</button>
+                </nav>
+
+                <!-- NO knob-bar here — removed -->
+
+                <!-- Page content area -->
+                <div class="page-content" id="page-content">
+                  <!-- Rendered by page modules -->
+                </div>
+
+                <!-- Oscilloscope strip — always visible -->
+                <canvas id="oscilloscope" class="oscilloscope-strip"></canvas>
+
+              </div>
+
+              <!-- sample file input, hidden, kept for JS -->
+              <label class="screen-btn file-btn" style="display:none">
+                Sample <input id="sample-file" type="file" accept="audio/*" hidden />
+              </label>
+            </section>
+
+            <!-- RIGHT COLUMN: Channel strip -->
+            <aside class="right-col">
+              <!-- hidden knob container — keeps JS happy -->
+              <div id="right-knobs" style="display:none"></div>
+              <!-- Channel strip — 8 rows rendered by app.js -->
+              <div class="channel-strip" id="track-selector"></div>
+            </aside>
+
           </div>
 
-          <!-- Oscilloscope strip — always visible -->
-          <canvas id="oscilloscope" class="oscilloscope-strip"></canvas>
+          <!-- KEYBOARD PANEL -->
+          <div class="kbd-panel">
 
-        </div>
+            <!-- Context zone — changes per page -->
+            <div class="kbd-context" id="kbd-context">
+              <!-- Rendered by keyboard.js based on current page -->
+            </div>
 
-        <!-- sample file input, hidden, kept for JS -->
-        <label class="screen-btn file-btn" style="display:none">
-          Sample <input id="sample-file" type="file" accept="audio/*" hidden />
-        </label>
-      </section>
+            <!-- Visual piano keys — always at bottom -->
+            <div class="kbd-piano" id="kbd-piano">
+              <!-- Rendered by keyboard.js -->
+            </div>
 
-      <!-- RIGHT COLUMN: Channel strip -->
-      <aside class="right-col">
-        <!-- hidden knob container — keeps JS happy -->
-        <div id="right-knobs" style="display:none"></div>
-        <!-- Channel strip — 8 rows rendered by app.js -->
-        <div class="channel-strip" id="track-selector"></div>
-      </aside>
+          </div>
 
+          <!-- TRACK STRIP — hidden (replaced by right channel strip) -->
+          <div class="track-strip" id="track-strip" style="display:none"></div>
+
+        </main>
+      </div>
     </div>
-
-    <!-- KEYBOARD PANEL -->
-    <div class="kbd-panel">
-
-      <!-- Universal transport zone -->
-      <div class="kbd-universal">
-        <button id="kbd-play"   class="kbd-btn kbd-play">PLAY</button>
-        <button id="kbd-stop"   class="kbd-btn kbd-stop">STOP</button>
-        <button id="kbd-record" class="kbd-btn kbd-record">REC</button>
-        <button id="kbd-arm"    class="kbd-btn">ARM</button>
-        <span class="kbd-bpm" id="kbd-bpm-display">122 BPM</span>
-      </div>
-
-      <!-- Context zone — changes per page -->
-      <div class="kbd-context" id="kbd-context">
-        <!-- Rendered by keyboard.js based on current page -->
-      </div>
-
-      <!-- Visual piano keys — always at bottom -->
-      <div class="kbd-piano" id="kbd-piano">
-        <!-- Rendered by keyboard.js -->
-      </div>
-
+    <!-- Studio controls: zoom + add module -->
+    <div id="studio-controls">
+      <button id="zoom-in" title="Zoom in">＋</button>
+      <button id="zoom-out" title="Zoom out">－</button>
+      <button id="zoom-reset" title="Reset zoom">⊡</button>
+      <button id="add-module" title="Add module">＋ Module</button>
     </div>
-
-    <!-- TRACK STRIP — hidden (replaced by right channel strip) -->
-    <div class="track-strip" id="track-strip" style="display:none"></div>
-
-  </main>
-
+  </div>
   <script type="module" src="/src/app.js"></script>
 </body>
 </html>

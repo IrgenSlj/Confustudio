@@ -6,6 +6,7 @@ import { AudioEngine, drawOscilloscope, initMidi, midiOutputs } from './engine.j
 import { initKeyboard, renderKbdContext, renderPiano, lightPianoKey,
          pressKey, PAGE_KEYS } from './keyboard.js';
 import { renderKnobs, KNOB_MAPS } from './knobs.js';
+import { initStudio } from '/src/studio.js';
 
 // Page modules
 import patternPage  from './pages/pattern.js';
@@ -592,6 +593,8 @@ async function ensureAudio() {
   state.audioContext = ctx;
   state.engine = new AudioEngine(ctx);
   state.engine.initWorklets(); // async — loads cs-resampler worklet in background
+  state.engine.setMasterLevel(state.masterLevel);
+  if (el.masterVolume) el.masterVolume.value = state.masterLevel;
   el.btnAudio.classList.add('active');
   drawOscilloscope(el.oscilloscope, state.engine, _oscAnimRef);
   initSignalMeter();
@@ -865,28 +868,42 @@ function renderTrackSelector() {
   const pattern = getActivePattern(state);
   el_cs.innerHTML = '';
   pattern.kit.tracks.forEach((track, i) => {
-    const row = document.createElement('div');
     const isActive = i === state.selectedTrackIndex;
     const hasTriggers = track.steps.slice(0, track.trackLength || pattern.length).some(s => s.active);
+
+    const row = document.createElement('div');
     row.className = 'track-ch' + (isActive ? ' active' : '') + (track.mute ? ' muted' : '');
 
     const led = document.createElement('div');
     led.className = 'track-led' + (track.mute ? ' muted' : hasTriggers ? ' on' : '');
 
-    const name = document.createElement('span');
-    name.className = 'track-ch-name';
-    name.textContent = `T${i + 1}`;
+    const info = document.createElement('div');
+    info.className = 'track-ch-info';
 
-    const machine = document.createElement('span');
-    machine.className = 'track-ch-machine';
-    machine.textContent = track.machine.slice(0, 4);
+    const num = document.createElement('span');
+    num.className = 'track-ch-num';
+    num.textContent = `T${i + 1}`;
 
-    row.append(led, name, machine);
-    row.addEventListener('click', e => {
-      if (e.shiftKey) emit('track:mute',  { trackIndex: i });
-      else if (e.altKey) emit('track:solo', { trackIndex: i });
-      else emit('track:select', { trackIndex: i });
-    });
+    const mac = document.createElement('span');
+    mac.className = 'track-ch-machine';
+    mac.textContent = (track.machine || 'tone').slice(0, 4).toUpperCase();
+
+    info.append(num, mac);
+
+    const btnM = document.createElement('button');
+    btnM.className = 'track-ms-btn track-mute-btn' + (track.mute ? ' active' : '');
+    btnM.textContent = 'M';
+    btnM.title = 'Mute';
+    btnM.addEventListener('click', e => { e.stopPropagation(); emit('track:mute', { trackIndex: i }); });
+
+    const btnS = document.createElement('button');
+    btnS.className = 'track-ms-btn track-solo-btn' + (track.solo ? ' active' : '');
+    btnS.textContent = 'S';
+    btnS.title = 'Solo';
+    btnS.addEventListener('click', e => { e.stopPropagation(); emit('track:solo', { trackIndex: i }); });
+
+    row.append(led, info, btnM, btnS);
+    row.addEventListener('click', () => emit('track:select', { trackIndex: i }));
     el_cs.append(row);
   });
 }
@@ -914,13 +931,13 @@ function updateTopbar() {
   const BANKS = 'ABCDEFGH';
   el.bankPattern.textContent = `${BANKS[state.activeBank]}·${String(state.activePattern + 1).padStart(2, '0')}`;
   el.bpmDisplay.textContent  = `${state.bpm} BPM`;
-  el.kbdBpm.textContent      = `${state.bpm} BPM`;
+  if (el.kbdBpm) el.kbdBpm.textContent = `${state.bpm} BPM`;
   if (el.bpmInput) el.bpmInput.value = state.bpm;
 }
 
 function updateTransportUI() {
   el.btnPlay.classList.toggle('active', state.isPlaying);
-  el.kbdPlay.classList.toggle('active', state.isPlaying);
+  el.kbdPlay?.classList.toggle('active', state.isPlaying);
   el.btnPlay.textContent = state.isPlaying ? '■' : '▶';
   el.btnRecord?.classList.toggle('active', state.isRecording);
   el.kbdRecord?.classList.toggle('active', state.isRecording);
@@ -932,6 +949,31 @@ function updateTransportUI() {
 function scheduleSave() {
   clearTimeout(_saveTimer);
   _saveTimer = setTimeout(() => saveState(state), 400);
+}
+
+// ─────────────────────────────────────────────
+// NUMERIC DRAG UTILITY
+// ─────────────────────────────────────────────
+function addNumericDrag(inputEl, onUpdate) {
+  let _startY = 0, _startVal = 0, _active = false;
+  inputEl.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    _active = true;
+    _startY = e.clientY;
+    _startVal = parseFloat(inputEl.value) || 0;
+    inputEl.setPointerCapture(e.pointerId);
+  });
+  inputEl.addEventListener('pointermove', e => {
+    if (!_active) return;
+    const delta = (_startY - e.clientY) * 0.5;
+    const step = parseFloat(inputEl.step) || 1;
+    const min = parseFloat(inputEl.min) ?? -Infinity;
+    const max = parseFloat(inputEl.max) ?? Infinity;
+    const newVal = Math.max(min, Math.min(max, _startVal + delta * step));
+    inputEl.value = step < 1 ? newVal.toFixed(2) : Math.round(newVal);
+    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  inputEl.addEventListener('pointerup', () => { _active = false; });
 }
 
 // ─────────────────────────────────────────────
@@ -948,8 +990,8 @@ function bindUI() {
   el.btnAudio.addEventListener('click', () => ensureAudio());
   el.btnPlay.addEventListener('click',   () => togglePlay());
   el.btnStop.addEventListener('click',   () => stopPlay());
-  el.kbdPlay.addEventListener('click',   () => togglePlay());
-  el.kbdStop.addEventListener('click',   () => stopPlay());
+  el.kbdPlay?.addEventListener('click',   () => togglePlay());
+  el.kbdStop?.addEventListener('click',   () => stopPlay());
   if (el.btnTap)  el.btnTap.addEventListener('click', tapTempo);
   if (el.btnFill) el.btnFill.addEventListener('click', toggleFill);
 
@@ -958,6 +1000,7 @@ function bindUI() {
     el.bpmInput.addEventListener('input', e => {
       emit('state:change', { path: 'bpm', value: Number(e.target.value) });
     });
+    addNumericDrag(el.bpmInput);
   }
   if (el.bpmDec) el.bpmDec.addEventListener('click', () => {
     emit('state:change', { path: 'bpm', value: state.bpm - 1 });
@@ -991,6 +1034,8 @@ function boot() {
   bindUI();
   initKeyboard(state, emit);
   renderAll();
+  if (el.masterVolume) el.masterVolume.value = state.masterLevel;
+  initStudio();
   console.log('CONFUsynth v3 ready — press A to init audio, Space to play');
 }
 

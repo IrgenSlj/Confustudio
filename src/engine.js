@@ -195,6 +195,18 @@ export class AudioEngine {
     }
   }
 
+  setDelayFeedback(v) {
+    this.delayFeedback.gain.setTargetAtTime(Math.max(0, Math.min(0.95, v)), this.context.currentTime, 0.01);
+  }
+
+  setDelayTime(v) {
+    this.delay.delayTime.setTargetAtTime(Math.max(0.01, Math.min(1.3, v)), this.context.currentTime, 0.01);
+  }
+
+  setDelayMix(v) {
+    this.delayWet.gain.setTargetAtTime(Math.max(0, Math.min(1, v)), this.context.currentTime, 0.01);
+  }
+
   setMasterLevel(v) {
     this.master.gain.setTargetAtTime(Math.max(0, Math.min(1, v)), this.context.currentTime, 0.01);
   }
