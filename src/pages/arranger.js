@@ -10,6 +10,7 @@ export default {
 
     const { arranger, arrangementMode, arrangementCursor, scenes, isPlaying } = state;
     const activeSectionIdx = (arrangementMode && isPlaying) ? (state._arrSection ?? 0) : -1;
+    if (state.arrSoloSection == null) state.arrSoloSection = null; // ensure defined
 
     // ── Loop state (stored on state, defaulting here) ──────────────────────
     const arrLoop      = state.arrLoop      ?? false;
@@ -38,10 +39,12 @@ export default {
     clearBtn.addEventListener('click', () => {
       if (!confirm('Clear arranger? All sections will be lost.')) return;
       state.arranger.length = 0;
-      state.arranger.push({ sceneIdx: 0, bars: 4, name: 'Section 1' });
+      state.arranger.push({ sceneIdx: 0, bars: 4, name: 'Section 1', repeat: 1, muted: false });
       state.arrangementCursor = 0;
       state._arrSection = 0;
       state._arrSectionBars = 0;
+      state._arrSectionRepeatCount = 0;
+      state.arrSoloSection = null;
       emit('state:change', { path: 'scale', value: state.scale });
     });
 
@@ -276,6 +279,55 @@ export default {
         emit('state:change', { path: 'arranger', value: state.arranger });
       });
 
+      // ── Repeat count ──────────────────────────────────────────────────────
+      if (section.repeat == null) section.repeat = 1;
+      const repeatLabel = document.createElement('span');
+      repeatLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.5rem;color:var(--muted)';
+      repeatLabel.textContent = '×';
+
+      const repeatInput = document.createElement('input');
+      repeatInput.type = 'number';
+      repeatInput.className = 'arr-bpm-input';
+      repeatInput.min = '1';
+      repeatInput.max = '16';
+      repeatInput.value = String(section.repeat ?? 1);
+      repeatInput.title = 'Repeat: play this section N times before advancing';
+      repeatInput.style.width = '32px';
+      repeatInput.addEventListener('change', () => {
+        section.repeat = Math.max(1, Math.min(16, parseInt(repeatInput.value) || 1));
+        repeatInput.value = String(section.repeat);
+        emit('state:change', { path: 'arranger', value: state.arranger });
+      });
+
+      // ── Section mute button ───────────────────────────────────────────────
+      if (section.muted == null) section.muted = false;
+      const muteBtn = document.createElement('button');
+      muteBtn.className = 'seq-btn' + (section.muted ? ' active' : '');
+      muteBtn.textContent = 'M';
+      muteBtn.title = section.muted ? 'Section muted — click to unmute' : 'Mute section (plays silently)';
+      muteBtn.style.cssText = `font-size:0.52rem;padding:2px 5px;${section.muted ? 'color:var(--live);border-color:var(--live);' : 'opacity:0.45;'}`;
+      muteBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        section.muted = !section.muted;
+        muteBtn.classList.toggle('active', section.muted);
+        muteBtn.style.cssText = `font-size:0.52rem;padding:2px 5px;${section.muted ? 'color:var(--live);border-color:var(--live);' : 'opacity:0.45;'}`;
+        muteBtn.title = section.muted ? 'Section muted — click to unmute' : 'Mute section (plays silently)';
+        emit('state:change', { path: 'arranger', value: state.arranger });
+      });
+
+      // ── Section solo button ───────────────────────────────────────────────
+      const soloActive = (state.arrSoloSection === idx);
+      const soloBtn = document.createElement('button');
+      soloBtn.className = 'seq-btn' + (soloActive ? ' active' : '');
+      soloBtn.textContent = 'S';
+      soloBtn.title = soloActive ? 'Section solo — click to clear' : 'Solo: loop this section indefinitely';
+      soloBtn.style.cssText = `font-size:0.52rem;padding:2px 5px;${soloActive ? 'color:#ffe066;border-color:#ffe066;' : 'opacity:0.45;'}`;
+      soloBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        const newSolo = (state.arrSoloSection === idx) ? null : idx;
+        emit('state:change', { path: 'arrSoloSection', value: newSolo });
+      });
+
       // ── Track mute squares (8 mini colored squares) ─────────────────────
       if (!Array.isArray(section.trackMutes) || section.trackMutes.length !== 8) {
         section.trackMutes = Array(8).fill(false);
@@ -327,7 +379,7 @@ export default {
         pointer-events:none;transition:width 0.1s linear;
       `;
 
-      row.append(colorSwatch, sceneLabel, barsLabel, minusBtn, plusBtn, bpmLabel, bpmInput, tsSelect, sceneName, mutesRow, dupBtn, upBtn, dnBtn, delBtn, progressBar);
+      row.append(colorSwatch, sceneLabel, barsLabel, minusBtn, plusBtn, repeatLabel, repeatInput, bpmLabel, bpmInput, tsSelect, sceneName, mutesRow, muteBtn, soloBtn, dupBtn, upBtn, dnBtn, delBtn, progressBar);
       list.append(row);
     });
 

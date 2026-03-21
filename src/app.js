@@ -1549,6 +1549,9 @@ function renderAll() {
 function renderPage() {
   const page = PAGES[state.currentPage];
   if (!page) return;
+  // Run any cleanup registered by the previous page (e.g. clear intervals/rAFs)
+  el.pageContent._cleanup?.();
+  el.pageContent._cleanup = null;
   page.render(el.pageContent, state, emit);
 }
 

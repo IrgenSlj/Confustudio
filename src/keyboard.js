@@ -433,6 +433,8 @@ export function renderPiano(containerEl, state) {
       if (splitActive) {
         const col = midi < 60 ? splitColorL : splitColorR;
         k.style.background = `linear-gradient(180deg, ${col}22 0%, ${col}11 100%), linear-gradient(180deg, #e0d8c8 0%, #cec6b4 70%, #beb6a4 100%)`;
+        // Mark C4 (MIDI 60) as the split boundary
+        if (midi === 60) k.dataset.splitBoundary = '1';
       }
 
       // Scale highlighting
@@ -583,6 +585,7 @@ export function initPianoTouch(pianoContainerEl, state, emit) {
       const keyEl = el?.closest('.piano-white, .piano-black');
       if (keyEl) {
         keyEl._touchId = touch.identifier;
+        keyEl.setAttribute('data-touch-id', touch.identifier);
         _triggerNote(keyEl, touch);
       }
     }
@@ -640,6 +643,7 @@ export function initKeyboard(state, emit, trackColors = []) {
   if (state.splitKeyboard    === undefined) state.splitKeyboard    = false;
   if (state.splitTrackLeft   === undefined) state.splitTrackLeft   = 0;
   if (state.splitTrackRight  === undefined) state.splitTrackRight  = 1;
+
   window.addEventListener('keydown', (e) => {
     const tag = e.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;

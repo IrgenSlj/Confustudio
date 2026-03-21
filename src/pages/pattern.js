@@ -2,6 +2,81 @@
 
 import { TRACK_COLORS } from '../state.js';
 
+// ─── Genre-aware randomize probability tables ─────────────────────────────────
+// Each genre defines per-track step-probability arrays for 16 steps.
+// Track order convention (0-based): 0=kick, 1=snare, 2=hihat, 3=clap, 4-7=other
+// Values are multipliers applied on top of the global density (0-1).
+// A value of 1 means "use full density", 0 means "never active".
+const GENRE_WEIGHTS = {
+  // Straight 4-on-the-floor kick, snare on 2&4, 8th-note hats, sparse perc
+  drums: [
+    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0], // kick: quarter notes
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0], // snare: beats 2 & 4
+    [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1], // hihat: all 8th notes (dense)
+    [0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0], // clap
+    [0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0], // perc 1
+    [0,0,0,0, 0,1,0,0, 0,0,0,0, 0,1,0,0], // perc 2
+    [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,1], // perc 3
+    [0,0,0,1, 0,0,0,0, 0,0,0,1, 0,0,0,0], // perc 4
+  ],
+  // House: 4-on-floor kick, offbeat hats, snare on 3, open hats on upbeats
+  house: [
+    [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0], // kick: 4-on-the-floor
+    [0,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0], // snare: beat 3
+    [0,1,0,1, 0,1,0,1, 0,1,0,1, 0,1,0,1], // closed hihat: offbeats
+    [0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0], // open hihat
+    [0,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,0,0], // clap/snap
+    [0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0], // shaker
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 0,0,0,0], // perc
+    [0,0,0,0, 0,0,0,0, 0,0,0,1, 0,0,0,0], // cymbal
+  ],
+  // Techno: dense kick, sparse snare, driving hats
+  techno: [
+    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0], // kick: every 2nd 16th
+    [0,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0], // snare: beat 3
+    [1,1,1,1, 1,1,1,1, 1,1,1,1, 1,1,1,1], // hihat: all 16ths
+    [0,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,0,1], // clap/rimshot
+    [0,1,0,0, 0,0,0,0, 0,1,0,0, 0,0,0,0], // perc 1
+    [0,0,0,1, 0,0,0,0, 0,0,0,1, 0,0,0,0], // perc 2
+    [1,0,0,0, 0,0,1,0, 1,0,0,0, 0,0,1,0], // perc 3
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0], // ride/accent
+  ],
+  // Jazz: swing-feel, hi-hat on 2&4, brushy snare, sparse kick
+  jazz: [
+    [1,0,0,0, 0,0,0,0, 0,0,1,0, 0,0,0,0], // kick: beats 1 & 3
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0], // snare: 2 & 4
+    [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0], // ride: straight swing pattern
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 0,0,0,0], // hihat: beat 2 accent
+    [0,0,0,0, 0,0,0,0, 0,0,0,0, 1,0,0,0], // hihat: beat 4 accent
+    [0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0], // brush swirl
+    [0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,0,0], // ghost note
+    [0,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0], // crash
+  ],
+  // Latin: clave-based patterns, congas, timbales
+  latin: [
+    [1,0,0,0, 0,0,1,0, 0,0,1,0, 0,0,0,0], // kick: son clave-ish
+    [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0], // snare/timbale: 2 & 4
+    [1,0,1,0, 0,1,0,1, 0,1,0,0, 1,0,1,0], // hihat/shaker
+    [1,0,0,1, 0,0,1,0, 0,1,0,0, 1,0,0,0], // clave (son)
+    [0,1,0,0, 1,0,0,1, 0,0,1,0, 0,1,0,0], // conga low
+    [1,0,1,0, 0,1,0,0, 1,0,0,1, 0,0,1,0], // conga high
+    [0,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,1,0], // cowbell
+    [0,1,0,0, 0,0,0,0, 0,1,0,0, 0,0,0,0], // guiro
+  ],
+  // Random: uniform (all weights = 1)
+  random: null,
+};
+
+// Return a flat array of per-step probability weights for a given track index and genre.
+// Steps beyond 16 wrap around the base pattern.
+function getGenreStepWeights(genre, trackIndex, numSteps) {
+  const table = GENRE_WEIGHTS[genre];
+  if (!table) return Array(numSteps).fill(1); // 'random' / unknown → uniform
+  const trackWeights = table[Math.min(trackIndex, table.length - 1)];
+  const base = trackWeights.length; // 16
+  return Array.from({ length: numSteps }, (_, i) => trackWeights[i % base]);
+}
+
 // ─── Note name helper ─────────────────────────────────────────────────────────
 const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 function midiToNoteName(midi) {

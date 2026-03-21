@@ -260,6 +260,35 @@ export default {
       }
     });
 
+    // ── MIDI clock live status display ───────────────────────────────────────
+    // Update the #midi-clock-status span every second with live BPM or no-signal text.
+    // The interval is registered on container._cleanup so it is cleared on page change.
+    if (container._midiClockStatusInterval) {
+      clearInterval(container._midiClockStatusInterval);
+      container._midiClockStatusInterval = null;
+    }
+    function updateMidiClockStatusDisplay() {
+      const statusEl = container.querySelector('#midi-clock-status');
+      if (!statusEl) return;
+      if (state._midiClockReceiving && state._midiClockBpm != null) {
+        statusEl.style.color = 'var(--accent)';
+        statusEl.textContent = `\u2713 ${state._midiClockBpm.toFixed(1)} BPM`;
+      } else {
+        statusEl.style.color = 'var(--muted)';
+        statusEl.textContent = '\u2014 no signal';
+      }
+    }
+    updateMidiClockStatusDisplay(); // run immediately on render
+    container._midiClockStatusInterval = setInterval(updateMidiClockStatusDisplay, 1000);
+    // Register cleanup so navigating away clears the interval
+    const _prevCleanup = container._cleanup;
+    container._cleanup = () => {
+      clearInterval(container._midiClockStatusInterval);
+      container._midiClockStatusInterval = null;
+      container._cleanupPerf?.();
+      _prevCleanup?.();
+    };
+
     // ── MIDI Learn section ───────────────────────────────────────────────────
     if (!state.midiLearnMap) state.midiLearnMap = {};
 
