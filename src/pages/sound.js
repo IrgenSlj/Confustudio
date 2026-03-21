@@ -70,7 +70,16 @@ function makeSlider(label, param, min, max, step, value, emit, trackIndex) {
   return row;
 }
 
-function drawWaveform(canvas, audioBuffer, sampleStart, sampleEnd) {
+/**
+ * Draw the waveform for `audioBuffer` onto `canvas`.
+ *
+ * The view window is defined by [viewStart, viewEnd] as 0–1 fractions of the
+ * full buffer (controlled by zoom + pan).  sampleStart/sampleEnd are the trim
+ * handles drawn inside that window.  loopStart/loopEnd are the loop markers.
+ */
+function drawWaveform(canvas, audioBuffer, sampleStart, sampleEnd,
+                      viewStart = 0, viewEnd = 1,
+                      loopStart = 0, loopEnd = 1, loopEnabled = false) {
   if (!audioBuffer) { canvas.style.display = 'none'; return; }
   canvas.style.display = 'block';
   const ctx2d = canvas.getContext('2d');
@@ -79,17 +88,27 @@ function drawWaveform(canvas, audioBuffer, sampleStart, sampleEnd) {
   canvas.width = W;
   ctx2d.clearRect(0, 0, W, H);
 
-  const data = audioBuffer.getChannelData(0);
-  const step = Math.floor(data.length / W);
+  const data    = audioBuffer.getChannelData(0);
+  const totalSamples = data.length;
+
+  // Map a 0–1 fraction of total buffer to canvas X
+  const fracToX = (frac) => ((frac - viewStart) / (viewEnd - viewStart)) * W;
+
+  // Waveform data — draw only the [viewStart, viewEnd] slice
+  const startSample = Math.floor(viewStart * totalSamples);
+  const endSample   = Math.ceil(viewEnd   * totalSamples);
+  const windowLen   = endSample - startSample;
+  const step        = Math.max(1, Math.floor(windowLen / W));
 
   ctx2d.strokeStyle = '#a0c060';
   ctx2d.lineWidth = 1;
   ctx2d.beginPath();
 
   for (let x = 0; x < W; x++) {
+    const sIdx = startSample + Math.floor((x / W) * windowLen);
     let min = 1, max = -1;
     for (let i = 0; i < step; i++) {
-      const v = data[x * step + i] ?? 0;
+      const v = data[sIdx + i] ?? 0;
       if (v < min) min = v;
       if (v > max) max = v;
     }
@@ -107,6 +126,64 @@ function drawWaveform(canvas, audioBuffer, sampleStart, sampleEnd) {
   ctx2d.moveTo(0, H / 2);
   ctx2d.lineTo(W, H / 2);
   ctx2d.stroke();
+
+  // ── Trim region shading (outside start/end dims out) ──────────────────────
+  const sX = fracToX(sampleStart);
+  const eX = fracToX(sampleEnd);
+  ctx2d.fillStyle = 'rgba(0,0,0,0.45)';
+  if (sX > 0) ctx2d.fillRect(0, 0, sX, H);
+  if (eX < W) ctx2d.fillRect(eX, 0, W - eX, H);
+
+  // ── Loop region fill (cyan tint between loopStart and loopEnd) ────────────
+  if (loopEnabled) {
+    const lsX = Math.max(0, fracToX(loopStart));
+    const leX = Math.min(W, fracToX(loopEnd));
+    if (leX > lsX) {
+      ctx2d.fillStyle = 'rgba(0,220,220,0.10)';
+      ctx2d.fillRect(lsX, 0, leX - lsX, H);
+    }
+  }
+
+  // ── Trim handle lines ─────────────────────────────────────────────────────
+  if (sX >= 0 && sX <= W) {
+    ctx2d.strokeStyle = '#f0c640';
+    ctx2d.lineWidth = 1.5;
+    ctx2d.beginPath();
+    ctx2d.moveTo(sX, 0);
+    ctx2d.lineTo(sX, H);
+    ctx2d.stroke();
+  }
+  if (eX >= 0 && eX <= W) {
+    ctx2d.strokeStyle = '#ff8c52';
+    ctx2d.lineWidth = 1.5;
+    ctx2d.beginPath();
+    ctx2d.moveTo(eX, 0);
+    ctx2d.lineTo(eX, H);
+    ctx2d.stroke();
+  }
+
+  // ── Loop marker lines ─────────────────────────────────────────────────────
+  if (loopEnabled) {
+    const lsX = fracToX(loopStart);
+    const leX = fracToX(loopEnd);
+    ctx2d.setLineDash([3, 3]);
+    ctx2d.lineWidth = 1.5;
+    if (lsX >= 0 && lsX <= W) {
+      ctx2d.strokeStyle = '#00e5e5';
+      ctx2d.beginPath();
+      ctx2d.moveTo(lsX, 0);
+      ctx2d.lineTo(lsX, H);
+      ctx2d.stroke();
+    }
+    if (leX >= 0 && leX <= W) {
+      ctx2d.strokeStyle = '#00cccc';
+      ctx2d.beginPath();
+      ctx2d.moveTo(leX, 0);
+      ctx2d.lineTo(leX, H);
+      ctx2d.stroke();
+    }
+    ctx2d.setLineDash([]);
+  }
 }
 
 function makeSampleLoader(track, ti, emit, machCard) {

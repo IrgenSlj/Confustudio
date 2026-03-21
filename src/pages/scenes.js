@@ -223,11 +223,33 @@ export default {
     const interpTable = document.createElement('div');
     interpTable.className = 'scene-interp-table';
 
-    // Header row
+    // noInterp list for selected scene A
+    const selectedSceneIdx = state.sceneA ?? 0;
+    const projectScene = state.project?.scenes?.[selectedSceneIdx];
+    const noInterpList = projectScene?.noInterp ?? [];
+
+    // Header row — add Interp? column per param
     const headerRow = document.createElement('div');
     headerRow.className = 'sit-row';
     headerRow.innerHTML = '<span class="sit-cell sit-label">T</span>' +
-      PARAM_LABELS.map(l => `<span class="sit-cell sit-head">${l}</span>`).join('');
+      PARAM_LABELS.map((l, pi) => {
+        const param = INTERP_PARAMS[pi];
+        const isNoInterp = noInterpList.includes(param);
+        return `<span class="sit-cell sit-head sit-param-head" data-param="${param}">
+          ${l}<br><input type="checkbox" class="sit-interp-chk" data-param="${param}"
+            ${isNoInterp ? '' : 'checked'}
+            title="Interpolate ${param}">
+        </span>`;
+      }).join('');
+    // Wire checkbox events on header
+    headerRow.querySelectorAll('.sit-interp-chk').forEach(chk => {
+      chk.addEventListener('change', () => {
+        emit('state:change', {
+          path: 'scene_noInterp',
+          value: { sceneIdx: selectedSceneIdx, param: chk.dataset.param, checked: !chk.checked },
+        });
+      });
+    });
     interpTable.append(headerRow);
 
     // Data rows — one per track
@@ -242,8 +264,9 @@ export default {
         SCENE_PARAMS_LIST.map(param => {
           const a = sceneAObj?.tracks?.[ti]?.[param] ?? trk[param] ?? 0;
           const b = sceneBObj?.tracks?.[ti]?.[param] ?? trk[param] ?? 0;
-          const v = a + (b - a) * xf;
-          return `<span class="sit-cell">${typeof v === 'number' ? v.toFixed(1) : '--'}</span>`;
+          const isNoInterp = noInterpList.includes(param);
+          const v = isNoInterp ? (xf < 0.5 ? a : b) : a + (b - a) * xf;
+          return `<span class="sit-cell${isNoInterp ? ' sit-snap' : ''}">${typeof v === 'number' ? v.toFixed(1) : '--'}</span>`;
         }).join('');
       interpTable.append(row);
     });
@@ -309,6 +332,23 @@ export default {
       emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
     });
     container.append(morphDiv);
+
+    // ── Morph curve selector ──────────────────────────────────────────────────
+    const curveRow = document.createElement('div');
+    curveRow.className = 'scene-morph-curve';
+    const currentCurve = state.morphCurve ?? 'linear';
+    curveRow.innerHTML = '<span class="curve-label">Curve:</span>';
+    ['linear', 'ease', 'bounce'].forEach(curve => {
+      const btn = document.createElement('button');
+      btn.className = 'curve-btn' + (currentCurve === curve ? ' active' : '');
+      btn.textContent = curve.charAt(0).toUpperCase() + curve.slice(1);
+      btn.dataset.curve = curve;
+      btn.addEventListener('click', () => {
+        emit('state:change', { path: 'morphCurve', value: curve });
+      });
+      curveRow.append(btn);
+    });
+    container.append(curveRow);
 
     // ── Feature 4: Record XFade automation button ─────────────────────────────
     const xfRecBtn = document.createElement('button');

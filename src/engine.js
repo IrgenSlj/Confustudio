@@ -797,9 +797,20 @@ export class AudioEngine {
         const source = this.context.createBufferSource();
         source.buffer = params.sampleBuffer;
         source.playbackRate.value = Math.pow(2, ((note || 48) - 48) / 12);
+
+        // Loop point support
+        if (params.loopEnabled) {
+          source.loop = true;
+          const bufDurForLoop = params.sampleBuffer.duration;
+          source.loopStart = (params.loopStart ?? 0) * bufDurForLoop;
+          source.loopEnd   = (params.loopEnd   ?? 1) * bufDurForLoop;
+        }
+
         source.connect(output);
-        source.start(when, offsetSec, Math.min(totalTime, clipDur));
-        source.stop(when + totalTime + 0.02);
+        source.start(when, offsetSec, params.loopEnabled ? undefined : Math.min(totalTime, clipDur));
+        if (!params.loopEnabled) {
+          source.stop(when + totalTime + 0.02);
+        }
       }
       return;
     }

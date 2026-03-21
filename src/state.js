@@ -123,6 +123,15 @@ export function createTrack(index) {
     arpRange:   1,
     arpSpeed:   1,
 
+    // Sample playback region (0–1 fractions of total buffer)
+    sampleStart:  0,
+    sampleEnd:    1,
+
+    // Loop points (0–1 fractions of total buffer)
+    loopStart:   0,
+    loopEnd:     1,
+    loopEnabled: false,
+
     // Runtime (not serialized)
     sampleBuffer: null,
 
@@ -227,14 +236,17 @@ export function createAppState() {
     masterLevel:   0.82,
 
     // FX globals
-    delayTime:     0.28,
-    delayFeedback: 0.38,
-    reverbSize:    1.8,
-    reverbMix:     0.22,
-    reverbDamping: 0.5,
-    masterDrive:   0,
-    lfoRate:       2,
-    lfoDepth:      0,
+    delayTime:        0.28,
+    delayFeedback:    0.38,
+    delaySyncEnabled: false,
+    delaySyncDiv:     '1/8',
+    reverbSize:       1.8,
+    reverbMix:        0.22,
+    reverbDamping:    0.5,
+    reverbType:       'room',
+    masterDrive:      0,
+    lfoRate:          2,
+    lfoDepth:         0,
 
     // Settings
     midiChannel:   1,

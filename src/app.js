@@ -1587,37 +1587,56 @@ function bindUI() {
     <h3>Keyboard Shortcuts</h3>
     <div class="help-grid">
       <div class="help-section">
-        <h4>Global</h4>
+        <h4>Transport</h4>
         <dl>
           <dt>Space</dt><dd>Play / Stop</dd>
-          <dt>P</dt><dd>Record</dd>
+          <dt>R</dt><dd>Record</dd>
+          <dt>Escape</dt><dd>Stop / Clear selection</dd>
+        </dl>
+      </div>
+      <div class="help-section">
+        <h4>Navigation</h4>
+        <dl>
+          <dt>1–8</dt><dd>Select track 1–8</dd>
           <dt>Q–O</dt><dd>Switch pages</dd>
+          <dt>Tab</dt><dd>Next page</dd>
+          <dt>Shift+Tab</dt><dd>Previous page</dd>
+        </dl>
+      </div>
+      <div class="help-section">
+        <h4>Step Entry (Pattern page)</h4>
+        <dl>
+          <dt>A–L</dt><dd>Toggle steps 1–9</dd>
+          <dt>Z–M</dt><dd>Toggle steps 10–16</dd>
+          <dt>Shift+key</dt><dd>Accent step</dd>
+          <dt>Ctrl+A</dt><dd>Select all active steps</dd>
+        </dl>
+      </div>
+      <div class="help-section">
+        <h4>Piano (non-pattern pages)</h4>
+        <dl>
+          <dt>A–K</dt><dd>Notes C–D' (white keys)</dd>
+          <dt>Z–M</dt><dd>Notes C#–D#' (black keys)</dd>
+          <dt>Z</dt><dd>Octave down</dd>
+          <dt>X</dt><dd>Octave up</dd>
+        </dl>
+      </div>
+      <div class="help-section">
+        <h4>Editing</h4>
+        <dl>
           <dt>Ctrl+Z</dt><dd>Undo</dd>
           <dt>Ctrl+Y</dt><dd>Redo</dd>
-          <dt>?</dt><dd>This help</dd>
+          <dt>Ctrl+C</dt><dd>Copy pattern</dd>
+          <dt>Ctrl+V</dt><dd>Paste pattern</dd>
+          <dt>Del / Bksp</dt><dd>Clear selected steps</dd>
         </dl>
       </div>
       <div class="help-section">
-        <h4>Pattern Page</h4>
+        <h4>BPM &amp; Function</h4>
         <dl>
-          <dt>A–M</dt><dd>Toggle steps 1–16</dd>
-          <dt>Shift+A–M</dt><dd>Accent steps</dd>
-          <dt>Ctrl+C/V</dt><dd>Copy / Paste pattern</dd>
-        </dl>
-      </div>
-      <div class="help-section">
-        <h4>Sound / Piano Roll</h4>
-        <dl>
-          <dt>A–M</dt><dd>Play notes C–D'</dd>
-          <dt>W,E,T,Y,U</dt><dd>Black keys C#–A#</dd>
-        </dl>
-      </div>
-      <div class="help-section">
-        <h4>Mixer Page</h4>
-        <dl>
-          <dt>A–K</dt><dd>Select track 1–8</dd>
-          <dt>L</dt><dd>Mute selected</dd>
-          <dt>M</dt><dd>Solo selected</dd>
+          <dt>+  /  =</dt><dd>BPM +1</dd>
+          <dt>-  /  _</dt><dd>BPM −1</dd>
+          <dt>F1  /  ?</dt><dd>This help</dd>
         </dl>
       </div>
     </div>
