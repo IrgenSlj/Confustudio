@@ -90,7 +90,8 @@ export function createTrack(index) {
     velocityCurve: 'linear', // 'linear' | 'exp' | 'comp'
 
     // Per-track FX
-    filterType:   "lowpass",  // "lowpass"|"bandpass"|"highpass"
+    filterType:   "lowpass",  // "lowpass"|"highpass"|"bandpass"|"notch"|"peaking"|"lowshelf"|"highshelf"
+    filterQ:      1.0,        // BiquadFilter Q / resonance (0.1–20)
     bitDepth:     16,         // 1–16, integer
     srDiv:        1,          // 1–32, sample rate reduction divisor
 
@@ -111,6 +112,9 @@ export function createTrack(index) {
     rnBrightness: 0.7,
     rnDamping:    0.7,
     rnExciter:    0,
+
+    // Legato
+    legato: false,
 
     // Arpeggiator
     arpEnabled: false,

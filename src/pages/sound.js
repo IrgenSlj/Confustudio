@@ -290,7 +290,25 @@ export default {
     startNoteWatch();
     container._cleanupNoteWatch = () => cancelAnimationFrame(_noteRaf);
 
-    pitchCard.append(noteDisplay, pitchSlider, pitchLabel);
+    // Legato toggle
+    const legatoRow = document.createElement('div');
+    legatoRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:6px';
+    const legatoBtn = document.createElement('button');
+    legatoBtn.className = 'ctx-btn' + (track.legato ? ' active' : '');
+    legatoBtn.style.cssText = track.legato
+      ? 'color:var(--live);border-color:var(--live);box-shadow:0 0 6px var(--live)'
+      : '';
+    legatoBtn.textContent = 'LEGATO';
+    legatoBtn.addEventListener('click', () => {
+      const newVal = !track.legato;
+      legatoBtn.classList.toggle('active', newVal);
+      legatoBtn.style.cssText = newVal
+        ? 'color:var(--live);border-color:var(--live);box-shadow:0 0 6px var(--live)'
+        : '';
+      emit('track:change', { trackIndex: ti, param: 'legato', value: newVal });
+    });
+    legatoRow.append(legatoBtn);
+    pitchCard.append(noteDisplay, pitchSlider, pitchLabel, legatoRow);
     grid.append(pitchCard);
 
     // ── Machine type card ──

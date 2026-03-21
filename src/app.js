@@ -977,7 +977,24 @@ function scheduleLoop() {
           const arrSectionLen = state.arrSectionLen ?? 1;
           const currentArrIdx = state._arrSection ?? 0;
           const section = state.arranger[currentArrIdx];
-          if (section && state._arrSectionBars >= section.bars * arrSectionLen) {
+
+          // Parse time signature numerator from the current section (e.g. "3/4" → 3, "6/8" → 6)
+          const _parseTimeSigNumerator = (ts) => {
+            if (!ts) return 4;
+            const n = parseInt(ts.split('/')[0], 10);
+            return Number.isFinite(n) && n > 0 ? n : 4;
+          };
+          const timeSigNumerator = _parseTimeSigNumerator(section?.timeSignature);
+          // Expose on state so pages can read it for display
+          state.timeSigNumerator = timeSigNumerator;
+
+          // A section advances after (section.bars * arrSectionLen * timeSigNumerator / 4) pattern loops.
+          // For 4/4 the multiplier is 1 (no change). For 3/4 it takes 3 loops per "bar" instead of 4,
+          // meaning section.bars bars complete in (section.bars * 3/4) pattern loops.
+          const timeSigLoopsPerBar = timeSigNumerator / 4;
+          const loopsNeeded = section ? Math.max(1, Math.round(section.bars * arrSectionLen * timeSigLoopsPerBar)) : 1;
+
+          if (section && state._arrSectionBars >= loopsNeeded) {
             state._arrSectionBars = 0;
             const nextIdx = currentArrIdx + 1;
             const isLast = nextIdx >= state.arranger.length;
@@ -990,6 +1007,8 @@ function scheduleLoop() {
             // Apply bpmOverride from the now-current section
             const nowSection = state.arranger[state._arrSection ?? 0];
             if (nowSection != null) {
+              // Update timeSigNumerator for the newly entered section
+              state.timeSigNumerator = _parseTimeSigNumerator(nowSection.timeSignature);
               // Map sceneIdx to a pattern index (use sceneIdx as pattern index within active bank)
               state.activePattern = Math.max(0, Math.min(15, nowSection.sceneIdx ?? 0));
               // BPM override: if section carries bpmOverride and state.bpmOverride is non-zero

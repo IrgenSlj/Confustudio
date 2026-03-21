@@ -89,6 +89,10 @@ export class AudioEngine {
 
     this._buildReverbGraph();
 
+    // Per-track active legato source — keyed by track index (or track object identity)
+    // Stores { osc, output, stopTime } for the currently ringing oscillator on legato tracks
+    this._legatoSources = new Map();
+
     // MIDI output (set externally or via sendMidiNote)
     this.midiOutput = null;
     this._midiClockInterval = null;
@@ -518,10 +522,12 @@ export class AudioEngine {
     const panner = this.context.createStereoPanner();
     panner.pan.value = params.pan;
 
+    const VALID_FILTER_TYPES = ['lowpass','highpass','bandpass','notch','peaking','lowshelf','highshelf'];
     const filter = this.context.createBiquadFilter();
-    filter.type = params.filterType || "lowpass";
+    filter.type = VALID_FILTER_TYPES.includes(params.filterType) ? params.filterType : "lowpass";
     filter.frequency.value = cutoff;
-    filter.Q.value = params.resonance;
+    // filterQ is the dedicated Q/resonance param; fall back to legacy resonance field
+    filter.Q.value = params.filterQ ?? params.resonance ?? 1.0;
 
     const saturator = this.context.createWaveShaper();
     saturator.curve = this.getDriveCurve(params.drive);
