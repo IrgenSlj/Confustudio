@@ -1257,6 +1257,18 @@ function scheduleLoop() {
             }
           }
         }
+
+        // Scene chain: auto-advance to the next scene slot after sceneChainBars bars
+        if (state.sceneChainEnabled) {
+          state._sceneChainBarCount = (state._sceneChainBarCount ?? 0) + 1;
+          if (state._sceneChainBarCount >= (state.sceneChainBars ?? 4)) {
+            const sceneCount = state.project.scenes?.length ?? state.scenes.length;
+            state.sceneChainIdx = (state.sceneChainIdx + 1) % sceneCount;
+            state.sceneA = state.sceneChainIdx;
+            state.crossfader = 0;
+            state._sceneChainBarCount = 0;
+          }
+        }
       }
 
       // Metronome clicks on quarter-note boundaries (every patLen/4 steps)
@@ -1334,6 +1346,7 @@ function stopPlay() {
   _trackStepIdx = Array(8).fill(0);
   _schedStepIdx = 0;
   state._patternLoopCount = 0;
+  state._sceneChainBarCount = 0;
   state._playingNotes.clear();
   state._pressedKeys.clear();
   if (_schedRafId) { cancelAnimationFrame(_schedRafId); _schedRafId = null; }

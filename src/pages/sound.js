@@ -314,7 +314,8 @@ function makeSampleLoader(track, ti, emit, machCard) {
       viewEnd,
       parseFloat(loopStartSlider.value),
       parseFloat(loopEndSlider.value),
-      loopEnabledRef.value
+      loopEnabledRef.value,
+      track.bitDepth ?? 32
     );
   }
 
