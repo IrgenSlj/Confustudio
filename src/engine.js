@@ -594,6 +594,9 @@ export class AudioEngine {
     const paramLocks = options.paramLocks || {};
     const params = { ...track, ...paramLocks };
 
+    // trackKey: use numeric index when provided (for mixer display), else track object
+    const trackKey = options.trackIndex !== undefined ? options.trackIndex : track;
+
     const accent = options.accent || false;
     const note = options.note ?? params.pitch;
     const velScale = options.velocity ?? 1;
@@ -819,9 +822,19 @@ export class AudioEngine {
           sampleRate: this.context.sampleRate,
         });
         node.connect(output);
+        // Worklet voice: wrap stop in a plain object so _registerVoice can steal it
+        const voiceHandle = {
+          stop: (t) => {
+            node.port.postMessage({ type: 'stop' });
+            try { node.disconnect(); } catch (_) {}
+          },
+          _worklet: true,
+        };
+        this._registerVoice(trackKey, voiceHandle, params.maxVoices ?? 8);
         setTimeout(() => {
           node.port.postMessage({ type: 'stop' });
           try { node.disconnect(); } catch (_) {}
+          if (voiceHandle._voiceCleanup) voiceHandle._voiceCleanup();
         }, (totalTime + 0.3) * 1000);
         return;
       } catch (_) {}
@@ -849,9 +862,18 @@ export class AudioEngine {
           duration: totalTime,
         });
         node.connect(output);
+        const voiceHandle = {
+          stop: () => {
+            node.port.postMessage({ type: 'stop' });
+            try { node.disconnect(); } catch (_) {}
+          },
+          _worklet: true,
+        };
+        this._registerVoice(trackKey, voiceHandle, params.maxVoices ?? 8);
         setTimeout(() => {
           node.port.postMessage({ type: 'stop' });
           try { node.disconnect(); } catch (_) {}
+          if (voiceHandle._voiceCleanup) voiceHandle._voiceCleanup();
         }, (totalTime + 0.5) * 1000);
         return;
       } catch (_) {}
@@ -871,9 +893,18 @@ export class AudioEngine {
           sampleRate: this.context.sampleRate,
         });
         node.connect(output);
+        const voiceHandle = {
+          stop: () => {
+            node.port.postMessage({ type: 'stop' });
+            try { node.disconnect(); } catch (_) {}
+          },
+          _worklet: true,
+        };
+        this._registerVoice(trackKey, voiceHandle, params.maxVoices ?? 8);
         setTimeout(() => {
           node.port.postMessage({ type: 'stop' });
           try { node.disconnect(); } catch (_) {}
+          if (voiceHandle._voiceCleanup) voiceHandle._voiceCleanup();
         }, (totalTime + 0.5) * 1000);
         return;
       } catch (_) {}

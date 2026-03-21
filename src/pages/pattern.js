@@ -297,7 +297,17 @@ export default {
         if (step.mute)                            btn.classList.add('step-muted');
         if (step.trigCondition === 'fill')        btn.classList.add('trig-fill');
         if (state._selectedSteps?.has(si) && ti === selTi) btn.classList.add('step-selected');
-        if (Math.abs(step.microTime ?? 0) > 0.05) btn.style.borderTop = '2px solid var(--live)';
+        // microTime nudge bar — thin accent bar at bottom showing timing offset direction
+        if (Math.abs(step.microTime ?? 0) > 0.02) {
+          const microBar = document.createElement('div');
+          microBar.className = 'step-micro-bar';
+          const mt = step.microTime;
+          microBar.style.cssText = `
+            width: ${Math.abs(mt) * 80}%;
+            left: ${mt > 0 ? '50%' : (50 - Math.abs(mt) * 80) + '%'};
+          `;
+          btn.append(microBar);
+        }
         const vel = step.velocity ?? 1;
         if (vel < 1) btn.style.opacity = String(0.45 + vel * 0.55);
         btn.textContent  = (si % 4 === 0) ? String(si + 1) : '';
