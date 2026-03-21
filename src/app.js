@@ -445,7 +445,7 @@ function renderFillBtn() {
 
 function handleStateChange(path, value, pattern) {
   if (path === 'bpm') {
-    state.bpm = Math.max(40, Math.min(240, Number(value)));
+    state.bpm = Math.max(40, Math.min(240, parseFloat(value)));
     if (state.engine?.setBpm) state.engine.setBpm(state.bpm);
     updateTopbar();
     scheduleSave();
@@ -638,6 +638,7 @@ function emit(type, payload = {}) {
         state.stepRecordMode = false;
       }
       updateTransportUI();
+      updateTopbar();
       renderPlayhead(); // update cursor highlight on grid
       break;
 
@@ -670,6 +671,7 @@ function emit(type, payload = {}) {
       scheduleSave();
       renderPage();
       renderPlayhead();
+      updateTopbar();
       break;
     }
 
@@ -1627,9 +1629,30 @@ function renderPlayhead() {
 function updateTopbar() {
   const BANKS = 'ABCDEFGH';
   el.bankPattern.textContent = `${BANKS[state.activeBank]}·${String(state.activePattern + 1).padStart(2, '0')}`;
-  el.bpmDisplay.textContent  = `${state.bpm} BPM`;
-  if (el.kbdBpm) el.kbdBpm.textContent = `${state.bpm} BPM`;
+  const _bpmStr = Number.isInteger(state.bpm) ? String(state.bpm) : state.bpm.toFixed(1);
+  el.bpmDisplay.textContent  = `${_bpmStr} BPM`;
+  if (el.kbdBpm) el.kbdBpm.textContent = `${_bpmStr} BPM`;
   if (el.bpmInput) el.bpmInput.value = state.bpm;
+
+  // Step-record cursor indicator in topbar
+  let stepCursorDisplay = document.getElementById('step-cursor-display');
+  if (!stepCursorDisplay) {
+    stepCursorDisplay = document.createElement('span');
+    stepCursorDisplay.id = 'step-cursor-display';
+    stepCursorDisplay.className = 'topbar-item';
+    stepCursorDisplay.style.cssText = [
+      'font-family:var(--font-mono)', 'font-size:0.52rem', 'color:#3af',
+      'background:rgba(51,170,255,0.12)', 'border:1px solid rgba(51,170,255,0.4)',
+      'border-radius:3px', 'padding:1px 5px', 'display:none',
+    ].join(';');
+    el.bpmDisplay?.insertAdjacentElement('afterend', stepCursorDisplay);
+  }
+  if (state.stepRecordMode) {
+    stepCursorDisplay.style.display = '';
+    stepCursorDisplay.textContent = `STP ${(state._stepRecordCursor ?? 0) + 1}`;
+  } else {
+    stepCursorDisplay.style.display = 'none';
+  }
 
   // Chain display
   let chainDisplay = document.getElementById('chain-display');
