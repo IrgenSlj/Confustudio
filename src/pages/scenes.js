@@ -1,6 +1,9 @@
 // src/pages/scenes.js — Scene slots, crossfader, snapshot
+import { getActivePattern, getActiveTrack } from '../state.js';
 
 const INTERP_PARAMS = ['cutoff', 'decay', 'delaySend', 'pitch', 'volume'];
+const SCENE_PARAMS_LIST = INTERP_PARAMS;
+const PARAM_LABELS = ['Cut', 'Dec', 'Dly', 'Pit', 'Vol'];
 
 export default {
   render(container, state, emit) {
@@ -91,10 +94,60 @@ export default {
       const btn = document.createElement('button');
       btn.className = 'scene-btn';
       const letter = String.fromCharCode(65 + si);
-      btn.innerHTML = `<strong>${letter}</strong><span>${scene.name}</span>`;
+      const displayName = scene.name || `Scene ${letter}`;
+      btn.innerHTML = `<strong>${letter}</strong><span>${displayName}</span>`;
 
       if (si === sceneA) btn.style.borderColor = 'rgba(240,198,64,0.7)';
       if (si === sceneB) btn.style.borderColor = 'rgba(90,221,113,0.7)';
+
+      // ── Feature 1: Scene preview on hover ──────────────────────────────────
+      btn.addEventListener('mouseenter', () => {
+        const previewScene = state.project.scenes[si];
+        if (!previewScene?.tracks) return;
+        const trackData = previewScene.tracks[state.selectedTrackIndex];
+        if (!trackData) return;
+        const track = getActiveTrack(state);
+        state._scenePreview = { scene: si, prev: { ...track } };
+        Object.assign(track, trackData);
+      });
+
+      btn.addEventListener('mouseleave', () => {
+        if (state._scenePreview) {
+          const track = getActiveTrack(state);
+          Object.assign(track, state._scenePreview.prev);
+          state._scenePreview = null;
+        }
+      });
+
+      // ── Feature 3: Double-click to rename ──────────────────────────────────
+      let _sceneEditTimeout;
+      btn.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        clearTimeout(_sceneEditTimeout);
+        const currentName = state.project.scenes[si]?.name || `Scene ${letter}`;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentName;
+        input.style.cssText = 'width:60px;background:transparent;border:none;border-bottom:1px solid var(--accent);color:var(--screen-text);font-family:var(--font-mono);font-size:0.55rem;outline:none';
+        btn.innerHTML = '';
+        btn.append(input);
+        input.focus();
+        input.select();
+        const save = () => {
+          const name = input.value.trim() || currentName;
+          if (!state.project.scenes[si]) state.project.scenes[si] = {};
+          state.project.scenes[si].name = name;
+          // Also sync top-level scenes array
+          if (state.scenes[si]) state.scenes[si].name = name;
+          emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+        };
+        input.addEventListener('blur', save);
+        input.addEventListener('keydown', e => {
+          if (e.key === 'Enter') { save(); input.blur(); }
+          if (e.key === 'Escape') input.blur();
+          e.stopPropagation();
+        });
+      });
 
       btn.addEventListener('click', () => {
         // First click = set A, second click on different = set B
@@ -166,6 +219,36 @@ export default {
       valCard.append(row);
     });
 
+    // ── Feature 2: Full interpolation table (all 8 tracks × 5 params) ────────
+    const interpTable = document.createElement('div');
+    interpTable.className = 'scene-interp-table';
+
+    // Header row
+    const headerRow = document.createElement('div');
+    headerRow.className = 'sit-row';
+    headerRow.innerHTML = '<span class="sit-cell sit-label">T</span>' +
+      PARAM_LABELS.map(l => `<span class="sit-cell sit-head">${l}</span>`).join('');
+    interpTable.append(headerRow);
+
+    // Data rows — one per track
+    const pat = getActivePattern(state);
+    pat.kit.tracks.forEach((trk, ti) => {
+      const sceneAObj = state.project.scenes[state.sceneA ?? 0];
+      const sceneBObj = state.project.scenes[state.sceneB ?? 1];
+      const xf = state.crossfader ?? 0;
+      const row = document.createElement('div');
+      row.className = 'sit-row' + (ti === state.selectedTrackIndex ? ' sit-selected' : '');
+      row.innerHTML = `<span class="sit-cell sit-label">T${ti + 1}</span>` +
+        SCENE_PARAMS_LIST.map(param => {
+          const a = sceneAObj?.tracks?.[ti]?.[param] ?? trk[param] ?? 0;
+          const b = sceneBObj?.tracks?.[ti]?.[param] ?? trk[param] ?? 0;
+          const v = a + (b - a) * xf;
+          return `<span class="sit-cell">${typeof v === 'number' ? v.toFixed(1) : '--'}</span>`;
+        }).join('');
+      interpTable.append(row);
+    });
+    valCard.append(interpTable);
+
     bottomRow.append(valCard);
     container.append(bottomRow);
 
@@ -226,6 +309,28 @@ export default {
       emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
     });
     container.append(morphDiv);
+
+    // ── Feature 4: Record XFade automation button ─────────────────────────────
+    const xfRecBtn = document.createElement('button');
+    xfRecBtn.className = 'seq-btn' + (state.xfRecording ? ' active' : '');
+    xfRecBtn.textContent = state.xfRecording ? '● Rec XF' : '○ Rec XF';
+    xfRecBtn.style.cssText = 'color:' + (state.xfRecording ? 'var(--live)' : '') + ';margin-top:4px;font-family:var(--font-mono);font-size:0.55rem';
+    xfRecBtn.addEventListener('click', () => {
+      state.xfRecording = !state.xfRecording;
+      if (state.xfRecording) {
+        state.xfadeAutomation = [];
+      }
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+    });
+    container.append(xfRecBtn);
+
+    // XFade automation playback indicator
+    if (!state.xfRecording && state.xfadeAutomation?.length > 0) {
+      const xfPlaybackInfo = document.createElement('div');
+      xfPlaybackInfo.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted);margin-top:2px';
+      xfPlaybackInfo.textContent = `XF auto: ${state.xfadeAutomation.length} steps`;
+      container.append(xfPlaybackInfo);
+    }
   },
 
   knobMap: [

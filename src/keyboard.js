@@ -212,7 +212,7 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
 
   containerEl.append(kb);
 
-  // Chord mode bar (sound / piano-roll pages)
+  // Chord mode bar + HOLD button (sound / piano-roll pages)
   if (state && ['sound', 'piano-roll'].includes(page)) {
     const chordBar = document.createElement('div');
     chordBar.className = 'kbd-chord-bar';
@@ -226,9 +226,28 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
       });
       chordBar.append(btn);
     });
+
+    // HOLD toggle
+    const holdBtn = document.createElement('button');
+    holdBtn.className = 'kbd-chord-btn kbd-hold-btn' + (state.keyboardHold ? ' active' : '');
+    holdBtn.textContent = 'HOLD';
+    holdBtn.title = 'Sustain notes until re-pressed';
+    holdBtn.addEventListener('click', () => {
+      state.keyboardHold = !state.keyboardHold;
+      if (!state.keyboardHold) {
+        state._heldNotes?.forEach(note => _emit?.('note:off', { note }));
+        state._heldNotes = new Set();
+      }
+      renderKbdContext(containerEl, page, activeKeys, state);
+    });
+    chordBar.append(holdBtn);
+
     containerEl.append(chordBar);
   }
 }
+
+// Internal reference to emit, set by initKeyboard
+let _emit = null;
 
 export function pressKey(containerEl, code, pressed) {
   const el = containerEl.querySelector(`[data-code="${code}"]`);
@@ -249,22 +268,34 @@ export function renderPiano(containerEl, state) {
   const active      = state._playingNotes instanceof Set ? state._playingNotes : new Set();
   const totalWhites = octaves.length * WHITE_SEMITONES.length;
 
+  const scaleIdx = state?.scale ?? 0;
+  const intervals = SCALE_INTERVALS[scaleIdx] ?? null;
+
   octaves.forEach(oct => {
     WHITE_SEMITONES.forEach(semi => {
       const midi = (oct + 1) * 12 + semi;
       const k = document.createElement('div');
       k.className = 'piano-white' + (active.has(midi) ? ' lit' : '');
       k.dataset.midi = midi;
+
+      // Scale highlighting
+      if (intervals) {
+        const pc = midi % 12;
+        if (intervals.includes(pc)) k.classList.add('scale-note');
+        else                        k.classList.add('out-of-scale');
+      }
+
       if (midi % 12 === 0) {  // C notes
-        k.textContent = 'C' + (Math.floor(midi / 12) - 1);
-        k.style.fontSize = '0.38rem';
-        k.style.paddingTop = 'auto';
-        k.style.display = 'flex';
-        k.style.alignItems = 'flex-end';
-        k.style.justifyContent = 'center';
-        k.style.paddingBottom = '2px';
-        k.style.color = 'rgba(0,0,0,0.4)';
-        k.style.fontFamily = 'var(--font-mono)';
+        k.style.position = 'relative';
+        const label = document.createElement('span');
+        label.textContent = 'C' + (Math.floor(midi / 12) - 1);
+        label.style.cssText = 'position:absolute;bottom:14px;left:50%;transform:translateX(-50%);font-size:0.38rem;color:rgba(0,0,0,0.4);font-family:var(--font-mono);pointer-events:none;';
+        k.append(label);
+
+        const dot = document.createElement('span');
+        dot.className = 'key-root-dot';
+        dot.style.background = scaleIdx > 0 && intervals?.includes(0) ? 'var(--accent)' : '#888';
+        k.append(dot);
       }
       wrapper.append(k);
     });
@@ -276,6 +307,13 @@ export function renderPiano(containerEl, state) {
       const k = document.createElement('div');
       k.className = 'piano-black' + (active.has(midi) ? ' lit' : '');
       k.dataset.midi = midi;
+
+      // Scale highlighting for black keys
+      if (intervals) {
+        const pc = midi % 12;
+        if (intervals.includes(pc)) k.classList.add('scale-note');
+        else                        k.classList.add('out-of-scale');
+      }
       const ww = 100 / totalWhites;
       k.style.left = `${(oi * 7 + gap - 0.3) * ww}%`;
       wrapper.append(k);
@@ -311,6 +349,7 @@ export function lightPianoKey(containerEl, midi, lit = true) {
 // ─── Global keyboard handler ───────────────────────────────────────────────────
 
 export function initKeyboard(state, emit) {
+  _emit = emit;
   window.addEventListener('keydown', (e) => {
     const tag = e.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
@@ -383,12 +422,38 @@ export function initKeyboard(state, emit) {
         const midiNote = 60 + (state.octaveShift ?? 0) * 12 + offset;
         const velocity = state.keyboardVelocity ?? 1;
         const voicing = CHORD_VOICINGS[state.chordMode ?? 'off'] ?? [];
-        emit('note:preview', { note: midiNote, velocity });
-        voicing.forEach(chordOffset => {
-          const chordNote = midiNote + chordOffset;
-          if (chordNote >= 0 && chordNote <= 127)
-            emit('note:preview', { note: chordNote, velocity });
-        });
+
+        if (state.keyboardHold) {
+          state._heldNotes = state._heldNotes ?? new Set();
+          if (state._heldNotes.has(midiNote)) {
+            state._heldNotes.delete(midiNote);
+            emit('note:off', { note: midiNote });
+            voicing.forEach(chordOffset => {
+              const chordNote = midiNote + chordOffset;
+              if (chordNote >= 0 && chordNote <= 127) {
+                state._heldNotes.delete(chordNote);
+                emit('note:off', { note: chordNote });
+              }
+            });
+          } else {
+            state._heldNotes.add(midiNote);
+            emit('note:preview', { note: midiNote, velocity });
+            voicing.forEach(chordOffset => {
+              const chordNote = midiNote + chordOffset;
+              if (chordNote >= 0 && chordNote <= 127) {
+                state._heldNotes.add(chordNote);
+                emit('note:preview', { note: chordNote, velocity });
+              }
+            });
+          }
+        } else {
+          emit('note:preview', { note: midiNote, velocity });
+          voicing.forEach(chordOffset => {
+            const chordNote = midiNote + chordOffset;
+            if (chordNote >= 0 && chordNote <= 127)
+              emit('note:preview', { note: chordNote, velocity });
+          });
+        }
         return;
       }
     }
@@ -413,7 +478,7 @@ export function initKeyboard(state, emit) {
   window.addEventListener('keyup', (e) => {
     emit('key:up', { code: e.code });
     const offset = NOTE_KEY_OFFSETS[e.code];
-    if (offset != null) {
+    if (offset != null && !state.keyboardHold) {
       const midiNote = 60 + (state.octaveShift ?? 0) * 12 + offset;
       const voicing = CHORD_VOICINGS[state.chordMode ?? 'off'] ?? [];
       emit('note:off', { note: midiNote });

@@ -85,7 +85,9 @@ export function createTrack(index) {
     mute:         false,
     solo:         false,
     cue:          false,
-    stereoWidth:  1,    // 0=mono, 1=normal, 2=wide (stored; engine support TODO)
+    stereoWidth:  1,    // 0=mono, 1=normal, 2=wide
+    outputBus:    'master', // 'master' | 'bus1' | 'bus2'
+    velocityCurve: 'linear', // 'linear' | 'exp' | 'comp'
 
     // Per-track FX
     filterType:   "lowpass",  // "lowpass"|"bandpass"|"highpass"

@@ -1557,6 +1557,7 @@ button {
 
 .piano-white {
   flex: 1;
+  position: relative;
   background: linear-gradient(180deg, #e0d8c8 0%, #cec6b4 70%, #beb6a4 100%);
   border: 1px solid #a09080;
   border-radius: 2px 2px 5px 5px;
@@ -1621,6 +1622,31 @@ button {
 
 .piano-black.lit {
   background: linear-gradient(180deg, #a8e8a0 0%, #78c870 100%) !important;
+}
+
+/* Scale-aware piano key highlighting */
+.piano-white.scale-note { background: #d4f0a0; }
+.piano-black.scale-note { background: #4a8a20; }
+.piano-white.out-of-scale { background: #c8c8c8; opacity: 0.7; }
+.piano-black.out-of-scale { background: #222; opacity: 0.6; }
+
+/* Root note dot on C keys */
+.key-root-dot {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* HOLD button separator */
+.kbd-hold-btn {
+  margin-left: 8px;
+  border-left: 1px solid rgba(255,255,255,0.15);
+  padding-left: 10px;
 }
 
 /* ============================================================
@@ -3308,6 +3334,38 @@ button {
   font-family: var(--font-mono);
   font-size: 0.52rem;
 }
+
+/* ── Scenes: scene preview highlight ────────────────────────────────────── */
+.scene-btn.previewing {
+  border-color: rgba(103, 215, 255, 0.6) !important;
+  background: rgba(103, 215, 255, 0.06);
+}
+
+/* ── Scenes: full interpolation table ───────────────────────────────────── */
+.scene-interp-table {
+  font-family: var(--font-mono);
+  font-size: 0.48rem;
+  margin-top: 4px;
+  border: 1px solid #2a3a1a;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.sit-row {
+  display: flex;
+  border-bottom: 1px solid #1a2a1a;
+}
+.sit-row:last-child { border-bottom: none; }
+.sit-row.sit-selected { background: rgba(78, 95, 60, 0.3); }
+.sit-cell {
+  flex: 1;
+  padding: 2px 3px;
+  color: var(--muted);
+  text-align: right;
+  border-right: 1px solid #1a2a1a;
+}
+.sit-cell:last-child { border-right: none; }
+.sit-label { color: var(--accent); text-align: left; flex: 0 0 24px; }
+.sit-head { color: var(--screen-text); font-size: 0.45rem; }
 
 /* ─── Mobile & Touch Optimisation ──────────────────────────────────────── */
 

@@ -357,6 +357,7 @@ function handleStateChange(path, value, pattern) {
     state.scale = Math.max(0, Math.min(6, Number(value)));
     scheduleSave();
     renderPage();
+    renderPiano(el.kbdPiano, state);
     return;
   }
 
@@ -946,6 +947,15 @@ function scheduleLoop() {
       state.currentStep = _trackStepIdx[0];
       _schedStepIdx = _trackStepIdx[0]; // keep alias in sync
 
+      // ── XFade automation record / playback ─────────────────────────────────
+      if (state.xfRecording) {
+        state.xfadeAutomation[state.currentStep] = state.crossfader ?? 0;
+      } else if (state.xfadeAutomation?.length > 0 && state.xfadeAutomation[state.currentStep] != null) {
+        const xfVal = state.xfadeAutomation[state.currentStep];
+        state.crossfader = xfVal;
+        state.crossfade  = xfVal;
+      }
+
       // Pattern chain / arranger advance on loop wrap-around (track 0 step wrapped to 0)
       if (state.currentStep === 0) {
         state._patternLoopCount = (state._patternLoopCount ?? 0) + 1;
@@ -1518,6 +1528,56 @@ function bindUI() {
     if (e.key === 'Escape') {
       const m = document.getElementById('help-modal');
       if (m && m.style.display === 'flex') { m.style.display = 'none'; e.preventDefault(); }
+    }
+  });
+
+  // BPM +/- shortcuts, pattern page shortcuts (Escape, Ctrl+A, Home/End)
+  document.addEventListener('keydown', e => {
+    if (e.target.matches('input, select, textarea')) return;
+
+    // +/= increment BPM, -/_ decrement BPM (no modifier)
+    if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (e.key === '+' || e.key === '=') {
+        state.bpm = Math.min(240, (state.bpm ?? 120) + 1);
+        updateTopbar(); saveState(state);
+        e.preventDefault();
+        return;
+      }
+      if (e.key === '-' || e.key === '_') {
+        state.bpm = Math.max(40, (state.bpm ?? 120) - 1);
+        updateTopbar(); saveState(state);
+        e.preventDefault();
+        return;
+      }
+      if (e.key === 'Home') {
+        e.preventDefault();
+        emit('bank:select', { bankIndex: 0 });
+        return;
+      }
+      if (e.key === 'End') {
+        e.preventDefault();
+        emit('bank:select', { bankIndex: 7 });
+        return;
+      }
+    }
+
+    if (state.currentPage === 'pattern') {
+      if (e.key === 'Escape' && !e.ctrlKey && !e.metaKey) {
+        state._selectedSteps?.clear();
+        renderPage();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault();
+        const track = getActiveTrack(state);
+        const pat = getActivePattern(state);
+        const len = track.trackLength || pat.length;
+        state._selectedSteps = new Set(
+          track.steps.slice(0, len).map((s, i) => s.active ? i : -1).filter(i => i >= 0)
+        );
+        renderPage();
+        return;
+      }
     }
   });
 
