@@ -592,6 +592,23 @@ export function initKeyboard(state, emit, trackColors = []) {
               emit('note:preview', { note: chordNote, velocity });
           });
         }
+
+        // Step record: write note to cursor step on any page with note keys active
+        if (state.stepRecordMode) {
+          emit('step:record', { note: midiNote, velocity });
+        }
+        return;
+      }
+    }
+
+    // Pattern page + step record mode: note keys write directly to cursor step
+    if (page === 'pattern' && state.stepRecordMode) {
+      const offset = NOTE_KEY_OFFSETS[e.code];
+      if (offset != null) {
+        const midiNote = 60 + (state.octaveShift ?? 0) * 12 + offset;
+        const velocity = state.keyboardVelocity ?? 1;
+        emit('note:preview', { note: midiNote, velocity });
+        emit('step:record',  { note: midiNote, velocity });
         return;
       }
     }

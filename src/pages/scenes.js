@@ -303,7 +303,14 @@ export default {
           const b = sceneBObj?.tracks?.[ti]?.[param] ?? trk[param] ?? 0;
           const isNoInterp = noInterpList.includes(param);
           const v = isNoInterp ? (xf < 0.5 ? a : b) : a + (b - a) * xf;
-          return `<span class="sit-cell${isNoInterp ? ' sit-snap' : ''}">${typeof v === 'number' ? v.toFixed(1) : '--'}</span>`;
+          // Mark as modified if the scene-A value deviates from the track's own live default
+          const trackDefault = trk[param] ?? 0;
+          const aStored = sceneAObj?.tracks?.[ti]?.[param];
+          const isModified = aStored !== undefined && Math.abs(aStored - trackDefault) > 1e-6;
+          let cls = 'sit-cell';
+          if (isNoInterp) cls += ' sit-snap';
+          if (isModified) cls += ' sit-modified';
+          return `<span class="${cls}">${typeof v === 'number' ? v.toFixed(1) : '--'}</span>`;
         }).join('');
       interpTable.append(row);
     });

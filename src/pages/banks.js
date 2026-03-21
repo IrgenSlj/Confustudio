@@ -2,6 +2,22 @@
 
 const BANK_LETTERS = ['A','B','C','D','E','F','G','H'];
 
+const TRACK_COLORS = ['#f0c640','#5add71','#67d7ff','#ff8c52','#c67dff','#ff6eb4','#40e0d0','#f05b52'];
+
+function computePatternDiff(patA, patB) {
+  return patA.kit.tracks.map((trackA, ti) => {
+    const trackB = patB.kit.tracks[ti];
+    let added = 0, removed = 0;
+    for (let si = 0; si < Math.max(patA.length, patB.length); si++) {
+      const stepA = trackA.steps[si]?.active ?? false;
+      const stepB = trackB?.steps[si]?.active ?? false;
+      if (stepA && !stepB) removed++;
+      else if (!stepA && stepB) added++;
+    }
+    return { name: trackA.name, added, removed, same: added + removed === 0 };
+  });
+}
+
 export default {
   render(container, state, emit) {
     container.innerHTML = '';
@@ -68,7 +84,66 @@ export default {
       }
     });
 
-    abBar.append(markABtn, markBBtn, swapBtn);
+    const diffBtn = document.createElement('button');
+    diffBtn.className = 'ab-btn';
+    diffBtn.textContent = 'Diff';
+    diffBtn.title = 'Show diff between pattern A and B';
+    const canDiff = !!(patternCompareA && patternCompareB);
+    diffBtn.disabled = !canDiff;
+    diffBtn.style.opacity = canDiff ? '1' : '0.4';
+    diffBtn.addEventListener('click', () => {
+      const existing = container.querySelector('.ab-diff-panel');
+      if (existing) { existing.remove(); return; }
+
+      const patA = state.project.banks[patternCompareA.bank].patterns[patternCompareA.pattern];
+      const patB = state.project.banks[patternCompareB.bank].patterns[patternCompareB.pattern];
+      const diffs = computePatternDiff(patA, patB);
+
+      const diffPanel = document.createElement('div');
+      diffPanel.className = 'ab-diff-panel';
+      diffPanel.style.cssText = 'background:#111;border:1px solid #2a2a2a;border-radius:4px;padding:6px 8px;margin-top:4px;font-family:var(--font-mono);font-size:0.48rem;display:flex;flex-direction:column;gap:3px';
+
+      const diffTitle = document.createElement('div');
+      diffTitle.style.cssText = 'color:var(--muted);font-size:0.44rem;margin-bottom:2px';
+      diffTitle.textContent = `DIFF  A:${BANK_LETTERS[patternCompareA.bank]}${String(patternCompareA.pattern + 1).padStart(2,'0')}  vs  B:${BANK_LETTERS[patternCompareB.bank]}${String(patternCompareB.pattern + 1).padStart(2,'0')}`;
+      diffPanel.append(diffTitle);
+
+      diffs.forEach(({ name, added, removed, same }) => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:4px';
+
+        const trackLabel = document.createElement('span');
+        trackLabel.style.cssText = 'color:var(--screen-text);min-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+        trackLabel.textContent = name;
+        row.append(trackLabel);
+
+        if (same) {
+          const sameBadge = document.createElement('span');
+          sameBadge.style.cssText = 'color:var(--muted);font-size:0.44rem';
+          sameBadge.textContent = 'same';
+          row.append(sameBadge);
+        } else {
+          if (removed > 0) {
+            const remBadge = document.createElement('span');
+            remBadge.style.cssText = 'background:rgba(240,91,82,0.2);color:#f05b52;border:1px solid rgba(240,91,82,0.4);border-radius:3px;padding:0 4px;font-size:0.44rem';
+            remBadge.textContent = `-${removed} steps`;
+            row.append(remBadge);
+          }
+          if (added > 0) {
+            const addBadge = document.createElement('span');
+            addBadge.style.cssText = 'background:rgba(90,221,113,0.2);color:#5add71;border:1px solid rgba(90,221,113,0.4);border-radius:3px;padding:0 4px;font-size:0.44rem';
+            addBadge.textContent = `+${added} steps`;
+            row.append(addBadge);
+          }
+        }
+        diffPanel.append(row);
+      });
+
+      // Insert after abBar
+      abBar.after(diffPanel);
+    });
+
+    abBar.append(markABtn, markBBtn, swapBtn, diffBtn);
     container.append(abBar);
 
     // Chain toggle bar
@@ -160,27 +235,38 @@ export default {
       num.style.cssText = 'font-size:0.8rem;font-family:var(--font-mono)';
       num.textContent = String(pi + 1).padStart(2, '0');
 
+      // Compute density for name color
+      const patTracksForDensity = pat.kit?.tracks ?? [];
+      const totalPossibleSteps = (pat.length ?? 16) * 8;
+      const totalActiveSteps = patTracksForDensity.reduce((sum, t) => sum + (t.steps?.slice(0, pat.length ?? 16).filter(s => s.active).length ?? 0), 0);
+      const densityPct = totalPossibleSteps > 0 ? (totalActiveSteps / totalPossibleSteps) * 100 : 0;
+      const nameColor = totalActiveSteps === 0
+        ? 'var(--muted)'
+        : densityPct > 50
+          ? 'var(--accent)'
+          : 'var(--screen-text)';
+
       const name = document.createElement('span');
-      name.style.cssText = 'font-size:0.52rem;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+      name.style.cssText = `font-size:0.52rem;color:${nameColor};max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap`;
       name.textContent = pat.name.replace(/^Pattern /, '');
 
-      // Mini step density dots — show which tracks have steps
+      // Mini step density bars — 8 stacked horizontal bars, one per track
       const density = document.createElement('div');
-      density.style.cssText = 'display:flex;gap:1px;justify-content:center;margin-top:2px;flex-wrap:wrap;max-width:100%';
+      density.style.cssText = 'display:flex;flex-direction:column;gap:1px;margin-top:2px;width:100%;height:24px';
 
       const patTracks = pat.kit?.tracks ?? [];
       patTracks.slice(0, 8).forEach((trk, ti) => {
-        const activeCount = trk.steps?.slice(0, pat.length ?? 16).filter(s => s.active).length ?? 0;
-        const dot = document.createElement('div');
-        // Width proportional to active step density (0–16 → 1–5px)
-        const w = Math.max(1, Math.round(activeCount / (pat.length ?? 16) * 5));
-        dot.style.cssText = `
-          width: ${w}px; height: 3px; border-radius: 1px;
-          background: ${activeCount > 0
-            ? ['#f0c640','#5add71','#67d7ff','#ff8c52','#c67dff','#ff6eb4','#40e0d0','#f05b52'][ti]
-            : 'rgba(255,255,255,0.08)'};
-        `;
-        density.append(dot);
+        const patLen = pat.length ?? 16;
+        const activeCount = trk.steps?.slice(0, patLen).filter(s => s.active).length ?? 0;
+        const fillPct = patLen > 0 ? (activeCount / patLen) * 100 : 0;
+
+        const barTrack = document.createElement('div');
+        barTrack.style.cssText = 'position:relative;width:100%;height:3px;background:rgba(255,255,255,0.06);border-radius:1px;overflow:hidden';
+
+        const fill = document.createElement('div');
+        fill.style.cssText = `position:absolute;left:0;top:0;height:100%;width:${fillPct}%;border-radius:1px;background:${activeCount > 0 ? TRACK_COLORS[ti] : 'transparent'};transition:width 0.1s`;
+        barTrack.append(fill);
+        density.append(barTrack);
       });
 
       const tracksWithContent = patTracks.filter(t => t.steps?.some(s => s.active)).length;

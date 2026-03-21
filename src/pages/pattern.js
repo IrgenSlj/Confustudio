@@ -627,23 +627,157 @@ export default {
     const euclidDiv = document.createElement('div');
     euclidDiv.className = 'seq-euclid';
     const euclidStepDefault = track.trackLength || pattern.length;
-    euclidDiv.innerHTML = `
+    const euclidOffsetDefault = state.euclidOffset ?? 0;
+
+    // ── Euclid canvas visualizer ───────────────────────────────────────────
+    const euclidCanvas = document.createElement('canvas');
+    euclidCanvas.width  = 80;
+    euclidCanvas.height = 80;
+    euclidCanvas.className = 'euclid-canvas';
+    euclidCanvas.title = 'Euclidean pattern preview';
+
+    function drawEuclidCircle(canvas, beats, steps, offset, activeSteps) {
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      const cx = W / 2, cy = H / 2, r = W / 2 - 8;
+      ctx.clearRect(0, 0, W, H);
+      // Resolve CSS variables from the document root (canvas cannot use var())
+      const cs = getComputedStyle(document.documentElement);
+      const colorAccent  = cs.getPropertyValue('--accent').trim()      || '#f0c640';
+      const colorLive    = cs.getPropertyValue('--live').trim()         || '#5add71';
+      // Outer circle
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+      // Generate base euclid pattern then rotate
+      const base = euclidean(beats, steps);
+      const off  = ((offset % steps) + steps) % steps;
+      const pat  = [...base.slice(off), ...base.slice(0, off)];
+      for (let i = 0; i < steps; i++) {
+        const angle = (i / steps) * Math.PI * 2 - Math.PI / 2;
+        const x = cx + r * Math.cos(angle);
+        const y = cy + r * Math.sin(angle);
+        const isActive   = pat[i];
+        const isCurrent  = activeSteps ? activeSteps[i] : false;
+        // Colour priority: both active = accent, current-only = live (green), euclid-only = accent (dim), inactive = dark
+        let fill;
+        if (isCurrent && isActive) {
+          fill = colorAccent;
+        } else if (isCurrent) {
+          fill = colorLive;
+        } else if (isActive) {
+          fill = colorAccent;
+        } else {
+          fill = '#444';
+        }
+        ctx.beginPath();
+        ctx.arc(x, y, isActive ? 4 : 2, 0, Math.PI * 2);
+        ctx.fillStyle = fill;
+        ctx.fill();
+      }
+    }
+
+    // Build current-track active array for overlay
+    const trackLen = track.trackLength > 0 ? track.trackLength : pattern.length;
+    const currentActiveSteps = track.steps.slice(0, trackLen).map(s => s.active);
+
+    // Initial draw
+    drawEuclidCircle(
+      euclidCanvas,
+      state.euclidBeats || 4,
+      euclidStepDefault,
+      euclidOffsetDefault,
+      currentActiveSteps
+    );
+
+    euclidDiv.append(euclidCanvas);
+
+    // ── Label + inputs ─────────────────────────────────────────────────────
+    const euclidInputsWrap = document.createElement('div');
+    euclidInputsWrap.style.cssText = 'display:flex;flex-direction:column;gap:3px';
+
+    // Row 1: beats / steps
+    const euclidRow1 = document.createElement('div');
+    euclidRow1.style.cssText = 'display:flex;align-items:center;gap:4px';
+    euclidRow1.innerHTML = `
       <label>EUCLID</label>
-      <input type="number" min="1" max="64" value="${state.euclidBeats || 4}" style="width:46px" title="beats">
+      <input type="number" min="1" max="64" value="${state.euclidBeats || 4}" style="width:40px" title="beats">
       <span style="font-family:var(--font-mono);font-size:0.6rem;color:var(--muted)">/</span>
-      <input type="number" min="1" max="64" value="${euclidStepDefault}" style="width:46px" title="steps">
-      <button class="seq-btn">Gen</button>
+      <input type="number" min="1" max="64" value="${euclidStepDefault}" style="width:40px" title="steps">
     `;
-    const euclidBeatsInput = euclidDiv.querySelectorAll('input')[0];
-    const euclidStepsInput = euclidDiv.querySelectorAll('input')[1];
-    euclidDiv.querySelector('button').addEventListener('click', () => {
-      const beats = parseInt(euclidBeatsInput.value, 10);
-      const steps = parseInt(euclidStepsInput.value, 10) || (track.trackLength || pattern.length);
-      const result = euclidean(beats, steps);
+
+    // Row 2: rotation offset + Gen + All
+    const euclidRow2 = document.createElement('div');
+    euclidRow2.style.cssText = 'display:flex;align-items:center;gap:4px';
+    euclidRow2.innerHTML = `
+      <label style="font-family:var(--font-mono);font-size:0.6rem;color:var(--muted)">ROT</label>
+      <input type="number" min="0" max="63" value="${euclidOffsetDefault}" style="width:40px" title="rotation offset (steps to shift)">
+    `;
+
+    const genBtn = document.createElement('button');
+    genBtn.className = 'seq-btn';
+    genBtn.textContent = 'Gen';
+    genBtn.title = 'Apply euclid pattern to selected track';
+
+    const allBtn = document.createElement('button');
+    allBtn.className = 'seq-btn euclid-all-btn';
+    allBtn.textContent = 'All';
+    allBtn.title = 'Apply euclid to all 8 tracks (evenly spaced offsets)';
+
+    euclidRow2.append(genBtn, allBtn);
+
+    euclidInputsWrap.append(euclidRow1, euclidRow2);
+    euclidDiv.append(euclidInputsWrap);
+
+    const euclidBeatsInput  = euclidRow1.querySelectorAll('input')[0];
+    const euclidStepsInput  = euclidRow1.querySelectorAll('input')[1];
+    const euclidOffsetInput = euclidRow2.querySelector('input');
+
+    // Clamp offset max when steps changes
+    const refreshCanvas = () => {
+      const beats  = parseInt(euclidBeatsInput.value,  10) || 4;
+      const steps  = parseInt(euclidStepsInput.value,  10) || euclidStepDefault;
+      const offset = parseInt(euclidOffsetInput.value, 10) || 0;
+      euclidOffsetInput.max = String(Math.max(0, steps - 1));
+      drawEuclidCircle(euclidCanvas, beats, steps, offset, currentActiveSteps);
+    };
+
+    euclidBeatsInput.addEventListener('input',  refreshCanvas);
+    euclidStepsInput.addEventListener('input',  refreshCanvas);
+    euclidOffsetInput.addEventListener('input', refreshCanvas);
+
+    genBtn.addEventListener('click', () => {
+      const beats  = parseInt(euclidBeatsInput.value,  10);
+      const steps  = parseInt(euclidStepsInput.value,  10) || (track.trackLength || pattern.length);
+      const offset = parseInt(euclidOffsetInput.value, 10) || 0;
+      const base   = euclidean(beats, steps);
+      const off    = ((offset % steps) + steps) % steps;
+      const result = [...base.slice(off), ...base.slice(0, off)];
       result.forEach((active, i) => {
         if (track.steps[i]) track.steps[i].active = active;
       });
+      state.euclidBeats  = beats;
+      state.euclidOffset = offset;
       emit('state:change', { path: 'euclidBeats', value: beats });
+    });
+
+    allBtn.addEventListener('click', () => {
+      const beats = parseInt(euclidBeatsInput.value,  10);
+      const steps = parseInt(euclidStepsInput.value,  10) || (track.trackLength || pattern.length);
+      const base  = euclidean(beats, steps);
+      pattern.kit.tracks.forEach((trk, ti) => {
+        const off    = Math.round(ti * steps / 8);
+        const result = [...base.slice(off), ...base.slice(0, off)];
+        result.forEach((active, i) => {
+          if (trk.steps[i]) trk.steps[i].active = active;
+        });
+      });
+      state.euclidBeats  = beats;
+      state.euclidOffset = 0;
+      emit('state:change', { path: 'euclidBeats', value: beats });
+      emit('toast', { msg: 'Applied to all 8 tracks' });
     });
 
     const actionsDiv = document.createElement('div');

@@ -81,6 +81,9 @@ export function createTrack(index) {
     // Per-track swing (null = use global state.swing)
     swing:        null,
 
+    // Recording
+    recArmed:     false,
+
     // Mixer
     mute:         false,
     solo:         false,

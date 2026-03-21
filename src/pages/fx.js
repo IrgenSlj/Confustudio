@@ -10,6 +10,267 @@ const REVERB_LABELS = { room: 'Room', hall: 'Hall', plate: 'Plate', spring: 'Spr
 
 const DELAY_SYNC_DIVS = ['1/32', '1/16', '1/8', '1/4', '1/2', '1/1'];
 
+// ─── EQ Canvas constants ──────────────────────────────────────────────────────
+
+const EQ_FREQ_MIN  = 20;
+const EQ_FREQ_MAX  = 20000;
+const EQ_DB_MIN    = -12;
+const EQ_DB_MAX    = 12;
+const EQ_GRID_FREQS = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+// Frequency positions for the 3 draggable points (low, mid, high)
+const EQ_LOW_FREQ  = 200;
+const EQ_HIGH_FREQ = 6000;  // matches engine highshelf at 6000 Hz
+const EQ_DOT_R     = 5;     // drag dot radius in px
+
+// ─── EQ Canvas helpers ────────────────────────────────────────────────────────
+
+function freqToX(freq, width) {
+  return (Math.log10(freq / EQ_FREQ_MIN) / Math.log10(EQ_FREQ_MAX / EQ_FREQ_MIN)) * width;
+}
+
+function xToFreq(x, width) {
+  const t = Math.max(0, Math.min(1, x / width));
+  return EQ_FREQ_MIN * Math.pow(EQ_FREQ_MAX / EQ_FREQ_MIN, t);
+}
+
+function dbToY(db, height) {
+  return ((EQ_DB_MAX - db) / (EQ_DB_MAX - EQ_DB_MIN)) * height;
+}
+
+function yToDb(y, height) {
+  return EQ_DB_MAX - (y / height) * (EQ_DB_MAX - EQ_DB_MIN);
+}
+
+/**
+ * Draw the EQ response curve and grid on a canvas.
+ * dots: [{ x, y, color, label }]
+ */
+function drawEQCanvas(canvas, low, mid, high, midFreq) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const W = rect.width  || canvas.offsetWidth  || 200;
+  const H = rect.height || canvas.offsetHeight || 80;
+
+  if (canvas.width  !== Math.round(W * dpr) ||
+      canvas.height !== Math.round(H * dpr)) {
+    canvas.width  = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+  }
+
+  const ctx = canvas.getContext('2d');
+  ctx.save();
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  // ── Background ─────────────────────────────────────────────────────────────
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(0, 0, W, H);
+
+  // ── Grid ───────────────────────────────────────────────────────────────────
+  ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+  ctx.lineWidth = 0.5;
+  // Vertical lines at octave frequencies
+  for (const f of EQ_GRID_FREQS) {
+    const x = freqToX(f, W);
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, H);
+    ctx.stroke();
+
+    // Frequency label
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    ctx.font = `${Math.round(6 * dpr) / dpr}px monospace`;
+    ctx.textAlign = 'center';
+    const label = f >= 1000 ? (f / 1000) + 'k' : String(f);
+    ctx.fillText(label, x, H - 2);
+  }
+  // Horizontal 0 dB line
+  const y0 = dbToY(0, H);
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 0.75;
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  ctx.moveTo(0, y0);
+  ctx.lineTo(W, y0);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ── EQ response curve (3-band approximation) ──────────────────────────────
+  // We sample the approximate combined response across frequency bins.
+  // Low shelf: gain ramps in over ~1 octave below/above 200Hz
+  // Mid peak: gaussian-ish around midFreq with Q=1
+  // High shelf: gain ramps in over ~1 octave below/above 6kHz
+
+  ctx.beginPath();
+  const SAMPLES = W;
+  for (let i = 0; i <= SAMPLES; i++) {
+    const f = xToFreq((i / SAMPLES) * W, W);
+    let db = 0;
+
+    // Low shelf approximation (BiquadFilter lowshelf @200Hz)
+    const lowRatio = Math.log2(f / EQ_LOW_FREQ);
+    db += low  * Math.max(0, Math.min(1, 0.5 - lowRatio / 2));
+
+    // High shelf approximation (BiquadFilter highshelf @6kHz)
+    const highRatio = Math.log2(f / EQ_HIGH_FREQ);
+    db += high * Math.max(0, Math.min(1, 0.5 + highRatio / 2));
+
+    // Mid peak: Q=1.0 approximation — bandwidth ≈ 1 octave
+    const mfSafe = Math.max(200, Math.min(8000, midFreq));
+    const octDist = Math.log2(f / mfSafe);   // 0 at center
+    const bw = 1.4;                            // octaves at -3dB for Q≈1
+    db += mid * Math.exp(-(octDist * octDist) / (2 * (bw / 2.355) * (bw / 2.355)));
+
+    const y = dbToY(Math.max(EQ_DB_MIN, Math.min(EQ_DB_MAX, db)), H);
+    if (i === 0) ctx.moveTo(i / SAMPLES * W, y);
+    else         ctx.lineTo(i / SAMPLES * W, y);
+  }
+
+  // Fill under curve
+  ctx.lineTo(W, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(var(--accent-rgb, 255,200,64),0.07)';
+  ctx.fill();
+
+  // Stroke the curve
+  ctx.beginPath();
+  for (let i = 0; i <= SAMPLES; i++) {
+    const f = xToFreq((i / SAMPLES) * W, W);
+    let db = 0;
+    const lowRatio  = Math.log2(f / EQ_LOW_FREQ);
+    db += low  * Math.max(0, Math.min(1, 0.5 - lowRatio / 2));
+    const highRatio = Math.log2(f / EQ_HIGH_FREQ);
+    db += high * Math.max(0, Math.min(1, 0.5 + highRatio / 2));
+    const mfSafe = Math.max(200, Math.min(8000, midFreq));
+    const octDist = Math.log2(f / mfSafe);
+    const bw = 1.4;
+    db += mid * Math.exp(-(octDist * octDist) / (2 * (bw / 2.355) * (bw / 2.355)));
+    const y = dbToY(Math.max(EQ_DB_MIN, Math.min(EQ_DB_MAX, db)), H);
+    if (i === 0) ctx.moveTo(i / SAMPLES * W, y);
+    else         ctx.lineTo(i / SAMPLES * W, y);
+  }
+  ctx.strokeStyle = 'var(--screen-text, #f0c640)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // ── Draggable dots ─────────────────────────────────────────────────────────
+  const dots = [
+    { freq: EQ_LOW_FREQ,             db: low,  color: '#67d7ff', label: 'L', fixed: true  },
+    { freq: Math.max(200, Math.min(8000, midFreq)), db: mid,  color: '#f0c640', label: 'M', fixed: false },
+    { freq: EQ_HIGH_FREQ,            db: high, color: '#ff8c52', label: 'H', fixed: true  },
+  ];
+
+  for (const dot of dots) {
+    const x = freqToX(dot.freq, W);
+    const y = dbToY(dot.db, H);
+
+    // Outer ring
+    ctx.beginPath();
+    ctx.arc(x, y, EQ_DOT_R + 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fill();
+
+    // Dot
+    ctx.beginPath();
+    ctx.arc(x, y, EQ_DOT_R, 0, Math.PI * 2);
+    ctx.fillStyle = dot.color;
+    ctx.fill();
+
+    // Label
+    ctx.fillStyle = '#000';
+    ctx.font = `bold ${Math.round(7 * dpr) / dpr}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(dot.label, x, y);
+  }
+
+  ctx.textBaseline = 'alphabetic';
+  ctx.restore();
+}
+
+// ─── Drag state (module-level, one active drag at a time) ─────────────────────
+
+let _eqDrag = null;  // { dot: 'low'|'mid'|'high', canvas, track, state, emit, onUpdate }
+
+function _eqPointerDown(e, canvas, track, state, emit, onUpdate) {
+  const dpr  = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const px   = (e.clientX - rect.left);
+  const py   = (e.clientY - rect.top);
+  const W    = rect.width;
+  const H    = rect.height;
+
+  const midFreq = track.eqMidFreq ?? 1000;
+
+  // Dot positions in CSS px
+  const dots = [
+    { key: 'low',  x: freqToX(EQ_LOW_FREQ,  W), y: dbToY(track.eqLow  ?? 0, H) },
+    { key: 'mid',  x: freqToX(Math.max(200, Math.min(8000, midFreq)), W), y: dbToY(track.eqMid  ?? 0, H) },
+    { key: 'high', x: freqToX(EQ_HIGH_FREQ, W), y: dbToY(track.eqHigh ?? 0, H) },
+  ];
+
+  const HIT = EQ_DOT_R + 4;
+  for (const dot of dots) {
+    const dx = px - dot.x;
+    const dy = py - dot.y;
+    if (dx * dx + dy * dy <= HIT * HIT) {
+      _eqDrag = { dot: dot.key, canvas, track, state, emit, onUpdate, W, H };
+      e.preventDefault();
+      return;
+    }
+  }
+}
+
+function _eqPointerMove(e) {
+  if (!_eqDrag) return;
+  const { dot, canvas, track, state, emit, onUpdate, W, H } = _eqDrag;
+  const rect = canvas.getBoundingClientRect();
+  const px   = e.clientX - rect.left;
+  const py   = e.clientY - rect.top;
+
+  const rawDb   = yToDb(py, H);
+  const clampDb = Math.max(EQ_DB_MIN, Math.min(EQ_DB_MAX, rawDb));
+  const snapDb  = Math.round(clampDb * 2) / 2;  // snap to 0.5 dB steps
+
+  if (dot === 'low') {
+    track.eqLow = snapDb;
+    emit('track:change', { trackIndex: state.selectedTrackIndex, param: 'eqLow', value: snapDb });
+  } else if (dot === 'high') {
+    track.eqHigh = snapDb;
+    emit('track:change', { trackIndex: state.selectedTrackIndex, param: 'eqHigh', value: snapDb });
+  } else if (dot === 'mid') {
+    track.eqMid = snapDb;
+    emit('track:change', { trackIndex: state.selectedTrackIndex, param: 'eqMid', value: snapDb });
+
+    // Mid dot also moves left-right to change frequency
+    const rawFreq  = xToFreq(px, W);
+    const clampFreq = Math.max(200, Math.min(8000, rawFreq));
+    const snapFreq  = Math.round(clampFreq / 10) * 10;  // snap to 10 Hz
+    track.eqMidFreq = snapFreq;
+    emit('track:change', { trackIndex: state.selectedTrackIndex, param: 'eqMidFreq', value: snapFreq });
+  }
+
+  onUpdate();
+  e.preventDefault();
+}
+
+function _eqPointerUp() {
+  if (_eqDrag) {
+    saveState(_eqDrag.state);
+    _eqDrag = null;
+  }
+}
+
+// Attach global pointer listeners once
+if (typeof window !== 'undefined') {
+  window.addEventListener('pointermove', _eqPointerMove, { passive: false });
+  window.addEventListener('pointerup',   _eqPointerUp);
+  window.addEventListener('pointercancel', _eqPointerUp);
+}
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+
 function calcSyncDelayTime(bpm, div) {
   const parts = div.split('/');
   const num = parseInt(parts[0], 10);
@@ -38,6 +299,11 @@ function fmtDB(v) {
   return (n > 0 ? '+' : '') + n.toFixed(1) + ' dB';
 }
 
+function fmtFreq(v) {
+  const n = Number(v);
+  return n >= 1000 ? (n / 1000).toFixed(2).replace(/\.?0+$/, '') + ' kHz' : n + ' Hz';
+}
+
 function eqBandHTML(label, param, value, scope = 'eq') {
   return `
     <div class="eq-band">
@@ -46,20 +312,6 @@ function eqBandHTML(label, param, value, scope = 'eq') {
              data-param="${param}" data-scope="${scope}">
       <label>${label}</label>
     </div>`;
-}
-
-function drawEQCurve(svg, low, mid, high) {
-  const w = 120, h = 40, mid_y = h / 2;
-  // Map dB [-12..+12] to pixel offset (positive dB = upward = negative y)
-  const scale = (mid_y - 4) / 12;
-  const y0 = mid_y - low  * scale;
-  const y1 = mid_y - mid  * scale;
-  const y2 = mid_y - high * scale;
-  // Bezier: left anchor (0, y0), cp1 (30, y0), center (60, y1), cp2 (90, y2), right anchor (120, y2)
-  const d = `M 0 ${y0} C 30 ${y0} 30 ${y1} 60 ${y1} C 90 ${y1} 90 ${y2} ${w} ${y2}`;
-  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-  svg.innerHTML = `<path d="${d}" stroke="var(--screen-text)" stroke-width="1.5" fill="none" opacity="0.7"/>
-    <line x1="0" y1="${mid_y}" x2="${w}" y2="${mid_y}" stroke="var(--muted)" stroke-width="0.5" stroke-dasharray="3,3" opacity="0.4"/>`;
 }
 
 function compSliderHTML(label, param, min, max, step, value, unit, displayFn) {
@@ -72,6 +324,31 @@ function compSliderHTML(label, param, min, max, step, value, unit, displayFn) {
              data-param="${param}" data-scope="compressor">
     </label>`;
 }
+
+// ─── EQ canvas section HTML ───────────────────────────────────────────────────
+
+function eqCanvasSectionHTML(track) {
+  const midFreq = track.eqMidFreq ?? 1000;
+  return `
+    <div style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);text-transform:uppercase;margin:4px 0 2px">
+      EQ
+      <span style="margin-left:6px;color:var(--screen-text);opacity:0.6" data-eq-hint>drag dots</span>
+    </div>
+    <canvas class="eq-canvas" data-eq-canvas></canvas>
+    <div class="eq-band-row">
+      ${eqBandHTML('Low',  'eqLow',  track.eqLow  ?? 0)}
+      ${eqBandHTML('Mid',  'eqMid',  track.eqMid  ?? 0)}
+      ${eqBandHTML('High', 'eqHigh', track.eqHigh ?? 0)}
+    </div>
+    <label class="fx-row" style="margin-top:2px">
+      <span>MID FREQ</span>
+      <output data-eq-midfreq-out>${fmtFreq(midFreq)}</output>
+      <input type="range" min="200" max="8000" step="10" value="${midFreq}"
+             data-param="eqMidFreq" data-scope="eq">
+    </label>`;
+}
+
+// ─── Page module ─────────────────────────────────────────────────────────────
 
 export default {
   render(container, state, emit) {
@@ -147,13 +424,7 @@ export default {
 
         <div class="page-card" data-card="track">
           <h4>TRACK: ${track.name}</h4>
-          <div style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);text-transform:uppercase;margin:4px 0 2px">EQ</div>
-          <svg class="eq-curve-svg" data-eq-svg></svg>
-          <div class="eq-band-row">
-            ${eqBandHTML('Low',  'eqLow',  track.eqLow  ?? 0)}
-            ${eqBandHTML('Mid',  'eqMid',  track.eqMid  ?? 0)}
-            ${eqBandHTML('High', 'eqHigh', track.eqHigh ?? 0)}
-          </div>
+          ${eqCanvasSectionHTML(track)}
           <div style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);text-transform:uppercase;margin:6px 0 4px">Filter</div>
           <div style="display:flex;gap:4px;margin-bottom:6px">
             ${FILTER_TYPES.map(ft => `
@@ -164,26 +435,43 @@ export default {
           ${sliderHTML('CUT',  'cutoff',    'track', 80,   18000, 1,    track.cutoff    ?? 3200)}
           ${sliderHTML('RES',  'resonance', 'track', 0.01, 30,    0.01, track.resonance ?? 1.8)}
           ${sliderHTML('DRIV', 'drive',     'track', 0,    1,     0.01, track.drive     ?? 0.18)}
-          <label class="fx-row" data-lofi-bits>
-            <span>BITS</span>
-            <output>${(track.bitDepth ?? 32) >= 32 ? 'OFF' : (track.bitDepth ?? 32) + 'b'}</output>
-            <input type="range" min="4" max="32" step="1" value="${track.bitDepth ?? 32}"
-                   data-param="bitDepth" data-scope="track">
-          </label>
-          <label class="fx-row" data-lofi-srdiv>
-            <span>SRR</span>
-            <output>${(track.srDiv ?? 1) <= 1 ? 'OFF' : '\xF7' + (track.srDiv ?? 1)}</output>
-            <input type="range" min="1" max="16" step="1" value="${track.srDiv ?? 1}"
-                   data-param="srDiv" data-scope="track">
-          </label>
+          ${sliderHTML('BITS', 'bitDepth',  'track', 1,    16,    1,    track.bitDepth  ?? 16)}
+          ${sliderHTML('SRR',  'srDiv',     'track', 1,    32,    1,    track.srDiv     ?? 1)}
         </div>
 
       </div>`;
 
-    // Draw initial EQ curve
-    const eqSvg = container.querySelector('[data-eq-svg]');
-    if (eqSvg) drawEQCurve(eqSvg, track.eqLow ?? 0, track.eqMid ?? 0, track.eqHigh ?? 0);
+    // ── EQ canvas setup ──────────────────────────────────────────────────────
+    const eqCanvas = container.querySelector('[data-eq-canvas]');
 
+    function redrawEQ() {
+      if (!eqCanvas) return;
+      // Sync slider displays with current track values
+      _syncEQSliderDisplays(container, track);
+      drawEQCanvas(
+        eqCanvas,
+        track.eqLow     ?? 0,
+        track.eqMid     ?? 0,
+        track.eqHigh    ?? 0,
+        track.eqMidFreq ?? 1000
+      );
+    }
+
+    // Draw once layout is settled (RAF so CSS has applied dimensions)
+    requestAnimationFrame(redrawEQ);
+
+    // Redraw on resize
+    const _resizeObs = new ResizeObserver(redrawEQ);
+    _resizeObs.observe(eqCanvas);
+    // Disconnect on next render (page navigation triggers a new render)
+    eqCanvas._resizeObs = _resizeObs;
+
+    // Drag start
+    eqCanvas.addEventListener('pointerdown', e => {
+      _eqPointerDown(e, eqCanvas, track, state, emit, redrawEQ);
+    });
+
+    // ── Slider / input events ────────────────────────────────────────────────
     container.addEventListener('input', e => {
       const input = e.target;
       if (input.tagName !== 'INPUT' || input.type !== 'range') return;
@@ -194,15 +482,21 @@ export default {
       const v = step >= 1 ? parseInt(input.value, 10) : parseFloat(input.value);
 
       if (scope === 'eq') {
-        // Update dB display
+        if (param === 'eqMidFreq') {
+          track.eqMidFreq = v;
+          const out = container.querySelector('[data-eq-midfreq-out]');
+          if (out) out.textContent = fmtFreq(v);
+          emit('track:change', { trackIndex: state.selectedTrackIndex, param, value: v });
+          redrawEQ();
+          saveState(state);
+          return;
+        }
+        // eqLow / eqMid / eqHigh
         const band = input.closest('.eq-band');
         if (band) band.querySelector('span').textContent = fmtDB(v);
-        // Update track state
         track[param] = v;
         emit('track:change', { trackIndex: state.selectedTrackIndex, param, value: v });
-        // Redraw EQ curve
-        const svg = container.querySelector('[data-eq-svg]');
-        if (svg) drawEQCurve(svg, track.eqLow ?? 0, track.eqMid ?? 0, track.eqHigh ?? 0);
+        redrawEQ();
         saveState(state);
         return;
       }
@@ -232,7 +526,6 @@ export default {
       }
 
       if (scope === 'compressor') {
-        // Update display with unit-aware formatting
         const out = container.querySelector(`[data-comp-out="${param}"]`);
         if (out) {
           let displayed;
@@ -252,15 +545,7 @@ export default {
       }
 
       const out = input.closest('label')?.querySelector('output');
-      if (out) {
-        if (param === 'bitDepth') {
-          out.textContent = v >= 32 ? 'OFF' : v + 'b';
-        } else if (param === 'srDiv') {
-          out.textContent = v <= 1 ? 'OFF' : '\xF7' + v;
-        } else {
-          out.textContent = Number(v).toFixed(step < 1 ? 2 : 0);
-        }
-      }
+      if (out) out.textContent = Number(v).toFixed(step < 1 ? 2 : 0);
 
       if (scope === 'global') {
         state[param] = v;
@@ -307,7 +592,6 @@ export default {
       if (syncToggle) {
         state.delaySyncEnabled = !(state.delaySyncEnabled ?? false);
         syncToggle.classList.toggle('active', state.delaySyncEnabled);
-        // Re-render the time row only
         const timeRow = container.querySelector('[data-delay-time-row]');
         if (timeRow) {
           if (state.delaySyncEnabled) {
@@ -318,7 +602,6 @@ export default {
                           data-delay-sync-div="${d}">${d}</button>
                 `).join('')}
               </div>`;
-            // Apply current sync div immediately
             const bpm = state.bpm ?? 120;
             const t = calcSyncDelayTime(bpm, state.delaySyncDiv ?? '1/8');
             const eng2 = window._confusynthEngine ?? state.engine;
@@ -363,6 +646,30 @@ export default {
 
   keyboardContext: 'fx',
 };
+
+// ─── Sync slider displays from current track values (used after drag) ─────────
+
+function _syncEQSliderDisplays(container, track) {
+  // Sync each vertical EQ band slider and its dB label
+  const paramMap = { eqLow: track.eqLow ?? 0, eqMid: track.eqMid ?? 0, eqHigh: track.eqHigh ?? 0 };
+  for (const [param, val] of Object.entries(paramMap)) {
+    const input = container.querySelector(`input[data-param="${param}"][data-scope="eq"]`);
+    if (input) {
+      input.value = val;
+      const band = input.closest('.eq-band');
+      if (band) band.querySelector('span').textContent = fmtDB(val);
+    }
+  }
+  // Sync MID FREQ slider
+  const freqInput = container.querySelector('input[data-param="eqMidFreq"]');
+  if (freqInput) {
+    freqInput.value = track.eqMidFreq ?? 1000;
+    const out = container.querySelector('[data-eq-midfreq-out]');
+    if (out) out.textContent = fmtFreq(track.eqMidFreq ?? 1000);
+  }
+}
+
+// ─── Global parameter application ────────────────────────────────────────────
 
 function _applyGlobal(param, v, state) {
   const eng = state.engine;

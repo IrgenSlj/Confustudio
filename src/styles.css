@@ -2255,6 +2255,17 @@ button {
   margin: 2px 0;
 }
 
+.eq-canvas {
+  display: block;
+  width: 100%;
+  height: 80px;
+  margin: 2px 0 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.07);
+  cursor: crosshair;
+  touch-action: none; /* prevent scroll interference during drag */
+}
+
 /* ============================================================
    SCENES PAGE
    ============================================================ */
@@ -2556,7 +2567,8 @@ button {
 .seq-euclid {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  flex-wrap: nowrap;
 }
 
 .seq-euclid label {
@@ -2583,6 +2595,22 @@ button {
 .seq-euclid input[type="number"]::-webkit-outer-spin-button,
 .seq-euclid input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
+}
+
+/* Euclidean canvas visualizer */
+.euclid-canvas {
+  display: block;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: #0e1209;
+  image-rendering: pixelated;
+}
+
+/* All-tracks euclid button accent */
+.euclid-all-btn {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .seq-actions {
@@ -3795,6 +3823,8 @@ button {
 .sit-label { color: var(--accent); text-align: left; flex: 0 0 24px; }
 .sit-head { color: var(--screen-text); font-size: 0.45rem; text-align: center; }
 .sit-snap { color: rgba(255, 140, 82, 0.75); }
+.sit-cell.sit-modified { background: rgba(100,200,100,0.08); }
+.scene-snap-confirm { outline: 2px solid var(--live); }
 .sit-interp-chk {
   display: block;
   margin: 1px auto 0;

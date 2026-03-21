@@ -625,9 +625,53 @@ function emit(type, payload = {}) {
       break;
 
     case 'transport:record':
-      state.isRecording = !state.isRecording;
+      // Cycle: OFF → LIVE → STEP → OFF
+      if (!state.isRecording && !state.stepRecordMode) {
+        state.isRecording   = true;
+        state.stepRecordMode = false;
+      } else if (state.isRecording && !state.stepRecordMode) {
+        state.isRecording   = false;
+        state.stepRecordMode = true;
+        state._stepRecordCursor = 0;
+      } else {
+        state.isRecording   = false;
+        state.stepRecordMode = false;
+      }
       updateTransportUI();
+      renderPlayhead(); // update cursor highlight on grid
       break;
+
+    // ── Step record: write note to cursor step, then advance ──
+    case 'step:record': {
+      const recPattern = getActivePattern(state);
+      const recPat    = recPattern;
+      const cursor    = state._stepRecordCursor ?? 0;
+      const recQ      = state.recQuantize ?? 1;
+      // Determine which tracks to write to: any recArmed, or fall back to selectedTrackIndex
+      const armedIdxs = recPat.kit.tracks
+        .map((t, i) => t.recArmed ? i : -1)
+        .filter(i => i >= 0);
+      const targets = armedIdxs.length > 0 ? armedIdxs : [state.selectedTrackIndex];
+      targets.forEach(ti => {
+        const trkSteps = recPat.kit.tracks[ti].steps;
+        const s = trkSteps[cursor];
+        if (s) {
+          s.active   = true;
+          s.note     = payload.note;
+          s.velocity = payload.velocity ?? 1;
+          if (!s.paramLocks) s.paramLocks = {};
+          s.paramLocks.note = payload.note;
+        }
+      });
+      // Advance cursor
+      const patLen = recPat.length;
+      const advance = Math.max(1, recQ);
+      state._stepRecordCursor = (cursor + advance) % patLen;
+      scheduleSave();
+      renderPage();
+      renderPlayhead();
+      break;
+    }
 
     // ── Note preview ──
     case 'note:preview':
@@ -1078,8 +1122,10 @@ function scheduleLoop() {
         const trackLen = (track.trackLength > 0) ? track.trackLength : pattern.length;
         const stepIdx = _trackStepIdx[ti];
 
-        // Live recording: capture held MIDI notes onto the selected track
-        if (state.isRecording && ti === state.selectedTrackIndex && state._pressedKeys.size > 0) {
+        // Live recording: capture held MIDI notes onto armed tracks (or selected track if none armed)
+        const _anyArmed = pattern.kit.tracks.some(t => t.recArmed);
+        const _trackReceivesLive = _anyArmed ? track.recArmed : (ti === state.selectedTrackIndex);
+        if (state.isRecording && _trackReceivesLive && state._pressedKeys.size > 0) {
           // Quantize step index to nearest recQuantize subdivision
           const recQ = state.recQuantize ?? 1;
           const qStepIdx = recQ <= 1
@@ -1365,15 +1411,29 @@ function stopPlay() {
 // TAP TEMPO
 // ─────────────────────────────────────────────
 function tapTempo() {
-  const now = performance.now();
-  state.tapTimes = (state.tapTimes || []).filter(t => now - t < 3000).slice(-8);
-  state.tapTimes.push(now);
-  if (state.tapTimes.length >= 2) {
-    const gaps = state.tapTimes.slice(1).map((t, i) => t - state.tapTimes[i]);
-    const avg  = gaps.reduce((a, b) => a + b, 0) / gaps.length;
-    state.bpm  = Math.max(40, Math.min(240, Math.round(60000 / avg)));
-    updateTopbar();
-    if (el.bpmInput) el.bpmInput.value = state.bpm;
+  const now = Date.now();
+  if (!state._tapTimes) state._tapTimes = [];
+  if (state._tapTimes.length > 0 && now - state._tapTimes[state._tapTimes.length - 1] > 3000) {
+    state._tapTimes = []; // reset after 3s gap
+  }
+  state._tapTimes.push(now);
+  if (state._tapTimes.length > 8) state._tapTimes.shift();
+  if (state._tapTimes.length >= 2) {
+    const intervals = [];
+    for (let i = 1; i < state._tapTimes.length; i++) {
+      intervals.push(state._tapTimes[i] - state._tapTimes[i - 1]);
+    }
+    const avg = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+    const bpm = Math.round(60000 / avg);
+    const clamped = Math.max(40, Math.min(240, bpm));
+    state.bpm = clamped;
+    emit('state:change', { path: 'bpm', value: clamped });
+    const tapBtn = document.getElementById('btn-tap');
+    if (tapBtn) {
+      tapBtn.textContent = clamped + ' BPM';
+      clearTimeout(state._tapBtnTimer);
+      state._tapBtnTimer = setTimeout(() => { tapBtn.textContent = 'Tap'; }, 1500);
+    }
   }
 }
 
@@ -1618,8 +1678,23 @@ function updateTransportUI() {
   el.btnPlay.classList.toggle('active', state.isPlaying);
   el.kbdPlay?.classList.toggle('active', state.isPlaying);
   el.btnPlay.textContent = state.isPlaying ? '■' : '▶';
-  el.btnRecord?.classList.toggle('active', state.isRecording);
-  el.kbdRecord?.classList.toggle('active', state.isRecording);
+
+  // Record button cycles OFF → LIVE → STEP; reflect label + active class
+  if (el.btnRecord) {
+    el.btnRecord.classList.toggle('active', state.isRecording || state.stepRecordMode);
+    el.btnRecord.classList.toggle('step-record-mode', state.stepRecordMode);
+    if (state.stepRecordMode) {
+      el.btnRecord.textContent = 'STP';
+      el.btnRecord.title = 'Step record active — click to disable';
+    } else if (state.isRecording) {
+      el.btnRecord.textContent = 'REC';
+      el.btnRecord.title = 'Live record active — click for step record';
+    } else {
+      el.btnRecord.textContent = '●';
+      el.btnRecord.title = 'Click to enable live record';
+    }
+  }
+  el.kbdRecord?.classList.toggle('active', state.isRecording || state.stepRecordMode);
 }
 
 // ─────────────────────────────────────────────
@@ -1691,8 +1766,10 @@ function bindUI() {
   el.btnAudio.addEventListener('click', () => ensureAudio());
   el.btnPlay.addEventListener('click',   () => togglePlay());
   el.btnStop.addEventListener('click',   () => stopPlay());
+  el.btnRecord?.addEventListener('click', () => emit('transport:record'));
   el.kbdPlay?.addEventListener('click',   () => togglePlay());
   el.kbdStop?.addEventListener('click',   () => stopPlay());
+  el.kbdRecord?.addEventListener('click', () => emit('transport:record'));
   if (el.btnTap)  el.btnTap.addEventListener('click', tapTempo);
   if (el.btnTap)  el.btnTap.addEventListener('touchstart', e => {
     e.preventDefault(); // prevent double-firing with click
