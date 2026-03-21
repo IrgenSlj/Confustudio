@@ -88,6 +88,9 @@ export default {
 
     arranger.forEach((section, idx) => {
       const sceneColorFull = TRACK_COLORS[(section.sceneIdx ?? 0) % TRACK_COLORS.length];
+      // Per-section color (defaults to scene color, cycles through TRACK_COLORS on click)
+      if (section.color == null) section.color = TRACK_COLORS[idx % TRACK_COLORS.length];
+      const sectionBorderColor = section.color;
       const inLoopRange = arrLoop && idx >= arrLoopStart && idx <= arrLoopEnd;
 
       const row = document.createElement('div');
@@ -95,17 +98,17 @@ export default {
       row.style.cssText = `
         display:flex;align-items:center;gap:8px;padding:6px 8px;
         border-radius:5px;border:1px solid var(--border);background:#141414;
-        border-left: 3px solid ${sceneColorFull};
+        border-left: 3px solid ${sectionBorderColor};padding-left:6px;
       `;
       if (idx === arrangementCursor) {
         row.style.borderColor = 'rgba(240,91,82,0.5)';
-        row.style.borderLeftColor = sceneColorFull;
+        row.style.borderLeftColor = sectionBorderColor;
         row.style.background  = 'rgba(240,91,82,0.05)';
       }
       if (idx === activeSectionIdx) {
         row.classList.add('active');
         row.style.borderColor = 'rgba(90,221,113,0.6)';
-        row.style.borderLeftColor = sceneColorFull;
+        row.style.borderLeftColor = sectionBorderColor;
         row.style.background  = 'rgba(90,221,113,0.06)';
       }
       if (inLoopRange) {
@@ -239,7 +242,65 @@ export default {
         emit('state:change', { path: 'action_arrRemove', value: idx })
       );
 
-      row.append(sceneLabel, barsLabel, minusBtn, plusBtn, bpmLabel, bpmInput, tsSelect, sceneName, upBtn, dnBtn, delBtn);
+      // ── Color swatch (cycles through TRACK_COLORS) ──────────────────────
+      const colorSwatch = document.createElement('div');
+      colorSwatch.className = 'arr-color-swatch';
+      colorSwatch.style.cssText = `
+        width:10px;height:22px;border-radius:2px;cursor:pointer;flex-shrink:0;
+        background:${section.color};border:1px solid rgba(255,255,255,0.15);
+      `;
+      colorSwatch.title = 'Click to change section color';
+      colorSwatch.addEventListener('click', e => {
+        e.stopPropagation();
+        const currentIdx = TRACK_COLORS.indexOf(section.color);
+        const nextIdx = (currentIdx + 1) % TRACK_COLORS.length;
+        section.color = TRACK_COLORS[nextIdx];
+        emit('state:change', { path: 'arranger', value: state.arranger });
+      });
+
+      // ── Track mute squares (8 mini colored squares) ─────────────────────
+      if (!Array.isArray(section.trackMutes) || section.trackMutes.length !== 8) {
+        section.trackMutes = Array(8).fill(false);
+      }
+      const mutesRow = document.createElement('div');
+      mutesRow.className = 'arr-track-mutes';
+      mutesRow.style.cssText = 'display:flex;gap:2px;align-items:center;flex-shrink:0';
+      mutesRow.title = 'Track mutes for this section';
+
+      section.trackMutes.forEach((muted, ti) => {
+        const sq = document.createElement('div');
+        sq.className = 'arr-mute-sq';
+        const trackColor = TRACK_COLORS[ti % TRACK_COLORS.length];
+        sq.style.cssText = `
+          width:8px;height:8px;border-radius:1px;cursor:pointer;flex-shrink:0;
+          background:${muted ? '#2a2a2a' : trackColor};
+          border:1px solid ${muted ? '#444' : trackColor};
+          opacity:${muted ? '0.35' : '1'};
+          transition:background 0.1s,opacity 0.1s;
+        `;
+        sq.title = `Track ${ti + 1} — ${muted ? 'muted in section' : 'active'}`;
+        sq.addEventListener('click', e => {
+          e.stopPropagation();
+          section.trackMutes[ti] = !section.trackMutes[ti];
+          emit('state:change', { path: 'arranger', value: state.arranger });
+        });
+        mutesRow.append(sq);
+      });
+
+      // ── Duplicate button ─────────────────────────────────────────────────
+      const dupBtn = document.createElement('button');
+      dupBtn.className = 'bpm-arrow';
+      dupBtn.textContent = '⧉';
+      dupBtn.title = 'Duplicate section';
+      dupBtn.style.cssText = 'font-size:0.6rem;padding:2px 5px;opacity:0.7';
+      dupBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        const clone = JSON.parse(JSON.stringify(section));
+        state.arranger.splice(idx + 1, 0, clone);
+        emit('state:change', { path: 'scale', value: state.scale });
+      });
+
+      row.append(colorSwatch, sceneLabel, barsLabel, minusBtn, plusBtn, bpmLabel, bpmInput, tsSelect, sceneName, mutesRow, dupBtn, upBtn, dnBtn, delBtn);
       list.append(row);
     });
 

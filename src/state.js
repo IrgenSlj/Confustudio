@@ -320,12 +320,16 @@ const INTERPOLATED_PARAMS = ["cutoff", "decay", "delaySend", "pitch", "volume"];
 /**
  * Blend sceneA and sceneB at the current crossfader position (0–1).
  * Returns an array of 8 merged param objects, one per track.
+ * Respects noInterp arrays on the active scene: those params snap at 50%.
  */
 export function interpolateScenes(state) {
   const { sceneA, sceneB, crossfader, scenes } = state;
   const sA = scenes[sceneA];
   const sB = scenes[sceneB];
   const t  = Math.max(0, Math.min(1, crossfader));
+
+  // noInterp is stored on the project scene object (keyed by sceneA index)
+  const noInterp = state.project?.scenes?.[sceneA]?.noInterp ?? [];
 
   return Array.from({ length: TRACK_COUNT }, (_, ti) => {
     const tA = (sA && sA.tracks[ti]) || {};
@@ -334,7 +338,12 @@ export function interpolateScenes(state) {
     for (const param of INTERPOLATED_PARAMS) {
       const a = tA[param] ?? 0;
       const b = tB[param] ?? 0;
-      merged[param] = a + (b - a) * t;
+      if (noInterp.includes(param)) {
+        // Snap at 50% crossfader instead of interpolating
+        merged[param] = t < 0.5 ? a : b;
+      } else {
+        merged[param] = a + (b - a) * t;
+      }
     }
     return merged;
   });

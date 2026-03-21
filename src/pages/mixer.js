@@ -72,6 +72,7 @@ export default {
     soloOffBtn.addEventListener('click', () => {
       tracks.forEach(t => { t.solo = false; });
       emit('state:change', { path: 'mixer.soloOff', value: true });
+      updateSoloDim();
     });
 
     bulkBar.append(muteAllBtn, unmuteAllBtn, soloOffBtn);
@@ -241,10 +242,10 @@ export default {
       revSlider.value = track.reverbSend ?? 0;
       const revVal = document.createElement('span');
       revVal.className = 'send-val';
-      revVal.textContent = (track.reverbSend ?? 0).toFixed(2);
+      revVal.textContent = Math.round((track.reverbSend ?? 0) * 100) + '%';
       revSlider.addEventListener('input', () => {
         const v = parseFloat(revSlider.value);
-        revVal.textContent = v.toFixed(2);
+        revVal.textContent = Math.round(v * 100) + '%';
         emit('track:change', { trackIndex: ti, param: 'reverbSend', value: v });
       });
       revRow.append(revLabel, revSlider, revVal);
@@ -260,16 +261,43 @@ export default {
       dlySlider.value = track.delaySend ?? 0;
       const dlyVal = document.createElement('span');
       dlyVal.className = 'send-val';
-      dlyVal.textContent = (track.delaySend ?? 0).toFixed(2);
+      dlyVal.textContent = Math.round((track.delaySend ?? 0) * 100) + '%';
       dlySlider.addEventListener('input', () => {
         const v = parseFloat(dlySlider.value);
-        dlyVal.textContent = v.toFixed(2);
+        dlyVal.textContent = Math.round(v * 100) + '%';
         emit('track:change', { trackIndex: ti, param: 'delaySend', value: v });
       });
       dlyRow.append(dlyLabel, dlySlider, dlyVal);
 
       sendsDiv.append(revRow, dlyRow);
       strip.append(sendsDiv);
+
+      // ── Input gain row ───────────────────────────────────────────────────
+      const gainRow = document.createElement('div');
+      gainRow.style.cssText = 'display:flex;align-items:center;gap:3px;width:100%';
+
+      const gainLabel = document.createElement('span');
+      gainLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);flex-shrink:0';
+      gainLabel.textContent = 'GAIN';
+
+      const gainSlider = document.createElement('input');
+      gainSlider.type = 'range';
+      gainSlider.min = 0; gainSlider.max = 2; gainSlider.step = 0.01;
+      gainSlider.value = track.inputGain ?? 1.0;
+      gainSlider.style.cssText = 'flex:1;accent-color:var(--track-color,var(--accent));height:3px';
+
+      const gainVal = document.createElement('span');
+      gainVal.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);min-width:26px;text-align:right';
+      gainVal.textContent = (track.inputGain ?? 1.0).toFixed(1) + '\u00d7';
+
+      gainSlider.addEventListener('input', () => {
+        const v = parseFloat(gainSlider.value);
+        gainVal.textContent = v.toFixed(1) + '\u00d7';
+        emit('track:change', { trackIndex: ti, param: 'inputGain', value: v });
+      });
+
+      gainRow.append(gainLabel, gainSlider, gainVal);
+      strip.append(gainRow);
 
       // ── Vertical fader ───────────────────────────────────────────────────
       const fader = document.createElement('input');

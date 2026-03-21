@@ -680,6 +680,11 @@ function emit(type, payload = {}) {
       state._pressedKeys.delete(payload.code);
       pressKey(el.kbdContext, payload.code, false);
       break;
+
+    // ── Toast notification ──
+    case 'toast':
+      showToast(payload.msg, payload.duration ?? 1200);
+      break;
   }
 }
 
@@ -986,8 +991,18 @@ function scheduleLoop() {
         // Scene auto-morph: increment crossfader by 1/bars each bar (pattern loop)
         if (state.sceneMorphActive) {
           const bars = state.sceneMorphBars ?? 4;
-          state.crossfader = Math.min(1, (state.crossfader ?? 0) + 1 / bars);
-          if (state.crossfader >= 1) {
+          const rawT = Math.min(1, (state.crossfader ?? 0) + 1 / bars);
+          const curve = state.morphCurve ?? 'linear';
+          let curvedT;
+          if (curve === 'ease') {
+            curvedT = rawT < 0.5 ? 2 * rawT * rawT : -1 + (4 - 2 * rawT) * rawT;
+          } else if (curve === 'bounce') {
+            curvedT = Math.abs(Math.sin(rawT * Math.PI));
+          } else {
+            curvedT = rawT; // linear
+          }
+          state.crossfader = Math.min(1, curvedT);
+          if (rawT >= 1) {
             state.sceneMorphActive = false;
             state.crossfader = 1;
           }
