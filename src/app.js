@@ -1584,7 +1584,7 @@ function bindUI() {
   document.addEventListener('keydown', e => {
     if (!e.ctrlKey && !e.metaKey) return;
 
-    // Piano Roll copy/paste
+    // Piano Roll copy/paste + select all
     if (state.currentPage === 'piano-roll') {
       if (e.key === 'c') {
         e.preventDefault();
@@ -1603,6 +1603,23 @@ function bindUI() {
           saveState(state);
           showToast('Notes pasted');
         }
+        return;
+      }
+      if (e.key === 'a') {
+        // Ctrl+A on piano-roll: select all active notes
+        e.preventDefault();
+        const track = getActiveTrack(state);
+        const pat = getActivePattern(state);
+        const len = pat.length;
+        state.rollSelected = new Set();
+        track.steps.slice(0, len).forEach((step, si) => {
+          if (step.active) {
+            const note = step.paramLocks?.note ?? step.note;
+            state.rollSelected.add(`${note}_${si}`);
+          }
+        });
+        renderPage();
+        showToast(`${state.rollSelected.size} notes selected`);
         return;
       }
     }
@@ -1776,6 +1793,39 @@ function bindUI() {
       if (e.key === 'End') {
         e.preventDefault();
         emit('bank:select', { bankIndex: 7 });
+        return;
+      }
+    }
+
+    // Piano Roll: Escape clears selection; Shift+Arrow transposes selected notes
+    if (state.currentPage === 'piano-roll') {
+      if (e.key === 'Escape' && !e.ctrlKey && !e.metaKey) {
+        if (state.rollSelected?.size > 0) {
+          state.rollSelected = new Set();
+          renderPage();
+        }
+        return;
+      }
+      if (e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        e.preventDefault();
+        const delta = (e.key === 'ArrowUp' ? 1 : -1) * (e.ctrlKey ? 12 : 1);
+        const track = getActiveTrack(state);
+        const sel = state.rollSelected ?? new Set();
+        sel.forEach(key => {
+          const [midi, si] = key.split('_').map(Number);
+          const step = track.steps[si];
+          if (step) {
+            const newNote = Math.max(24, Math.min(96, midi + delta));
+            if (step.paramLocks) step.paramLocks.note = newNote;
+            else step.note = newNote;
+          }
+        });
+        // Update rollSelected keys to new MIDI values
+        state.rollSelected = new Set([...sel].map(key => {
+          const [midi, si] = key.split('_').map(Number);
+          return `${Math.max(24, Math.min(96, midi + delta))}_${si}`;
+        }));
+        emit('state:change', { path: 'rollScroll', value: state.rollScroll ?? 0.5 });
         return;
       }
     }
