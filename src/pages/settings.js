@@ -556,6 +556,49 @@ export default {
       });
       limiterRow.append(limiterLabel, limiterBtn);
       audioSection.append(limiterRow);
+
+      // ── Output Device Selector ────────────────────────────────────────────────────────────────────
+      const devRow = document.createElement('div');
+      devRow.className = 'settings-row';
+      devRow.style.marginTop = '6px';
+      const devLabel = document.createElement('label');
+      devLabel.textContent = 'Output Device';
+      const devSel = document.createElement('select');
+      devSel.style.cssText = 'font-size:0.6rem;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:2px';
+
+      if (navigator.mediaDevices?.enumerateDevices && state.audioContext?.setSinkId) {
+        // setSinkId supported — populate with real devices
+        devSel.innerHTML = '<option value="">Default</option>';
+        navigator.mediaDevices.enumerateDevices().then(devices => {
+          devices.filter(d => d.kind === 'audiooutput').forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d.deviceId;
+            opt.textContent = d.label || `Device ${d.deviceId.slice(0, 6)}`;
+            if (d.deviceId === state.audioOutputDevice) opt.selected = true;
+            devSel.append(opt);
+          });
+        }).catch(() => {});
+
+        devSel.addEventListener('change', e => {
+          state.audioOutputDevice = e.target.value;
+          if (state.audioContext?.setSinkId) {
+            state.audioContext.setSinkId(e.target.value || '').catch(err => console.warn('setSinkId:', err));
+          }
+          saveState(state);
+        });
+
+        devRow.append(devLabel, devSel);
+        audioSection.append(devRow);
+      } else {
+        // setSinkId not supported — show static fallback
+        devSel.innerHTML = '<option value="">Browser default</option>';
+        devSel.disabled = true;
+        const noteSpan = document.createElement('span');
+        noteSpan.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);margin-left:4px';
+        noteSpan.textContent = '(Chrome only)';
+        devRow.append(devLabel, devSel, noteSpan);
+        audioSection.append(devRow);
+      }
     }
 
     // ── MIDI Programs ─────────────────────────────────────────────────────────
@@ -761,15 +804,15 @@ export default {
     loadKitBtn.addEventListener('click', () => loadKitInput.click());
 
     // Export MIDI
-    const exportMidiBtn = document.createElement('button');
-    exportMidiBtn.className = 'seq-btn';
-    exportMidiBtn.textContent = 'Export MIDI';
-    exportMidiBtn.title = 'Export active pattern as Standard MIDI File (Ctrl+Shift+E)';
-    exportMidiBtn.addEventListener('click', () => {
+    const exportMidiFileBtn = document.createElement('button');
+    exportMidiFileBtn.className = 'seq-btn';
+    exportMidiFileBtn.textContent = 'Export MIDI';
+    exportMidiFileBtn.title = 'Export active pattern as Standard MIDI File (Ctrl+Shift+E)';
+    exportMidiFileBtn.addEventListener('click', () => {
       if (typeof window.exportMidi === 'function') window.exportMidi(state);
     });
 
-    presetBar.append(saveBtn, loadInput, loadBtn, saveKitBtn, loadKitInput, loadKitBtn, exportMidiBtn);
+    presetBar.append(saveBtn, loadInput, loadBtn, saveKitBtn, loadKitInput, loadKitBtn, exportMidiFileBtn);
     presetsSection.append(presetBar);
     container.append(presetsSection);
 

@@ -238,6 +238,8 @@ export function createAppState() {
     defaultProb:   1,
     trigMode:      0,
     masterLevel:   0.82,
+    bus1Level:     1.0,
+    bus2Level:     1.0,
 
     // FX globals
     delayTime:        0.28,

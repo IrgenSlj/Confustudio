@@ -1857,6 +1857,7 @@ function bindUI() {
           <dt>Ctrl+Y</dt><dd>Redo</dd>
           <dt>Ctrl+C</dt><dd>Copy pattern</dd>
           <dt>Ctrl+V</dt><dd>Paste pattern</dd>
+          <dt>Ctrl+Shift+E</dt><dd>Export MIDI</dd>
           <dt>Del / Bksp</dt><dd>Clear selected steps</dd>
         </dl>
       </div>
