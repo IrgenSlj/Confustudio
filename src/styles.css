@@ -1045,6 +1045,25 @@ button {
   line-height: 1;
 }
 
+.step-btn.step-muted {
+  opacity: 0.25 !important;
+  text-decoration: line-through;
+}
+.step-btn.step-muted.active {
+  background: #444 !important;
+  border-color: #555 !important;
+}
+
+.step-btn.step-selected {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.step-btn.trig-fill.active {
+  box-shadow: 0 0 4px var(--live);
+}
+
 .track-len-handle {
   width: 6px;
   min-width: 6px;
@@ -3268,4 +3287,67 @@ input[type=range] {
 .multi-track-grid, .roll-grid, .fader-grid {
   user-select: none;
   -webkit-user-select: none;
+}
+
+/* ── Live note display ── */
+.live-note-display {
+  font-family: var(--font-mono);
+  font-size: 1.8rem;
+  color: var(--accent);
+  text-align: center;
+  padding: 4px;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  min-height: 2rem;
+}
+
+/* ── Arp button row ── */
+.btn-row {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+/* ── Sound page cards / rows ── */
+.sound-card {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01) 20%, rgba(0,0,0,0.22)),
+    #131a11;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.sound-card-title {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+
+.sound-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--muted);
+}
+
+.sound-row label {
+  min-width: 40px;
+}
+
+.sound-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.sound-row span {
+  min-width: 32px;
+  text-align: right;
+  color: var(--screen-text);
 }

@@ -228,6 +228,8 @@ function makeSampleLoader(track, ti, emit, machCard) {
 
 export default {
   render(container, state, emit) {
+    // Cancel any running live-note watcher from a previous render
+    container._cleanupNoteWatch?.();
     container.innerHTML = '';
     const ti    = state.selectedTrackIndex;
     const track = state.project.banks[state.activeBank].patterns[state.activePattern].kit.tracks[ti];
@@ -268,6 +270,26 @@ export default {
     });
 
     pitchCard.innerHTML = '<h4>Pitch</h4>';
+
+    // Live note indicator — shows the last triggered note while sequencer runs
+    const liveNote = document.createElement('div');
+    liveNote.className = 'live-note-display';
+    liveNote.id = `live-note-${ti}`;
+    liveNote.textContent = '--';
+    pitchCard.prepend(liveNote);
+
+    const updateLiveNote = () => {
+      const noteNum = state._lastNotes?.[ti];
+      liveNote.textContent = noteNum != null ? midiToNoteName(noteNum) : '--';
+    };
+    updateLiveNote();
+    let _noteRaf;
+    const startNoteWatch = () => {
+      _noteRaf = requestAnimationFrame(() => { updateLiveNote(); startNoteWatch(); });
+    };
+    startNoteWatch();
+    container._cleanupNoteWatch = () => cancelAnimationFrame(_noteRaf);
+
     pitchCard.append(noteDisplay, pitchSlider, pitchLabel);
     grid.append(pitchCard);
 
@@ -541,6 +563,75 @@ export default {
     });
 
     grid.append(lfoCard);
+
+    // ── Arp card ──
+    const arpCard = document.createElement('div');
+    arpCard.className = 'sound-card';
+    arpCard.innerHTML = `
+      <div class="sound-card-title">ARP</div>
+      <div class="sound-row">
+        <label>Mode</label>
+        <div class="btn-row" id="arp-modes-${ti}">
+          <button class="seq-btn${track.arpMode === 'up'     ? ' active' : ''}" data-mode="up">Up</button>
+          <button class="seq-btn${track.arpMode === 'down'   ? ' active' : ''}" data-mode="down">Dn</button>
+          <button class="seq-btn${track.arpMode === 'updown' ? ' active' : ''}" data-mode="updown">U/D</button>
+          <button class="seq-btn${track.arpMode === 'random' ? ' active' : ''}" data-mode="random">Rnd</button>
+        </div>
+        <button class="seq-btn${track.arpEnabled ? ' active' : ''}" id="arp-toggle-${ti}" style="color:${track.arpEnabled ? 'var(--accent)' : ''}">
+          ${track.arpEnabled ? 'ON' : 'OFF'}
+        </button>
+      </div>
+      <div class="sound-row">
+        <label>Range</label>
+        <input type="range" id="arp-range-${ti}" min="1" max="4" step="1" value="${track.arpRange ?? 1}">
+        <span id="arp-range-val-${ti}">${track.arpRange ?? 1} oct</span>
+      </div>
+      <div class="sound-row">
+        <label>Speed</label>
+        <input type="range" id="arp-speed-${ti}" min="1" max="4" step="1" value="${track.arpSpeed ?? 1}">
+        <span id="arp-speed-val-${ti}">${['1/16','1/8','1/4','1/2'][(track.arpSpeed ?? 1) - 1]}</span>
+      </div>
+    `;
+
+    // Wire mode buttons
+    const arpModeRow = arpCard.querySelector(`#arp-modes-${ti}`);
+    arpModeRow.querySelectorAll('.seq-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        arpModeRow.querySelectorAll('.seq-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        emit('track:change', { trackIndex: ti, param: 'arpMode', value: btn.dataset.mode });
+      });
+    });
+
+    // Wire ON/OFF toggle
+    const arpToggle = arpCard.querySelector(`#arp-toggle-${ti}`);
+    arpToggle.addEventListener('click', () => {
+      const newVal = !track.arpEnabled;
+      arpToggle.classList.toggle('active', newVal);
+      arpToggle.style.color = newVal ? 'var(--accent)' : '';
+      arpToggle.textContent = newVal ? 'ON' : 'OFF';
+      emit('track:change', { trackIndex: ti, param: 'arpEnabled', value: newVal });
+    });
+
+    // Wire range slider
+    const arpRangeInput = arpCard.querySelector(`#arp-range-${ti}`);
+    const arpRangeVal   = arpCard.querySelector(`#arp-range-val-${ti}`);
+    arpRangeInput.addEventListener('input', () => {
+      const v = parseInt(arpRangeInput.value);
+      arpRangeVal.textContent = v + ' oct';
+      emit('track:change', { trackIndex: ti, param: 'arpRange', value: v });
+    });
+
+    // Wire speed slider
+    const arpSpeedInput = arpCard.querySelector(`#arp-speed-${ti}`);
+    const arpSpeedVal   = arpCard.querySelector(`#arp-speed-val-${ti}`);
+    arpSpeedInput.addEventListener('input', () => {
+      const v = parseInt(arpSpeedInput.value);
+      arpSpeedVal.textContent = ['1/16','1/8','1/4','1/2'][v - 1];
+      emit('track:change', { trackIndex: ti, param: 'arpSpeed', value: v });
+    });
+
+    grid.append(arpCard);
 
     container.append(grid);
   },

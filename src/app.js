@@ -80,6 +80,9 @@ let _saveTimer     = null;
 // Fill mode
 state._fillActive = false;
 
+// Step multi-selection (per-track, transient)
+state._selectedSteps = new Set();
+
 const LEGACY_STORAGE_KEY = 'confusynth-v2';
 
 // ─────────────────────────────────────────────
@@ -376,6 +379,21 @@ function handleStateChange(path, value, pattern) {
     return;
   }
 
+  if (path === 'trigCondition') {
+    state.trigCondition = value;
+    const conditions = ['always', 'fill', 'not_fill', 'first', 'not_first'];
+    const condStr = conditions[Math.round(value)] ?? 'always';
+    const track = getActiveTrack(state);
+    const pat = getActivePattern(state);
+    const len = track.trackLength || pat.length;
+    track.steps.slice(0, len).forEach(s => {
+      if (s.active) s.trigCondition = condStr;
+    });
+    renderPage();
+    scheduleSave();
+    return;
+  }
+
   if (setNestedStateValue(path, value)) {
     scheduleSave();
     renderPage();
@@ -505,6 +523,7 @@ function emit(type, payload = {}) {
 
     case 'track:select':
       state.selectedTrackIndex = payload.trackIndex;
+      state._selectedSteps = new Set(); // clear selection when switching tracks
       renderAll();
       break;
 
@@ -866,6 +885,7 @@ function scheduleLoop() {
         if (track.mute || (isSoloing && !track.solo)) return;
         const step = track.steps[stepIdx];
         if (!step?.active) return;
+        if (step.mute) return;
 
         // Trig condition check
         if (!evalTrigCondition(step.trigCondition, stepIdx)) return;
@@ -876,12 +896,44 @@ function scheduleLoop() {
         // Micro-timing offset: fraction of one step duration, range -0.5 to +0.5
         const microOffset = (step.microTime ?? 0) * secsPerStep;
 
-        state.engine.triggerTrack(track, _schedNextTime + microOffset, secsPerStep, {
-          accent:      step.accent,
-          note:        step.note,
-          velocity:    step.velocity ?? 1,
-          paramLocks:  { gate: step.gate ?? 0.5, ...sceneOverride, ...step.paramLocks },
-        });
+        // Track last-played note for live display on sound page
+        state._lastNotes = state._lastNotes ?? {};
+        state._lastNotes[ti] = step.paramLocks?.note ?? track.pitch ?? 60;
+
+        // Arpeggiator — when enabled, override the trigger note with an arp note
+        if (track.arpEnabled) {
+          state._arpIdx = state._arpIdx ?? {};
+          state._arpIdx[ti] = state._arpIdx[ti] ?? 0;
+          const base = step.paramLocks?.note ?? track.pitch ?? 60;
+          const range = track.arpRange ?? 1;
+          const arpNotes = [];
+          for (let o = 0; o < range; o++) arpNotes.push(base + o * 12);
+          if (track.arpMode === 'down') arpNotes.reverse();
+          if (track.arpMode === 'random') arpNotes.sort(() => Math.random() - 0.5);
+          let noteToPlay;
+          if (track.arpMode === 'updown' && arpNotes.length > 1) {
+            const ping = [...arpNotes, ...arpNotes.slice(1, -1).reverse()];
+            noteToPlay = ping[state._arpIdx[ti] % ping.length];
+            state._arpIdx[ti] = (state._arpIdx[ti] + 1) % ping.length;
+          } else {
+            noteToPlay = arpNotes[state._arpIdx[ti] % arpNotes.length];
+            state._arpIdx[ti] = (state._arpIdx[ti] + 1) % arpNotes.length;
+          }
+          state._lastNotes[ti] = noteToPlay;
+          state.engine.triggerTrack(track, _schedNextTime + microOffset, secsPerStep, {
+            accent:     step.accent,
+            note:       step.note,
+            velocity:   step.velocity ?? 1,
+            paramLocks: { gate: step.gate ?? 0.5, ...sceneOverride, ...step.paramLocks, note: noteToPlay },
+          });
+        } else {
+          state.engine.triggerTrack(track, _schedNextTime + microOffset, secsPerStep, {
+            accent:     step.accent,
+            note:       step.note,
+            velocity:   step.velocity ?? 1,
+            paramLocks: { gate: step.gate ?? 0.5, ...sceneOverride, ...step.paramLocks },
+          });
+        }
       });
 
       // Advance all per-track step counters individually
@@ -976,9 +1028,10 @@ function scheduleLoop() {
 
 function evalTrigCondition(cond, stepIdx) {
   if (!cond || cond === 'always') return true;
-  if (cond === 'fill')     return state._fillActive ?? false;
-  if (cond === 'first')    return stepIdx === 0;
-  if (cond === 'not:first') return stepIdx !== 0;
+  if (cond === 'fill')      return state._fillActive ?? false;
+  if (cond === 'not_fill')  return !(state._fillActive ?? false);
+  if (cond === 'first')     return stepIdx === 0;
+  if (cond === 'not_first' || cond === 'not:first') return stepIdx !== 0;
   // Ratio: "1:2", "1:4", "3:4"
   const m = cond.match(/^(\d+):(\d+)$/);
   if (m) {
@@ -1435,6 +1488,25 @@ function bindUI() {
   document.body.append(helpModal);
   helpModal.querySelector('.help-backdrop').addEventListener('click', () => helpModal.style.display = 'none');
   helpModal.querySelector('.help-close').addEventListener('click', () => helpModal.style.display = 'none');
+
+  // Delete/Backspace: deactivate all selected steps on pattern page
+  document.addEventListener('keydown', e => {
+    if ((e.key === 'Delete' || e.key === 'Backspace') &&
+        state.currentPage === 'pattern' &&
+        state._selectedSteps?.size > 0) {
+      // Only act if focus is not in an input/textarea
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+      e.preventDefault();
+      pushHistory(state);
+      const track = getActiveTrack(state);
+      state._selectedSteps.forEach(si => {
+        if (track.steps[si]) track.steps[si].active = false;
+      });
+      state._selectedSteps = new Set();
+      scheduleSave();
+      renderPage();
+    }
+  });
 
   // ? / F1 key opens help modal; Escape closes it
   document.addEventListener('keydown', e => {

@@ -59,9 +59,21 @@ export default {
     `;
     container.append(header);
 
+    // ── Fill mode visual indicator ────────────────────────────────────────────
+    if (state._fillActive) {
+      const fillBadge = document.createElement('span');
+      fillBadge.style.cssText = 'font-family:var(--font-mono);font-size:0.55rem;color:var(--live);background:rgba(90,221,113,0.15);padding:1px 5px;border-radius:3px;border:1px solid var(--live)';
+      fillBadge.textContent = 'FILL';
+      header.append(fillBadge);
+    }
+
     // ── Outer wrapper ─────────────────────────────────────────────────────────
     const wrapper = document.createElement('div');
     wrapper.style.cssText = 'position:relative;flex:1;display:flex;flex-direction:column;gap:6px;min-height:0';
+    if (state._fillActive) {
+      wrapper.style.outline = '2px solid var(--live)';
+      wrapper.style.outlineOffset = '-2px';
+    }
 
     // ── Multi-track grid ──────────────────────────────────────────────────────
     const multiGrid = document.createElement('div');
@@ -229,6 +241,9 @@ export default {
         if (Object.keys(step.paramLocks).length)  btn.classList.add('plock');
         if (si === state.currentStep)             btn.classList.add('playhead');
         if (si >= trackLen)                       btn.classList.add('dim');
+        if (step.mute)                            btn.classList.add('step-muted');
+        if (step.trigCondition === 'fill')        btn.classList.add('trig-fill');
+        if (state._selectedSteps?.has(si) && ti === selTi) btn.classList.add('step-selected');
         if (Math.abs(step.microTime ?? 0) > 0.05) btn.style.borderTop = '2px solid var(--live)';
         const vel = step.velocity ?? 1;
         if (vel < 1) btn.style.opacity = String(0.45 + vel * 0.55);
@@ -265,7 +280,22 @@ export default {
           if (ti !== state.selectedTrackIndex) {
             emit('track:select', { trackIndex: ti });
           }
-          emit('step:toggle', { stepIndex: si, shiftKey: e.shiftKey });
+          if (e.altKey) {
+            // Alt+click = toggle mute on this step
+            step.mute = !step.mute;
+            emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+          } else if (e.shiftKey) {
+            // Shift+click = toggle step in selection set
+            if (!state._selectedSteps) state._selectedSteps = new Set();
+            if (state._selectedSteps.has(si)) {
+              state._selectedSteps.delete(si);
+            } else {
+              state._selectedSteps.add(si);
+            }
+            emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+          } else {
+            emit('step:toggle', { stepIndex: si, shiftKey: false });
+          }
         });
 
         btn.addEventListener('contextmenu', e => {
@@ -451,11 +481,29 @@ export default {
     const fillBtn = document.createElement('button');
     fillBtn.className = 'seq-btn' + (state._fillActive ? ' active' : '');
     fillBtn.textContent = 'Fill';
-    fillBtn.style.color = state._fillActive ? 'var(--accent)' : '';
+    fillBtn.style.color = state._fillActive ? 'var(--live)' : '';
     fillBtn.addEventListener('click', () =>
       emit('state:change', { path: 'action_fill', value: true })
     );
     actionsDiv.prepend(fillBtn);
+
+    // Selection count badge + Clear Sel button
+    const selCount = state._selectedSteps?.size ?? 0;
+    if (selCount > 0) {
+      const selBadge = document.createElement('span');
+      selBadge.style.cssText = 'font-family:var(--font-mono);font-size:0.55rem;color:var(--accent);padding:1px 5px;border-radius:3px;border:1px solid var(--accent);white-space:nowrap';
+      selBadge.textContent = `Sel: ${selCount}`;
+      actionsDiv.append(selBadge);
+
+      const clearSelBtn = document.createElement('button');
+      clearSelBtn.className = 'seq-btn';
+      clearSelBtn.textContent = 'Clear Sel';
+      clearSelBtn.addEventListener('click', () => {
+        state._selectedSteps = new Set();
+        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      });
+      actionsDiv.append(clearSelBtn);
+    }
 
     // Quantize grid select + button
     const qSelect = document.createElement('select');

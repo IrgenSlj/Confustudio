@@ -108,6 +108,12 @@ export function createTrack(index) {
     rnDamping:    0.7,
     rnExciter:    0,
 
+    // Arpeggiator
+    arpEnabled: false,
+    arpMode:    'up',
+    arpRange:   1,
+    arpSpeed:   1,
+
     // Runtime (not serialized)
     sampleBuffer: null,
 

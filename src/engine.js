@@ -108,11 +108,51 @@ export class AudioEngine {
     this.masterLimiter.attack.value = 0.001;
     this.masterLimiter.release.value = 0.1;
 
-    // Master chain: masterGain → masterCompressor → masterSaturator → [limiter?] → masterAnalyser → destination
-    // Initially bypassed — setLimiter(true) inserts it between saturator and analyser
+    // Master EQ (3-band) — inserted between saturator/limiter and analyser
+    this.masterEQLow = context.createBiquadFilter();
+    this.masterEQLow.type = 'lowshelf';
+    this.masterEQLow.frequency.value = 200;
+    this.masterEQLow.gain.value = 0;
+
+    this.masterEQMid = context.createBiquadFilter();
+    this.masterEQMid.type = 'peaking';
+    this.masterEQMid.frequency.value = 1000;
+    this.masterEQMid.Q.value = 1.0;
+    this.masterEQMid.gain.value = 0;
+
+    this.masterEQHigh = context.createBiquadFilter();
+    this.masterEQHigh.type = 'highshelf';
+    this.masterEQHigh.frequency.value = 6000;
+    this.masterEQHigh.gain.value = 0;
+
+    // EQ chain is always connected through to analyser
+    this.masterEQLow.connect(this.masterEQMid);
+    this.masterEQMid.connect(this.masterEQHigh);
+    this.masterEQHigh.connect(this.analyser);
+
+    // Chorus — parallel send from masterGain
+    this.chorusDelay = context.createDelay(0.05);
+    this.chorusDelay.delayTime.value = 0.02;
+    this.chorusLFO = context.createOscillator();
+    this.chorusLFO.type = 'sine';
+    this.chorusLFO.frequency.value = 0.5;
+    this.chorusDepthGain = context.createGain();
+    this.chorusDepthGain.gain.value = 0.005; // modulation depth in seconds
+    this.chorusWet = context.createGain();
+    this.chorusWet.gain.value = 0; // off by default
+    this.chorusLFO.connect(this.chorusDepthGain);
+    this.chorusDepthGain.connect(this.chorusDelay.delayTime);
+    this.chorusLFO.start();
+    // Parallel send: master → chorusDelay → chorusWet → masterCompressor
+    this.master.connect(this.chorusDelay);
+    this.chorusDelay.connect(this.chorusWet);
+    this.chorusWet.connect(this.masterCompressor);
+
+    // Master chain: masterGain → masterCompressor → masterSaturator → [limiter?] → masterEQLow → masterEQMid → masterEQHigh → analyser → destination
+    // Initially no limiter — setLimiter(true) inserts it between saturator and EQ
     this.master.connect(this.masterCompressor);
     this.masterCompressor.connect(this.masterSaturator);
-    this.masterSaturator.connect(this.analyser);
+    this.masterSaturator.connect(this.masterEQLow);
     this.analyser.connect(context.destination);
 
     // Shared noise buffer — pre-created once, looped per trigger (not per-note allocation)
@@ -798,16 +838,29 @@ export class AudioEngine {
     this._midiStopCallback  = onStop;
   }
 
-  // Insert or remove the master limiter between masterSaturator and analyser.
+  // Insert or remove the master limiter between masterSaturator and masterEQLow.
   setLimiter(enabled) {
     this.masterSaturator.disconnect();
     if (enabled) {
       this.masterSaturator.connect(this.masterLimiter);
-      this.masterLimiter.connect(this.analyser);
+      this.masterLimiter.connect(this.masterEQLow);
     } else {
-      this.masterSaturator.connect(this.analyser);
+      this.masterSaturator.connect(this.masterEQLow);
     }
   }
+
+  // Set master 3-band EQ gains (dB, -12 to +12).
+  setMasterEQ(low, mid, high) {
+    const t = this.context.currentTime;
+    this.masterEQLow.gain.setTargetAtTime(low,  t, 0.01);
+    this.masterEQMid.gain.setTargetAtTime(mid,  t, 0.01);
+    this.masterEQHigh.gain.setTargetAtTime(high, t, 0.01);
+  }
+
+  // Chorus controls
+  setChorusRate(v)  { this.chorusLFO.frequency.setTargetAtTime(v, this.context.currentTime, 0.01); }
+  setChorusDepth(v) { this.chorusDepthGain.gain.setTargetAtTime(v * 0.02, this.context.currentTime, 0.01); }
+  setChorusMix(v)   { this.chorusWet.gain.setTargetAtTime(v, this.context.currentTime, 0.01); }
 
   // Send a MIDI Program Change on the given 1-based channel.
   sendProgramChange(channel, program) {
