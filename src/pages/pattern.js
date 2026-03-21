@@ -538,6 +538,7 @@ export default {
     // Each frame: stamp the current-step column with .step-playing across all rows.
     // The loop is self-terminating: once multiGrid leaves the DOM the loop stops.
     let _playheadRafId = null;
+    let _lastProbStep = -1;
     const stepBtns = multiGrid.querySelectorAll('.step-btn[data-step]');
     const runPlayheadHighlight = () => {
       if (!multiGrid.isConnected) {
@@ -550,10 +551,23 @@ export default {
         const isPlaying = (cur >= 0) && (Number(btn.dataset.step) === cur);
         if (isPlaying) {
           btn.classList.add('step-playing');
+          // Probability flicker: trigger only once per new step position
+          if (cur !== _lastProbStep && btn.classList.contains('has-prob')) {
+            const prob = parseFloat(btn.style.getPropertyValue('--prob') ?? '1');
+            if (prob < 1) {
+              btn.classList.add('step-active-prob');
+              // Dim opacity proportional to probability so low-prob steps flash dimmer
+              btn.style.setProperty('--prob-flash-opacity', String(prob));
+              setTimeout(() => {
+                btn.classList.remove('step-active-prob');
+              }, 120);
+            }
+          }
         } else {
           btn.classList.remove('step-playing');
         }
       });
+      if (cur !== _lastProbStep) _lastProbStep = cur;
       _playheadRafId = requestAnimationFrame(runPlayheadHighlight);
     };
     _playheadRafId = requestAnimationFrame(runPlayheadHighlight);
@@ -576,6 +590,17 @@ export default {
       emit('track:change', { param: 'trackLength', value: v });
     });
     toolbar.prepend(trackLenDiv);
+
+    // ── Probability mode indicator ────────────────────────────────────────────
+    const probIndicator = document.createElement('span');
+    probIndicator.className = 'prob-mode-indicator';
+    const trackHasProb = track.steps.some(s => (s.prob ?? s.probability ?? 1) < 1);
+    if (trackHasProb) probIndicator.classList.add('active');
+    probIndicator.textContent = 'P%';
+    probIndicator.title = trackHasProb
+      ? 'This track has steps with probability < 100%'
+      : 'No probability locks on this track';
+    toolbar.prepend(probIndicator);
 
     const euclidDiv = document.createElement('div');
     euclidDiv.className = 'seq-euclid';

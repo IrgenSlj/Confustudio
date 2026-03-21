@@ -1129,6 +1129,23 @@ button {
   z-index: 1;
 }
 
+.step-btn.step-active-prob {
+  filter: brightness(1.6);
+  transition: filter 0.12s ease-out;
+}
+
+.prob-mode-indicator {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  color: var(--muted);
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+.prob-mode-indicator.active {
+  color: var(--accent);
+  background: rgba(100,200,100,0.1);
+}
+
 .step-btn.trig-fill.active {
   box-shadow: 0 0 4px var(--live);
 }

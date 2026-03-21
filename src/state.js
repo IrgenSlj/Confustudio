@@ -90,6 +90,10 @@ export function createTrack(index) {
     outputBus:    'master', // 'master' | 'bus1' | 'bus2'
     velocityCurve: 'linear', // 'linear' | 'exp' | 'comp'
 
+    // Sidechain
+    isSidechainSource: false,  // true = this track triggers ducking on others
+    sidechainAmount:   0,      // 0=no duck, 1=full mute
+
     // Per-track FX
     filterType:   "lowpass",  // "lowpass"|"highpass"|"bandpass"|"notch"|"peaking"|"lowshelf"|"highshelf"
     filterQ:      1.0,        // BiquadFilter Q / resonance (0.1–20)

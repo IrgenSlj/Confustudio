@@ -44,11 +44,20 @@ export class AudioEngine {
     this.master = context.createGain();
     this.master.gain.value = 0.82;
 
-    // Sub-mix buses — connect before master so tracks can route to bus1/bus2
+    // Sidechain ducking gain — all track buses pass through this before master
+    this.sidechainGain = context.createGain();
+    this.sidechainGain.gain.value = 1;
+    this.sidechainGain.connect(this.master);
+    this._sidechainEnabled = false;
+    this._sidechainAmount  = 0.8;   // duck depth (0=none, 1=full mute)
+    this._sidechainRelease = 200;   // release time in ms
+    this._sidechainSourceIndex = 0; // track index that triggers ducking
+
+    // Sub-mix buses — connect before sidechainGain so all paths are ducked together
     this.bus1 = context.createGain(); this.bus1.gain.value = 1;
     this.bus2 = context.createGain(); this.bus2.gain.value = 1;
-    this.bus1.connect(this.master);
-    this.bus2.connect(this.master);
+    this.bus1.connect(this.sidechainGain);
+    this.bus2.connect(this.sidechainGain);
 
     // Master dynamics compressor — inserted between masterGain and masterSaturator
     this.masterCompressor = context.createDynamicsCompressor();
@@ -555,6 +564,17 @@ export class AudioEngine {
     const gate = Math.max(stepDuration * params.noteLength * stepGate, params.attack + 0.01);
     const totalTime = gate + decayTime;
 
+    // Sidechain ducking — when this track is the sidechain source, duck sidechainGain
+    if (params.isSidechainSource && this._sidechainEnabled) {
+      const scGain   = this.sidechainGain.gain;
+      const floor    = 1 - this._sidechainAmount;        // target duck level (e.g. 0.2)
+      const releaseS = this._sidechainRelease / 1000;    // ms → seconds
+      scGain.cancelScheduledValues(when);
+      scGain.setValueAtTime(1, when);                    // ensure we start from 1
+      scGain.setTargetAtTime(floor, when, 0.003);        // fast attack (~3 ms time constant)
+      scGain.setTargetAtTime(1, when + 0.01, releaseS / 3); // recover over release window
+    }
+
     // MIDI machine — skip audio, send MIDI note
     if (params.machine === "midi") {
       this.sendMidiNote(params, note ?? 60, loudness, totalTime);
@@ -678,9 +698,10 @@ export class AudioEngine {
       panner.connect(filter);
     }
 
-    // Determine output bus for this track's dry signal and sends
+    // Determine output bus for this track's dry signal and sends.
+    // All three buses route through sidechainGain so ducking applies to track audio.
     const busTarget = params.outputBus === 'bus1' ? this.bus1 :
-                      params.outputBus === 'bus2' ? this.bus2 : this.master;
+                      params.outputBus === 'bus2' ? this.bus2 : this.sidechainGain;
 
     filter.connect(saturator);
     saturator.connect(busTarget);
@@ -1009,6 +1030,26 @@ export class AudioEngine {
   setChorusRate(v)  { this.chorusLFO.frequency.setTargetAtTime(v, this.context.currentTime, 0.01); }
   setChorusDepth(v) { this.chorusDepthGain.gain.setTargetAtTime(v * 0.02, this.context.currentTime, 0.01); }
   setChorusMix(v)   { this.chorusWet.gain.setTargetAtTime(v, this.context.currentTime, 0.01); }
+
+  // ——————————————————————————————————————————————
+  // Sidechain ducking
+  // ——————————————————————————————————————————————
+
+  // Mark a track index as the sidechain trigger source and enable ducking.
+  setSidechainSource(trackIndex) {
+    this._sidechainSourceIndex = trackIndex;
+    this._sidechainEnabled = true;
+  }
+
+  // Duck depth: 0 = no ducking, 1 = full mute on sidechain hit.
+  setSidechainAmount(amount) {
+    this._sidechainAmount = Math.max(0, Math.min(1, amount));
+  }
+
+  // Release time in milliseconds — how long to recover from full duck back to 1.
+  setSidechainRelease(ms) {
+    this._sidechainRelease = Math.max(10, ms);
+  }
 
   // Send a MIDI Program Change on the given 1-based channel.
   sendProgramChange(channel, program) {
