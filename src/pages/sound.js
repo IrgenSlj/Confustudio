@@ -644,7 +644,76 @@ export default {
       emit('track:change', { trackIndex: ti, param: 'legato', value: newVal });
     });
     legatoRow.append(legatoBtn);
-    pitchCard.append(noteDisplay, chordDisplay, pitchSlider, pitchLabel, legatoRow);
+
+    // ── Key Tracking toggle (sample / clouds machines) ────────────────────────
+    // When enabled, the sample is pitched relative to its root note (track.note).
+    // Default: true for pitched machines (tone/plaits/rings/clouds), false for sample/noise.
+    const isSampleMachine = track.machine === 'sample' || track.machine === 'clouds';
+    const keyTrackRow = document.createElement('div');
+    keyTrackRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:4px';
+
+    const keyTrackBtn = document.createElement('button');
+    const ktActive = track.keyTracking ?? false;
+    keyTrackBtn.className = 'ctx-btn' + (ktActive ? ' active' : '');
+    keyTrackBtn.style.cssText = ktActive
+      ? 'color:var(--accent);border-color:var(--accent)'
+      : '';
+    keyTrackBtn.textContent = 'KEY TRACK';
+    keyTrackBtn.title = 'Pitch sample relative to its root note';
+    keyTrackBtn.addEventListener('click', () => {
+      const newVal = !track.keyTracking;
+      track.keyTracking = newVal;
+      keyTrackBtn.classList.toggle('active', newVal);
+      keyTrackBtn.style.cssText = newVal
+        ? 'color:var(--accent);border-color:var(--accent)'
+        : '';
+      emit('track:change', { trackIndex: ti, param: 'keyTracking', value: newVal });
+    });
+    keyTrackRow.append(keyTrackBtn);
+
+    // ── Auto pitch-detect row (sample / clouds machines only) ─────────────────
+    // Shows root note display + "Auto" button to run autocorrelation detection.
+    let autoDetectRow = null;
+    if (isSampleMachine) {
+      autoDetectRow = document.createElement('div');
+      autoDetectRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:4px';
+
+      const rootLabel = document.createElement('span');
+      rootLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);flex-shrink:0';
+      rootLabel.textContent = 'Root:';
+
+      const rootDisplay = document.createElement('span');
+      rootDisplay.style.cssText = 'font-family:var(--font-mono);font-size:0.65rem;color:var(--accent);min-width:28px';
+      rootDisplay.textContent = midiToNoteName(track.note ?? 60);
+
+      const autoBtn = document.createElement('button');
+      autoBtn.className = 'ctx-btn';
+      autoBtn.style.cssText = 'font-size:0.55rem;padding:2px 6px;margin-left:auto';
+      autoBtn.textContent = 'Auto';
+      autoBtn.title = 'Auto-detect root note from sample';
+      autoBtn.addEventListener('click', () => {
+        const buf = track.sampleBuffer;
+        if (!buf) {
+          emit('toast', { msg: 'No sample loaded' });
+          return;
+        }
+        const sr = state.audioContext?.sampleRate ?? buf.sampleRate;
+        const detected = detectPitch(buf, sr);
+        if (detected == null) {
+          emit('toast', { msg: 'No pitch detected' });
+        } else {
+          track.note = detected;
+          rootDisplay.textContent = midiToNoteName(detected);
+          emit('track:change', { trackIndex: ti, param: 'note', value: detected });
+          emit('toast', { msg: `Root: ${midiToNoteName(detected)}` });
+        }
+      });
+
+      autoDetectRow.append(rootLabel, rootDisplay, autoBtn);
+    }
+
+    pitchCard.append(noteDisplay, chordDisplay, pitchSlider, pitchLabel, legatoRow, keyTrackRow);
+    if (autoDetectRow) pitchCard.append(autoDetectRow);
     grid.append(pitchCard);
 
     // ── Machine type card ──

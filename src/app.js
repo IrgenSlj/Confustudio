@@ -1948,20 +1948,30 @@ function bindUI() {
         redoHistory(state);
         renderPage();
         saveState(state);
-        showToast('↪ Redo');
+        showToast('\u21AA Redo (' + _historyIdx + '/' + (_history.length - 1) + ')');
       } else {
         undoHistory(state);
         renderPage();
         saveState(state);
-        showToast('↩ Undo (' + (_historyIdx + 1) + '/' + _history.length + ')');
+        showToast('\u21A9 Undo (' + _historyIdx + '/' + (_history.length - 1) + ')');
       }
       e.preventDefault();
     } else if (e.key === 'y' || e.key === 'Y') {
       redoHistory(state);
       renderPage();
       saveState(state);
-      showToast('↪ Redo');
+      showToast('\u21AA Redo (' + _historyIdx + '/' + (_history.length - 1) + ')');
       e.preventDefault();
+    } else if (e.key === 'm' || e.key === 'M') {
+      // Ctrl+M: mark named checkpoint at current history position
+      e.preventDefault();
+      const pageNames = {
+        pattern: 'Pattern edit', 'piano-roll': 'Piano roll edit', sound: 'Sound edit',
+        mixer: 'Mixer edit', fx: 'FX edit', scenes: 'Scene edit', banks: 'Bank edit',
+        arranger: 'Arranger edit', settings: 'Settings edit',
+      };
+      const label = pageNames[state.currentPage] || 'Edit';
+      markCheckpoint(label);
     } else if ((e.key === 'e' || e.key === 'E') && e.shiftKey) {
       // Ctrl+Shift+E: Export MIDI
       e.preventDefault();
@@ -2473,6 +2483,13 @@ function boot() {
   // Apply saved colour theme
   if (state.theme && state.theme !== 'default') {
     document.documentElement.dataset.theme = state.theme;
+  }
+  // Restore custom accent colors if set
+  if (state.customAccent) {
+    document.documentElement.style.setProperty('--accent', state.customAccent);
+  }
+  if (state.customScreenText) {
+    document.documentElement.style.setProperty('--screen-text', state.customScreenText);
   }
   renderAll();
   if (el.masterVolume) el.masterVolume.value = state.masterLevel;

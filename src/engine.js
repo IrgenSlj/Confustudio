@@ -102,6 +102,12 @@ export class AudioEngine {
     // Stores { osc, output, stopTime } for the currently ringing oscillator on legato tracks
     this._legatoSources = new Map();
 
+    // Voice polyphony tracking — keyed by track key (index or track object)
+    // _activeVoices: count of currently ringing voices per track
+    // _voiceQueue:   ordered array of active AudioBufferSourceNode / OscillatorNode per track
+    this._activeVoices = new Map();
+    this._voiceQueue   = new Map();
+
     // MIDI output (set externally or via sendMidiNote)
     this.midiOutput = null;
     this._midiClockInterval = null;
@@ -531,6 +537,52 @@ export class AudioEngine {
   previewNote(track, note, velocity = 1) {
     const when = this.context.currentTime;
     this.triggerTrack(track, when, 0.25, { note, accent: false, velocity });
+  }
+
+  // ——————————————————————————————————————————————
+  // Voice stealing helper
+  // ——————————————————————————————————————————————
+
+  // Register a new voice source for a track. If the queue is already at maxVoices,
+  // the oldest source is stopped immediately (voice stealing). The source is pushed
+  // onto the queue and its onended handler cleans it up.
+  // trackKey: track index (number) or track object — must be consistent per call site
+  // source:   AudioNode with a .stop() method (OscillatorNode, AudioBufferSourceNode)
+  //           or an AudioWorkletNode; for worklets, pass a plain object with stop() wrapping
+  //           the port.postMessage({ type: 'stop' }) call.
+  // maxVoices: polyphony ceiling for this track (default 8)
+  _registerVoice(trackKey, source, maxVoices = 8) {
+    // Increment active voice count
+    this._activeVoices.set(trackKey, (this._activeVoices.get(trackKey) ?? 0) + 1);
+
+    // Steal oldest voice if over the limit
+    const queue = this._voiceQueue.get(trackKey) ?? [];
+    while (queue.length >= maxVoices) {
+      const oldest = queue.shift();
+      try { oldest.stop(this.context.currentTime + 0.01); } catch (_) {}
+    }
+    queue.push(source);
+    this._voiceQueue.set(trackKey, queue);
+
+    // Clean up on natural end
+    const cleanup = () => {
+      const q = this._voiceQueue.get(trackKey);
+      if (q) {
+        const idx = q.indexOf(source);
+        if (idx !== -1) q.splice(idx, 1);
+      }
+      const prev = this._activeVoices.get(trackKey) ?? 1;
+      this._activeVoices.set(trackKey, Math.max(0, prev - 1));
+    };
+
+    if (typeof source.onended !== 'undefined') {
+      // OscillatorNode / AudioBufferSourceNode — fires onended when stopped
+      source.onended = cleanup;
+    } else {
+      // AudioWorkletNode or other — no onended; caller supplies totalTime
+      // Cleanup will be triggered via the _registerVoiceTimeout path
+      source._voiceCleanup = cleanup;
+    }
   }
 
   // ——————————————————————————————————————————————
