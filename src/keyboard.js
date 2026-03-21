@@ -402,7 +402,14 @@ export function initKeyboard(state, emit) {
     emit('key:up', { code: e.code });
     const offset = NOTE_KEY_OFFSETS[e.code];
     if (offset != null) {
-      emit('note:off', { note: 60 + (state.octaveShift ?? 0) * 12 + offset });
+      const midiNote = 60 + (state.octaveShift ?? 0) * 12 + offset;
+      const voicing = CHORD_VOICINGS[state.chordMode ?? 'off'] ?? [];
+      emit('note:off', { note: midiNote });
+      voicing.forEach(chordOffset => {
+        const chordNote = midiNote + chordOffset;
+        if (chordNote >= 0 && chordNote <= 127)
+          emit('note:off', { note: chordNote });
+      });
     }
   });
 }
