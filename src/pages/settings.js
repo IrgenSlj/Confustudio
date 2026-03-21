@@ -116,6 +116,39 @@ export default {
 
       </div>`;
 
+    // Project name editor
+    const nameWrap = document.createElement('div');
+    nameWrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-shrink:0;padding-bottom:8px;border-bottom:1px solid var(--border)';
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.value = state.project?.name ?? 'New Project';
+    nameInput.maxLength = 32;
+    nameInput.placeholder = 'Project name';
+    nameInput.style.cssText = `
+      flex:1; background:#1a1a1a; color:var(--screen-text);
+      border:1px solid var(--border); border-radius:4px;
+      padding:5px 8px; font-family:var(--font-mono); font-size:0.72rem;
+      outline:none;
+    `;
+    nameInput.addEventListener('input', () => {
+      if (state.project) {
+        state.project.name = nameInput.value;
+        // Update topbar
+        const el = document.getElementById('project-name');
+        if (el) el.textContent = nameInput.value || 'CONFUsynth';
+        saveState(state);
+      }
+    });
+    nameInput.addEventListener('focus', () => nameInput.select());
+
+    const nameLabel = document.createElement('span');
+    nameLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--muted);flex-shrink:0';
+    nameLabel.textContent = 'PROJECT';
+
+    nameWrap.append(nameLabel, nameInput);
+    container.prepend(nameWrap);
+
     container.addEventListener('click', e => {
       const btn = e.target.closest('[data-action]');
       if (!btn || btn.tagName === 'SELECT' || btn.tagName === 'INPUT') return;

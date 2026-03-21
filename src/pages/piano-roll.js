@@ -1,5 +1,7 @@
 // src/pages/piano-roll.js — 2D note grid editor
 
+import { TRACK_COLORS } from '../state.js';
+
 const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const BLACK_PCS  = new Set([1, 3, 6, 8, 10]); // pitch-class indices for black keys
 
@@ -46,15 +48,32 @@ export default {
     view.className = 'piano-roll-view';
     view.style.flex = '1';
     view.style.minHeight = '0';
+    view.style.setProperty('--track-color', TRACK_COLORS[state.selectedTrackIndex]);
 
     // Left: note labels
     const keysCol = document.createElement('div');
     keysCol.className = 'roll-keys';
+    keysCol.style.cssText = 'flex-shrink:0;width:36px;';
 
     // Right: note grid
     const gridCol = document.createElement('div');
     gridCol.className = 'roll-grid';
     gridCol.style.cssText = 'overflow:auto;flex:1';
+
+    // Beat marker header row
+    const beatHeader = document.createElement('div');
+    beatHeader.style.cssText = 'display:flex;padding-left:36px;margin-bottom:2px;flex-shrink:0';
+    for (let si = 0; si < steps; si++) {
+      const cell = document.createElement('div');
+      cell.style.cssText = `
+        flex: 1; text-align: center; font-family: var(--font-mono); font-size: 0.38rem;
+        color: ${si % 4 === 0 ? 'var(--accent)' : 'transparent'};
+        border-left: ${si % 4 === 0 ? '1px solid rgba(255,255,255,0.06)' : 'none'};
+      `;
+      cell.textContent = si % 4 === 0 ? String(si + 1) : '';
+      beatHeader.append(cell);
+    }
+    gridCol.prepend(beatHeader);
 
     ROWS.forEach(({ midi, name, isBlack }) => {
       // Key label
@@ -69,9 +88,16 @@ export default {
 
       for (let si = 0; si < steps; si++) {
         const cell = document.createElement('div');
-        cell.className = 'roll-cell';
-        if (activeSet.has(`${midi}_${si}`)) cell.classList.add('active');
-        if (si === state.currentStep)        cell.classList.add('playhead');
+        cell.className = 'piano-cell' + (si % 4 === 0 ? ' beat-start' : '');
+        cell.dataset.col = si;
+
+        if (activeSet.has(`${midi}_${si}`)) {
+          cell.classList.add('active');
+          const step = track.steps[si];
+          const vel = step?.velocity ?? 1;
+          cell.style.opacity = String(0.5 + vel * 0.5);
+          cell.title = `${name} vel:${Math.round(vel * 127)}`;
+        }
 
         cell.addEventListener('click', () => {
           const step = track.steps[si];

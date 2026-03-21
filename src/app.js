@@ -874,6 +874,7 @@ function renderTrackSelector() {
     const row = document.createElement('div');
     row.className = 'track-ch' + (isActive ? ' active' : '') + (track.mute ? ' muted' : '');
     row.style.borderLeft = '3px solid ' + TRACK_COLORS[i];
+    row.style.setProperty('--track-color', TRACK_COLORS[i]);
 
     const led = document.createElement('div');
     led.className = 'track-led' + (track.mute ? ' muted' : hasTriggers ? ' on' : '');
@@ -920,6 +921,28 @@ function renderPlayhead() {
   el.pageContent.querySelectorAll('.step-btn[data-step]').forEach(btn => {
     btn.classList.toggle('playhead', Number(btn.dataset.step) === state.currentStep);
   });
+
+  // Beat-flash channel strip LEDs for tracks that are active at the current step
+  if (state.isPlaying && state.currentStep >= 0) {
+    const pat = getActivePattern(state);
+    const isSoloing = pat.kit.tracks.some(t => t.solo);
+    document.querySelectorAll('#track-selector .track-ch').forEach((row, i) => {
+      const trk = pat.kit.tracks[i];
+      if (!trk) return;
+      const led = row.querySelector('.track-led');
+      if (!led) return;
+      led.classList.remove('beat');
+      if (trk.mute || (isSoloing && !trk.solo)) return;
+      const trackLen = trk.trackLength > 0 ? trk.trackLength : pat.length;
+      const stepIdx  = state.currentStep % trackLen;
+      const step     = trk.steps[stepIdx];
+      if (step?.active) {
+        // Force animation restart by removing/re-adding class next frame
+        void led.offsetWidth; // trigger reflow so animation restarts
+        led.classList.add('beat');
+      }
+    });
+  }
 
   // Update piano roll cells if on piano-roll page
   if (state.currentPage === 'piano-roll') {

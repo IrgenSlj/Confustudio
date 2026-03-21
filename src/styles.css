@@ -2553,3 +2553,122 @@ button {
   background: rgba(255,255,255,0.12);
   color: var(--chassis-text);
 }
+
+/* ── Multi-track grid extras ── */
+.mtg-rand-btn {
+  font-size: 0.55rem;
+  line-height: 1;
+  padding: 1px 2px;
+  border-radius: 3px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  margin-top: 2px;
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+.mtg-rand-btn:hover { color: var(--accent); border-color: rgba(240,198,64,0.3); }
+
+.mtg-count {
+  font-family: var(--font-mono);
+  font-size: 0.38rem;
+  color: var(--muted);
+  min-width: 14px;
+  text-align: right;
+  flex-shrink: 0;
+  align-self: center;
+  padding-left: 2px;
+}
+
+/* ── Beat-sync LED flash ── */
+.track-led.beat {
+  animation: led-beat 0.18s ease-out forwards;
+}
+
+@keyframes led-beat {
+  0%   {
+    transform: scale(1.6);
+    box-shadow:
+      0 0 0 2px var(--track-color, var(--live)),
+      0 0 10px var(--track-color, var(--live)),
+      0 0 20px rgba(90,221,113,0.3);
+    background: #fff;
+  }
+  60%  {
+    transform: scale(1.2);
+    background: var(--track-color, var(--live));
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 4px var(--track-color, var(--live));
+  }
+}
+
+/* ── Piano roll ── */
+.piano-roll-view {
+  display: flex;
+  overflow: hidden;
+}
+
+.roll-keys {
+  flex-shrink: 0;
+  width: 36px;
+  overflow: hidden;
+}
+
+.roll-key {
+  height: 18px;
+  font-family: var(--font-mono);
+  font-size: 0.46rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  padding-left: 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  white-space: nowrap;
+}
+
+.roll-key.black-key {
+  background: rgba(0,0,0,0.25);
+  color: rgba(255,255,255,0.3);
+}
+
+.roll-grid {
+  flex: 1;
+  overflow: auto;
+}
+
+.roll-row {
+  display: flex;
+  height: 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.roll-row.black-row { background: rgba(0,0,0,0.15); }
+
+.piano-cell {
+  flex: 1;
+  min-width: 20px;
+  border-right: 1px solid rgba(255,255,255,0.03);
+  cursor: pointer;
+  transition: background 0.05s;
+}
+
+.piano-cell.beat-start {
+  border-left: 1px solid rgba(255,255,255,0.08);
+}
+
+.piano-cell:hover { background: rgba(255,255,255,0.05); }
+
+.piano-cell.active {
+  background: var(--track-color, var(--live));
+  border-radius: 2px;
+  box-shadow: 0 0 4px var(--track-color, var(--live));
+}
+
+.piano-cell.playhead {
+  outline: 1px solid var(--record);
+  outline-offset: -1px;
+}

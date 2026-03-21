@@ -106,6 +106,58 @@ export default {
       list.append(row);
     });
 
+    // ── Visual timeline ──────────────────────────────────────────────────────
+    const SCENE_COLORS = [
+      '#f0c640','#5add71','#67d7ff','#ff8c52','#c67dff','#ff6eb4','#40e0d0','#f05b52'
+    ];
+    const totalBarsAll = arranger.reduce((s, sec) => s + (sec.bars ?? 1), 0) || 1;
+
+    const timeline = document.createElement('div');
+    timeline.style.cssText = `
+      display:flex; align-items:stretch; gap:2px;
+      height:38px; margin-bottom:8px; flex-shrink:0;
+      background:rgba(0,0,0,0.2); border-radius:5px; padding:3px; overflow:hidden;
+    `;
+
+    arranger.forEach((section, idx) => {
+      const block = document.createElement('div');
+      const widthPct = ((section.bars ?? 1) / totalBarsAll * 100).toFixed(1);
+      const color = SCENE_COLORS[section.sceneIdx % SCENE_COLORS.length];
+      const isActive = idx === arrangementCursor;
+      block.style.cssText = `
+        flex: 0 0 ${widthPct}%;
+        min-width: 18px;
+        background: ${color}${isActive ? 'ff' : '55'};
+        border: 1px solid ${color}${isActive ? 'ff' : '88'};
+        border-radius: 3px;
+        display:flex; align-items:center; justify-content:center;
+        font-family:var(--font-mono); font-size:0.5rem;
+        color:${isActive ? '#000' : color};
+        font-weight:600;
+        cursor:pointer;
+        overflow:hidden; white-space:nowrap;
+        transition: all 0.1s;
+      `;
+      block.title = `${String.fromCharCode(65 + (section.sceneIdx ?? 0))} — ${section.bars}B`;
+      block.textContent = `${String.fromCharCode(65 + (section.sceneIdx ?? 0))}`;
+      block.addEventListener('click', () => {
+        emit('state:change', { path: 'arrangementCursor', value: idx });
+      });
+      timeline.append(block);
+    });
+
+    if (arranger.length === 0) {
+      timeline.innerHTML = `<div style="flex:1;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:0.6rem;color:var(--muted)">Empty — add sections below</div>`;
+    }
+
+    container.append(timeline);
+
+    const timeInfo = document.createElement('div');
+    timeInfo.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--muted);margin-bottom:4px;flex-shrink:0';
+    const totalBarsVal = arranger.reduce((s, sec) => s + (sec.bars ?? 1), 0);
+    timeInfo.textContent = `${arranger.length} sections · ${totalBarsVal} bars`;
+    container.append(timeInfo);
+
     container.append(list);
 
     // Add section toolbar

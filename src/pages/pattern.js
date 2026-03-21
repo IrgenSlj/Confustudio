@@ -145,6 +145,20 @@ export default {
         <span class="mtg-label">T${ti + 1}</span>
         <span class="mtg-machine">${(trk.machine || 'tone').slice(0, 4).toUpperCase()}</span>
       `;
+      const randBtn = document.createElement('button');
+      randBtn.className = 'mtg-rand-btn';
+      randBtn.title = 'Randomize steps';
+      randBtn.textContent = '⚄';
+      randBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        const len = trk.trackLength > 0 ? trk.trackLength : pattern.length;
+        trk.steps.slice(0, len).forEach(s => {
+          s.active = Math.random() < 0.35;
+          s.accent = s.active && Math.random() < 0.2;
+        });
+        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats }); // trigger save+render
+      });
+      labelWrap.append(randBtn);
       labelWrap.addEventListener('click', () => emit('track:select', { trackIndex: ti }));
       row.append(labelWrap);
 
@@ -158,6 +172,8 @@ export default {
         if (si === state.currentStep)             btn.classList.add('playhead');
         if (si >= trackLen)                       btn.classList.add('dim');
         if (Math.abs(step.microTime ?? 0) > 0.05) btn.style.borderTop = '2px solid var(--live)';
+        const vel = step.velocity ?? 1;
+        if (vel < 1) btn.style.opacity = String(0.45 + vel * 0.55);
         btn.textContent  = (si % 4 === 0) ? String(si + 1) : '';
         btn.dataset.prob = String(step.probability);
         btn.dataset.step = si;
@@ -195,6 +211,12 @@ export default {
 
         row.append(btn);
       });
+
+      const activeCount = trk.steps.slice(0, pattern.length).filter(s => s.active).length;
+      const countBadge = document.createElement('span');
+      countBadge.className = 'mtg-count';
+      countBadge.textContent = activeCount > 0 ? String(activeCount) : '';
+      row.append(countBadge);
 
       multiGrid.append(row);
     });
