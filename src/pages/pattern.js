@@ -302,16 +302,12 @@ export default {
       `;
       const randBtn = document.createElement('button');
       randBtn.className = 'mtg-rand-btn';
-      randBtn.title = 'Randomize steps';
+      randBtn.title = 'Randomize steps (uses current density + genre)';
       randBtn.textContent = '⚄';
       randBtn.addEventListener('click', e => {
         e.stopPropagation();
-        const len = trk.trackLength > 0 ? trk.trackLength : pattern.length;
-        trk.steps.slice(0, len).forEach(s => {
-          s.active = Math.random() < 0.35;
-          s.accent = s.active && Math.random() < 0.2;
-        });
-        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats }); // trigger save+render
+        // Delegate to app.js so pushHistory is called there
+        emit('pattern:randomize', { trackIndex: ti });
       });
       labelWrap.append(randBtn);
 
@@ -1013,6 +1009,54 @@ export default {
       emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
     });
     actionsDiv.append(morphBtn);
+
+    // ── Randomize density + genre + RND ALL ───────────────────────────────────
+    const rndGroup = document.createElement('div');
+    rndGroup.style.cssText = 'display:flex;align-items:center;gap:3px;flex-shrink:0';
+
+    const density = state.randomizeDensity ?? 0.5;
+    const densitySlider = document.createElement('input');
+    densitySlider.type = 'range';
+    densitySlider.min = '0';
+    densitySlider.max = '1';
+    densitySlider.step = '0.05';
+    densitySlider.value = String(density);
+    densitySlider.title = 'Randomize density (0=empty … 1=full)';
+    densitySlider.style.cssText = 'width:44px;accent-color:var(--accent)';
+
+    const densityLabel = document.createElement('span');
+    densityLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted);min-width:28px';
+    densityLabel.textContent = Math.round(density * 100) + '%';
+
+    densitySlider.addEventListener('input', () => {
+      state.randomizeDensity = parseFloat(densitySlider.value);
+      densityLabel.textContent = Math.round(state.randomizeDensity * 100) + '%';
+    });
+
+    const genreSelect = document.createElement('select');
+    genreSelect.style.cssText = 'background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 3px;font-family:var(--font-mono);font-size:0.48rem';
+    genreSelect.title = 'Genre preset for randomization';
+    ['random', 'drums', 'house', 'techno', 'jazz', 'latin'].forEach(g => {
+      const opt = document.createElement('option');
+      opt.value = g;
+      opt.textContent = g.charAt(0).toUpperCase() + g.slice(1);
+      if (g === (state.randomizeGenre ?? 'random')) opt.selected = true;
+      genreSelect.append(opt);
+    });
+    genreSelect.addEventListener('change', () => {
+      state.randomizeGenre = genreSelect.value;
+    });
+
+    const rndAllBtn = document.createElement('button');
+    rndAllBtn.className = 'seq-btn';
+    rndAllBtn.textContent = 'RND ALL';
+    rndAllBtn.title = 'Randomize all 8 tracks with current density + genre';
+    rndAllBtn.addEventListener('click', () => {
+      emit('pattern:randomizeAll', {});
+    });
+
+    rndGroup.append(densitySlider, densityLabel, genreSelect, rndAllBtn);
+    actionsDiv.append(rndGroup);
 
     // Selection count badge + Clear Sel button
     const selCount = state._selectedSteps?.size ?? 0;
