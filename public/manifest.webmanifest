@@ -2,8 +2,16 @@
   "name": "Confusynth Prototype",
   "short_name": "Confusynth",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0f1111",
-  "theme_color": "#121212",
-  "icons": []
+  "orientation": "landscape",
+  "background_color": "#1a1a1a",
+  "theme_color": "#4e5f3c",
+  "icons": [
+    {"src": "/public/icon-192.png", "sizes": "192x192", "type": "image/png"}
+  ],
+  "shortcuts": [
+    {"name": "Open CONFUsynth", "url": "/"}
+  ],
+  "categories": ["music", "entertainment"]
 }

@@ -296,6 +296,16 @@ export default {
           noteSpan.textContent = midiToNoteName(step.paramLocks.note);
           btn.append(noteSpan);
         }
+        // Gate length bar — shown only when gate deviates significantly from default (0.5)
+        if (step.active) {
+          const gate = step.gate ?? 0.5;
+          if (gate < 0.35 || gate > 0.65) {
+            const gateBar = document.createElement('div');
+            gateBar.className = 'step-gate-bar';
+            gateBar.style.width = Math.round(gate * 100) + '%';
+            btn.append(gateBar);
+          }
+        }
         // Trig condition badge
         if (step.trigCondition && step.trigCondition !== 'always') {
           btn.classList.add('has-trig');

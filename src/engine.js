@@ -790,13 +790,47 @@ export class AudioEngine {
     }
 
     // Tone machine (default)
-    const osc = this.context.createOscillator();
     const wf = WAVEFORMS.includes(params.waveform) ? params.waveform : "triangle";
-    osc.type = accent ? "sawtooth" : wf;
-    osc.frequency.value = 440 * Math.pow(2, ((note || 69) - 69) / 12);
-    osc.connect(output);
-    osc.start(when);
-    osc.stop(when + totalTime + 0.02);
+    const targetFreq = 440 * Math.pow(2, ((note || 69) - 69) / 12);
+
+    // Legato: if there is an active oscillator for this track, slide its pitch
+    // instead of stopping and re-triggering a new one.
+    const legatoKey = track;
+    const prevLegato = params.legato ? this._legatoSources.get(legatoKey) : null;
+
+    if (prevLegato && params.legato) {
+      // Slide frequency of the existing oscillator
+      prevLegato.osc.frequency.cancelScheduledValues(when);
+      prevLegato.osc.frequency.setTargetAtTime(targetFreq, when, 0.01);
+      // Re-apply the envelope on the shared output gain node
+      prevLegato.output.gain.cancelScheduledValues(when);
+      prevLegato.output.gain.setValueAtTime(prevLegato.output.gain.value, when);
+      prevLegato.output.gain.linearRampToValueAtTime(loudness, when + params.attack);
+      if (gate > params.attack + 0.005) {
+        prevLegato.output.gain.setValueAtTime(loudness, when + gate);
+      }
+      prevLegato.output.gain.exponentialRampToValueAtTime(0.0001, when + totalTime);
+      prevLegato.stopAt = when + totalTime + 0.02;
+      // The newly created output/chain for this trigger is unused — silence it
+      output.gain.cancelScheduledValues(when);
+      output.gain.setValueAtTime(0.0001, when);
+    } else {
+      const osc = this.context.createOscillator();
+      osc.type = accent ? "sawtooth" : wf;
+      osc.frequency.value = targetFreq;
+      osc.connect(output);
+      osc.start(when);
+      osc.stop(when + totalTime + 0.02);
+
+      if (params.legato) {
+        this._legatoSources.set(legatoKey, { osc, output, stopAt: when + totalTime + 0.02 });
+        // Clean up entry after note ends
+        setTimeout(() => {
+          const cur = this._legatoSources.get(legatoKey);
+          if (cur && cur.osc === osc) this._legatoSources.delete(legatoKey);
+        }, (totalTime + 0.1) * 1000);
+      }
+    }
 
     // Retrig: schedule additional retriggered voices at subdivisions of the step
     if (retrig > 1) {

@@ -478,18 +478,58 @@ export default {
     grid.append(adsrCard);
 
     // ── Filter card ──
+    const FILTER_TYPES = [
+      { label: 'LP',    value: 'lowpass'   },
+      { label: 'HP',    value: 'highpass'  },
+      { label: 'BP',    value: 'bandpass'  },
+      { label: 'NOTCH', value: 'notch'     },
+      { label: 'PEAK',  value: 'peaking'   },
+      { label: 'LSH',   value: 'lowshelf'  },
+      { label: 'HSH',   value: 'highshelf' },
+    ];
     const filtCard = document.createElement('div');
     filtCard.className = 'page-card';
     filtCard.innerHTML = '<h4>Filter</h4>';
+
+    // Filter type button row
+    const filtTypeRow = document.createElement('div');
+    filtTypeRow.style.cssText = 'display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px';
+    const currentFilterType = track.filterType ?? 'lowpass';
+    FILTER_TYPES.forEach(({ label, value }) => {
+      const btn = document.createElement('button');
+      btn.className = 'ctx-btn';
+      btn.style.cssText = 'font-size:0.52rem;padding:2px 5px;';
+      btn.textContent = label;
+      if (currentFilterType === value) {
+        btn.style.borderColor = 'var(--accent)';
+        btn.classList.add('active');
+      }
+      btn.addEventListener('click', () => {
+        filtTypeRow.querySelectorAll('.ctx-btn').forEach(b => {
+          b.classList.remove('active');
+          b.style.borderColor = '';
+        });
+        btn.classList.add('active');
+        btn.style.borderColor = 'var(--accent)';
+        emit('track:change', { trackIndex: ti, param: 'filterType', value });
+      });
+      filtTypeRow.append(btn);
+    });
+    filtCard.append(filtTypeRow);
+
     filtCard.insertAdjacentHTML('beforeend', buildFilterSVG(track.cutoff, track.resonance));
+
     const filtParams = [
-      { label: 'Cutoff', param: 'cutoff',    min: 80,  max: 16000, step: 10 },
+      { label: 'Cutoff', param: 'cutoff',    min: 80,  max: 16000, step: 10  },
       { label: 'Res',    param: 'resonance', min: 0.5, max: 15,    step: 0.1 },
+      { label: 'Reso',   param: 'filterQ',   min: 0.1, max: 20,    step: 0.1 },
       { label: 'Drive',  param: 'drive',     min: 0,   max: 1,     step: 0.01 },
     ];
-    filtParams.forEach(({ label, param, min, max, step }) =>
-      filtCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti))
-    );
+    filtParams.forEach(({ label, param, min, max, step }) => {
+      const val = track[param] ?? (param === 'filterQ' ? 1.0 : undefined);
+      filtCard.append(makeSlider(label, param, min, max, step, val, emit, ti));
+    });
+
     filtCard.addEventListener('input', () => {
       const inputs = filtCard.querySelectorAll('input[type="range"]');
       const c = parseFloat(inputs[0]?.value ?? track.cutoff);
