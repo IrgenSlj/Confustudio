@@ -96,6 +96,48 @@ export default {
       });
       panel.append(microRow);
 
+      // Gate length row
+      const gateRow = document.createElement('div');
+      gateRow.className = 'plock-row';
+      const gateVal = step.gate ?? 0.5;
+      gateRow.innerHTML = `
+        <label>Gate</label>
+        <input type="range" min="0.05" max="1" step="0.05" value="${gateVal}">
+        <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--screen-text);min-width:36px;text-align:right">
+          ${Math.round(gateVal * 100)}%
+        </span>
+      `;
+      const gateInput = gateRow.querySelector('input');
+      const gateSpan  = gateRow.querySelector('span');
+      gateInput.addEventListener('input', () => {
+        const v = parseFloat(gateInput.value);
+        gateSpan.textContent = Math.round(v * 100) + '%';
+        track.steps[stepIndex].gate = v;
+        emit('step:plock', { stepIndex, param: 'gate', value: v });
+      });
+      panel.append(gateRow);
+
+      // Retrig row
+      const retrigRow = document.createElement('div');
+      retrigRow.className = 'plock-row';
+      const retrigVal = step.retrig ?? 1;
+      retrigRow.innerHTML = `
+        <label>Retrig</label>
+        <input type="range" min="1" max="8" step="1" value="${retrigVal}">
+        <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--screen-text);min-width:36px;text-align:right">
+          ${retrigVal}x
+        </span>
+      `;
+      const retrigInput = retrigRow.querySelector('input');
+      const retrigSpan  = retrigRow.querySelector('span');
+      retrigInput.addEventListener('input', () => {
+        const v = parseInt(retrigInput.value);
+        retrigSpan.textContent = v + 'x';
+        track.steps[stepIndex].retrig = v;
+        emit('step:plock', { stepIndex, param: 'retrig', value: v });
+      });
+      panel.append(retrigRow);
+
       PLOCK_PARAMS.forEach(({ label, param, min, max, step: s }) => {
         const current = step.paramLocks[param] ?? track[param] ?? min;
         const row = document.createElement('div');

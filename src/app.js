@@ -853,7 +853,7 @@ function scheduleLoop() {
           accent:      step.accent,
           note:        step.note,
           velocity:    step.velocity ?? 1,
-          paramLocks:  { ...sceneOverride, ...step.paramLocks },
+          paramLocks:  { gate: step.gate ?? 0.5, ...sceneOverride, ...step.paramLocks },
         });
       });
 
@@ -870,6 +870,16 @@ function scheduleLoop() {
       // Pattern chain / arranger advance on loop wrap-around (track 0 step wrapped to 0)
       if (state.currentStep === 0) {
         state._patternLoopCount = (state._patternLoopCount ?? 0) + 1;
+
+        // Scene auto-morph: increment crossfader by 1/bars each bar (pattern loop)
+        if (state.sceneMorphActive) {
+          const bars = state.sceneMorphBars ?? 4;
+          state.crossfader = Math.min(1, (state.crossfader ?? 0) + 1 / bars);
+          if (state.crossfader >= 1) {
+            state.sceneMorphActive = false;
+            state.crossfader = 1;
+          }
+        }
 
         // Arranger playback
         if (state.arrangementMode && Array.isArray(state.arranger) && state.arranger.length > 0) {
@@ -922,7 +932,12 @@ function scheduleLoop() {
       }
 
       // Swing is applied based on track 0's next step parity
-      const swing = (_trackStepIdx[0] % 2 !== 0 ? 1 : -1) * state.swing * secsPerStep;
+      // Per-track swing: use track 0's swing override if set, else global state.swing
+      const trk0 = pattern.kit.tracks[0];
+      const trackSwing = (trk0 && trk0.swing !== null && trk0.swing !== undefined)
+        ? trk0.swing
+        : (state.swing ?? 0);
+      const swing = (_trackStepIdx[0] % 2 !== 0 ? 1 : -1) * trackSwing * secsPerStep;
       _schedNextTime += secsPerStep + swing;
     }
 

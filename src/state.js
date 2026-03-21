@@ -33,6 +33,7 @@ export function createStep(stepIndex, trackIndex) {
     trigCondition: "always",  // "always"|"fill"|"first"|"not:first"|"1:2"|"1:4"|"3:4"
     paramLocks:    {},
     microTime:     0,         // -0.5 to +0.5, fraction of one step duration
+    gate:          0.5,       // 0.05–1.0, fraction of step duration for note gate
   };
 }
 
@@ -76,6 +77,9 @@ export function createTrack(index) {
 
     // Per-track length (0 = follow pattern.length)
     trackLength:  0,
+
+    // Per-track swing (null = use global state.swing)
+    swing:        null,
 
     // Mixer
     mute:         false,
@@ -242,7 +246,10 @@ export function createAppState() {
     sceneMorphBars:   4,
 
     // Arranger
-    arranger: [],   // [{sceneIdx, bars}]
+    arranger: [],   // [{sceneIdx, bars, bpmOverride, timeSignature, name}]
+    arrLoop:      false,
+    arrLoopStart: 0,
+    arrLoopEnd:   0,
 
     // Project
     project: createProject(),

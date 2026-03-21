@@ -476,6 +476,41 @@ export default {
     mixParams.forEach(({ label, param, min, max, step }) =>
       mixCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti))
     );
+
+    // Per-track swing override row
+    const swingRow = document.createElement('div');
+    swingRow.style.cssText = 'display:flex;align-items:center;gap:5px;margin-top:4px;font-family:var(--font-mono);font-size:0.58rem';
+    const swingVal = track.swing ?? null;
+    const swingInput = document.createElement('input');
+    swingInput.type = 'range';
+    swingInput.min = 0; swingInput.max = 0.42; swingInput.step = 0.01;
+    swingInput.value = swingVal !== null ? swingVal : 0;
+    swingInput.style.cssText = 'flex:1;accent-color:var(--accent)';
+    swingInput.title = 'Track swing (empty = use global)';
+    const swingLabel = document.createElement('span');
+    swingLabel.style.cssText = 'color:var(--muted);min-width:28px';
+    swingLabel.textContent = 'Swing';
+    const swingDisplay = document.createElement('span');
+    swingDisplay.style.cssText = 'color:var(--screen-text);min-width:44px;text-align:right;font-size:0.55rem';
+    swingDisplay.textContent = swingVal !== null ? Math.round(swingVal * 100) + '%' : 'global';
+    const swingResetBtn = document.createElement('button');
+    swingResetBtn.className = 'seq-btn';
+    swingResetBtn.style.cssText = 'font-size:0.5rem;padding:1px 4px';
+    swingResetBtn.title = 'Reset to global swing';
+    swingResetBtn.textContent = '\u21BA';
+    swingInput.addEventListener('input', () => {
+      const v = parseFloat(swingInput.value);
+      swingDisplay.textContent = Math.round(v * 100) + '%';
+      emit('track:change', { trackIndex: ti, param: 'swing', value: v });
+    });
+    swingResetBtn.addEventListener('click', () => {
+      swingInput.value = 0;
+      swingDisplay.textContent = 'global';
+      emit('track:change', { trackIndex: ti, param: 'swing', value: null });
+    });
+    swingRow.append(swingLabel, swingInput, swingDisplay, swingResetBtn);
+    mixCard.append(swingRow);
+
     grid.append(mixCard);
 
     // ── LFO card ──

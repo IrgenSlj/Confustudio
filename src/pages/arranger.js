@@ -1,5 +1,9 @@
 // src/pages/arranger.js — Section list, arrangement mode toggle
 
+import { TRACK_COLORS } from '../state.js';
+
+const TIME_SIGNATURES = ['4/4', '3/4', '6/8', '5/4', '7/8'];
+
 export default {
   render(container, state, emit) {
     container.innerHTML = '';
@@ -7,7 +11,12 @@ export default {
     const { arranger, arrangementMode, arrangementCursor, scenes, isPlaying } = state;
     const activeSectionIdx = (arrangementMode && isPlaying) ? (state._arrSection ?? 0) : -1;
 
-    // Header
+    // ── Loop state (stored on state, defaulting here) ──────────────────────
+    const arrLoop      = state.arrLoop      ?? false;
+    const arrLoopStart = state.arrLoopStart ?? 0;
+    const arrLoopEnd   = state.arrLoopEnd   ?? Math.max(0, arranger.length - 1);
+
+    // ── Header ─────────────────────────────────────────────────────────────
     const header = document.createElement('div');
     header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0';
     header.innerHTML = `<span class="page-title" style="margin:0">Arranger</span>`;
@@ -23,7 +32,50 @@ export default {
     header.append(modeBtn);
     container.append(header);
 
-    // Section list
+    // ── Loop controls bar ──────────────────────────────────────────────────
+    const loopBar = document.createElement('div');
+    loopBar.className = 'arr-loop-bar';
+
+    const loopToggle = document.createElement('button');
+    loopToggle.className = 'seq-btn' + (arrLoop ? ' active' : '');
+    loopToggle.style.cssText = 'font-size:0.52rem;padding:2px 6px';
+    loopToggle.textContent = arrLoop ? '⟳ Loop: ON' : '⟳ Loop: OFF';
+    loopToggle.addEventListener('click', () => {
+      emit('state:change', { path: 'arrLoop', value: !arrLoop });
+    });
+
+    const loopFromLabel = document.createElement('span');
+    loopFromLabel.textContent = 'from';
+
+    const loopFromInput = document.createElement('input');
+    loopFromInput.type = 'number';
+    loopFromInput.min = '1';
+    loopFromInput.max = String(arranger.length);
+    loopFromInput.value = String(arrLoopStart + 1); // display 1-based
+    loopFromInput.addEventListener('change', () => {
+      const v = Math.max(1, Math.min(arranger.length, parseInt(loopFromInput.value) || 1));
+      loopFromInput.value = String(v);
+      emit('state:change', { path: 'arrLoopStart', value: v - 1 });
+    });
+
+    const loopToLabel = document.createElement('span');
+    loopToLabel.textContent = 'to';
+
+    const loopToInput = document.createElement('input');
+    loopToInput.type = 'number';
+    loopToInput.min = '1';
+    loopToInput.max = String(arranger.length);
+    loopToInput.value = String(arrLoopEnd + 1); // display 1-based
+    loopToInput.addEventListener('change', () => {
+      const v = Math.max(1, Math.min(arranger.length, parseInt(loopToInput.value) || 1));
+      loopToInput.value = String(v);
+      emit('state:change', { path: 'arrLoopEnd', value: v - 1 });
+    });
+
+    loopBar.append(loopToggle, loopFromLabel, loopFromInput, loopToLabel, loopToInput);
+    container.append(loopBar);
+
+    // ── Section list ───────────────────────────────────────────────────────
     const list = document.createElement('div');
     list.style.cssText = 'flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px;min-height:0';
 
@@ -35,20 +87,30 @@ export default {
     }
 
     arranger.forEach((section, idx) => {
+      const sceneColorFull = TRACK_COLORS[(section.sceneIdx ?? 0) % TRACK_COLORS.length];
+      const inLoopRange = arrLoop && idx >= arrLoopStart && idx <= arrLoopEnd;
+
       const row = document.createElement('div');
       row.className = 'arr-row';
       row.style.cssText = `
         display:flex;align-items:center;gap:8px;padding:6px 8px;
         border-radius:5px;border:1px solid var(--border);background:#141414;
+        border-left: 3px solid ${sceneColorFull};
       `;
       if (idx === arrangementCursor) {
         row.style.borderColor = 'rgba(240,91,82,0.5)';
+        row.style.borderLeftColor = sceneColorFull;
         row.style.background  = 'rgba(240,91,82,0.05)';
       }
       if (idx === activeSectionIdx) {
         row.classList.add('active');
         row.style.borderColor = 'rgba(90,221,113,0.6)';
+        row.style.borderLeftColor = sceneColorFull;
         row.style.background  = 'rgba(90,221,113,0.06)';
+      }
+      if (inLoopRange) {
+        row.style.outline = '1px solid rgba(90,221,113,0.35)';
+        row.style.outlineOffset = '-1px';
       }
 
       // Drag-to-reorder
@@ -71,25 +133,14 @@ export default {
         emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
       });
 
+      // Scene label (colored)
       const sceneLabel = document.createElement('span');
-      sceneLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.65rem;color:var(--accent);min-width:24px';
+      sceneLabel.style.cssText = `font-family:var(--font-mono);font-size:0.65rem;color:${sceneColorFull};min-width:18px;font-weight:700`;
       sceneLabel.textContent   = String.fromCharCode(65 + (section.sceneIdx ?? 0));
 
-      const sceneName = document.createElement('input');
-      sceneName.type = 'text';
-      sceneName.value = section.name || (scenes[section.sceneIdx] && scenes[section.sceneIdx].name) || '—';
-      sceneName.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);flex:1;background:transparent;border:none;outline:none;padding:0;min-width:0';
-      sceneName.addEventListener('change', () => {
-        state.arranger.sections
-          ? (state.arranger.sections[idx].name = sceneName.value)
-          : (arranger[idx].name = sceneName.value);
-        emit('state:change', { path: 'arranger', value: state.arranger ?? arranger });
-      });
-      sceneName.addEventListener('focus', () => { sceneName.style.color = 'var(--screen-text)'; sceneName.select(); });
-      sceneName.addEventListener('blur',  () => { sceneName.style.color = 'var(--muted)'; });
-
+      // Bar count display
       const barsLabel = document.createElement('span');
-      barsLabel.style.cssText  = 'font-family:var(--font-mono);font-size:0.62rem;color:var(--screen-text);min-width:32px;text-align:right';
+      barsLabel.style.cssText  = 'font-family:var(--font-mono);font-size:0.62rem;color:var(--screen-text);min-width:28px;text-align:right';
       barsLabel.textContent    = `${section.bars ?? 1}B`;
 
       // Bar count +/-
@@ -110,6 +161,54 @@ export default {
         emit('state:change', { path: `arranger[${idx}].bars`, value: newBars });
         barsLabel.textContent = `${newBars}B`;
       });
+
+      // Per-section BPM override
+      const bpmLabel = document.createElement('span');
+      bpmLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.5rem;color:var(--muted)';
+      bpmLabel.textContent = 'BPM';
+
+      const bpmInput = document.createElement('input');
+      bpmInput.type = 'number';
+      bpmInput.className = 'arr-bpm-input';
+      bpmInput.min = '0';
+      bpmInput.max = '300';
+      bpmInput.value = String(section.bpmOverride ?? 0);
+      bpmInput.placeholder = String(state.bpm);
+      bpmInput.title = '0 = use global BPM';
+      bpmInput.addEventListener('change', () => {
+        section.bpmOverride = parseInt(bpmInput.value) || 0;
+        emit('state:change', { path: 'arranger', value: state.arranger });
+      });
+
+      // Per-section time signature
+      const tsSelect = document.createElement('select');
+      tsSelect.className = 'arr-ts-select';
+      tsSelect.title = 'Time signature';
+      TIME_SIGNATURES.forEach(ts => {
+        const opt = document.createElement('option');
+        opt.value = ts;
+        opt.textContent = ts;
+        if (ts === (section.timeSignature ?? '4/4')) opt.selected = true;
+        tsSelect.append(opt);
+      });
+      tsSelect.addEventListener('change', () => {
+        section.timeSignature = tsSelect.value;
+        emit('state:change', { path: 'arranger', value: state.arranger });
+      });
+
+      // Name input
+      const sceneName = document.createElement('input');
+      sceneName.type = 'text';
+      sceneName.value = section.name || (scenes[section.sceneIdx] && scenes[section.sceneIdx].name) || '—';
+      sceneName.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);flex:1;background:transparent;border:none;outline:none;padding:0;min-width:0';
+      sceneName.addEventListener('change', () => {
+        state.arranger.sections
+          ? (state.arranger.sections[idx].name = sceneName.value)
+          : (arranger[idx].name = sceneName.value);
+        emit('state:change', { path: 'arranger', value: state.arranger ?? arranger });
+      });
+      sceneName.addEventListener('focus', () => { sceneName.style.color = 'var(--screen-text)'; sceneName.select(); });
+      sceneName.addEventListener('blur',  () => { sceneName.style.color = 'var(--muted)'; });
 
       // Move up/down (secondary — drag-to-reorder is preferred)
       const upBtn = document.createElement('button');
@@ -140,33 +239,36 @@ export default {
         emit('state:change', { path: 'action_arrRemove', value: idx })
       );
 
-      row.append(sceneLabel, sceneName, barsLabel, minusBtn, plusBtn, upBtn, dnBtn, delBtn);
+      row.append(sceneLabel, barsLabel, minusBtn, plusBtn, bpmLabel, bpmInput, tsSelect, sceneName, upBtn, dnBtn, delBtn);
       list.append(row);
     });
 
-    // ── Visual timeline ──────────────────────────────────────────────────────
-    const SCENE_COLORS = [
-      '#f0c640','#5add71','#67d7ff','#ff8c52','#c67dff','#ff6eb4','#40e0d0','#f05b52'
-    ];
+    // ── Visual timeline ────────────────────────────────────────────────────
     const totalBarsAll = arranger.reduce((s, sec) => s + (sec.bars ?? 1), 0) || 1;
+
+    const timelineWrap = document.createElement('div');
+    timelineWrap.style.cssText = 'position:relative;flex-shrink:0;margin-bottom:8px';
 
     const timeline = document.createElement('div');
     timeline.style.cssText = `
       display:flex; align-items:stretch; gap:2px;
-      height:38px; margin-bottom:8px; flex-shrink:0;
+      height:38px;
       background:rgba(0,0,0,0.2); border-radius:5px; padding:3px; overflow:hidden;
+      position:relative;
     `;
 
     arranger.forEach((section, idx) => {
       const block = document.createElement('div');
       const widthPct = ((section.bars ?? 1) / totalBarsAll * 100).toFixed(1);
-      const color = SCENE_COLORS[section.sceneIdx % SCENE_COLORS.length];
+      const color = TRACK_COLORS[(section.sceneIdx ?? 0) % TRACK_COLORS.length];
       const isActive = idx === arrangementCursor;
+      const inLoop = arrLoop && idx >= arrLoopStart && idx <= arrLoopEnd;
       block.style.cssText = `
         flex: 0 0 ${widthPct}%;
         min-width: 18px;
-        background: ${color}${isActive ? 'ff' : '55'};
+        background: ${color}${isActive ? 'ff' : '44'};
         border: 1px solid ${color}${isActive ? 'ff' : '88'};
+        ${inLoop ? `outline: 1px solid rgba(90,221,113,0.5); outline-offset:-1px;` : ''}
         border-radius: 3px;
         display:flex; align-items:center; justify-content:center;
         font-family:var(--font-mono); font-size:0.5rem;
@@ -176,13 +278,27 @@ export default {
         overflow:hidden; white-space:nowrap;
         transition: all 0.1s;
       `;
-      block.title = `${String.fromCharCode(65 + (section.sceneIdx ?? 0))} — ${section.bars}B`;
+      block.title = `${String.fromCharCode(65 + (section.sceneIdx ?? 0))} — ${section.bars}B${section.bpmOverride ? ` BPM:${section.bpmOverride}` : ''}`;
       block.textContent = `${String.fromCharCode(65 + (section.sceneIdx ?? 0))}`;
       block.addEventListener('click', () => {
         emit('state:change', { path: 'arrangementCursor', value: idx });
       });
       timeline.append(block);
     });
+
+    // Loop region overlay
+    if (arrLoop && arranger.length > 0) {
+      const barsBeforeStart = arranger.slice(0, arrLoopStart).reduce((s, sec) => s + (sec.bars ?? 1), 0);
+      const loopBars = arranger.slice(arrLoopStart, arrLoopEnd + 1).reduce((s, sec) => s + (sec.bars ?? 1), 0);
+      const leftPct  = (barsBeforeStart / totalBarsAll * 100).toFixed(2);
+      const widthPct = (loopBars / totalBarsAll * 100).toFixed(2);
+
+      const loopRegion = document.createElement('div');
+      loopRegion.className = 'arr-loop-region';
+      loopRegion.style.left  = `${leftPct}%`;
+      loopRegion.style.width = `${widthPct}%`;
+      timeline.append(loopRegion);
+    }
 
     if (arranger.length === 0) {
       timeline.innerHTML = `<div style="flex:1;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:0.6rem;color:var(--muted)">Empty — add sections below</div>`;
@@ -193,8 +309,7 @@ export default {
       const barsBefore = arranger.slice(0, activeSectionIdx).reduce((s, sec) => s + (sec.bars ?? 1), 0);
       const sectionBars = arranger[activeSectionIdx]?.bars ?? 1;
       const sectionProgress = state._arrSectionBar != null ? (state._arrSectionBar / sectionBars) : 0;
-      const totalBarsForHead = totalBarsAll;
-      const playheadPct = ((barsBefore + sectionProgress * sectionBars) / totalBarsForHead * 100).toFixed(2);
+      const playheadPct = ((barsBefore + sectionProgress * sectionBars) / totalBarsAll * 100).toFixed(2);
 
       const playhead = document.createElement('div');
       playhead.style.cssText = `
@@ -206,11 +321,11 @@ export default {
         pointer-events:none;
         z-index:10;
       `;
-      timeline.style.position = 'relative';
       timeline.append(playhead);
     }
 
-    container.append(timeline);
+    timelineWrap.append(timeline);
+    container.append(timelineWrap);
 
     const timeInfo = document.createElement('div');
     timeInfo.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--muted);margin-bottom:4px;flex-shrink:0';
@@ -220,7 +335,7 @@ export default {
 
     container.append(list);
 
-    // Add section toolbar
+    // ── Add section toolbar ────────────────────────────────────────────────
     const toolbar = document.createElement('div');
     toolbar.style.cssText = 'display:flex;gap:6px;margin-top:8px;flex-shrink:0;flex-wrap:wrap;align-items:center';
 
@@ -240,12 +355,34 @@ export default {
       emit('state:change', { path: 'action_arrAdd', value: { sceneIdx: parseInt(sceneSelect.value), bars: 2 } })
     );
 
+    // Export button
+    const exportBtn = document.createElement('button');
+    exportBtn.className = 'seq-btn';
+    exportBtn.textContent = 'Export';
+    exportBtn.addEventListener('click', () => {
+      const sections = state.arranger.sections ?? state.arranger ?? [];
+      const total = sections.reduce((sum, s) => sum + (s.bars ?? 1), 0);
+      let txt = `CONFUsynth Arrangement: ${state.project.name ?? 'Untitled'}\n`;
+      txt += `BPM: ${state.bpm}\nTotal: ${total} bars\n\n`;
+      sections.forEach((s, i) => {
+        const sceneName = String.fromCharCode(65 + (s.sceneIdx ?? i % 8));
+        const bpmStr = s.bpmOverride ? ` BPM: ${s.bpmOverride}` : '';
+        const ts = s.timeSignature ?? '4/4';
+        txt += `${i+1}. Scene ${sceneName} — ${s.bars ?? 1} bar${s.bars !== 1 ? 's' : ''} (${ts})${bpmStr}\n`;
+      });
+      const blob = new Blob([txt], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `arrangement-${Date.now()}.txt`;
+      a.click();
+    });
+
     const totalBars = arranger.reduce((s, sec) => s + (sec.bars ?? 1), 0);
     const info = document.createElement('span');
     info.style.cssText = 'font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);margin-left:auto';
     info.textContent = `${arranger.length} sections · ${totalBars} bars`;
 
-    toolbar.append(sceneSelect, addBtn, info);
+    toolbar.append(sceneSelect, addBtn, exportBtn, info);
     container.append(toolbar);
   },
 

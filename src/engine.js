@@ -428,6 +428,7 @@ export class AudioEngine {
     const accent = options.accent || false;
     const note = options.note ?? params.pitch;
     const velScale = options.velocity ?? 1;
+    const retrig = params.retrig ?? 1;
     const loudness = (accent ? 1.22 : 1) * params.volume * velScale;
 
     // Crossfader comes from the track's stored crossfader value or falls back to 0.5
@@ -435,7 +436,9 @@ export class AudioEngine {
 
     const cutoff = this.interpolateScene(params.sceneA.cutoff, params.sceneB.cutoff, crossfader);
     const decayTime = this.interpolateScene(params.sceneA.decay, params.sceneB.decay, crossfader);
-    const gate = Math.max(stepDuration * params.noteLength, params.attack + 0.01);
+    // Per-step gate (0.05–1.0) scales how long the note sustains before release
+    const stepGate = Math.max(0.05, Math.min(1, params.gate ?? 0.5));
+    const gate = Math.max(stepDuration * params.noteLength * stepGate, params.attack + 0.01);
     const totalTime = gate + decayTime;
 
     // MIDI machine — skip audio, send MIDI note
@@ -708,6 +711,20 @@ export class AudioEngine {
     osc.connect(output);
     osc.start(when);
     osc.stop(when + totalTime + 0.02);
+
+    // Retrig: schedule additional retriggered voices at subdivisions of the step
+    if (retrig > 1) {
+      const retrigInterval = stepDuration / retrig;
+      const retriggeredVelocity = velScale * 0.7;
+      for (let i = 1; i < retrig; i++) {
+        const retrigTime = when + retrigInterval * i;
+        this.triggerTrack(track, retrigTime, stepDuration, {
+          ...options,
+          velocity: retriggeredVelocity,
+          paramLocks: { ...paramLocks, retrig: 1 }, // prevent infinite recursion
+        });
+      }
+    }
   }
 
   // ——————————————————————————————————————————————
