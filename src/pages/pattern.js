@@ -194,10 +194,27 @@ export default {
         btn.dataset.prob = String(step.probability);
         btn.dataset.step = si;
         btn.dataset.track = ti;
+        btn.title = `Step ${si+1} | vel:${Math.round(vel*100)}% | prob:${Math.round((step.probability??1)*100)}%`;
         if (step.probability < 1.0) {
           btn.classList.add('has-prob');
           btn.style.setProperty('--prob', step.probability);
-          btn.title = `${Math.round(step.probability * 100)}%`;
+        }
+        // Velocity indicator
+        if (step.active && vel < 0.95) {
+          const velSpan = document.createElement('span');
+          velSpan.className = 'step-vel';
+          velSpan.textContent = String(Math.round(vel * 100));
+          btn.append(velSpan);
+        }
+        // Trig condition badge
+        if (step.trigCondition && step.trigCondition !== 'always') {
+          btn.classList.add('has-trig');
+          btn.dataset.trig = step.trigCondition;
+          const trigSpan = document.createElement('span');
+          trigSpan.className = 'step-trig';
+          const abbrev = { fill: 'F', first: '1', not_first: '¬1', '1:2': '½' };
+          trigSpan.textContent = abbrev[step.trigCondition] ?? step.trigCondition.slice(0, 2);
+          btn.append(trigSpan);
         }
         if (si > 0 && si % 4 === 0) btn.classList.add('step-group-start');
 
@@ -211,9 +228,62 @@ export default {
 
         btn.addEventListener('contextmenu', e => {
           e.preventDefault();
-          if (ti === state.selectedTrackIndex) {
-            emit('step:prob', { stepIndex: si });
-          }
+          if (ti !== state.selectedTrackIndex) return;
+
+          // Remove any existing context menus
+          document.querySelectorAll('.step-ctx-menu').forEach(m => m.remove());
+
+          const menu = document.createElement('div');
+          menu.className = 'step-ctx-menu';
+          menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:500;
+            background:#1a1e14;border:1px solid #3a4a2a;border-radius:4px;padding:4px;
+            font-family:var(--font-mono);font-size:0.55rem;min-width:110px`;
+
+          // Probability section
+          const probLabel = document.createElement('div');
+          probLabel.style.cssText = 'color:var(--muted);padding:2px 4px;font-size:0.48rem';
+          probLabel.textContent = 'PROBABILITY';
+          menu.append(probLabel);
+
+          [1, 0.75, 0.5, 0.25].forEach(prob => {
+            const item = document.createElement('div');
+            item.className = 'ctx-item' + (Math.abs((step.probability ?? 1) - prob) < 0.01 ? ' active' : '');
+            item.textContent = prob === 1 ? '100% (always)' : `${prob * 100}%`;
+            item.addEventListener('click', () => {
+              step.probability = prob;
+              emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+              menu.remove();
+            });
+            menu.append(item);
+          });
+
+          // Divider
+          const divider = document.createElement('div');
+          divider.style.cssText = 'border-top:1px solid #2a3a2a;margin:3px 0';
+          menu.append(divider);
+
+          // TrigCondition section
+          const trigLabel = document.createElement('div');
+          trigLabel.style.cssText = 'color:var(--muted);padding:2px 4px;font-size:0.48rem';
+          trigLabel.textContent = 'TRIG CONDITION';
+          menu.append(trigLabel);
+
+          const CONDITIONS = ['always', 'fill', 'not_fill', 'first', 'not_first', '1:2', '2:2'];
+          CONDITIONS.forEach(cond => {
+            const item = document.createElement('div');
+            item.className = 'ctx-item' + ((step.trigCondition ?? 'always') === cond ? ' active' : '');
+            item.textContent = cond;
+            item.addEventListener('click', () => {
+              step.trigCondition = cond;
+              emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+              menu.remove();
+            });
+            menu.append(item);
+          });
+
+          document.body.append(menu);
+          // Close on outside click
+          setTimeout(() => document.addEventListener('click', () => menu.remove(), { once: true }), 0);
         });
 
         // Long-press p-lock (only on selected track)
@@ -232,6 +302,40 @@ export default {
 
         row.append(btn);
       });
+
+      // Track length drag handle
+      const handle = document.createElement('div');
+      handle.className = 'track-len-handle';
+      handle.title = `Track length: ${trackLen}`;
+      handle.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        handle.setPointerCapture(e.pointerId);
+        const startX = e.clientX;
+        const startTrackLen = trk.trackLength > 0 ? trk.trackLength : pattern.length;
+        const firstBtn = row.querySelector('.step-btn');
+        const stepBtnWidth = firstBtn ? firstBtn.offsetWidth + 2 : 18;
+        let currentLen = startTrackLen;
+        const onMove = ev => {
+          const delta = Math.round((ev.clientX - startX) / stepBtnWidth);
+          const newLen = Math.max(1, Math.min(64, startTrackLen + delta));
+          if (newLen !== currentLen) {
+            currentLen = newLen;
+            trk.trackLength = newLen;
+            handle.title = `Track length: ${newLen}`;
+            row.querySelectorAll('.step-btn').forEach((b, idx) => {
+              b.classList.toggle('dim', idx >= newLen);
+            });
+          }
+        };
+        const onUp = () => {
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('pointerup', onUp);
+          emit('track:change', { param: 'trackLength', value: currentLen });
+        };
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+      });
+      row.append(handle);
 
       const activeCount = trk.steps.slice(0, pattern.length).filter(s => s.active).length;
       const countBadge = document.createElement('span');

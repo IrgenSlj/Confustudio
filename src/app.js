@@ -701,6 +701,52 @@ async function ensureAudio() {
       emit('knob:change', { param, value });
     });
   }
+
+  // MIDI clock input sync
+  let _midiClockPulses = 0;
+  let _midiClockLastTime = 0;
+  let _midiClockBPMSamples = [];
+  let _midiClockStatusTimeout = null;
+
+  if (typeof state.engine.setMidiClockInput === 'function') {
+    state.engine.setMidiClockInput(
+      // onClock: called 24x per quarter note
+      () => {
+        if (state.clockSource !== 'midi') return;
+        _midiClockPulses++;
+        const now = performance.now();
+        if (_midiClockLastTime > 0) {
+          const pulseDuration = now - _midiClockLastTime;
+          const bpm = 60000 / (pulseDuration * 24);
+          _midiClockBPMSamples.push(bpm);
+          if (_midiClockBPMSamples.length > 8) _midiClockBPMSamples.shift();
+          const avgBPM = _midiClockBPMSamples.reduce((a, b) => a + b, 0) / _midiClockBPMSamples.length;
+          state.bpm = Math.round(Math.max(20, Math.min(300, avgBPM)));
+          updateTopbar();
+        }
+        _midiClockLastTime = now;
+        // Update MIDI clock status indicator (debounced clear after 500ms)
+        const statusEl = document.getElementById('midi-clock-status');
+        if (statusEl) statusEl.style.display = '';
+        clearTimeout(_midiClockStatusTimeout);
+        _midiClockStatusTimeout = setTimeout(() => {
+          const el = document.getElementById('midi-clock-status');
+          if (el) el.style.display = 'none';
+        }, 500);
+      },
+      // onStart
+      () => {
+        if (state.clockSource !== 'midi') return;
+        _midiClockPulses = 0;
+        if (!state.isPlaying) emit('transport:toggle');
+      },
+      // onStop
+      () => {
+        if (state.clockSource !== 'midi') return;
+        if (state.isPlaying) emit('transport:stop');
+      }
+    );
+  }
 }
 
 function initSignalMeter() {
@@ -1209,6 +1255,11 @@ function bindUI() {
   el.kbdPlay?.addEventListener('click',   () => togglePlay());
   el.kbdStop?.addEventListener('click',   () => stopPlay());
   if (el.btnTap)  el.btnTap.addEventListener('click', tapTempo);
+  if (el.btnTap)  el.btnTap.addEventListener('touchstart', e => {
+    e.preventDefault(); // prevent double-firing with click
+    tapTempo();
+    updateTopbar();
+  }, { passive: false });
   if (el.btnFill) el.btnFill.addEventListener('click', toggleFill);
 
   // BPM edit

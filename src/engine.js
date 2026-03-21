@@ -711,8 +711,24 @@ export class AudioEngine {
     const attachInputs = (midiAccess) => {
       midiAccess.inputs.forEach((input) => {
         input.onmidimessage = (msg) => {
-          const [status, cc, val] = msg.data;
-          if ((status & 0xf0) === 0xb0) onCC(cc, val / 127);
+          const status = msg.data[0];
+          // CC messages
+          if ((status & 0xf0) === 0xb0) {
+            const [, cc, val] = msg.data;
+            onCC(cc, val / 127);
+          }
+          // MIDI Clock (0xF8) - 24 pulses per quarter note
+          if (status === 0xf8 && this._midiClockCallback) {
+            this._midiClockCallback();
+          }
+          // MIDI Start (0xFA)
+          if (status === 0xfa && this._midiStartCallback) {
+            this._midiStartCallback();
+          }
+          // MIDI Stop (0xFB)
+          if (status === 0xfb && this._midiStopCallback) {
+            this._midiStopCallback();
+          }
         };
       });
     };
@@ -731,6 +747,16 @@ export class AudioEngine {
     this._midiAccess.inputs.forEach((input) => {
       input.onmidimessage = null;
     });
+  }
+
+  // Register callbacks for incoming MIDI clock messages.
+  // onClock: called 24x per quarter note (0xF8)
+  // onStart: called on MIDI Start (0xFA)
+  // onStop:  called on MIDI Stop (0xFB)
+  setMidiClockInput(onClock, onStart, onStop) {
+    this._midiClockCallback = onClock;
+    this._midiStartCallback = onStart;
+    this._midiStopCallback  = onStop;
   }
 }
 

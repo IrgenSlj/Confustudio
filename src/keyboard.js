@@ -139,12 +139,23 @@ const KEY_ROLES = {
   settings: { ...PAGE_NAV },
 };
 
+// ─── Chord voicings ───────────────────────────────────────────────────────────
+
+export const CHORD_VOICINGS = {
+  off:  [],
+  maj:  [4, 7],
+  min:  [3, 7],
+  pwr:  [7, 12],
+  dom7: [4, 7, 10],
+  min7: [3, 7, 10],
+};
+
 // ─── Graphical keyboard renderer ──────────────────────────────────────────────
 
 // 1 key-unit ≈ key-width + gap. Used to calculate row stagger padding.
 const KEY_UNIT = 46; // px  (key ~43px + 3px gap)
 
-export function renderKbdContext(containerEl, page, activeKeys = new Set()) {
+export function renderKbdContext(containerEl, page, activeKeys = new Set(), state = null) {
   containerEl.innerHTML = '';
 
   const roles = KEY_ROLES[page] || {};
@@ -188,6 +199,23 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set()) {
   });
 
   containerEl.append(kb);
+
+  // Chord mode bar (sound / piano-roll pages)
+  if (state && ['sound', 'piano-roll'].includes(page)) {
+    const chordBar = document.createElement('div');
+    chordBar.className = 'kbd-chord-bar';
+    Object.keys(CHORD_VOICINGS).forEach(mode => {
+      const btn = document.createElement('button');
+      btn.className = 'kbd-chord-btn' + ((state.chordMode ?? 'off') === mode ? ' active' : '');
+      btn.textContent = mode.toUpperCase();
+      btn.addEventListener('click', () => {
+        state.chordMode = mode;
+        renderKbdContext(containerEl, page, activeKeys, state);
+      });
+      chordBar.append(btn);
+    });
+    containerEl.append(chordBar);
+  }
 }
 
 export function pressKey(containerEl, code, pressed) {
@@ -242,7 +270,24 @@ export function renderPiano(containerEl, state) {
     });
   });
 
-  containerEl.append(wrapper);
+  const pianoContainer = document.createElement('div');
+  pianoContainer.className = 'piano-container';
+  pianoContainer.append(wrapper);
+
+  const velBar = document.createElement('div');
+  velBar.className = 'kbd-vel-bar';
+  velBar.innerHTML = `
+    <label class="kbd-vel-label">VEL</label>
+    <input type="range" class="kbd-vel-slider" min="0.05" max="1" step="0.01" value="${state.keyboardVelocity ?? 1}">
+    <span class="kbd-vel-val">${Math.round((state.keyboardVelocity ?? 1) * 100)}</span>
+  `;
+  velBar.querySelector('input').addEventListener('input', e => {
+    state.keyboardVelocity = parseFloat(e.target.value);
+    velBar.querySelector('span').textContent = Math.round(state.keyboardVelocity * 100);
+  });
+  pianoContainer.append(velBar);
+
+  containerEl.append(pianoContainer);
 }
 
 export function lightPianoKey(containerEl, midi, lit = true) {
@@ -285,6 +330,19 @@ export function initKeyboard(state, emit) {
     if (e.ctrlKey || e.metaKey) {
       if (e.code === 'KeyC') { e.preventDefault(); emit('pattern:copy');  return; }
       if (e.code === 'KeyV') { e.preventDefault(); emit('pattern:paste'); return; }
+      // Ctrl+Up/Down → velocity adjust
+      if (e.code === 'ArrowUp') {
+        e.preventDefault();
+        state.keyboardVelocity = Math.min(1, Math.round(((state.keyboardVelocity ?? 1) + 0.1) * 100) / 100);
+        emit('keyboard:velocityChange', { velocity: state.keyboardVelocity });
+        return;
+      }
+      if (e.code === 'ArrowDown') {
+        e.preventDefault();
+        state.keyboardVelocity = Math.max(0.05, Math.round(((state.keyboardVelocity ?? 1) - 0.1) * 100) / 100);
+        emit('keyboard:velocityChange', { velocity: state.keyboardVelocity });
+        return;
+      }
     }
 
     const page = state.currentPage;
@@ -310,7 +368,15 @@ export function initKeyboard(state, emit) {
     if (page === 'piano-roll' || page === 'sound') {
       const offset = NOTE_KEY_OFFSETS[e.code];
       if (offset != null) {
-        emit('note:preview', { note: 60 + (state.octaveShift ?? 0) * 12 + offset });
+        const midiNote = 60 + (state.octaveShift ?? 0) * 12 + offset;
+        const velocity = state.keyboardVelocity ?? 1;
+        const voicing = CHORD_VOICINGS[state.chordMode ?? 'off'] ?? [];
+        emit('note:preview', { note: midiNote, velocity });
+        voicing.forEach(chordOffset => {
+          const chordNote = midiNote + chordOffset;
+          if (chordNote >= 0 && chordNote <= 127)
+            emit('note:preview', { note: chordNote, velocity });
+        });
         return;
       }
     }

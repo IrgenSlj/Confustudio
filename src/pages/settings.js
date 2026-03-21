@@ -59,12 +59,13 @@ export default {
           <h4>Clock</h4>
           <div class="settings-row">
             <label>Source</label>
-            <div style="display:flex;gap:4px">
+            <div style="display:flex;gap:4px;align-items:center">
               ${['internal', 'midi', 'link'].map(src => `
                 <button class="ctx-btn${(state.clockSource || 'internal') === src ? ' active' : ''}"
                         data-action="clockSource" data-value="${src}">
                   ${src === 'internal' ? 'INT' : src === 'midi' ? 'MIDI' : 'LINK'}
                 </button>`).join('')}
+              <span id="midi-clock-status" style="font-family:var(--font-mono);font-size:0.52rem;color:var(--accent);margin-left:4px;display:none">&#9203; Receiving</span>
             </div>
           </div>
           <div class="settings-row" style="margin-top:6px">

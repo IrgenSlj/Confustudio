@@ -20,9 +20,52 @@ function cardHTML(title, rows) {
   return `<div class="page-card"><h4>${title}</h4>${rows}</div>`;
 }
 
+function fmtDB(v) {
+  const n = Number(v);
+  if (n === 0) return '0 dB';
+  return (n > 0 ? '+' : '') + n.toFixed(1) + ' dB';
+}
+
+function eqBandHTML(label, param, value) {
+  return `
+    <div class="eq-band">
+      <span>${fmtDB(value)}</span>
+      <input type="range" min="-12" max="12" step="0.5" value="${value}"
+             data-param="${param}" data-scope="eq">
+      <label>${label}</label>
+    </div>`;
+}
+
+function drawEQCurve(svg, low, mid, high) {
+  const w = 120, h = 40, mid_y = h / 2;
+  // Map dB [-12..+12] to pixel offset (positive dB = upward = negative y)
+  const scale = (mid_y - 4) / 12;
+  const y0 = mid_y - low  * scale;
+  const y1 = mid_y - mid  * scale;
+  const y2 = mid_y - high * scale;
+  // Bezier: left anchor (0, y0), cp1 (30, y0), center (60, y1), cp2 (90, y2), right anchor (120, y2)
+  const d = `M 0 ${y0} C 30 ${y0} 30 ${y1} 60 ${y1} C 90 ${y1} 90 ${y2} ${w} ${y2}`;
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.innerHTML = `<path d="${d}" stroke="var(--screen-text)" stroke-width="1.5" fill="none" opacity="0.7"/>
+    <line x1="0" y1="${mid_y}" x2="${w}" y2="${mid_y}" stroke="var(--muted)" stroke-width="0.5" stroke-dasharray="3,3" opacity="0.4"/>`;
+}
+
+function compSliderHTML(label, param, min, max, step, value, unit, displayFn) {
+  const displayed = displayFn ? displayFn(value) : Number(value).toFixed(step < 1 ? (step < 0.01 ? 3 : 2) : 0);
+  return `
+    <label class="fx-row">
+      <span>${label}</span>
+      <output data-comp-out="${param}">${displayed} ${unit}</output>
+      <input type="range" min="${min}" max="${max}" step="${step}" value="${value}"
+             data-param="${param}" data-scope="compressor">
+    </label>`;
+}
+
 export default {
   render(container, state, emit) {
     const track = getActiveTrack(state);
+
+    const comp = state.compressor ?? {};
 
     container.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0">
@@ -30,6 +73,14 @@ export default {
         <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted)">${track.name}</span>
       </div>
       <div class="page-grid-2" style="flex:1;min-height:0">
+
+        ${cardHTML('COMPRESSOR', `
+          ${compSliderHTML('THRESH',  'threshold', -60,   0,    1,     comp.threshold ?? -18,  'dB',  null)}
+          ${compSliderHTML('KNEE',    'knee',       0,    30,   1,     comp.knee      ?? 6,    'dB',  null)}
+          ${compSliderHTML('RATIO',   'ratio',      1,    20,   0.5,   comp.ratio     ?? 4,    ':1',  v => Number(v).toFixed(1))}
+          ${compSliderHTML('ATTACK',  'attack',     0.001, 0.5, 0.001, comp.attack    ?? 0.003,'ms',  v => (v * 1000).toFixed(1))}
+          ${compSliderHTML('RELEASE', 'release',    0.01,  2,   0.01,  comp.release   ?? 0.25, 'ms',  v => Number(v * 1000).toFixed(0))}
+        `)}
 
         ${cardHTML('REVERB', `
           ${sliderHTML('ROOM', 'reverbSize',    'global', 0.1,  0.98, 0.01, state.reverbSize    ?? 0.5)}
@@ -50,7 +101,14 @@ export default {
 
         <div class="page-card" data-card="track">
           <h4>TRACK: ${track.name}</h4>
-          <div style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);text-transform:uppercase;margin:4px 0">Filter</div>
+          <div style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);text-transform:uppercase;margin:4px 0 2px">EQ</div>
+          <svg class="eq-curve-svg" data-eq-svg></svg>
+          <div class="eq-band-row">
+            ${eqBandHTML('Low',  'eqLow',  track.eqLow  ?? 0)}
+            ${eqBandHTML('Mid',  'eqMid',  track.eqMid  ?? 0)}
+            ${eqBandHTML('High', 'eqHigh', track.eqHigh ?? 0)}
+          </div>
+          <div style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);text-transform:uppercase;margin:6px 0 4px">Filter</div>
           <div style="display:flex;gap:4px;margin-bottom:6px">
             ${FILTER_TYPES.map(ft => `
               <button class="ctx-btn${(track.filterType || 'lowpass') === ft ? ' active' : ''}"
@@ -66,6 +124,10 @@ export default {
 
       </div>`;
 
+    // Draw initial EQ curve
+    const eqSvg = container.querySelector('[data-eq-svg]');
+    if (eqSvg) drawEQCurve(eqSvg, track.eqLow ?? 0, track.eqMid ?? 0, track.eqHigh ?? 0);
+
     container.addEventListener('input', e => {
       const input = e.target;
       if (input.tagName !== 'INPUT' || input.type !== 'range') return;
@@ -74,6 +136,40 @@ export default {
 
       const step = parseFloat(input.step);
       const v = step >= 1 ? parseInt(input.value, 10) : parseFloat(input.value);
+
+      if (scope === 'eq') {
+        // Update dB display
+        const band = input.closest('.eq-band');
+        if (band) band.querySelector('span').textContent = fmtDB(v);
+        // Update track state
+        track[param] = v;
+        emit('track:change', { trackIndex: state.selectedTrackIndex, param, value: v });
+        // Redraw EQ curve
+        const svg = container.querySelector('[data-eq-svg]');
+        if (svg) drawEQCurve(svg, track.eqLow ?? 0, track.eqMid ?? 0, track.eqHigh ?? 0);
+        saveState(state);
+        return;
+      }
+
+      if (scope === 'compressor') {
+        // Update display with unit-aware formatting
+        const out = container.querySelector(`[data-comp-out="${param}"]`);
+        if (out) {
+          let displayed;
+          if (param === 'attack')  displayed = (v * 1000).toFixed(1) + ' ms';
+          else if (param === 'release') displayed = (v * 1000).toFixed(0) + ' ms';
+          else if (param === 'ratio')   displayed = Number(v).toFixed(1) + ' :1';
+          else if (param === 'threshold' || param === 'knee') displayed = Number(v).toFixed(0) + ' dB';
+          else displayed = String(v);
+          out.textContent = displayed;
+        }
+        state.compressor = state.compressor ?? {};
+        state.compressor[param] = v;
+        const eng = window._confusynthEngine;
+        if (eng?.setCompressor) eng.setCompressor({ [param]: v });
+        saveState(state);
+        return;
+      }
 
       const out = input.closest('label')?.querySelector('output');
       if (out) out.textContent = Number(v).toFixed(step < 1 ? 2 : 0);

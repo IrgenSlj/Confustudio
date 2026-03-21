@@ -6,7 +6,7 @@ export default {
   render(container, state, emit) {
     container.innerHTML = '';
 
-    const { project, activeBank, activePattern, copyBuffer } = state;
+    const { project, activeBank, activePattern, copyBuffer, patternCompareA, patternCompareB } = state;
     const hasPatternCopy = copyBuffer?.type === 'pattern';
 
     const header = document.createElement('div');
@@ -19,6 +19,57 @@ export default {
         ${project.banks[activeBank].patterns[activePattern].name}
       </span>`;
     container.append(header);
+
+    // A/B Pattern Comparison bar
+    const abBar = document.createElement('div');
+    abBar.className = 'ab-compare-bar';
+
+    const abLabel = document.createElement('label');
+    abLabel.textContent = 'CMP:';
+    abBar.append(abLabel);
+
+    const markABtn = document.createElement('button');
+    markABtn.className = 'ab-btn' + (patternCompareA ? ' has-a' : '');
+    markABtn.textContent = patternCompareA
+      ? `A:${BANK_LETTERS[patternCompareA.bank]}${String(patternCompareA.pattern + 1).padStart(2,'0')}`
+      : 'Mark A';
+    markABtn.title = 'Mark current pattern as A';
+    markABtn.addEventListener('click', () => {
+      state.patternCompareA = { bank: activeBank, pattern: activePattern };
+      this.render(container, state, emit);
+    });
+
+    const markBBtn = document.createElement('button');
+    markBBtn.className = 'ab-btn' + (patternCompareB ? ' has-b' : '');
+    markBBtn.textContent = patternCompareB
+      ? `B:${BANK_LETTERS[patternCompareB.bank]}${String(patternCompareB.pattern + 1).padStart(2,'0')}`
+      : 'Mark B';
+    markBBtn.title = 'Mark current pattern as B';
+    markBBtn.addEventListener('click', () => {
+      state.patternCompareB = { bank: activeBank, pattern: activePattern };
+      this.render(container, state, emit);
+    });
+
+    const swapBtn = document.createElement('button');
+    swapBtn.className = 'ab-btn';
+    swapBtn.textContent = 'A↔B';
+    swapBtn.title = 'Toggle between A and B pattern';
+    const canSwap = !!(patternCompareA && patternCompareB);
+    swapBtn.disabled = !canSwap;
+    swapBtn.addEventListener('click', () => {
+      const curr = { bank: activeBank, pattern: activePattern };
+      const isOnA = patternCompareA &&
+        curr.bank === patternCompareA.bank &&
+        curr.pattern === patternCompareA.pattern;
+      const target = isOnA ? patternCompareB : patternCompareA;
+      if (target) {
+        emit('bank:select', { bankIndex: target.bank });
+        emit('pattern:select', { patternIndex: target.pattern });
+      }
+    });
+
+    abBar.append(markABtn, markBBtn, swapBtn);
+    container.append(abBar);
 
     // Bank selector (A–H)
     const bankRow = document.createElement('div');
@@ -47,6 +98,24 @@ export default {
       btn.style.cssText = 'padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:2px';
       if (pi === activePattern) {
         btn.style.cssText += ';color:var(--accent);border-color:rgba(240,198,64,0.5);background:rgba(240,198,64,0.07)';
+      }
+
+      // A/B badges
+      const isA = patternCompareA && patternCompareA.bank === activeBank && patternCompareA.pattern === pi;
+      const isB = patternCompareB && patternCompareB.bank === activeBank && patternCompareB.pattern === pi;
+      if (isA) {
+        const badge = document.createElement('span');
+        badge.className = 'ab-badge ab-badge-a';
+        badge.textContent = 'A';
+        btn.append(badge);
+      }
+      if (isB) {
+        const badge = document.createElement('span');
+        badge.className = 'ab-badge ab-badge-b';
+        badge.textContent = 'B';
+        // Offset B badge slightly if both A and B are on the same pattern
+        if (isA) badge.style.left = '8px';
+        btn.append(badge);
       }
 
       const num = document.createElement('span');
@@ -163,5 +232,5 @@ export default {
     { label: '—', param: null, min: 0, max: 1, step: 1 },
   ],
 
-  keyboardContext: 'banks',
+  keyboardContext: 'banks', // A↔B swap: use Mark A / Mark B / A↔B buttons above pattern grid
 };
