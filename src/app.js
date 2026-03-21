@@ -2042,6 +2042,19 @@ function bindUI() {
     }
   });
 
+  // Tab / Shift+Tab: cycle through pages
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Tab') return;
+    if (e.target.matches('input, select, textarea')) return;
+    e.preventDefault();
+    const PAGE_ORDER = ['pattern', 'piano-roll', 'sound', 'mixer', 'fx', 'scenes', 'banks', 'arranger', 'settings'];
+    const cur = PAGE_ORDER.indexOf(state.currentPage);
+    const next = e.shiftKey
+      ? (cur - 1 + PAGE_ORDER.length) % PAGE_ORDER.length
+      : (cur + 1) % PAGE_ORDER.length;
+    emit('page:set', { page: PAGE_ORDER[next] });
+  });
+
   // Record quantize selector — inject next to record button if not already present
   const recQuantizeSel = document.getElementById('rec-quantize') ?? (() => {
     const sel = document.createElement('select');

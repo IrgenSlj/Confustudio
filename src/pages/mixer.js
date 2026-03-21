@@ -477,16 +477,37 @@ export default {
       const busRow = document.createElement('div');
       busRow.style.cssText = 'display:flex;gap:2px;margin-top:3px';
       const currentBus = track.outputBus ?? 'master';
+
+      // Tag strip with current bus for CSS tinting
+      strip.classList.add('mix-strip');
+      strip.dataset.bus = currentBus;
+
+      const BUS_BTN_COLORS = { master: '#e0e0e0', bus1: '#ff8c00', bus2: '#00d4ff' };
       [['master', 'M'], ['bus1', 'B1'], ['bus2', 'B2']].forEach(([val, label]) => {
         const btn = document.createElement('button');
-        btn.className = 'fader-cue' + (currentBus === val ? ' active' : '');
+        const isActive = currentBus === val;
+        btn.className = 'fader-cue bus-btn' + (isActive ? ' active' : '');
+        btn.dataset.busVal = val;
         btn.textContent = label;
         btn.title = `Route to ${val}`;
-        btn.style.cssText = 'font-size:0.44rem;padding:1px 3px;flex:1';
+        btn.style.color = BUS_BTN_COLORS[val];
+        if (isActive) {
+          btn.style.borderColor = BUS_BTN_COLORS[val];
+          btn.style.background  = BUS_BTN_COLORS[val] + '22';
+        }
+        btn.style.cssText += ';font-size:0.44rem;padding:1px 3px;flex:1';
         btn.addEventListener('click', e => {
           e.stopPropagation();
-          busRow.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+          busRow.querySelectorAll('.bus-btn').forEach(b => {
+            b.classList.remove('active');
+            b.style.borderColor = '';
+            b.style.background  = '';
+          });
           btn.classList.add('active');
+          btn.style.borderColor = BUS_BTN_COLORS[val];
+          btn.style.background  = BUS_BTN_COLORS[val] + '22';
+          // Update strip tint
+          strip.dataset.bus = val;
           emit('track:change', { trackIndex: ti, param: 'outputBus', value: val });
         });
         busRow.append(btn);
@@ -497,6 +518,69 @@ export default {
     });
 
     container.append(faderGrid);
+
+    // ── Bus master controls ──────────────────────────────────────────────────
+    const busSection = document.createElement('div');
+    busSection.className = 'mixer-bus-section';
+
+    const busSectionLabel = document.createElement('div');
+    busSectionLabel.className = 'mixer-bus-section-label';
+    busSectionLabel.textContent = 'BUS';
+    busSection.append(busSectionLabel);
+
+    const busStripsRow = document.createElement('div');
+    busStripsRow.className = 'mixer-bus-strips';
+
+    [
+      { key: 'bus1Level', label: 'BUS 1', color: '#ff8c00', engineKey: 'bus1' },
+      { key: 'bus2Level', label: 'BUS 2', color: '#00d4ff', engineKey: 'bus2' },
+    ].forEach(({ key, label, color, engineKey }) => {
+      const busStrip = document.createElement('div');
+      busStrip.className = 'mixer-bus-strip';
+      busStrip.style.setProperty('--bus-color', color);
+
+      const busLabel = document.createElement('span');
+      busLabel.className = 'mixer-bus-strip-label';
+      busLabel.textContent = label;
+      busLabel.style.color = color;
+
+      const busLevel = state[key] ?? 1.0;
+
+      const busFader = document.createElement('input');
+      busFader.type  = 'range';
+      busFader.min   = 0;
+      busFader.max   = 1;
+      busFader.step  = 0.01;
+      busFader.value = busLevel;
+      busFader.className = 'mixer-bus-fader';
+      busFader.style.accentColor = color;
+
+      const busValSpan = document.createElement('span');
+      busValSpan.className = 'mixer-bus-val';
+      busValSpan.textContent = Math.round(busLevel * 100);
+
+      busFader.addEventListener('input', () => {
+        const v = parseFloat(busFader.value);
+        busValSpan.textContent = Math.round(v * 100);
+        state[key] = v;
+        // Wire to engine bus gain node if available
+        if (state.engine && state.engine[engineKey]) {
+          const ctx = state.audioContext;
+          if (ctx) {
+            state.engine[engineKey].gain.setTargetAtTime(v, ctx.currentTime, 0.01);
+          } else {
+            state.engine[engineKey].gain.value = v;
+          }
+        }
+        emit('state:change', { path: key, value: v });
+      });
+
+      busStrip.append(busLabel, busFader, busValSpan);
+      busStripsRow.append(busStrip);
+    });
+
+    busSection.append(busStripsRow);
+    container.append(busSection);
 
     // Single rAF loop animates all 8 meters
     (function updateMeters() {

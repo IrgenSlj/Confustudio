@@ -164,8 +164,18 @@ export default {
           ${sliderHTML('CUT',  'cutoff',    'track', 80,   18000, 1,    track.cutoff    ?? 3200)}
           ${sliderHTML('RES',  'resonance', 'track', 0.01, 30,    0.01, track.resonance ?? 1.8)}
           ${sliderHTML('DRIV', 'drive',     'track', 0,    1,     0.01, track.drive     ?? 0.18)}
-          ${sliderHTML('BITS', 'bitDepth',  'track', 1,    16,    1,    track.bitDepth  ?? 16)}
-          ${sliderHTML('SRR',  'srDiv',     'track', 1,    32,    1,    track.srDiv     ?? 1)}
+          <label class="fx-row" data-lofi-bits>
+            <span>BITS</span>
+            <output>${(track.bitDepth ?? 32) >= 32 ? 'OFF' : (track.bitDepth ?? 32) + 'b'}</output>
+            <input type="range" min="4" max="32" step="1" value="${track.bitDepth ?? 32}"
+                   data-param="bitDepth" data-scope="track">
+          </label>
+          <label class="fx-row" data-lofi-srdiv>
+            <span>SRR</span>
+            <output>${(track.srDiv ?? 1) <= 1 ? 'OFF' : '\xF7' + (track.srDiv ?? 1)}</output>
+            <input type="range" min="1" max="16" step="1" value="${track.srDiv ?? 1}"
+                   data-param="srDiv" data-scope="track">
+          </label>
         </div>
 
       </div>`;

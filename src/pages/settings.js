@@ -21,6 +21,9 @@ export default {
     const latencyMs   = state.audioContext?.baseLatency != null
       ? (state.audioContext.baseLatency * 1000).toFixed(1) + 'ms'
       : '—';
+    const outputLatMs = state.audioContext?.outputLatency != null
+      ? (state.audioContext.outputLatency * 1000).toFixed(1) + 'ms'
+      : '—';
     const workletReady = state.engine?._workletReady !== false;
     const linkBpm     = state.abletonLink && state._linkBpm ? state._linkBpm.toFixed(1) : null;
 
@@ -121,6 +124,9 @@ export default {
         <!-- Performance Monitor -->
         <div class="settings-section" id="perf-section">
           <h4>CPU / Performance</h4>
+          <div style="font-family:var(--font-mono);font-size:0.56rem;color:var(--muted);margin-bottom:4px" id="perf-latency-static">
+            Base latency: ${latencyMs} | Output: ${outputLatMs}
+          </div>
         </div>
 
       </div>`;

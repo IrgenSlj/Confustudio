@@ -97,8 +97,8 @@ export function createTrack(index) {
     // Per-track FX
     filterType:   "lowpass",  // "lowpass"|"highpass"|"bandpass"|"notch"|"peaking"|"lowshelf"|"highshelf"
     filterQ:      1.0,        // BiquadFilter Q / resonance (0.1–20)
-    bitDepth:     16,         // 1–16, integer
-    srDiv:        1,          // 1–32, sample rate reduction divisor
+    bitDepth:     32,         // 4–32, integer; 32 = off (full resolution)
+    srDiv:        1,          // 1–16, sample rate reduction divisor; 1 = off
 
     // Plaits multi-engine synth
     plEngine:    0,

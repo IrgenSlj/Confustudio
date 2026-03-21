@@ -621,10 +621,11 @@ export class AudioEngine {
     saturator.curve = this.getDriveCurve(params.drive);
     saturator.oversample = "2x";
 
-    // Bit-crusher — inserted between output and panner when bitDepth < 16 or srDiv > 1
-    const bitDepth = params.bitDepth ?? 16;
+    // Bit-crusher — inserted between output and panner when bitDepth < 32 or srDiv > 1
+    // bitDepth 32 = off (full resolution), lower values quantize to 2^bitDepth levels.
+    const bitDepth = params.bitDepth ?? 32;
     const srDiv = params.srDiv ?? 1;
-    const needsCrusher = bitDepth < 16 || srDiv > 1;
+    const needsCrusher = bitDepth < 32 || srDiv > 1;
 
     // Per-trigger 3-band EQ (lowShelf / peaking / highShelf).
     // Only created when at least one band has a non-trivial gain (abs > 0.1 dB).
