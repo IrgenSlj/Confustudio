@@ -68,7 +68,7 @@ export default {
                         data-action="clockSource" data-value="${src}">
                   ${src === 'internal' ? 'INT' : src === 'midi' ? 'MIDI' : 'LINK'}
                 </button>`).join('')}
-              <span id="midi-clock-status" style="font-family:var(--font-mono);font-size:0.52rem;color:var(--accent);margin-left:4px;display:none">&#9203; Receiving</span>
+              <span id="midi-clock-status" style="font-family:var(--font-mono);font-size:0.52rem;color:var(--accent);margin-left:4px">— no signal</span>
             </div>
           </div>
           <div class="settings-row" style="margin-top:6px">

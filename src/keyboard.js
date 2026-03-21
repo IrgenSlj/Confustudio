@@ -635,6 +635,11 @@ export function initPianoTouch(pianoContainerEl, state, emit) {
 export function initKeyboard(state, emit, trackColors = []) {
   _emit = emit;
   if (trackColors.length) _TRACK_COLORS = trackColors;
+
+  // Initialize split keyboard defaults
+  if (state.splitKeyboard    === undefined) state.splitKeyboard    = false;
+  if (state.splitTrackLeft   === undefined) state.splitTrackLeft   = 0;
+  if (state.splitTrackRight  === undefined) state.splitTrackRight  = 1;
   window.addEventListener('keydown', (e) => {
     const tag = e.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
@@ -753,6 +758,9 @@ export function initKeyboard(state, emit, trackColors = []) {
               emit('note:preview', { note: chordNote, velocity });
           });
         }
+
+        // Restore track after split
+        if (_splitPrevTrack != null) state.selectedTrackIndex = _splitPrevTrack;
 
         // Step record: write note to cursor step on any page with note keys active
         if (state.stepRecordMode) {

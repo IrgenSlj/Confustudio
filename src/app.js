@@ -1076,10 +1076,11 @@ async function ensureAudio() {
   }
 
   // MIDI clock input sync
+  // Rolling buffer of the last 24 pulse intervals (1 bar at 24ppqn) for jitter smoothing
+  const MIDI_CLOCK_BUF_SIZE = 24;
   let _midiClockPulses = 0;
   let _midiClockLastTime = 0;
-  let _midiClockBPMSamples = [];
-  let _midiClockStatusTimeout = null;
+  let _midiClockIntervalBuf = []; // stores ms between consecutive 0xF8 pulses
 
   if (typeof state.engine.setMidiClockInput === 'function') {
     state.engine.setMidiClockInput(
@@ -1088,29 +1089,60 @@ async function ensureAudio() {
         if (state.clockSource !== 'midi') return;
         _midiClockPulses++;
         const now = performance.now();
+
         if (_midiClockLastTime > 0) {
-          const pulseDuration = now - _midiClockLastTime;
-          const bpm = 60000 / (pulseDuration * 24);
-          _midiClockBPMSamples.push(bpm);
-          if (_midiClockBPMSamples.length > 8) _midiClockBPMSamples.shift();
-          const avgBPM = _midiClockBPMSamples.reduce((a, b) => a + b, 0) / _midiClockBPMSamples.length;
-          state.bpm = Math.round(Math.max(20, Math.min(300, avgBPM)));
-          updateTopbar();
+          const interval = now - _midiClockLastTime;
+
+          // Reject implausible intervals (< 2ms or > 250ms = outside 20–300 BPM range at 24ppqn)
+          if (interval >= 2 && interval <= 250) {
+            _midiClockIntervalBuf.push(interval);
+            if (_midiClockIntervalBuf.length > MIDI_CLOCK_BUF_SIZE) {
+              _midiClockIntervalBuf.shift();
+            }
+          }
+
+          if (_midiClockIntervalBuf.length > 0) {
+            const avgInterval = _midiClockIntervalBuf.reduce((a, b) => a + b, 0) / _midiClockIntervalBuf.length;
+            // BPM = 60s / (avgInterval_ms / 1000 * 24 pulses per beat)
+            const derivedBpm = 60000 / (avgInterval * 24);
+            const clampedBpm = Math.max(20, Math.min(300, derivedBpm));
+
+            // Only update scheduler BPM if within 5% of current (outlier filter)
+            const currentBpm = state.bpm || 120;
+            const ratio = clampedBpm / currentBpm;
+            if (ratio >= 0.95 && ratio <= 1.05) {
+              state.bpm = Math.round(clampedBpm * 10) / 10; // one decimal precision
+              if (state.engine?.setBpm) state.engine.setBpm(state.bpm);
+              updateTopbar();
+            }
+
+            // Track receiving state for display in settings and topbar
+            state._midiClockReceiving = true;
+            state._midiClockBpm = clampedBpm;
+            clearTimeout(state._midiClockTimeout);
+            state._midiClockTimeout = setTimeout(() => {
+              state._midiClockReceiving = false;
+            }, 1000);
+
+            // Pulse the topbar status pill on each bar boundary (every 96 pulses = 4 beats * 24ppqn)
+            if (state.clockSource === 'midi' && _midiClockPulses % 96 === 0) {
+              const pill = el.statusPill;
+              if (pill) {
+                pill.classList.add('midi-sync-pulse');
+                setTimeout(() => pill.classList.remove('midi-sync-pulse'), 120);
+              }
+            }
+          }
         }
+
         _midiClockLastTime = now;
-        // Update MIDI clock status indicator (debounced clear after 500ms)
-        const statusEl = document.getElementById('midi-clock-status');
-        if (statusEl) statusEl.style.display = '';
-        clearTimeout(_midiClockStatusTimeout);
-        _midiClockStatusTimeout = setTimeout(() => {
-          const el = document.getElementById('midi-clock-status');
-          if (el) el.style.display = 'none';
-        }, 500);
       },
       // onStart
       () => {
         if (state.clockSource !== 'midi') return;
         _midiClockPulses = 0;
+        _midiClockIntervalBuf = [];
+        _midiClockLastTime = 0;
         if (!state.isPlaying) emit('transport:toggle');
       },
       // onStop
