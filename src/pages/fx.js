@@ -107,7 +107,23 @@ export default {
         `)}
 
         ${cardHTML('DELAY', `
-          ${sliderHTML('TIME', 'delayTime',     'global', 0.01, 1.4,  0.01, state.delayTime     ?? 0.28)}
+          <div class="fx-sync-header">
+            <span class="fx-sync-label">TIME</span>
+            <button class="fx-sync-btn${(state.delaySyncEnabled ?? false) ? ' active' : ''}"
+                    data-delay-sync-toggle>SYNC</button>
+          </div>
+          <div data-delay-time-row>
+            ${!(state.delaySyncEnabled ?? false) ? `
+              ${sliderHTML('', 'delayTime', 'global', 0.01, 1.4, 0.01, state.delayTime ?? 0.28)}
+            ` : `
+              <div class="fx-type-row fx-sync-divs" data-group="delay-sync-div">
+                ${DELAY_SYNC_DIVS.map(d => `
+                  <button class="fx-type-btn${(state.delaySyncDiv ?? '1/8') === d ? ' active' : ''}"
+                          data-delay-sync-div="${d}">${d}</button>
+                `).join('')}
+              </div>
+            `}
+          </div>
           ${sliderHTML('FDBK', 'delayFeedback', 'global', 0,    0.95, 0.01, state.delayFeedback ?? 0.38)}
           ${sliderHTML('MIX',  'delayWet',      'global', 0,    1,    0.01, state.delayWet      ?? 0.3)}
         `)}
@@ -240,15 +256,79 @@ export default {
     });
 
     container.addEventListener('click', e => {
-      const btn = e.target.closest('[data-filter-type]');
-      if (!btn) return;
-      const ft = btn.dataset.filterType;
-      track.filterType = ft;
-      container.querySelectorAll('[data-filter-type]').forEach(b =>
-        b.classList.toggle('active', b.dataset.filterType === ft)
-      );
-      emit('track:change', { trackIndex: state.selectedTrackIndex, param: 'filterType', value: ft });
-      saveState(state);
+      // ── Filter type ─────────────────────────────────────────────────────────
+      const filterBtn = e.target.closest('[data-filter-type]');
+      if (filterBtn) {
+        const ft = filterBtn.dataset.filterType;
+        track.filterType = ft;
+        container.querySelectorAll('[data-filter-type]').forEach(b =>
+          b.classList.toggle('active', b.dataset.filterType === ft)
+        );
+        emit('track:change', { trackIndex: state.selectedTrackIndex, param: 'filterType', value: ft });
+        saveState(state);
+        return;
+      }
+
+      // ── Reverb type ─────────────────────────────────────────────────────────
+      const reverbBtn = e.target.closest('[data-reverb-type]');
+      if (reverbBtn) {
+        const rt = reverbBtn.dataset.reverbType;
+        state.reverbType = rt;
+        container.querySelectorAll('[data-reverb-type]').forEach(b =>
+          b.classList.toggle('active', b.dataset.reverbType === rt)
+        );
+        const eng = window._confusynthEngine ?? state.engine;
+        if (eng?.setReverbType) eng.setReverbType(rt);
+        emit('state:change', { param: 'reverbType', value: rt });
+        saveState(state);
+        return;
+      }
+
+      // ── Delay sync toggle ────────────────────────────────────────────────────
+      const syncToggle = e.target.closest('[data-delay-sync-toggle]');
+      if (syncToggle) {
+        state.delaySyncEnabled = !(state.delaySyncEnabled ?? false);
+        syncToggle.classList.toggle('active', state.delaySyncEnabled);
+        // Re-render the time row only
+        const timeRow = container.querySelector('[data-delay-time-row]');
+        if (timeRow) {
+          if (state.delaySyncEnabled) {
+            timeRow.innerHTML = `
+              <div class="fx-type-row fx-sync-divs" data-group="delay-sync-div">
+                ${DELAY_SYNC_DIVS.map(d => `
+                  <button class="fx-type-btn${(state.delaySyncDiv ?? '1/8') === d ? ' active' : ''}"
+                          data-delay-sync-div="${d}">${d}</button>
+                `).join('')}
+              </div>`;
+            // Apply current sync div immediately
+            const bpm = state.bpm ?? 120;
+            const t = calcSyncDelayTime(bpm, state.delaySyncDiv ?? '1/8');
+            const eng2 = window._confusynthEngine ?? state.engine;
+            if (eng2?.setDelayTime) eng2.setDelayTime(t);
+          } else {
+            timeRow.innerHTML = sliderHTML('', 'delayTime', 'global', 0.01, 1.4, 0.01, state.delayTime ?? 0.28);
+          }
+        }
+        saveState(state);
+        return;
+      }
+
+      // ── Delay sync division ──────────────────────────────────────────────────
+      const syncDivBtn = e.target.closest('[data-delay-sync-div]');
+      if (syncDivBtn) {
+        const div = syncDivBtn.dataset.delaySyncDiv;
+        state.delaySyncDiv = div;
+        container.querySelectorAll('[data-delay-sync-div]').forEach(b =>
+          b.classList.toggle('active', b.dataset.delaySyncDiv === div)
+        );
+        const bpm = state.bpm ?? 120;
+        const t = calcSyncDelayTime(bpm, div);
+        state.delayTime = t;
+        const eng3 = window._confusynthEngine ?? state.engine;
+        if (eng3?.setDelayTime) eng3.setDelayTime(t);
+        saveState(state);
+        return;
+      }
     });
   },
 

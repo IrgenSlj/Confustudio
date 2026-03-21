@@ -315,21 +315,126 @@ export default {
       midiLearnSection.append(noMappings);
     }
 
+    // ── MIDI Learn table with per-row delete + learning highlight ─────────────
+    function renderMidiLearnTable() {
+      // Remove previous table/no-mappings element
+      midiLearnSection.querySelectorAll('.midi-learn-table, .midi-learn-empty').forEach(el => el.remove());
+
+      const mappings = Object.entries(state.midiLearnMap);
+      if (mappings.length > 0) {
+        const table = document.createElement('div');
+        table.className = 'midi-learn-table';
+        table.style.cssText = 'display:grid;grid-template-columns:auto 1fr auto;gap:2px 6px;margin-bottom:6px;align-items:center';
+
+        // Headers
+        const hCC = document.createElement('span');
+        hCC.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);text-transform:uppercase';
+        hCC.textContent = 'CC';
+        const hParam = document.createElement('span');
+        hParam.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);text-transform:uppercase';
+        hParam.textContent = 'Parameter';
+        const hDel = document.createElement('span');
+        table.append(hCC, hParam, hDel);
+
+        mappings.forEach(([cc, param]) => {
+          const isLearning = state.midiLearnMode && state.midiLearnTarget === param;
+          const ccEl = document.createElement('span');
+          ccEl.style.cssText = `font-family:var(--font-mono);font-size:0.56rem;color:${isLearning ? 'var(--live)' : 'var(--accent)'}`;
+          if (isLearning) ccEl.style.fontWeight = 'bold';
+          ccEl.textContent = cc;
+          const paramEl = document.createElement('span');
+          paramEl.style.cssText = `font-family:var(--font-mono);font-size:0.56rem;color:${isLearning ? 'var(--live)' : 'var(--screen-text)'}`;
+          if (isLearning) paramEl.style.fontWeight = 'bold';
+          paramEl.textContent = param;
+          const delBtn = document.createElement('button');
+          delBtn.className = 'ctx-btn';
+          delBtn.textContent = '×';
+          delBtn.title = 'Remove mapping';
+          delBtn.style.cssText = 'font-size:0.65rem;padding:0 4px;line-height:1;color:var(--record);border-color:rgba(240,91,82,0.3)';
+          delBtn.addEventListener('click', () => {
+            delete state.midiLearnMap[cc];
+            saveState(state);
+            renderMidiLearnTable();
+          });
+          if (isLearning) {
+            [ccEl, paramEl].forEach(el => el.classList?.add?.('learning'));
+            ccEl.style.background = 'rgba(0,200,100,0.08)';
+            paramEl.style.background = 'rgba(0,200,100,0.08)';
+          }
+          table.append(ccEl, paramEl, delBtn);
+        });
+        midiLearnSection.insertBefore(table, midiLearnActionBar);
+      } else {
+        const noMappings = document.createElement('div');
+        noMappings.className = 'midi-learn-empty';
+        noMappings.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--muted);margin-bottom:6px';
+        noMappings.textContent = 'No mappings yet.';
+        midiLearnSection.insertBefore(noMappings, midiLearnActionBar);
+      }
+    }
+
+    // Action bar: Clear All, Export, Import
+    const midiLearnActionBar = document.createElement('div');
+    midiLearnActionBar.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;margin-top:4px';
+
     const clearBtn = document.createElement('button');
     clearBtn.className = 'seq-btn';
-    clearBtn.textContent = 'Clear All Mappings';
+    clearBtn.textContent = 'Clear All';
     clearBtn.style.cssText = 'font-size:0.58rem;border-color:rgba(240,91,82,0.3);color:var(--record)';
     clearBtn.addEventListener('click', () => {
+      if (!confirm('Clear all MIDI learn mappings?')) return;
       state.midiLearnMap = {};
       saveState(state);
-      // Re-render the section in place
-      midiLearnSection.querySelectorAll('div, span').forEach(el => {});
+      renderMidiLearnTable();
       emit('state:change', { path: 'midiLearnMap', value: {} });
     });
-    midiLearnSection.append(clearBtn);
 
-    // TODO: In app.js / engine, MIDI CC input should read from state.midiLearnMap
-    // to route incoming CC values to the mapped parameters via emit('state:change').
+    const exportMidiBtn = document.createElement('button');
+    exportMidiBtn.className = 'seq-btn';
+    exportMidiBtn.textContent = 'Export Map';
+    exportMidiBtn.style.cssText = 'font-size:0.58rem';
+    exportMidiBtn.addEventListener('click', () => {
+      const json = JSON.stringify(state.midiLearnMap, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `midi-map-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    const importMidiInput = document.createElement('input');
+    importMidiInput.type = 'file';
+    importMidiInput.accept = '.json';
+    importMidiInput.style.display = 'none';
+    importMidiInput.addEventListener('change', () => {
+      const file = importMidiInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try {
+          const map = JSON.parse(ev.target.result);
+          if (typeof map !== 'object' || Array.isArray(map)) throw new Error('Expected an object');
+          state.midiLearnMap = map;
+          saveState(state);
+          renderMidiLearnTable();
+          emit('state:change', { path: 'midiLearnMap', value: map });
+        } catch (err) {
+          alert('Invalid MIDI map file: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    });
+    const importMidiBtn = document.createElement('button');
+    importMidiBtn.className = 'seq-btn';
+    importMidiBtn.textContent = 'Import Map';
+    importMidiBtn.style.cssText = 'font-size:0.58rem';
+    importMidiBtn.addEventListener('click', () => importMidiInput.click());
+
+    midiLearnActionBar.append(clearBtn, exportMidiBtn, importMidiInput, importMidiBtn);
+    midiLearnSection.append(midiLearnActionBar);
+
+    renderMidiLearnTable();
 
     container.append(midiLearnSection);
 

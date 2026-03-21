@@ -226,7 +226,7 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
       btn.textContent = mode.toUpperCase();
       btn.addEventListener('click', () => {
         state.chordMode = mode;
-        renderKbdContext(containerEl, page, activeKeys, state);
+        renderKbdContext(containerEl, page, activeKeys, state, getActiveTrackFn);
       });
       chordBar.append(btn);
     });
@@ -242,16 +242,78 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
         state._heldNotes?.forEach(note => _emit?.('note:off', { note }));
         state._heldNotes = new Set();
       }
-      renderKbdContext(containerEl, page, activeKeys, state);
+      renderKbdContext(containerEl, page, activeKeys, state, getActiveTrackFn);
     });
     chordBar.append(holdBtn);
 
     containerEl.append(chordBar);
+
+    // ── Octave indicator + TOUCH toggle row ──────────────────────────────────
+    const infoBar = document.createElement('div');
+    infoBar.className = 'kbd-info-bar';
+
+    // Octave indicator
+    const octWrap = document.createElement('div');
+    octWrap.className = 'kbd-oct-indicator';
+
+    const octMinus = document.createElement('button');
+    octMinus.className = 'kbd-oct-btn';
+    octMinus.textContent = '−';
+    octMinus.title = 'Octave down (Z)';
+    octMinus.addEventListener('click', () => {
+      state.octaveShift = Math.max(-4, (state.octaveShift ?? 0) - 1);
+      _emit?.('octave:shift', { delta: -1 });
+      _updateOctDisplay(octDisplay, state);
+    });
+
+    const octDisplay = document.createElement('span');
+    octDisplay.className = 'kbd-oct-display';
+    _updateOctDisplay(octDisplay, state);
+
+    const octPlus = document.createElement('button');
+    octPlus.className = 'kbd-oct-btn';
+    octPlus.textContent = '+';
+    octPlus.title = 'Octave up (X)';
+    octPlus.addEventListener('click', () => {
+      state.octaveShift = Math.min(4, (state.octaveShift ?? 0) + 1);
+      _emit?.('octave:shift', { delta: +1 });
+      _updateOctDisplay(octDisplay, state);
+    });
+
+    octWrap.append(octMinus, octDisplay, octPlus);
+    infoBar.append(octWrap);
+
+    // TOUCH velocity toggle
+    const touchBtn = document.createElement('button');
+    touchBtn.className = 'kbd-chord-btn kbd-touch-btn' + (state.touchVelocity ? ' active' : '');
+    touchBtn.textContent = 'TOUCH';
+    touchBtn.title = 'Y position within key sets velocity (top=127, bottom=40)';
+    touchBtn.addEventListener('click', () => {
+      state.touchVelocity = !state.touchVelocity;
+      touchBtn.classList.toggle('active', state.touchVelocity);
+    });
+    infoBar.append(touchBtn);
+
+    containerEl.append(infoBar);
+
+    // ── Arp pattern visualizer (only when arp is on) ─────────────────────────
+    const track = getActiveTrackFn?.();
+    if (track?.arpEnabled) {
+      const arpVis = buildArpVisualizer(state, _TRACK_COLORS, getActiveTrackFn);
+      containerEl.append(arpVis);
+    }
   }
+}
+
+function _updateOctDisplay(el, state) {
+  const oct = 4 + (state.octaveShift ?? 0);
+  el.textContent = `OCT ${oct}`;
 }
 
 // Internal reference to emit, set by initKeyboard
 let _emit = null;
+// Track colors reference, set by initKeyboard
+let _TRACK_COLORS = [];
 
 // ─── Arp pattern visualizer ────────────────────────────────────────────────────
 
@@ -418,8 +480,9 @@ export function lightPianoKey(containerEl, midi, lit = true) {
 
 // ─── Global keyboard handler ───────────────────────────────────────────────────
 
-export function initKeyboard(state, emit) {
+export function initKeyboard(state, emit, trackColors = []) {
   _emit = emit;
+  if (trackColors.length) _TRACK_COLORS = trackColors;
   window.addEventListener('keydown', (e) => {
     const tag = e.target.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;

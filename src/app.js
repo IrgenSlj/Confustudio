@@ -305,6 +305,18 @@ function handleAction(path, value, pattern) {
       renderPage(); // re-render to update fill button style
       return true;
 
+    case 'action_trackPaste': {
+      if (!state._trackCopyBuffer) return true;
+      pushHistory(state);
+      const ti = value?.trackIndex ?? state.selectedTrackIndex;
+      pattern.kit.tracks[ti].steps = JSON.parse(JSON.stringify(state._trackCopyBuffer));
+      scheduleSave();
+      renderPage();
+      renderTrackStrip();
+      showToast('Track steps pasted');
+      return true;
+    }
+
     default:
       return false;
   }

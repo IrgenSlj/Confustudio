@@ -187,16 +187,30 @@ function drawWaveform(canvas, audioBuffer, sampleStart, sampleEnd,
 }
 
 function makeSampleLoader(track, ti, emit, machCard) {
+  // ── Local view state ──────────────────────────────────────────────────────
+  let waveZoom    = 1;   // 1, 2, 4, or 8
+  let wavePan     = 0;   // 0–1: how far through the zoomable region we're panned
+
+  // Compute the [viewStart, viewEnd] window from zoom and pan
+  function viewWindow() {
+    const span      = 1 / waveZoom;
+    const maxOffset = 1 - span;
+    const offset    = wavePan * maxOffset;
+    return { viewStart: offset, viewEnd: offset + span };
+  }
+
+  // ── Info + load button ────────────────────────────────────────────────────
   const sampleInfo = document.createElement('div');
   sampleInfo.style.cssText = 'margin-top:8px;font-family:var(--font-mono);font-size:0.62rem;color:var(--muted)';
   sampleInfo.textContent = track.sampleBuffer ? 'Sample loaded' : 'No sample loaded';
+
   const loadBtn = document.createElement('button');
   loadBtn.className = 'screen-btn';
   loadBtn.style.marginTop = '6px';
   loadBtn.textContent = 'Load Sample';
   loadBtn.addEventListener('click', () => emit('state:change', { path: 'action_loadSample', value: ti }));
 
-  // Waveform wrap
+  // ── Waveform canvas wrap ──────────────────────────────────────────────────
   const wfWrap = document.createElement('div');
   wfWrap.className = 'sample-waveform-wrap';
 
@@ -209,15 +223,77 @@ function makeSampleLoader(track, ti, emit, machCard) {
   playhead.className = 'sample-playhead';
   playhead.style.display = 'none';
 
-  const startLine = document.createElement('div');
-  startLine.className = 'sample-start-line';
+  wfWrap.append(wfCanvas, playhead);
 
-  const endLine = document.createElement('div');
-  endLine.className = 'sample-end-line';
+  // Redraw helper — reads current slider values and loop state
+  function redraw() {
+    const { viewStart, viewEnd } = viewWindow();
+    drawWaveform(
+      wfCanvas,
+      track.sampleBuffer,
+      parseFloat(startSlider.value),
+      parseFloat(endSlider.value),
+      viewStart,
+      viewEnd,
+      parseFloat(loopStartSlider.value),
+      parseFloat(loopEndSlider.value),
+      loopEnabledRef.value
+    );
+  }
 
-  wfWrap.append(wfCanvas, playhead, startLine, endLine);
+  // ── Zoom controls ─────────────────────────────────────────────────────────
+  const zoomRow = document.createElement('div');
+  zoomRow.className = 'wf-zoom-row';
 
-  // Start/End sliders row
+  const zoomOutBtn = document.createElement('button');
+  zoomOutBtn.className = 'wf-zoom-btn';
+  zoomOutBtn.textContent = '−';
+  zoomOutBtn.title = 'Zoom out';
+
+  const zoomInBtn = document.createElement('button');
+  zoomInBtn.className = 'wf-zoom-btn';
+  zoomInBtn.textContent = '+';
+  zoomInBtn.title = 'Zoom in';
+
+  const zoomLabel = document.createElement('span');
+  zoomLabel.className = 'wf-zoom-label';
+  zoomLabel.textContent = '1×';
+
+  function updateZoomLabel() {
+    zoomLabel.textContent = waveZoom + '×';
+    panSliderWrap.style.display = waveZoom > 1 ? 'block' : 'none';
+    redraw();
+  }
+
+  zoomOutBtn.addEventListener('click', () => {
+    if (waveZoom > 1) { waveZoom = waveZoom / 2; updateZoomLabel(); }
+  });
+  zoomInBtn.addEventListener('click', () => {
+    if (waveZoom < 8) { waveZoom = waveZoom * 2; updateZoomLabel(); }
+  });
+
+  zoomRow.append(zoomOutBtn, zoomLabel, zoomInBtn);
+
+  // ── Pan slider (only visible when zoomed in) ──────────────────────────────
+  const panSliderWrap = document.createElement('div');
+  panSliderWrap.className = 'wf-pan-wrap';
+  panSliderWrap.style.display = 'none';
+
+  const panSlider = document.createElement('input');
+  panSlider.type = 'range';
+  panSlider.min = 0; panSlider.max = 1; panSlider.step = 0.001;
+  panSlider.value = 0;
+  panSlider.className = 'wf-pan-slider';
+  panSlider.title = 'Pan view';
+
+  panSlider.addEventListener('input', () => {
+    wavePan = parseFloat(panSlider.value);
+    redraw();
+  });
+
+  panSliderWrap.append(panSlider);
+
+  // ── Start / End trim sliders row ──────────────────────────────────────────
   const seRow = document.createElement('div');
   seRow.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px';
 
@@ -225,51 +301,106 @@ function makeSampleLoader(track, ti, emit, machCard) {
     const lbl = document.createElement('label');
     lbl.style.cssText = 'font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);display:flex;flex-direction:column;gap:2px';
     const hdr = document.createElement('span');
-    hdr.textContent = label + ' ' + Number(track[param] ?? defaultVal).toFixed(2);
+    hdr.textContent = label + ' ' + Number(track[param] ?? defaultVal).toFixed(3);
     const inp = document.createElement('input');
     inp.type = 'range';
-    inp.min = 0; inp.max = 1; inp.step = 0.01;
+    inp.min = 0; inp.max = 1; inp.step = 0.001;
     inp.value = track[param] ?? defaultVal;
     inp.addEventListener('input', () => {
       const v = parseFloat(inp.value);
-      hdr.textContent = label + ' ' + v.toFixed(2);
+      hdr.textContent = label + ' ' + v.toFixed(3);
       emit('track:change', { trackIndex: ti, param, value: v });
-      updateStartEndLines();
-      requestAnimationFrame(() => drawWaveform(wfCanvas, track.sampleBuffer,
-        parseFloat(startSlider.value), parseFloat(endSlider.value)));
+      redraw();
+    });
+    // Snap-to-grid (0.1% grid) on pointer release
+    inp.addEventListener('pointerup', () => {
+      const v    = parseFloat(inp.value);
+      const snapped = Math.round(v * 1000) / 1000;
+      inp.value = snapped;
+      hdr.textContent = label + ' ' + snapped.toFixed(3);
+      emit('track:change', { trackIndex: ti, param, value: snapped });
+      redraw();
     });
     lbl.append(hdr, inp);
     return lbl;
   }
 
-  const startLbl = makeSeSlider('Start', 'sampleStart', 0);
-  const endLbl   = makeSeSlider('End',   'sampleEnd',   1);
+  const startLbl  = makeSeSlider('Start', 'sampleStart', 0);
+  const endLbl    = makeSeSlider('End',   'sampleEnd',   1);
   const startSlider = startLbl.querySelector('input');
   const endSlider   = endLbl.querySelector('input');
   seRow.append(startLbl, endLbl);
 
-  function updateStartEndLines() {
-    const s = parseFloat(startSlider.value);
-    const e = parseFloat(endSlider.value);
-    startLine.style.left = (s * 100) + '%';
-    endLine.style.left   = (e * 100) + '%';
+  // ── Loop controls ─────────────────────────────────────────────────────────
+  // loopEnabledRef is a mutable box so redraw() can read it without closure issues
+  const loopEnabledRef = { value: track.loopEnabled ?? false };
+
+  const loopRow = document.createElement('div');
+  loopRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:4px';
+
+  const loopToggle = document.createElement('button');
+  loopToggle.className = 'wf-loop-btn' + (loopEnabledRef.value ? ' active' : '');
+  loopToggle.textContent = 'LOOP';
+  loopToggle.title = 'Toggle looping';
+  loopToggle.addEventListener('click', () => {
+    loopEnabledRef.value = !loopEnabledRef.value;
+    loopToggle.classList.toggle('active', loopEnabledRef.value);
+    emit('track:change', { trackIndex: ti, param: 'loopEnabled', value: loopEnabledRef.value });
+    loopHandlesWrap.style.display = loopEnabledRef.value ? 'grid' : 'none';
+    redraw();
+  });
+  loopRow.append(loopToggle);
+
+  // Loop start / end sliders
+  const loopHandlesWrap = document.createElement('div');
+  loopHandlesWrap.style.cssText = 'display:' + (loopEnabledRef.value ? 'grid' : 'none') +
+    ';grid-template-columns:1fr 1fr;gap:6px;margin-top:2px';
+
+  function makeLoopSlider(label, param, defaultVal) {
+    const lbl = document.createElement('label');
+    lbl.style.cssText = 'font-family:var(--font-mono);font-size:0.58rem;color:#00d0d0;display:flex;flex-direction:column;gap:2px';
+    const hdr = document.createElement('span');
+    hdr.textContent = label + ' ' + Number(track[param] ?? defaultVal).toFixed(3);
+    const inp = document.createElement('input');
+    inp.type = 'range';
+    inp.min = 0; inp.max = 1; inp.step = 0.001;
+    inp.value = track[param] ?? defaultVal;
+    inp.style.accentColor = '#00cccc';
+    inp.addEventListener('input', () => {
+      const v = parseFloat(inp.value);
+      hdr.textContent = label + ' ' + v.toFixed(3);
+      emit('track:change', { trackIndex: ti, param, value: v });
+      redraw();
+    });
+    inp.addEventListener('pointerup', () => {
+      const v = Math.round(parseFloat(inp.value) * 1000) / 1000;
+      inp.value = v;
+      hdr.textContent = label + ' ' + v.toFixed(3);
+      emit('track:change', { trackIndex: ti, param, value: v });
+      redraw();
+    });
+    lbl.append(hdr, inp);
+    return lbl;
   }
-  updateStartEndLines();
 
-  machCard.append(sampleInfo, loadBtn, wfWrap, seRow);
+  const loopStartLbl    = makeLoopSlider('L.Start', 'loopStart', 0);
+  const loopEndLbl      = makeLoopSlider('L.End',   'loopEnd',   1);
+  const loopStartSlider = loopStartLbl.querySelector('input');
+  const loopEndSlider   = loopEndLbl.querySelector('input');
+  loopHandlesWrap.append(loopStartLbl, loopEndLbl);
 
-  // Draw waveform after layout — use rAF so canvas has width
+  // ── Assemble ──────────────────────────────────────────────────────────────
+  machCard.append(sampleInfo, loadBtn, wfWrap, zoomRow, panSliderWrap, seRow, loopRow, loopHandlesWrap);
+
+  // Initial draw after layout — use rAF so canvas has measured width
   requestAnimationFrame(() => {
-    drawWaveform(wfCanvas, track.sampleBuffer,
-      track.sampleStart ?? 0, track.sampleEnd ?? 1);
-    updateStartEndLines();
+    redraw();
   });
 
-  // Playhead rAF loop (closure over track ref via ti, reads state from window)
+  // ── Playhead rAF loop ─────────────────────────────────────────────────────
   let _phRaf = null;
   function tickPlayhead() {
-    const eng = window._confusynthEngine;
-    const st  = window._confusynthState;
+    const st = window._confusynthState;
     if (!st?.isPlaying) {
       playhead.style.display = 'none';
       _phRaf = null;
@@ -279,12 +410,13 @@ function makeSampleLoader(track, ti, emit, machCard) {
     const trackLen = st?.project?.banks?.[st.activeBank]
       ?.patterns?.[st.activePattern]?.length ?? 16;
     const pos = (st.currentStep ?? 0) / trackLen;
-    playhead.style.left = (pos * 100) + '%';
+    // Map pos through zoom/pan window so playhead tracks visible region
+    const { viewStart, viewEnd } = viewWindow();
+    const visiblePos = (pos - viewStart) / (viewEnd - viewStart);
+    playhead.style.left = (Math.max(0, Math.min(1, visiblePos)) * 100) + '%';
     _phRaf = requestAnimationFrame(tickPlayhead);
   }
 
-  // Observe playing state changes via a MutationObserver on the card or polling
-  // Use a lightweight interval that starts/stops with visibility
   const phInterval = setInterval(() => {
     const st = window._confusynthState;
     if (st?.isPlaying && !_phRaf) {

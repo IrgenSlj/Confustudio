@@ -240,20 +240,29 @@ export default {
       });
       labelWrap.append(randBtn);
 
-      const cloneBtn = document.createElement('button');
-      cloneBtn.className = 'mtg-rand-btn';
-      cloneBtn.title = 'Clone track to next';
-      cloneBtn.textContent = '⧉';
-      cloneBtn.addEventListener('click', e => {
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'mtg-rand-btn';
+      copyBtn.title = 'Copy track steps';
+      copyBtn.textContent = '⧉';
+      copyBtn.addEventListener('click', e => {
         e.stopPropagation();
-        const nextTi = (ti + 1) % 8;
-        pattern.kit.tracks[nextTi].steps = JSON.parse(JSON.stringify(trk.steps));
-        ['machine','waveform','attack','decay','cutoff','resonance','drive','volume','pan','pitch','filterType'].forEach(key => {
-          if (trk[key] !== undefined) pattern.kit.tracks[nextTi][key] = trk[key];
-        });
+        state._trackCopyBuffer = JSON.parse(JSON.stringify(trk.steps));
         emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+        emit('toast', { msg: 'Track steps copied' });
       });
-      labelWrap.append(cloneBtn);
+      labelWrap.append(copyBtn);
+
+      const pasteBtn = document.createElement('button');
+      pasteBtn.className = 'mtg-rand-btn';
+      pasteBtn.title = 'Paste track steps';
+      pasteBtn.textContent = '▣';
+      pasteBtn.style.opacity = state._trackCopyBuffer ? '1' : '0.35';
+      pasteBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        if (!state._trackCopyBuffer) return;
+        emit('state:change', { path: 'action_trackPaste', value: { trackIndex: ti } });
+      });
+      labelWrap.append(pasteBtn);
 
       labelWrap.addEventListener('click', () => emit('track:select', { trackIndex: ti }));
       row.append(labelWrap);
