@@ -182,25 +182,84 @@ const LEGACY_STORAGE_KEY = 'confusynth-v2';
 // ─────────────────────────────────────────────
 const _history = [];
 let _historyIdx = -1;
+const _checkpoints = []; // {historyIdx, label, timestamp}
 
 function pushHistory(state) {
   // Trim any redo entries ahead of current position
   _history.splice(_historyIdx + 1);
+  // Prune checkpoints that pointed into removed redo entries
+  const pruneFrom = _historyIdx + 1;
+  for (let i = _checkpoints.length - 1; i >= 0; i--) {
+    if (_checkpoints[i].historyIdx >= pruneFrom) _checkpoints.splice(i, 1);
+  }
   _history.push(JSON.parse(JSON.stringify(state.project)));
-  if (_history.length > 50) _history.shift();
+  if (_history.length > 100) {
+    _history.shift();
+    // Adjust checkpoint indices after the oldest entry is evicted
+    for (let i = _checkpoints.length - 1; i >= 0; i--) {
+      _checkpoints[i].historyIdx--;
+      if (_checkpoints[i].historyIdx < 0) _checkpoints.splice(i, 1);
+    }
+  }
   _historyIdx = _history.length - 1;
+  updateUndoIndicator();
 }
 
 function undoHistory(state) {
   if (_historyIdx <= 0) return;
   _historyIdx--;
   state.project = JSON.parse(JSON.stringify(_history[_historyIdx]));
+  updateUndoIndicator();
 }
 
 function redoHistory(state) {
   if (_historyIdx >= _history.length - 1) return;
   _historyIdx++;
   state.project = JSON.parse(JSON.stringify(_history[_historyIdx]));
+  updateUndoIndicator();
+}
+
+function markCheckpoint(label) {
+  if (_historyIdx < 0) return;
+  // Replace any existing checkpoint at this exact history index
+  const existing = _checkpoints.findIndex(c => c.historyIdx === _historyIdx);
+  const entry = { historyIdx: _historyIdx, label: label || 'Checkpoint', timestamp: Date.now() };
+  if (existing >= 0) {
+    _checkpoints[existing] = entry;
+  } else {
+    _checkpoints.push(entry);
+  }
+  updateUndoIndicator();
+  showToast(`Checkpoint: ${entry.label}`);
+}
+
+function updateUndoIndicator() {
+  let ind = document.getElementById('undo-indicator');
+  if (!ind) {
+    ind = document.createElement('span');
+    ind.id = 'undo-indicator';
+    ind.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted);padding:0 4px;line-height:36px;cursor:default;';
+    const stopBtn = document.getElementById('btn-stop');
+    if (stopBtn?.parentNode) stopBtn.parentNode.insertBefore(ind, stopBtn.nextSibling);
+  }
+  const available = _historyIdx;
+  const total = _history.length;
+  ind.textContent = total > 0 ? `\u21BA${available}` : '';
+  ind.style.color = available > 0 ? 'var(--screen-text)' : 'var(--muted)';
+  // Build tooltip listing named checkpoints
+  if (_checkpoints.length > 0) {
+    const lines = _checkpoints
+      .slice()
+      .sort((a, b) => a.historyIdx - b.historyIdx)
+      .map(c => {
+        const marker = c.historyIdx === _historyIdx ? '> ' : '  ';
+        const time = new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        return `${marker}[${c.historyIdx}] ${c.label} (${time})`;
+      });
+    ind.title = lines.join('\n');
+  } else {
+    ind.title = '';
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -644,9 +703,8 @@ function emit(type, payload = {}) {
 
     // ── Step record: write note to cursor step, then advance ──
     case 'step:record': {
-      const recPattern = getActivePattern(state);
-      const recPat    = recPattern;
-      const cursor    = state._stepRecordCursor ?? 0;
+      const recPat = getActivePattern(state);
+      const cursor = state._stepRecordCursor ?? 0;
       const recQ      = state.recQuantize ?? 1;
       // Determine which tracks to write to: any recArmed, or fall back to selectedTrackIndex
       const armedIdxs = recPat.kit.tracks
@@ -1119,14 +1177,16 @@ function scheduleLoop() {
       // Resolve scene interpolation once per tick slot (shared across tracks)
       const sceneParams = interpolateScenes(state);
 
+      // Live recording: pre-compute armed state once per scheduler tick
+      const _anyRecArmed = pattern.kit.tracks.some(t => t.recArmed);
+
       // Per-track scheduling with individual step counters for polyrhythm
       pattern.kit.tracks.forEach((track, ti) => {
         const trackLen = (track.trackLength > 0) ? track.trackLength : pattern.length;
         const stepIdx = _trackStepIdx[ti];
 
         // Live recording: capture held MIDI notes onto armed tracks (or selected track if none armed)
-        const _anyArmed = pattern.kit.tracks.some(t => t.recArmed);
-        const _trackReceivesLive = _anyArmed ? track.recArmed : (ti === state.selectedTrackIndex);
+        const _trackReceivesLive = _anyRecArmed ? track.recArmed : (ti === state.selectedTrackIndex);
         if (state.isRecording && _trackReceivesLive && state._pressedKeys.size > 0) {
           // Quantize step index to nearest recQuantize subdivision
           const recQ = state.recQuantize ?? 1;

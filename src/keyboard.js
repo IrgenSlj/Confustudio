@@ -531,8 +531,8 @@ export function initKeyboard(state, emit, trackColors = []) {
 
     const page = state.currentPage;
 
-    // Pattern page: A-M = step toggles
-    if (page === 'pattern') {
+    // Pattern page: A-M = step toggles (unless step-record mode, where they become note keys)
+    if (page === 'pattern' && !state.stepRecordMode) {
       const stepIdx = STEP_KEYS.indexOf(e.code);
       if (stepIdx >= 0) {
         if (e.altKey)        emit('step:plockMode', { stepIndex: stepIdx });

@@ -2836,6 +2836,15 @@ button {
   padding-bottom: 6px;
 }
 
+.theme-swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
 .settings-row {
   display: flex;
   align-items: center;

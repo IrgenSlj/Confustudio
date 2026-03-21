@@ -10,6 +10,39 @@ function midiToNoteName(midi) {
   return NOTE_NAMES[midi % 12] + oct;
 }
 
+// ── Pitch detection via autocorrelation ───────────────────────────────────────
+// Returns the detected MIDI note (21–108), or null if no clear pitch is found.
+// Uses only the first 4096 samples to keep CPU cost bounded.
+function detectPitch(buffer, sampleRate) {
+  const data = buffer.getChannelData(0).slice(0, 4096);
+  const SIZE = data.length;
+  const corr = new Float32Array(SIZE);
+
+  for (let lag = 0; lag < SIZE; lag++) {
+    let sum = 0;
+    for (let i = 0; i < SIZE - lag; i++) {
+      sum += data[i] * data[i + lag];
+    }
+    corr[lag] = sum;
+  }
+
+  const minLag = Math.round(sampleRate / 2000); // 2 kHz max
+  const maxLag = Math.round(sampleRate / 40);   // 40 Hz min
+
+  let bestLag = -1, bestCorr = -Infinity;
+  for (let lag = minLag; lag < Math.min(maxLag, SIZE); lag++) {
+    if (corr[lag] > bestCorr) {
+      bestCorr = corr[lag];
+      bestLag = lag;
+    }
+  }
+
+  if (bestLag === -1 || bestCorr < 0.01) return null;
+  const freq = sampleRate / bestLag;
+  const midi = Math.round(12 * Math.log2(freq / 440) + 69);
+  return Math.max(21, Math.min(108, midi));
+}
+
 const CHORD_VOICINGS = {
   off:  [],
   maj:  [0, 4, 7],

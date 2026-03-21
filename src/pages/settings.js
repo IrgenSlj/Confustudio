@@ -823,6 +823,7 @@ export default {
     container.append(presetsSection);
 
     // ── Theme selector ───────────────────────────────────────────────────────
+    const themeAccentColors = { default: '#8fba4e', blue: '#4e8fbf', red: '#bf4e4e', mono: '#aaa' };
     const themes = ['default', 'blue', 'red', 'mono'];
     const themeSection = document.createElement('div');
     themeSection.className = 'settings-section';
@@ -832,16 +833,77 @@ export default {
     themes.forEach(theme => {
       const btn = document.createElement('button');
       btn.className = 'seq-btn' + ((state.theme ?? 'default') === theme ? ' active' : '');
-      btn.textContent = theme.charAt(0).toUpperCase() + theme.slice(1);
+      const swatch = document.createElement('span');
+      swatch.className = 'theme-swatch';
+      swatch.style.background = themeAccentColors[theme];
+      btn.append(swatch, theme.charAt(0).toUpperCase() + theme.slice(1));
       btn.addEventListener('click', () => {
         state.theme = theme;
         document.documentElement.dataset.theme = theme === 'default' ? '' : theme;
+        // Clear custom accent overrides when switching theme presets
+        document.documentElement.style.removeProperty('--accent');
+        document.documentElement.style.removeProperty('--screen-text');
+        state.customAccent = null;
+        state.customScreenText = null;
         saveState(state);
         emit('state:change', { path: 'action_renderPage', value: true });
       });
       themeBar.append(btn);
     });
     themeSection.append(themeBar);
+
+    // ── Custom accent color picker ────────────────────────────────────────────
+    const accentRow = document.createElement('div');
+    accentRow.className = 'settings-row';
+    accentRow.style.cssText = 'margin-top:8px;gap:6px;flex-wrap:wrap;';
+
+    const accentLabel = document.createElement('label');
+    accentLabel.textContent = 'Accent';
+    accentLabel.style.cssText = 'font-size:0.58rem;color:var(--muted)';
+
+    const accentInput = document.createElement('input');
+    accentInput.type = 'color';
+    accentInput.value = state.customAccent ?? '#8fba4e';
+    accentInput.title = 'Primary accent color';
+    accentInput.style.cssText = 'width:32px;height:24px;border:none;background:none;cursor:pointer;padding:0';
+    accentInput.addEventListener('input', e => {
+      document.documentElement.style.setProperty('--accent', e.target.value);
+      state.customAccent = e.target.value;
+      saveState(state);
+    });
+
+    const screenTextLabel = document.createElement('label');
+    screenTextLabel.textContent = 'Screen';
+    screenTextLabel.style.cssText = 'font-size:0.58rem;color:var(--muted);margin-left:6px';
+
+    const screenTextInput = document.createElement('input');
+    screenTextInput.type = 'color';
+    screenTextInput.value = state.customScreenText ?? '#c8e0a0';
+    screenTextInput.title = 'Screen / text color';
+    screenTextInput.style.cssText = 'width:32px;height:24px;border:none;background:none;cursor:pointer;padding:0';
+    screenTextInput.addEventListener('input', e => {
+      document.documentElement.style.setProperty('--screen-text', e.target.value);
+      state.customScreenText = e.target.value;
+      saveState(state);
+    });
+
+    const resetColorsBtn = document.createElement('button');
+    resetColorsBtn.className = 'ctx-btn';
+    resetColorsBtn.textContent = 'Reset';
+    resetColorsBtn.title = 'Restore theme default colors';
+    resetColorsBtn.style.cssText = 'font-size:0.56rem;margin-left:auto';
+    resetColorsBtn.addEventListener('click', () => {
+      document.documentElement.style.removeProperty('--accent');
+      document.documentElement.style.removeProperty('--screen-text');
+      state.customAccent = null;
+      state.customScreenText = null;
+      accentInput.value = themeAccentColors[state.theme ?? 'default'];
+      screenTextInput.value = '#c8e0a0';
+      saveState(state);
+    });
+
+    accentRow.append(accentLabel, accentInput, screenTextLabel, screenTextInput, resetColorsBtn);
+    themeSection.append(accentRow);
     container.append(themeSection);
 
     // ── Auto-save indicator ──────────────────────────────────────────────────
