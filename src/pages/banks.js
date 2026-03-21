@@ -231,6 +231,36 @@ export default {
         });
       });
 
+      // Duplicate button per pattern row
+      const dupBtn = document.createElement('button');
+      dupBtn.className = 'seq-btn';
+      dupBtn.textContent = '⧉';
+      dupBtn.title = 'Duplicate pattern to next empty slot';
+      dupBtn.style.cssText = 'font-size:0.6rem;padding:1px 4px;margin-top:2px';
+      dupBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        const patterns = state.project.banks[activeBank].patterns;
+        const isEmptyPattern = p => !p.kit?.tracks?.some(t => t.steps?.some(s => s.active));
+        // Find first empty slot after current, then wrap around
+        let targetIdx = -1;
+        for (let i = pi + 1; i < patterns.length; i++) {
+          if (isEmptyPattern(patterns[i])) { targetIdx = i; break; }
+        }
+        if (targetIdx === -1) {
+          for (let i = 0; i < pi; i++) {
+            if (isEmptyPattern(patterns[i])) { targetIdx = i; break; }
+          }
+        }
+        // If still no empty slot, use next index (wrapping)
+        if (targetIdx === -1) {
+          targetIdx = (pi + 1) % patterns.length;
+        }
+        patterns[targetIdx] = JSON.parse(JSON.stringify(patterns[pi]));
+        emit('state:change', { path: 'scale', value: state.scale });
+        emit('toast', { msg: `Duplicated to slot ${String(targetIdx + 1).padStart(2, '0')}` });
+      });
+      btn.append(dupBtn);
+
       patGrid.append(btn);
     });
     container.append(patGrid);
@@ -311,6 +341,62 @@ export default {
       <span class="pinfo-stat">${activeTracks} tracks</span>
       <span class="pinfo-stat">${totalSteps} notes</span>
     `;
+
+    // Export button
+    const exportBtn = document.createElement('button');
+    exportBtn.className = 'seq-btn';
+    exportBtn.textContent = 'Export';
+    exportBtn.title = 'Export pattern as JSON';
+    exportBtn.style.cssText = 'font-size:0.5rem;padding:2px 6px';
+    exportBtn.addEventListener('click', () => {
+      const bankName = BANK_LETTERS[activeBank];
+      const patternName = pat.name.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `confusynth-pattern-${bankName}-${patternName}.json`;
+      const blob = new Blob([JSON.stringify(pat, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // Import button
+    const importBtn = document.createElement('button');
+    importBtn.className = 'seq-btn';
+    importBtn.textContent = 'Import';
+    importBtn.title = 'Import pattern from JSON file';
+    importBtn.style.cssText = 'font-size:0.5rem;padding:2px 6px';
+    importBtn.addEventListener('click', () => {
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = '.json';
+      fileInput.style.display = 'none';
+      fileInput.addEventListener('change', () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+          try {
+            const imported = JSON.parse(e.target.result);
+            if (!imported.kit) {
+              emit('toast', { msg: 'Invalid pattern: missing kit' });
+              return;
+            }
+            const target = state.project.banks[activeBank].patterns[activePattern];
+            Object.assign(target, JSON.parse(JSON.stringify(imported)));
+            emit('state:change', { path: 'scale', value: state.scale });
+            emit('toast', { msg: 'Pattern imported' });
+          } catch (err) {
+            emit('toast', { msg: 'Import failed: invalid JSON' });
+          }
+        };
+        reader.readAsText(file);
+      });
+      document.body.appendChild(fileInput);
+      fileInput.click();
+      document.body.removeChild(fileInput);
+    });
+
+    infoPanel.append(exportBtn, importBtn);
     container.append(infoPanel);
   },
 

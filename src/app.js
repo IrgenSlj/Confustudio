@@ -354,6 +354,39 @@ function handleStateChange(path, value, pattern) {
     return;
   }
 
+  if (path === 'morphCurve') {
+    state.morphCurve = value;
+    scheduleSave();
+    renderPage();
+    return;
+  }
+
+  if (path === 'scene_noInterp') {
+    // value: { sceneIdx, param, checked }
+    const { sceneIdx, param, checked } = value;
+    if (!state.project.scenes[sceneIdx]) state.project.scenes[sceneIdx] = {};
+    const scene = state.project.scenes[sceneIdx];
+    if (!Array.isArray(scene.noInterp)) scene.noInterp = [];
+    if (checked) {
+      if (!scene.noInterp.includes(param)) scene.noInterp.push(param);
+    } else {
+      scene.noInterp = scene.noInterp.filter(p => p !== param);
+    }
+    scheduleSave();
+    renderPage();
+    return;
+  }
+
+  if (path === 'scene_recall') {
+    // value: { idx } — set crossfader to 0, select scene as A
+    const { idx } = value;
+    state.sceneA = idx;
+    state.crossfader = 0;
+    scheduleSave();
+    renderPage();
+    return;
+  }
+
   if (path === 'patternShift') {
     state.patternShift = value;
     const track = getActiveTrack(state);
@@ -1673,6 +1706,45 @@ function bindUI() {
         );
         renderPage();
         return;
+      }
+    }
+
+    // Scene quick-snapshot hotkeys (only on scenes page)
+    if (state.currentPage === 'scenes') {
+      const digit = parseInt(e.key, 10);
+      if (digit >= 1 && digit <= 8) {
+        const idx = digit - 1;
+        // Shift+1-8: take snapshot A for scene index
+        if (e.shiftKey && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          const pat = getActivePattern(state);
+          const tracks = pat.kit.tracks;
+          if (!state.project.scenes[idx]) state.project.scenes[idx] = {};
+          if (!state.project.scenes[idx].tracks) {
+            state.project.scenes[idx].tracks = Array.from({ length: 8 }, () => ({}));
+          }
+          tracks.forEach((t, ti) => {
+            state.project.scenes[idx].tracks[ti] = {
+              cutoff: t.cutoff, decay: t.decay, delaySend: t.delaySend,
+              pitch: t.pitch, volume: t.volume,
+            };
+          });
+          // Also sync top-level scenes array
+          if (state.scenes[idx]) {
+            state.scenes[idx].tracks = state.project.scenes[idx].tracks.map(t => ({ ...t }));
+          }
+          scheduleSave();
+          renderPage();
+          showToast(`Snapshot → Scene ${String.fromCharCode(65 + idx)}`);
+          return;
+        }
+        // Ctrl+1-8: recall scene (set as A, crossfader to 0)
+        if (e.ctrlKey && !e.shiftKey && !e.metaKey) {
+          e.preventDefault();
+          emit('state:change', { path: 'scene_recall', value: { idx } });
+          showToast(`Recall Scene ${String.fromCharCode(65 + idx)}`);
+          return;
+        }
       }
     }
   });
