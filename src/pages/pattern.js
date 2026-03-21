@@ -65,6 +65,26 @@ export default {
     `;
     container.append(header);
 
+    // ── Follow action selector ────────────────────────────────────────────────
+    const followDiv = document.createElement('div');
+    followDiv.style.cssText = 'display:flex;align-items:center;gap:3px';
+    const FA_OPTIONS = ['loop','next','prev','random','first','stop'];
+    followDiv.innerHTML = `<label style="font-family:var(--font-mono);font-size:0.5rem;color:var(--muted)">→</label>`;
+    const faSelect = document.createElement('select');
+    faSelect.style.cssText = 'background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 4px;font-family:var(--font-mono);font-size:0.5rem';
+    FA_OPTIONS.forEach(fa => {
+      const opt = document.createElement('option');
+      opt.value = fa; opt.textContent = fa;
+      if (fa === (pattern.followAction ?? 'next')) opt.selected = true;
+      faSelect.append(opt);
+    });
+    faSelect.addEventListener('change', () => {
+      pattern.followAction = faSelect.value;
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+    });
+    followDiv.append(faSelect);
+    header.append(followDiv);
+
     // ── Fill mode visual indicator ────────────────────────────────────────────
     if (state._fillActive) {
       const fillBadge = document.createElement('span');
@@ -547,6 +567,18 @@ export default {
       actionsDiv.append(btn);
     });
 
+    // ── Lock button ───────────────────────────────────────────────────────────
+    const lockBtn = document.createElement('button');
+    lockBtn.className = 'seq-btn' + (state.patternLocked ? ' active' : '');
+    lockBtn.textContent = state.patternLocked ? '🔒' : '🔓';
+    lockBtn.style.cssText = 'font-size:0.7rem;padding:2px 5px';
+    lockBtn.title = 'Lock pattern (prevent accidental edits)';
+    lockBtn.addEventListener('click', () => {
+      state.patternLocked = !state.patternLocked;
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+    });
+    actionsDiv.prepend(lockBtn);
+
     const fillBtn = document.createElement('button');
     fillBtn.className = 'seq-btn' + (state._fillActive ? ' active' : '');
     fillBtn.textContent = 'Fill';
@@ -555,6 +587,30 @@ export default {
       emit('state:change', { path: 'action_fill', value: true })
     );
     actionsDiv.prepend(fillBtn);
+
+    // ── Morph button ──────────────────────────────────────────────────────────
+    const morphBtn = document.createElement('button');
+    morphBtn.className = 'seq-btn';
+    morphBtn.textContent = 'Morph';
+    morphBtn.title = 'Morph toward pattern B';
+    morphBtn.addEventListener('click', () => {
+      const targetPat = state.patternCompareB;
+      if (!targetPat) { alert('Set Pattern B first (Banks page)'); return; }
+      const src = pattern.kit.tracks;
+      const dst = state.project.banks[targetPat.bank].patterns[targetPat.pattern].kit.tracks;
+      src.forEach((trk, ti) => {
+        const dstTrk = dst[ti];
+        if (!dstTrk) return;
+        trk.steps.forEach((step, si) => {
+          if (Math.random() < 0.5) {
+            step.active = dstTrk.steps[si]?.active ?? false;
+            step.accent = dstTrk.steps[si]?.accent ?? false;
+          }
+        });
+      });
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+    });
+    actionsDiv.append(morphBtn);
 
     // Selection count badge + Clear Sel button
     const selCount = state._selectedSteps?.size ?? 0;
@@ -623,6 +679,30 @@ export default {
       emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
     });
     actionsDiv.append(humanizeDiv);
+
+    // ── Swing visualizer ──────────────────────────────────────────────────────
+    const swingViz = document.createElement('svg');
+    swingViz.setAttribute('viewBox', '0 0 60 12');
+    swingViz.style.cssText = 'width:60px;height:12px;flex-shrink:0';
+    const swing = state.swing ?? 0;
+    for (let i = 0; i < 8; i++) {
+      const baseX = 4 + i * 7;
+      const offset = (i % 2 === 1) ? swing * 20 : 0;
+      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dot.setAttribute('cx', baseX + offset);
+      dot.setAttribute('cy', 6);
+      dot.setAttribute('r', i % 2 === 0 ? 2.5 : 1.5);
+      dot.setAttribute('fill', i % 2 === 0 ? 'var(--accent)' : 'var(--muted)');
+      swingViz.append(dot);
+    }
+    const swingLabel = document.createElement('span');
+    swingLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted)';
+    swingLabel.textContent = `${Math.round(swing * 100)}%`;
+
+    const swingDiv = document.createElement('div');
+    swingDiv.style.cssText = 'display:flex;align-items:center;gap:3px;flex-shrink:0';
+    swingDiv.append(swingViz, swingLabel);
+    toolbar.append(swingDiv);
 
     toolbar.append(euclidDiv, actionsDiv);
     wrapper.append(toolbar);

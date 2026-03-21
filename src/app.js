@@ -469,6 +469,7 @@ function emit(type, payload = {}) {
 
     // ── Steps ──
     case 'step:toggle': {
+      if (state.patternLocked) return; // ignore when locked
       const step = pattern.kit.tracks[state.selectedTrackIndex].steps[payload.stepIndex];
       if (!step) break;
       pushHistory(state);
@@ -1003,8 +1004,16 @@ function scheduleLoop() {
         // Pattern chain: advance to next pattern after chainLength loops
         if ((state.chainPatterns ?? false) && !state.arrangementMode) {
           if (state._patternLoopCount >= (state.chainLength ?? 1)) {
+            const followAction = getActivePattern(state).followAction ?? 'next';
             state._patternLoopCount = 0;
-            state.activePattern = (state.activePattern + 1) % 16;
+            switch (followAction) {
+              case 'next':   state.activePattern = (state.activePattern + 1) % 16; break;
+              case 'prev':   state.activePattern = (state.activePattern + 15) % 16; break;
+              case 'random': state.activePattern = Math.floor(Math.random() * 16); break;
+              case 'first':  state.activePattern = 0; break;
+              case 'stop':   emit('transport:stop'); break;
+              case 'loop':   /* stay on current pattern */ break;
+            }
           }
         }
       }
@@ -1073,6 +1082,7 @@ function stopPlay() {
   state._playingNotes.clear();
   state._pressedKeys.clear();
   if (_schedRafId) { cancelAnimationFrame(_schedRafId); _schedRafId = null; }
+  state.engine?.stopAllNotes();
   updateTransportUI();
   renderPlayhead();
 }
@@ -1415,9 +1425,33 @@ function bindUI() {
   el.leftKnobs.addEventListener('knob:change', e => emit('knob:change', e.detail));
   el.rightKnobs.addEventListener('knob:change', e => emit('knob:change', e.detail));
 
-  // Undo / Redo keyboard shortcuts
+  // Undo / Redo keyboard shortcuts + Piano Roll copy/paste
   document.addEventListener('keydown', e => {
     if (!e.ctrlKey && !e.metaKey) return;
+
+    // Piano Roll copy/paste
+    if (state.currentPage === 'piano-roll') {
+      if (e.key === 'c') {
+        e.preventDefault();
+        const track = getActiveTrack(state);
+        state.rollCopyBuffer = JSON.parse(JSON.stringify(track.steps));
+        showToast('Notes copied');
+        return;
+      }
+      if (e.key === 'v') {
+        e.preventDefault();
+        if (state.rollCopyBuffer) {
+          pushHistory(state);
+          const track = getActiveTrack(state);
+          track.steps = JSON.parse(JSON.stringify(state.rollCopyBuffer));
+          renderPage();
+          saveState(state);
+          showToast('Notes pasted');
+        }
+        return;
+      }
+    }
+
     if (e.key === 'z' || e.key === 'Z') {
       if (e.shiftKey) {
         redoHistory(state);
@@ -1640,6 +1674,10 @@ function bindUI() {
 function boot() {
   bindUI();
   initKeyboard(state, emit);
+  // Apply saved colour theme
+  if (state.theme && state.theme !== 'default') {
+    document.documentElement.dataset.theme = state.theme;
+  }
   renderAll();
   if (el.masterVolume) el.masterVolume.value = state.masterLevel;
   initStudio();

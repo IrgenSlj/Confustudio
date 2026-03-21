@@ -42,6 +42,34 @@
 }
 
 /* ============================================================
+   COLOUR THEMES
+   ============================================================ */
+
+/* Theme: Blue */
+[data-theme="blue"] {
+  --accent:      #40a0f0;
+  --live:        #f040a0;
+  --screen-text: #80c0f0;
+  --muted:       #4a6a8a;
+}
+
+/* Theme: Red */
+[data-theme="red"] {
+  --accent:      #f04040;
+  --live:        #f0a040;
+  --screen-text: #f08080;
+  --muted:       #8a4a4a;
+}
+
+/* Theme: Mono */
+[data-theme="mono"] {
+  --accent:      #ffffff;
+  --live:        #aaaaaa;
+  --screen-text: #cccccc;
+  --muted:       #666666;
+}
+
+/* ============================================================
    RESET & BASE
    ============================================================ */
 
@@ -2918,6 +2946,7 @@ button {
   border-right: 1px solid rgba(255,255,255,0.03);
   cursor: pointer;
   transition: background 0.05s;
+  position: relative;
 }
 
 .piano-cell.beat-start {
@@ -2939,6 +2968,25 @@ button {
 
 .piano-cell.gate-long  { border-right: 2px solid var(--track-color, var(--accent)); }
 .piano-cell.gate-short { opacity: 0.6 !important; }
+
+.note-resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 5px;
+  height: 100%;
+  cursor: ew-resize;
+  background: rgba(255,255,255,0.25);
+  border-radius: 0 2px 2px 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.piano-cell.active:hover .note-resize-handle {
+  opacity: 1;
+}
+
+.roll-vel-lane { background: #0a0e06; }
+.vel-bar { transition: height 0.05s; }
 
 .roll-scale-bar {
   display: flex;

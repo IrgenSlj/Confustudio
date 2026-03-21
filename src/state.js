@@ -72,7 +72,7 @@ export function createTrack(index) {
     lfoTarget:    "cutoff",
 
     // MIDI
-    midiChannel:  index + 1,
+    midiChannel:  null,     // null = use global state.midiChannel
     midiPort:     null,
 
     // Per-track length (0 = follow pattern.length)
@@ -182,8 +182,11 @@ function createScene(sceneIndex) {
 
 export function createProject() {
   return {
-    name:  "New Project",
-    banks: Array.from({ length: BANK_COUNT }, (_, bi) => createBank(bi)),
+    name:        "New Project",
+    author:      "",
+    description: "",
+    createdAt:   Date.now(),
+    banks:       Array.from({ length: BANK_COUNT }, (_, bi) => createBank(bi)),
   };
 }
 
@@ -371,6 +374,7 @@ export function saveState(state) {
   _saveTimer = setTimeout(() => {
     _saveTimer = null;
     try {
+      state._lastSaveTime = Date.now();
       const serializable = stripRuntime(state);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
     } catch (err) {

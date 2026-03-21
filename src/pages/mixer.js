@@ -361,6 +361,27 @@ export default {
 
       msRow.append(muteBtn, soloBtn);
       strip.append(msRow);
+
+      // ── Bus selector ─────────────────────────────────────────────────────
+      const busRow = document.createElement('div');
+      busRow.style.cssText = 'display:flex;gap:2px;margin-top:3px';
+      const currentBus = track.outputBus ?? 'master';
+      [['master', 'M'], ['bus1', 'B1'], ['bus2', 'B2']].forEach(([val, label]) => {
+        const btn = document.createElement('button');
+        btn.className = 'fader-cue' + (currentBus === val ? ' active' : '');
+        btn.textContent = label;
+        btn.title = `Route to ${val}`;
+        btn.style.cssText = 'font-size:0.44rem;padding:1px 3px;flex:1';
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          busRow.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          emit('track:change', { trackIndex: ti, param: 'outputBus', value: val });
+        });
+        busRow.append(btn);
+      });
+      strip.append(busRow);
+
       faderGrid.append(strip);
     });
 

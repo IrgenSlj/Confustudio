@@ -125,38 +125,64 @@ export default {
 
       </div>`;
 
-    // Project name editor
-    const nameWrap = document.createElement('div');
-    nameWrap.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-shrink:0;padding-bottom:8px;border-bottom:1px solid var(--border)';
+    // ── Project metadata section ─────────────────────────────────────────────
+    if (!state.project.createdAt) state.project.createdAt = Date.now();
 
-    const nameInput = document.createElement('input');
-    nameInput.type = 'text';
-    nameInput.value = state.project?.name ?? 'New Project';
-    nameInput.maxLength = 32;
-    nameInput.placeholder = 'Project name';
-    nameInput.style.cssText = `
-      flex:1; background:#1a1a1a; color:var(--screen-text);
-      border:1px solid var(--border); border-radius:4px;
-      padding:5px 8px; font-family:var(--font-mono); font-size:0.72rem;
-      outline:none;
+    const metaSection = document.createElement('div');
+    metaSection.className = 'settings-section';
+    metaSection.style.cssText = 'flex-shrink:0;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)';
+    metaSection.innerHTML = `
+      <div class="settings-label">PROJECT INFO</div>
+      <div class="settings-row">
+        <label>Name</label>
+        <input type="text" value="${(state.project.name ?? '').replace(/"/g, '&quot;')}" id="proj-name-input" style="flex:1;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:2px 5px;font-family:var(--font-mono);font-size:0.55rem">
+      </div>
+      <div class="settings-row">
+        <label>Author</label>
+        <input type="text" value="${(state.project.author ?? '').replace(/"/g, '&quot;')}" id="proj-author-input" style="flex:1;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:2px 5px;font-family:var(--font-mono);font-size:0.55rem">
+      </div>
+      <div class="settings-row">
+        <label>BPM</label>
+        <input type="number" min="40" max="240" value="${state.bpm ?? 120}" id="proj-bpm-input" style="width:52px;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:2px 5px;font-family:var(--font-mono);font-size:0.55rem">
+      </div>
+      <div class="settings-row">
+        <label>Notes</label>
+        <textarea id="proj-desc-input" rows="2" style="flex:1;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:2px 5px;font-family:var(--font-mono);font-size:0.52rem;resize:vertical">${state.project.description ?? ''}</textarea>
+      </div>
+      <div class="settings-row" style="color:var(--muted);font-size:0.48rem;font-family:var(--font-mono)">
+        Created: ${state.project.createdAt ? new Date(state.project.createdAt).toLocaleDateString() : 'Unknown'}
+      </div>
     `;
-    nameInput.addEventListener('input', () => {
+    container.prepend(metaSection);
+
+    // Wire metadata inputs
+    metaSection.querySelector('#proj-name-input').addEventListener('input', e => {
       if (state.project) {
-        state.project.name = nameInput.value;
-        // Update topbar
-        const el = document.getElementById('project-name');
-        if (el) el.textContent = nameInput.value || 'CONFUsynth';
+        state.project.name = e.target.value;
+        const topbarEl = document.getElementById('project-name');
+        if (topbarEl) topbarEl.textContent = e.target.value || 'CONFUsynth';
         saveState(state);
       }
     });
-    nameInput.addEventListener('focus', () => nameInput.select());
-
-    const nameLabel = document.createElement('span');
-    nameLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--muted);flex-shrink:0';
-    nameLabel.textContent = 'PROJECT';
-
-    nameWrap.append(nameLabel, nameInput);
-    container.prepend(nameWrap);
+    metaSection.querySelector('#proj-author-input').addEventListener('blur', e => {
+      if (state.project) {
+        state.project.author = e.target.value;
+        saveState(state);
+      }
+    });
+    metaSection.querySelector('#proj-bpm-input').addEventListener('change', e => {
+      const v = Math.max(40, Math.min(240, parseInt(e.target.value, 10) || 120));
+      e.target.value = v;
+      state.bpm = v;
+      emit('state:change', { path: 'bpm', value: v });
+      saveState(state);
+    });
+    metaSection.querySelector('#proj-desc-input').addEventListener('blur', e => {
+      if (state.project) {
+        state.project.description = e.target.value;
+        saveState(state);
+      }
+    });
 
     container.addEventListener('click', e => {
       const btn = e.target.closest('[data-action]');
@@ -383,6 +409,28 @@ export default {
     progSection.append(progGrid);
     container.append(progSection);
 
+    // ── MIDI Channels ────────────────────────────────────────────────────────
+    const midiChSection = document.createElement('div');
+    midiChSection.className = 'settings-section';
+    midiChSection.innerHTML = '<div class="settings-label">MIDI CHANNELS (0=global)</div>';
+    const midiChGrid = document.createElement('div');
+    midiChGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:3px;';
+    tracks.forEach((trk, ti) => {
+      const val = trk.midiChannel ?? 0;
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:0.52rem;color:var(--muted)';
+      row.innerHTML = `<span>T${ti+1}</span><input type="number" min="0" max="16" value="${val}"
+        style="width:38px;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 3px;font-family:var(--font-mono);font-size:0.52rem">`;
+      row.querySelector('input').addEventListener('change', e => {
+        const v = parseInt(e.target.value) || 0;
+        trk.midiChannel = v > 0 ? v : null;
+        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      });
+      midiChGrid.append(row);
+    });
+    midiChSection.append(midiChGrid);
+    container.append(midiChSection);
+
     // ── Performance Monitor ──────────────────────────────────────────────────
     const perfSection = container.querySelector('#perf-section');
     if (perfSection) {
@@ -510,6 +558,35 @@ export default {
     presetBar.append(saveBtn, loadInput, loadBtn, saveKitBtn, loadKitInput, loadKitBtn);
     presetsSection.append(presetBar);
     container.append(presetsSection);
+
+    // ── Theme selector ───────────────────────────────────────────────────────
+    const themes = ['default', 'blue', 'red', 'mono'];
+    const themeSection = document.createElement('div');
+    themeSection.className = 'settings-section';
+    themeSection.innerHTML = '<div class="settings-label">THEME</div>';
+    const themeBar = document.createElement('div');
+    themeBar.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;';
+    themes.forEach(theme => {
+      const btn = document.createElement('button');
+      btn.className = 'seq-btn' + ((state.theme ?? 'default') === theme ? ' active' : '');
+      btn.textContent = theme.charAt(0).toUpperCase() + theme.slice(1);
+      btn.addEventListener('click', () => {
+        state.theme = theme;
+        document.documentElement.dataset.theme = theme === 'default' ? '' : theme;
+        saveState(state);
+        emit('state:change', { path: 'action_renderPage', value: true });
+      });
+      themeBar.append(btn);
+    });
+    themeSection.append(themeBar);
+    container.append(themeSection);
+
+    // ── Auto-save indicator ──────────────────────────────────────────────────
+    const saveStatusDiv = document.createElement('div');
+    saveStatusDiv.style.cssText = 'font-family:var(--font-mono);font-size:0.5rem;color:var(--muted);padding:4px 0 2px';
+    const lastSave = state._lastSaveTime ? new Date(state._lastSaveTime).toLocaleTimeString() : 'Never';
+    saveStatusDiv.textContent = `Auto-save: ${lastSave}`;
+    container.append(saveStatusDiv);
 
     container.addEventListener('change', e => {
       const el = e.target;

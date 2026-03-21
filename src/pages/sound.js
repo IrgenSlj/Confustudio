@@ -499,6 +499,28 @@ export default {
       mixCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti))
     );
 
+    // Velocity curve selector
+    const velCurveRow = document.createElement('div');
+    velCurveRow.style.cssText = 'display:flex;align-items:center;gap:5px;margin-top:6px;font-family:var(--font-mono);font-size:0.58rem';
+    const velCurveLabel = document.createElement('span');
+    velCurveLabel.style.cssText = 'color:var(--muted);flex-shrink:0';
+    velCurveLabel.textContent = 'Vel Curve';
+    const velCurveBtns = document.createElement('div');
+    velCurveBtns.style.cssText = 'display:flex;gap:4px';
+    ['linear', 'exp', 'comp'].forEach(c => {
+      const btn = document.createElement('button');
+      btn.className = 'ctx-btn' + ((track.velocityCurve ?? 'linear') === c ? ' active' : '');
+      btn.textContent = c === 'linear' ? 'Lin' : c === 'exp' ? 'Exp' : 'Comp';
+      btn.addEventListener('click', () => {
+        velCurveBtns.querySelectorAll('.ctx-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        emit('track:change', { trackIndex: ti, param: 'velocityCurve', value: c });
+      });
+      velCurveBtns.append(btn);
+    });
+    velCurveRow.append(velCurveLabel, velCurveBtns);
+    mixCard.append(velCurveRow);
+
     // Per-track swing override row
     const swingRow = document.createElement('div');
     swingRow.style.cssText = 'display:flex;align-items:center;gap:5px;margin-top:4px;font-family:var(--font-mono);font-size:0.58rem';

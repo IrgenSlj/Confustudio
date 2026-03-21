@@ -211,6 +211,39 @@ export default {
           cell.title = `${name} vel:${Math.round(vel * 127)} gate:${Math.round(gate * 100)}%`;
           if (gate >= 0.75) cell.classList.add('gate-long');
           else if (gate <= 0.25) cell.classList.add('gate-short');
+
+          // Resize handle for gate length
+          const handle = document.createElement('div');
+          handle.className = 'note-resize-handle';
+
+          handle.addEventListener('pointerdown', ev => {
+            ev.stopPropagation();
+            ev.preventDefault();
+            handle.setPointerCapture(ev.pointerId);
+            const startX = ev.clientX;
+            const startGate = track.steps[si].gate ?? 0.5;
+
+            function onMove(emv) {
+              const deltaX = emv.clientX - startX;
+              const deltaGate = deltaX / cellW;
+              const newGate = Math.max(0.05, Math.min(1, startGate + deltaGate));
+              track.steps[si].gate = newGate;
+              cell.classList.remove('gate-long', 'gate-short');
+              if (newGate >= 0.75) cell.classList.add('gate-long');
+              else if (newGate <= 0.25) cell.classList.add('gate-short');
+              cell.title = `${name} vel:${Math.round((track.steps[si].velocity ?? 1) * 127)} gate:${Math.round(newGate * 100)}%`;
+            }
+
+            function onUp() {
+              handle.removeEventListener('pointermove', onMove);
+              emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+            }
+
+            handle.addEventListener('pointermove', onMove);
+            handle.addEventListener('pointerup', onUp, { once: true });
+          });
+
+          cell.append(handle);
         }
 
         // Velocity drag on active cells
@@ -261,6 +294,52 @@ export default {
     scrollContainer.append(gridView);
     view.append(keysCol, scrollContainer);
     container.append(view);
+
+    // Velocity lane
+    const velLane = document.createElement('div');
+    velLane.className = 'roll-vel-lane';
+    velLane.style.cssText = 'display:flex;height:32px;flex-shrink:0;border-top:1px solid #2a2a2a;overflow-x:hidden;position:relative;';
+
+    track.steps.slice(0, patLen).forEach((step, si) => {
+      const bar = document.createElement('div');
+      bar.className = 'vel-bar';
+      const vel = step.velocity ?? 1;
+      bar.style.cssText = `
+        width: ${cellW}px; min-width: ${cellW}px; flex-shrink: 0;
+        height: ${Math.round(vel * 100)}%; align-self: flex-end;
+        background: ${step.active ? 'var(--track-color, var(--accent))' : '#333'};
+        cursor: ns-resize; border-right: 1px solid #1a1a1a;
+        box-sizing: border-box;
+      `;
+
+      if (step.active) {
+        let dragStartY, dragStartVel;
+        bar.addEventListener('pointerdown', e => {
+          e.preventDefault();
+          bar.setPointerCapture(e.pointerId);
+          dragStartY = e.clientY;
+          dragStartVel = step.velocity ?? 1;
+
+          function onMove(emv) {
+            const v = Math.max(0.05, Math.min(1, dragStartVel + (dragStartY - emv.clientY) / 40));
+            step.velocity = v;
+            bar.style.height = Math.round(v * 100) + '%';
+          }
+
+          function onUp() {
+            bar.removeEventListener('pointermove', onMove);
+            emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+          }
+
+          bar.addEventListener('pointermove', onMove);
+          bar.addEventListener('pointerup', onUp, { once: true });
+        });
+      }
+
+      velLane.append(bar);
+    });
+
+    container.append(velLane);
   },
 
   knobMap: [

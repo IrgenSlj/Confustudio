@@ -44,6 +44,12 @@ export class AudioEngine {
     this.master = context.createGain();
     this.master.gain.value = 0.82;
 
+    // Sub-mix buses — connect before master so tracks can route to bus1/bus2
+    this.bus1 = context.createGain(); this.bus1.gain.value = 1;
+    this.bus2 = context.createGain(); this.bus2.gain.value = 1;
+    this.bus1.connect(this.master);
+    this.bus2.connect(this.master);
+
     // Master dynamics compressor — inserted between masterGain and masterSaturator
     this.masterCompressor = context.createDynamicsCompressor();
     this.masterCompressor.threshold.value = -18;
@@ -385,7 +391,7 @@ export class AudioEngine {
 
   sendMidiNote(track, note, velocity, durationSec) {
     if (!this.midiOutput) return;
-    const ch = (track.midiChannel - 1) & 0xf;
+    const ch = ((track.midiChannel ?? this.midiChannel ?? 1) - 1) & 0xf;
     const vel = Math.round(velocity * 127);
     this.midiOutput.send([0x90 | ch, note, vel]);
     setTimeout(() => this.midiOutput.send([0x80 | ch, note, 0]), durationSec * 1000);
@@ -478,7 +484,13 @@ export class AudioEngine {
     const note = options.note ?? params.pitch;
     const velScale = options.velocity ?? 1;
     const retrig = params.retrig ?? 1;
-    const loudness = (accent ? 1.22 : 1) * params.volume * velScale;
+
+    // Velocity curve shaping
+    const curve = params.velocityCurve ?? 'linear';
+    let finalVel = velScale;
+    if (curve === 'exp')  finalVel = Math.pow(velScale, 2);
+    if (curve === 'comp') finalVel = Math.pow(velScale, 0.5);
+    const loudness = (accent ? 1.22 : 1) * params.volume * finalVel;
 
     // Crossfader comes from the track's stored crossfader value or falls back to 0.5
     const crossfader = typeof params.crossfader === "number" ? params.crossfader : 0.5;
@@ -578,9 +590,28 @@ export class AudioEngine {
 
     eqTail.connect(panner);
 
-    panner.connect(filter);
+    // Stereo width: width < 0.1 collapses to mono via channel merger
+    const stereoWidth = params.stereoWidth ?? 1;
+    if (stereoWidth < 0.1) {
+      const splitter = this.context.createChannelSplitter(2);
+      const merger   = this.context.createChannelMerger(2);
+      panner.connect(splitter);
+      // Sum both channels into L and R equally — produces mono
+      splitter.connect(merger, 0, 0);
+      splitter.connect(merger, 0, 1);
+      splitter.connect(merger, 1, 0);
+      splitter.connect(merger, 1, 1);
+      merger.connect(filter);
+    } else {
+      panner.connect(filter);
+    }
+
+    // Determine output bus for this track's dry signal and sends
+    const busTarget = params.outputBus === 'bus1' ? this.bus1 :
+                      params.outputBus === 'bus2' ? this.bus2 : this.master;
+
     filter.connect(saturator);
-    saturator.connect(this.master);
+    saturator.connect(busTarget);
 
     const delaySendGain = this.interpolateScene(
       params.sceneA.delaySend,
@@ -866,6 +897,16 @@ export class AudioEngine {
   sendProgramChange(channel, program) {
     if (!this.midiOutput) return;
     this.midiOutput.send([0xC0 | ((channel - 1) & 0x0f), program & 0x7f]);
+  }
+
+  // Quickly silence any sustained notes by ramping master gain to 0 and back.
+  // Used when the sequencer stops to cut off oscillators that are still sounding.
+  stopAllNotes() {
+    const ctx = this.context;
+    this.master.gain.setTargetAtTime(0, ctx.currentTime, 0.01);
+    setTimeout(() => {
+      this.master.gain.setTargetAtTime(0.82, ctx.currentTime, 0.05);
+    }, 100);
   }
 }
 
