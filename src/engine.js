@@ -918,11 +918,17 @@ export class AudioEngine {
       const offsetSec   = bufDur * sampleStart;
       const clipDur     = bufDur * (sampleEnd - sampleStart);
 
+      // Key tracking: when enabled, pitch the sample relative to its stored root note
+      // (params.note, set by auto-detect or manually). playbackRate = 2^((played-root)/12).
+      // When key tracking is off, play at unity (1.0) regardless of the sequencer note.
+      const samplePlaybackRate = params.keyTracking
+        ? Math.pow(2, ((note ?? (params.note ?? 60)) - (params.note ?? 60)) / 12)
+        : 1;
+
       if (this._workletReady) {
         // High-quality 4-point Hermite resampler via AudioWorklet
         const node = new AudioWorkletNode(this.context, 'cs-resampler');
         const channelData = params.sampleBuffer.getChannelData(0);
-        const playbackRate = Math.pow(2, ((note || 48) - 48) / 12);
         const sr = params.sampleBuffer.sampleRate;
         const ctxRate = this.context.sampleRate;
         const startSample = Math.floor(offsetSec * sr);
@@ -931,9 +937,9 @@ export class AudioEngine {
           startSample * Float32Array.BYTES_PER_ELEMENT,
           endSample   * Float32Array.BYTES_PER_ELEMENT
         );
-        const duration = clipDur / playbackRate;
+        const duration = clipDur / samplePlaybackRate;
         node.port.postMessage(
-          { type: 'load', buffer: slice, playbackRate, sampleRate: sr, ctxRate },
+          { type: 'load', buffer: slice, playbackRate: samplePlaybackRate, sampleRate: sr, ctxRate },
           [slice]
         );
         node.connect(output);
@@ -951,7 +957,7 @@ export class AudioEngine {
         // Fallback: native BufferSourceNode (browser linear interpolation)
         const source = this.context.createBufferSource();
         source.buffer = params.sampleBuffer;
-        source.playbackRate.value = Math.pow(2, ((note || 48) - 48) / 12);
+        source.playbackRate.value = samplePlaybackRate;
 
         // Loop point support
         if (params.loopEnabled) {

@@ -139,6 +139,14 @@ export function createTrack(index) {
     arpRange:   1,
     arpSpeed:   1,
 
+    // Sample root note (MIDI 21–108) used for key tracking pitch detection.
+    // Set manually or via auto-detect (detectPitch in sound.js).
+    note:         60,
+
+    // Key tracking: when true, sample pitch tracks the sequencer note relative to `note`.
+    // Default false (drums play at unity); enable for melodic sample tracks.
+    keyTracking:  false,
+
     // Sample playback region (0–1 fractions of total buffer)
     sampleStart:  0,
     sampleEnd:    1,

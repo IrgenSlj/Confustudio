@@ -515,6 +515,14 @@ export default {
       });
       strip.append(busRow);
 
+      // ── Voice count indicator ─────────────────────────────────────────────
+      const voiceCount = document.createElement('span');
+      voiceCount.className = 'voice-count';
+      voiceCount.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);display:block;text-align:center;margin-top:3px;letter-spacing:0.05em';
+      voiceCount.textContent = '0V';
+      strip.append(voiceCount);
+      voiceCountEls.push({ el: voiceCount, ti });
+
       faderGrid.append(strip);
     });
 
@@ -583,7 +591,7 @@ export default {
     busSection.append(busStripsRow);
     container.append(busSection);
 
-    // Single rAF loop animates all 8 meters
+    // Single rAF loop animates all 8 meters + voice counts
     (function updateMeters() {
       if (!faderGrid.isConnected) return;
       if (state.engine?.analyser) {
@@ -611,6 +619,16 @@ export default {
           peak.style.setProperty('--peak', _peakLevels[i]);
         });
       }
+
+      // Update voice count indicators
+      if (state.engine?._voiceQueue) {
+        voiceCountEls.forEach(({ el, ti }) => {
+          const count = state.engine._voiceQueue.get(ti)?.length ?? 0;
+          el.textContent = count + 'V';
+          el.style.color = count > 0 ? '#5add71' : 'var(--muted)';
+        });
+      }
+
       requestAnimationFrame(updateMeters);
     })();
   },

@@ -246,6 +246,17 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
     });
     chordBar.append(holdBtn);
 
+    // SPLIT toggle
+    const splitBtn = document.createElement('button');
+    splitBtn.className = 'kbd-chord-btn kbd-split-btn' + (state.splitKeyboard ? ' active' : '');
+    splitBtn.textContent = 'SPLIT';
+    splitBtn.title = 'Split keyboard: left half → track A, right half → track B';
+    splitBtn.addEventListener('click', () => {
+      state.splitKeyboard = !state.splitKeyboard;
+      renderKbdContext(containerEl, page, activeKeys, state, getActiveTrackFn);
+    });
+    chordBar.append(splitBtn);
+
     containerEl.append(chordBar);
 
     // ── Octave indicator + TOUCH toggle row ──────────────────────────────────
@@ -403,12 +414,26 @@ export function renderPiano(containerEl, state) {
   const scaleIdx = state?.scale ?? 0;
   const intervals = SCALE_INTERVALS[scaleIdx] ?? null;
 
+  // Split keyboard: derive tint colors
+  const splitActive  = state.splitKeyboard;
+  const splitL = state.splitTrackLeft  ?? 0;
+  const splitR = state.splitTrackRight ?? 1;
+  const splitColorL = _TRACK_COLORS[splitL] ?? '#f0c640';
+  const splitColorR = _TRACK_COLORS[splitR] ?? '#67d7ff';
+
   octaves.forEach(oct => {
     WHITE_SEMITONES.forEach(semi => {
       const midi = (oct + 1) * 12 + semi;
       const k = document.createElement('div');
       k.className = 'piano-white' + (active.has(midi) ? ' lit' : '');
       k.dataset.midi = midi;
+      k.dataset.octave = String(oct);
+
+      // Split keyboard tint (applied via inline style so it can stack with scale classes)
+      if (splitActive) {
+        const col = midi < 60 ? splitColorL : splitColorR;
+        k.style.background = `linear-gradient(180deg, ${col}22 0%, ${col}11 100%), linear-gradient(180deg, #e0d8c8 0%, #cec6b4 70%, #beb6a4 100%)`;
+      }
 
       // Scale highlighting
       if (intervals) {
@@ -439,6 +464,13 @@ export function renderPiano(containerEl, state) {
       const k = document.createElement('div');
       k.className = 'piano-black' + (active.has(midi) ? ' lit' : '');
       k.dataset.midi = midi;
+      k.dataset.octave = String(oct);
+
+      // Split keyboard tint for black keys
+      if (splitActive) {
+        const col = midi < 60 ? splitColorL : splitColorR;
+        k.style.background = `linear-gradient(180deg, ${col}44 0%, ${col}22 100%), linear-gradient(180deg, #282420 0%, #1a1814 60%, #0e0c0a 100%)`;
+      }
 
       // Scale highlighting for black keys
       if (intervals) {
@@ -476,6 +508,126 @@ export function lightPianoKey(containerEl, midi, lit = true) {
   containerEl.querySelectorAll(`[data-midi="${midi}"]`).forEach(el => {
     el.classList.toggle('lit', lit);
   });
+}
+
+// ─── Piano touch handler ───────────────────────────────────────────────────────
+
+export function initPianoTouch(pianoContainerEl, state, emit) {
+  // Delegate touch/mouse events from the piano-wrapper
+  const wrapper = pianoContainerEl.querySelector('.piano-wrapper');
+  if (!wrapper) return;
+
+  function _getVelocityFromTouch(touch, keyEl) {
+    // Prefer force if available and non-zero (iOS/Force Touch)
+    if (touch.force != null && touch.force > 0) {
+      return Math.max(0.05, Math.min(1, touch.force));
+    }
+    // Fall back to Y position within key: top=1.0, bottom=0.3
+    if (state.touchVelocity) {
+      const rect = keyEl.getBoundingClientRect();
+      const relY = (touch.clientY - rect.top) / rect.height;
+      return Math.max(0.3, Math.min(1, 1 - relY * 0.7));
+    }
+    return state.keyboardVelocity ?? 1;
+  }
+
+  function _midiFromEl(el) {
+    const midi = parseInt(el.dataset.midi, 10);
+    return isNaN(midi) ? null : midi;
+  }
+
+  function _resolveTrack(midi) {
+    if (!state.splitKeyboard) return null; // use current selected track
+    return midi < 60 ? (state.splitTrackLeft ?? 0) : (state.splitTrackRight ?? 1);
+  }
+
+  function _triggerNote(keyEl, touch) {
+    const midi = _midiFromEl(keyEl);
+    if (midi == null) return;
+    const velocity = _getVelocityFromTouch(touch, keyEl);
+    const voicing = CHORD_VOICINGS[state.chordMode ?? 'off'] ?? [];
+    const trackOverride = _resolveTrack(midi);
+
+    const prevTrack = state.selectedTrackIndex;
+    if (trackOverride != null) state.selectedTrackIndex = trackOverride;
+
+    emit('note:preview', { note: midi, velocity });
+    voicing.forEach(offset => {
+      const n = midi + offset;
+      if (n >= 0 && n <= 127) emit('note:preview', { note: n, velocity });
+    });
+
+    if (trackOverride != null) state.selectedTrackIndex = prevTrack;
+
+    keyEl.classList.add('lit');
+    keyEl._touchActive = true;
+  }
+
+  function _releaseNote(keyEl) {
+    const midi = _midiFromEl(keyEl);
+    if (midi == null) return;
+    const voicing = CHORD_VOICINGS[state.chordMode ?? 'off'] ?? [];
+    emit('note:off', { note: midi });
+    voicing.forEach(offset => {
+      const n = midi + offset;
+      if (n >= 0 && n <= 127) emit('note:off', { note: n });
+    });
+    keyEl.classList.remove('lit');
+    keyEl._touchActive = false;
+  }
+
+  wrapper.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    for (const touch of e.changedTouches) {
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const keyEl = el?.closest('.piano-white, .piano-black');
+      if (keyEl) {
+        keyEl._touchId = touch.identifier;
+        _triggerNote(keyEl, touch);
+      }
+    }
+  }, { passive: false });
+
+  wrapper.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    for (const touch of e.changedTouches) {
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const newKey = el?.closest('.piano-white, .piano-black');
+      // Find old key for this touch id
+      const oldKey = wrapper.querySelector(`[data-touch-id="${touch.identifier}"]`);
+      if (oldKey && oldKey !== newKey) {
+        _releaseNote(oldKey);
+        oldKey.removeAttribute('data-touch-id');
+      }
+      if (newKey && newKey !== oldKey) {
+        newKey.setAttribute('data-touch-id', touch.identifier);
+        _triggerNote(newKey, touch);
+      }
+    }
+  }, { passive: false });
+
+  wrapper.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    for (const touch of e.changedTouches) {
+      const keyEl = wrapper.querySelector(`[data-touch-id="${touch.identifier}"]`);
+      if (keyEl) {
+        _releaseNote(keyEl);
+        keyEl.removeAttribute('data-touch-id');
+      } else {
+        // fallback: find by _touchId property
+        wrapper.querySelectorAll('.piano-white, .piano-black').forEach(k => {
+          if (k._touchId === touch.identifier) {
+            _releaseNote(k);
+            k._touchId = null;
+          }
+        });
+      }
+    }
+  }, { passive: false });
+
+  wrapper.addEventListener('touchcancel', (e) => {
+    wrapper.querySelectorAll('.piano-white.lit, .piano-black.lit').forEach(k => _releaseNote(k));
+  }, { passive: false });
 }
 
 // ─── Global keyboard handler ───────────────────────────────────────────────────
@@ -560,6 +712,15 @@ export function initKeyboard(state, emit, trackColors = []) {
         const midiNote = 60 + (state.octaveShift ?? 0) * 12 + offset;
         const velocity = state.keyboardVelocity ?? 1;
         const voicing = CHORD_VOICINGS[state.chordMode ?? 'off'] ?? [];
+
+        // Split keyboard: temporarily redirect to appropriate track
+        let _splitPrevTrack = null;
+        if (state.splitKeyboard) {
+          _splitPrevTrack = state.selectedTrackIndex;
+          state.selectedTrackIndex = midiNote < 60
+            ? (state.splitTrackLeft  ?? 0)
+            : (state.splitTrackRight ?? 1);
+        }
 
         if (state.keyboardHold) {
           state._heldNotes = state._heldNotes ?? new Set();

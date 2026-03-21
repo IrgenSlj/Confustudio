@@ -29,7 +29,23 @@ export default {
       modeBtn.classList.toggle('active');
       modeBtn.textContent = !arrangementMode ? 'Arrange' : 'Loop';
     });
-    header.append(modeBtn);
+
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'seq-btn';
+    clearBtn.textContent = 'Clear';
+    clearBtn.style.cssText = 'font-size:0.52rem;padding:2px 7px;margin-left:auto';
+    clearBtn.title = 'Clear all sections and reset to one default section';
+    clearBtn.addEventListener('click', () => {
+      if (!confirm('Clear arranger? All sections will be lost.')) return;
+      state.arranger.length = 0;
+      state.arranger.push({ sceneIdx: 0, bars: 4, name: 'Section 1' });
+      state.arrangementCursor = 0;
+      state._arrSection = 0;
+      state._arrSectionBars = 0;
+      emit('state:change', { path: 'scale', value: state.scale });
+    });
+
+    header.append(modeBtn, clearBtn);
     container.append(header);
 
     // ── Loop controls bar ──────────────────────────────────────────────────
@@ -95,10 +111,12 @@ export default {
 
       const row = document.createElement('div');
       row.className = 'arr-row';
+      row.dataset.sectionIdx = idx;
       row.style.cssText = `
         display:flex;align-items:center;gap:8px;padding:6px 8px;
         border-radius:5px;border:1px solid var(--border);background:#141414;
         border-left: 3px solid ${sectionBorderColor};padding-left:6px;
+        position:relative;overflow:hidden;
       `;
       if (idx === arrangementCursor) {
         row.style.borderColor = 'rgba(240,91,82,0.5)';
@@ -300,7 +318,16 @@ export default {
         emit('state:change', { path: 'scale', value: state.scale });
       });
 
-      row.append(colorSwatch, sceneLabel, barsLabel, minusBtn, plusBtn, bpmLabel, bpmInput, tsSelect, sceneName, mutesRow, dupBtn, upBtn, dnBtn, delBtn);
+      // ── Section progress bar (updated by rAF loop below) ─────────────────
+      const progressBar = document.createElement('div');
+      progressBar.className = 'arr-row-progress';
+      progressBar.style.cssText = `
+        position:absolute;bottom:0;left:0;height:2px;width:0%;
+        background:var(--live);border-radius:0 1px 1px 0;
+        pointer-events:none;transition:width 0.1s linear;
+      `;
+
+      row.append(colorSwatch, sceneLabel, barsLabel, minusBtn, plusBtn, bpmLabel, bpmInput, tsSelect, sceneName, mutesRow, dupBtn, upBtn, dnBtn, delBtn, progressBar);
       list.append(row);
     });
 
@@ -369,7 +396,7 @@ export default {
     if (activeSectionIdx >= 0 && arranger.length > 0) {
       const barsBefore = arranger.slice(0, activeSectionIdx).reduce((s, sec) => s + (sec.bars ?? 1), 0);
       const sectionBars = arranger[activeSectionIdx]?.bars ?? 1;
-      const sectionProgress = state._arrSectionBar != null ? (state._arrSectionBar / sectionBars) : 0;
+      const sectionProgress = state._arrSectionBars != null ? (state._arrSectionBars / sectionBars) : 0;
       const playheadPct = ((barsBefore + sectionProgress * sectionBars) / totalBarsAll * 100).toFixed(2);
 
       const playhead = document.createElement('div');
@@ -395,6 +422,29 @@ export default {
     container.append(timeInfo);
 
     container.append(list);
+
+    // ── rAF loop: highlight currently playing section + progress bar ───────
+    function highlightSection() {
+      const idx = state._arrSection ?? -1;
+      const currentSection = state.arranger[idx];
+      container.querySelectorAll('.arr-row').forEach((row) => {
+        const rowIdx = parseInt(row.dataset.sectionIdx, 10);
+        const isPlaying = rowIdx === idx && state.isPlaying && state.arrangementMode;
+        row.classList.toggle('arr-row-playing', isPlaying);
+        const pb = row.querySelector('.arr-row-progress');
+        if (pb) {
+          if (isPlaying && currentSection) {
+            const totalBars = currentSection.bars ?? 1;
+            const elapsed = state._arrSectionBars ?? 0;
+            pb.style.width = `${Math.min(100, (elapsed / totalBars) * 100).toFixed(1)}%`;
+          } else {
+            pb.style.width = '0%';
+          }
+        }
+      });
+      if (container.isConnected) requestAnimationFrame(highlightSection);
+    }
+    requestAnimationFrame(highlightSection);
 
     // ── Add section toolbar ────────────────────────────────────────────────
     const toolbar = document.createElement('div');
