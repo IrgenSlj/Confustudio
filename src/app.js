@@ -45,6 +45,96 @@ function showToast(msg, duration = 1200) {
 }
 
 // ─────────────────────────────────────────────
+// MIDI FILE EXPORT
+// ─────────────────────────────────────────────
+export function exportMidi(state) {
+  const pattern = state.project.banks[state.activeBank].patterns[state.activePattern];
+  const bpm = state.bpm ?? 120;
+  const ppq = 96; // pulses per quarter note
+  const stepsPerBeat = 4; // 16th notes
+  const ticksPerStep = ppq / stepsPerBeat; // 24 ticks per step
+
+  function writeUint32(n) { return [(n>>24)&0xFF,(n>>16)&0xFF,(n>>8)&0xFF,n&0xFF]; }
+  function writeUint16(n) { return [(n>>8)&0xFF,n&0xFF]; }
+  function writeVarLen(n) {
+    if (n < 0x80) return [n];
+    const bytes = [];
+    while (n > 0) { bytes.unshift(n & 0x7F); n >>= 7; }
+    for (let i = 0; i < bytes.length - 1; i++) bytes[i] |= 0x80;
+    return bytes;
+  }
+
+  const tracks = pattern.kit.tracks;
+  const patLen = pattern.length;
+
+  // Build one MIDI track per CONFUsynth track
+  const midiTracks = tracks.map((track, ti) => {
+    const ch = ti; // channel 0-7
+    const events = [];
+
+    track.steps.slice(0, patLen).forEach((step, si) => {
+      if (!step.active) return;
+      const note = step.note ?? track.note ?? 60;
+      const vel = Math.round((step.velocity ?? 1) * 127);
+      const onTick = si * ticksPerStep;
+      const gateTicks = Math.round((step.gate ?? 0.5) * ticksPerStep * 2);
+      const offTick = onTick + Math.max(1, gateTicks);
+      events.push({ tick: onTick, msg: [0x90 | ch, note, vel] });
+      events.push({ tick: offTick, msg: [0x80 | ch, note, 0] });
+    });
+
+    // Sort by tick
+    events.sort((a, b) => a.tick - b.tick);
+
+    // Convert to delta-time events
+    const trackBytes = [];
+    let lastTick = 0;
+    events.forEach(ev => {
+      const delta = ev.tick - lastTick;
+      lastTick = ev.tick;
+      trackBytes.push(...writeVarLen(delta), ...ev.msg);
+    });
+    // End of track
+    trackBytes.push(...writeVarLen(0), 0xFF, 0x2F, 0x00);
+
+    return trackBytes;
+  });
+
+  // Tempo track
+  const usPerBeat = Math.round(60000000 / bpm);
+  const tempoTrack = [
+    ...writeVarLen(0), 0xFF, 0x51, 0x03,
+    (usPerBeat>>16)&0xFF, (usPerBeat>>8)&0xFF, usPerBeat&0xFF,
+    ...writeVarLen(0), 0xFF, 0x2F, 0x00
+  ];
+
+  // SMF header: type 1, numTracks+1 (tempo track), ppq
+  const allTracks = [tempoTrack, ...midiTracks];
+  const header = [
+    0x4D,0x54,0x68,0x64, // MThd
+    0,0,0,6,             // chunk length
+    0,1,                  // format 1
+    ...writeUint16(allTracks.length),
+    ...writeUint16(ppq)
+  ];
+
+  const bytes = [...header];
+  allTracks.forEach(track => {
+    bytes.push(0x4D,0x54,0x72,0x6B); // MTrk
+    bytes.push(...writeUint32(track.length));
+    bytes.push(...track);
+  });
+
+  const blob = new Blob([new Uint8Array(bytes)], { type: 'audio/midi' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${pattern.name ?? 'pattern'}.mid`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─────────────────────────────────────────────
 // PAGE REGISTRY
 // ─────────────────────────────────────────────
 const PAGES = {
@@ -1010,7 +1100,7 @@ function scheduleLoop() {
         if (step.mute) return;
 
         // Trig condition check
-        if (!evalTrigCondition(step.trigCondition, stepIdx)) return;
+        if (!evalTrigCondition(step, state._patternLoopCount ?? 0)) return;
         if (Math.random() >= step.probability) return;
 
         const sceneOverride = sceneParams[ti] || {};
@@ -1241,6 +1331,7 @@ function stopPlay() {
   state.currentStep = -1;
   _trackStepIdx = Array(8).fill(0);
   _schedStepIdx = 0;
+  state._patternLoopCount = 0;
   state._playingNotes.clear();
   state._pressedKeys.clear();
   if (_schedRafId) { cancelAnimationFrame(_schedRafId); _schedRafId = null; }
@@ -1656,6 +1747,11 @@ function bindUI() {
       saveState(state);
       showToast('↪ Redo');
       e.preventDefault();
+    } else if ((e.key === 'e' || e.key === 'E') && e.shiftKey) {
+      // Ctrl+Shift+E: Export MIDI
+      e.preventDefault();
+      exportMidi(state);
+      showToast('MIDI exported');
     }
   });
 

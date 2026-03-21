@@ -536,10 +536,26 @@ export default {
     pitchLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);text-align:center;margin-top:2px';
     pitchLabel.textContent = `MIDI ${track.pitch ?? 60}`;
 
+    // Chord spelling display
+    const chordDisplay = document.createElement('div');
+    chordDisplay.className = 'chord-spelling';
+    function updateChordDisplay(midiNote) {
+      const voicing = CHORD_VOICINGS[track.chordMode];
+      if (voicing && voicing.length > 0) {
+        chordDisplay.textContent = voicing.map(iv => midiToNoteName(midiNote + iv)).join(' ');
+        chordDisplay.style.display = 'block';
+      } else {
+        chordDisplay.textContent = '';
+        chordDisplay.style.display = 'none';
+      }
+    }
+    updateChordDisplay(track.pitch ?? 60);
+
     pitchSlider.addEventListener('input', () => {
       const v = parseInt(pitchSlider.value);
       noteDisplay.textContent = midiToNoteName(v);
       pitchLabel.textContent = `MIDI ${v}`;
+      updateChordDisplay(v);
       emit('track:change', { trackIndex: ti, param: 'pitch', value: v });
     });
 
@@ -582,7 +598,7 @@ export default {
       emit('track:change', { trackIndex: ti, param: 'legato', value: newVal });
     });
     legatoRow.append(legatoBtn);
-    pitchCard.append(noteDisplay, pitchSlider, pitchLabel, legatoRow);
+    pitchCard.append(noteDisplay, chordDisplay, pitchSlider, pitchLabel, legatoRow);
     grid.append(pitchCard);
 
     // ── Machine type card ──
@@ -984,6 +1000,31 @@ export default {
       const v = parseInt(arpSpeedInput.value);
       arpSpeedVal.textContent = ['1/16','1/8','1/4','1/2'][v - 1];
       emit('track:change', { trackIndex: ti, param: 'arpSpeed', value: v });
+    });
+
+    // Arp sequence preview
+    const arpPreviewLabel = document.createElement('div');
+    arpPreviewLabel.className = 'arp-preview-label';
+    arpPreviewLabel.textContent = 'Preview';
+
+    let _arpPreview = buildArpPreview(track.arpMode, track.arpRange, track.pitch ?? 60, track.color);
+    arpCard.append(arpPreviewLabel, _arpPreview);
+
+    // Rebuild preview when mode or range changes
+    function refreshArpPreview() {
+      const newPreview = buildArpPreview(track.arpMode, track.arpRange, track.pitch ?? 60, track.color);
+      _arpPreview.replaceWith(newPreview);
+      _arpPreview = newPreview;
+    }
+    arpModeRow.querySelectorAll('.seq-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        track.arpMode = btn.dataset.mode;
+        refreshArpPreview();
+      });
+    });
+    arpRangeInput.addEventListener('input', () => {
+      track.arpRange = parseInt(arpRangeInput.value);
+      refreshArpPreview();
     });
 
     grid.append(arpCard);

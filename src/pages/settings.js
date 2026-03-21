@@ -1,6 +1,7 @@
 // src/pages/settings.js — MIDI, clock, audio, storage, sync, version
 
 import { saveState, getActivePattern } from '../state.js';
+import { exportMidi } from '../app.js';
 
 const VERSION = 'v3.0.0';
 
