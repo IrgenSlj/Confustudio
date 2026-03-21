@@ -205,6 +205,27 @@ export default {
       sceneEditDiv.append(row);
     });
     container.append(sceneEditDiv);
+
+    // ── Auto-Morph bar ────────────────────────────────────────────────────────
+    const morphDiv = document.createElement('div');
+    morphDiv.className = 'scene-morph-bar';
+    morphDiv.innerHTML = `
+      <label>Auto-Morph</label>
+      <input type="number" min="1" max="32" value="${state.sceneMorphBars ?? 4}" style="width:40px" title="Bars">
+      <button class="seq-btn ${state.sceneMorphActive ? 'active' : ''}" id="morph-btn">
+        ${state.sceneMorphActive ? '&#9646; Stop' : '&#9654; Morph'}
+      </button>
+    `;
+    const morphBarsInput = morphDiv.querySelector('input');
+    morphBarsInput.addEventListener('change', () => {
+      state.sceneMorphBars = parseInt(morphBarsInput.value) || 4;
+    });
+    morphDiv.querySelector('#morph-btn').addEventListener('click', () => {
+      state.sceneMorphActive = !state.sceneMorphActive;
+      if (state.sceneMorphActive) state.crossfade = 0; // reset to start
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+    });
+    container.append(morphDiv);
   },
 
   knobMap: [

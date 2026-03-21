@@ -1719,6 +1719,43 @@ button {
   pointer-events: none;
 }
 
+/* Per-strip FX sends */
+.mix-sends {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 0;
+}
+.mix-send-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--font-mono);
+  font-size: 0.45rem;
+  color: var(--muted);
+}
+.mix-send-row input[type=range] {
+  flex: 1;
+  height: 8px;
+  accent-color: var(--accent);
+}
+.mix-send-row .send-val {
+  min-width: 18px;
+  color: var(--screen-text);
+}
+
+/* Per-strip mini EQ canvas */
+.mix-eq-mini {
+  display: block;
+  width: 40px;
+  height: 20px;
+}
+
+/* Track name editable span */
+.fader-track-name {
+  user-select: none;
+}
+
 /* ============================================================
    FX / SOUND / SETTINGS PAGE GENERIC
    ============================================================ */
@@ -2924,6 +2961,56 @@ button {
   border-top: 2px solid var(--accent) !important;
 }
 
+/* ── Arranger: loop bar, BPM/TS inputs, loop region overlay ─────────────── */
+.arr-loop-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px;
+  font-family: var(--font-mono);
+  font-size: 0.52rem;
+  color: var(--muted);
+  border-bottom: 1px solid #2a2a2a;
+  flex-shrink: 0;
+}
+.arr-loop-bar input[type=number] {
+  width: 36px;
+  background: #1a1a1a;
+  color: var(--screen-text);
+  border: 1px solid #333;
+  border-radius: 3px;
+  padding: 1px 3px;
+  font-family: var(--font-mono);
+  font-size: 0.52rem;
+}
+.arr-bpm-input {
+  width: 40px;
+  background: #1a1a1a;
+  color: var(--screen-text);
+  border: 1px solid #333;
+  border-radius: 3px;
+  padding: 1px 3px;
+  font-family: var(--font-mono);
+  font-size: 0.52rem;
+}
+.arr-ts-select {
+  background: #1a1a1a;
+  color: var(--screen-text);
+  border: 1px solid #333;
+  border-radius: 3px;
+  padding: 1px 2px;
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+}
+.arr-loop-region {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: rgba(90, 221, 113, 0.08);
+  border: 1px solid rgba(90, 221, 113, 0.3);
+  pointer-events: none;
+}
+
 /* ── Scenes: manual edit panel ──────────────────────────────────────────── */
 .scene-edit-panel {
   margin-top: 6px;
@@ -3025,3 +3112,77 @@ button {
 }
 .ctx-item:hover { background: #2a3a2a; }
 .ctx-item.active { color: var(--accent); }
+
+/* ── Keyboard velocity bar ────────────────────────────────────────────────── */
+.piano-container {
+  display: flex;
+  flex-direction: column;
+}
+.kbd-vel-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  border-top: 1px solid #2a2a2a;
+}
+.kbd-vel-label {
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  color: var(--muted);
+  width: 20px;
+}
+.kbd-vel-slider { flex: 1; accent-color: var(--accent); }
+.kbd-vel-val {
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  color: var(--screen-text);
+  min-width: 24px;
+  text-align: right;
+}
+
+/* ── Keyboard chord mode bar ─────────────────────────────────────────────── */
+.kbd-chord-bar {
+  display: flex;
+  gap: 3px;
+  padding: 3px 4px;
+  flex-wrap: wrap;
+}
+.kbd-chord-btn {
+  font-family: var(--font-mono);
+  font-size: 0.48rem;
+  padding: 2px 5px;
+  background: #1a1a1a;
+  color: var(--muted);
+  border: 1px solid #333;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.kbd-chord-btn.active {
+  background: var(--accent);
+  color: #000;
+  border-color: var(--accent);
+}
+
+/* ============================================================
+   SCENE MORPH BAR
+   ============================================================ */
+
+.scene-morph-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border-top: 1px solid #2a2a2a;
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  color: var(--muted);
+}
+.scene-morph-bar input {
+  background: #1a1a1a;
+  color: var(--screen-text);
+  border: 1px solid #333;
+  border-radius: 3px;
+  padding: 1px 3px;
+  font-family: var(--font-mono);
+  font-size: 0.52rem;
+}

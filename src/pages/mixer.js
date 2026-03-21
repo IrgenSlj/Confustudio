@@ -2,6 +2,32 @@
 
 import { TRACK_COLORS } from '../state.js';
 
+// ── Mini EQ canvas draw ───────────────────────────────────────────────────────
+
+function drawMiniEQ(canvas, low, mid, high) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // Center line (0 dB)
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 0.5;
+  ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
+
+  // EQ curve approximation using 3 control points
+  const yL = H / 2 - (low  / 12) * (H / 2 - 2);
+  const yM = H / 2 - (mid  / 12) * (H / 2 - 2);
+  const yH = H / 2 - (high / 12) * (H / 2 - 2);
+
+  ctx.strokeStyle = '#a0c060';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, yL);
+  ctx.bezierCurveTo(W * 0.25, yL, W * 0.3, yM, W / 2, yM);
+  ctx.bezierCurveTo(W * 0.7, yM, W * 0.75, yH, W, yH);
+  ctx.stroke();
+}
+
 export default {
   render(container, state, emit) {
     container.innerHTML = '';
@@ -55,6 +81,9 @@ export default {
     faderGrid.className = 'mixer-fader-grid';
     faderGrid.style.cssText = 'flex:1;min-height:0;padding-bottom:4px';
 
+    // Collect mini-EQ canvases for later redraws
+    const eqCanvases = [];
+
     tracks.forEach((track, ti) => {
       const strip = document.createElement('div');
       strip.className = 'fader-strip';
@@ -69,13 +98,58 @@ export default {
         emit('state:change', { path: 'selectedTrackIndex', value: ti })
       );
 
-      // Track name with machine type badge
-      const name = document.createElement('strong');
-      name.style.cssText = 'font-size:0.6rem;color:var(--track-color,var(--screen-text));display:flex;align-items:center;gap:4px';
-      name.innerHTML = `${track.name} <span style="font-size:0.44rem;color:var(--muted);font-family:var(--font-mono);font-weight:400">${(track.machine||'tone').toUpperCase()}</span>`;
-      strip.append(name);
+      // ── Track name (double-click to rename) ──────────────────────────────
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'fader-track-name';
+      nameSpan.style.cssText = 'font-size:0.6rem;color:var(--track-color,var(--screen-text));display:flex;align-items:center;gap:4px;font-family:var(--font-mono);font-weight:bold;cursor:text';
+      nameSpan.innerHTML = `${track.name ?? `T${ti + 1}`} <span style="font-size:0.44rem;color:var(--muted);font-weight:400">${(track.machine || 'tone').toUpperCase()}</span>`;
 
-      // Pan row — interactive horizontal slider
+      nameSpan.addEventListener('dblclick', e => {
+        e.stopPropagation();
+        const currentName = track.name ?? `T${ti + 1}`;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentName;
+        input.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;width:100%;background:#111;color:var(--screen-text);border:1px solid var(--accent);border-radius:2px;padding:0 2px';
+
+        const commit = () => {
+          const newName = input.value.trim() || currentName;
+          track.name = newName;
+          emit('state:change', { path: 'selectedTrackIndex', value: state.selectedTrackIndex });
+          // Restore nameSpan
+          nameSpan.innerHTML = `${track.name} <span style="font-size:0.44rem;color:var(--muted);font-weight:400">${(track.machine || 'tone').toUpperCase()}</span>`;
+          if (nameSpan.contains(input)) nameSpan.replaceChild(nameSpan.firstChild, input);
+          // Persist
+          emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+        };
+        const cancel = () => {
+          nameSpan.innerHTML = `${track.name ?? `T${ti + 1}`} <span style="font-size:0.44rem;color:var(--muted);font-weight:400">${(track.machine || 'tone').toUpperCase()}</span>`;
+        };
+
+        input.addEventListener('blur', commit);
+        input.addEventListener('keydown', ev => {
+          if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+          if (ev.key === 'Escape') { input.removeEventListener('blur', commit); cancel(); }
+        });
+
+        nameSpan.textContent = '';
+        nameSpan.appendChild(input);
+        input.focus();
+        input.select();
+      });
+
+      strip.append(nameSpan);
+
+      // ── Mini EQ canvas ───────────────────────────────────────────────────
+      const eqCanvas = document.createElement('canvas');
+      eqCanvas.className = 'mix-eq-mini';
+      eqCanvas.width  = 40;
+      eqCanvas.height = 20;
+      drawMiniEQ(eqCanvas, track.eqLow ?? 0, track.eqMid ?? 0, track.eqHigh ?? 0);
+      strip.append(eqCanvas);
+      eqCanvases.push({ canvas: eqCanvas, track });
+
+      // ── Pan row — interactive horizontal slider ───────────────────────────
       const panRow = document.createElement('div');
       panRow.style.cssText = 'display:flex;align-items:center;gap:3px;width:100%';
 
@@ -103,7 +177,52 @@ export default {
       panRow.append(panLabel, panSlider, panVal);
       strip.append(panRow);
 
-      // Vertical fader
+      // ── FX Send controls ─────────────────────────────────────────────────
+      const sendsDiv = document.createElement('div');
+      sendsDiv.className = 'mix-sends';
+
+      // REV send
+      const revRow = document.createElement('div');
+      revRow.className = 'mix-send-row';
+      const revLabel = document.createElement('span');
+      revLabel.textContent = 'R';
+      const revSlider = document.createElement('input');
+      revSlider.type = 'range';
+      revSlider.min = 0; revSlider.max = 1; revSlider.step = 0.01;
+      revSlider.value = track.reverbSend ?? 0;
+      const revVal = document.createElement('span');
+      revVal.className = 'send-val';
+      revVal.textContent = (track.reverbSend ?? 0).toFixed(2);
+      revSlider.addEventListener('input', () => {
+        const v = parseFloat(revSlider.value);
+        revVal.textContent = v.toFixed(2);
+        emit('track:change', { trackIndex: ti, param: 'reverbSend', value: v });
+      });
+      revRow.append(revLabel, revSlider, revVal);
+
+      // DLY send
+      const dlyRow = document.createElement('div');
+      dlyRow.className = 'mix-send-row';
+      const dlyLabel = document.createElement('span');
+      dlyLabel.textContent = 'D';
+      const dlySlider = document.createElement('input');
+      dlySlider.type = 'range';
+      dlySlider.min = 0; dlySlider.max = 1; dlySlider.step = 0.01;
+      dlySlider.value = track.delaySend ?? 0;
+      const dlyVal = document.createElement('span');
+      dlyVal.className = 'send-val';
+      dlyVal.textContent = (track.delaySend ?? 0).toFixed(2);
+      dlySlider.addEventListener('input', () => {
+        const v = parseFloat(dlySlider.value);
+        dlyVal.textContent = v.toFixed(2);
+        emit('track:change', { trackIndex: ti, param: 'delaySend', value: v });
+      });
+      dlyRow.append(dlyLabel, dlySlider, dlyVal);
+
+      sendsDiv.append(revRow, dlyRow);
+      strip.append(sendsDiv);
+
+      // ── Vertical fader ───────────────────────────────────────────────────
       const fader = document.createElement('input');
       fader.type = 'range';
       fader.setAttribute('orient', 'vertical');
@@ -118,7 +237,7 @@ export default {
       );
       strip.append(fader);
 
-      // Level meter bar (animated)
+      // ── Level meter bar (animated) ───────────────────────────────────────
       const meterWrap = document.createElement('div');
       meterWrap.className = 'mixer-meter-wrap';
       const meterBar = document.createElement('div');
@@ -129,13 +248,13 @@ export default {
       strip.append(meterWrap);
       meterEls.push({ bar: meterBar, peak: peakLine, track });
 
-      // Volume readout
+      // ── Volume readout ───────────────────────────────────────────────────
       const vol = document.createElement('span');
       vol.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--accent)';
       vol.textContent = Math.round(track.volume * 100);
       strip.append(vol);
 
-      // Mute / Solo buttons
+      // ── Mute / Solo buttons ──────────────────────────────────────────────
       const msRow = document.createElement('div');
       msRow.style.cssText = 'display:flex;gap:3px';
 
@@ -198,13 +317,13 @@ export default {
 
   knobMap: [
     { label: 'Vol 1', param: 'track.0.volume', min: 0, max: 1, step: 0.01 },
-    { label: 'Pan 1', param: 'track.0.pan',    min: -1, max: 1, step: 0.05 },
     { label: 'Vol 2', param: 'track.1.volume', min: 0, max: 1, step: 0.01 },
-    { label: 'Pan 2', param: 'track.1.pan',    min: -1, max: 1, step: 0.05 },
     { label: 'Vol 3', param: 'track.2.volume', min: 0, max: 1, step: 0.01 },
-    { label: 'Pan 3', param: 'track.2.pan',    min: -1, max: 1, step: 0.05 },
     { label: 'Vol 4', param: 'track.3.volume', min: 0, max: 1, step: 0.01 },
-    { label: 'Pan 4', param: 'track.3.pan',    min: -1, max: 1, step: 0.05 },
+    { label: 'Vol 5', param: 'track.4.volume', min: 0, max: 1, step: 0.01 },
+    { label: 'Vol 6', param: 'track.5.volume', min: 0, max: 1, step: 0.01 },
+    { label: 'Vol 7', param: 'track.6.volume', min: 0, max: 1, step: 0.01 },
+    { label: 'Vol 8', param: 'track.7.volume', min: 0, max: 1, step: 0.01 },
   ],
 
   keyboardContext: 'mixer',

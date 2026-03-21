@@ -445,6 +445,26 @@ export default {
     });
     actionsDiv.append(qSelect, quantizeBtn);
 
+    const humanizeDiv = document.createElement('div');
+    humanizeDiv.style.cssText = 'display:flex;align-items:center;gap:3px';
+    humanizeDiv.innerHTML = `
+      <input type="range" min="0" max="1" step="0.1" value="${state.humanizeAmount ?? 0.2}"
+        title="Humanize amount" style="width:36px;accent-color:var(--accent)">
+      <button class="seq-btn" title="Add human timing/velocity variations">Human</button>
+    `;
+    humanizeDiv.querySelector('input').addEventListener('input', e => { state.humanizeAmount = parseFloat(e.target.value); });
+    humanizeDiv.querySelector('button').addEventListener('click', () => {
+      const amt = state.humanizeAmount ?? 0.2;
+      const len = track.trackLength || pattern.length;
+      track.steps.slice(0, len).forEach(s => {
+        if (!s.active) return;
+        s.microTime = (Math.random() - 0.5) * amt;
+        s.velocity = Math.max(0.3, Math.min(1, (s.velocity ?? 1) + (Math.random() - 0.5) * 0.3));
+      });
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+    });
+    actionsDiv.append(humanizeDiv);
+
     toolbar.append(euclidDiv, actionsDiv);
     wrapper.append(toolbar);
     container.append(wrapper);

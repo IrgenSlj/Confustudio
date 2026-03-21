@@ -395,7 +395,7 @@ function emit(type, payload = {}) {
     // ── Note preview ──
     case 'note:preview':
       if (state.audioContext) {
-        state.engine.previewNote(track, payload.note, state.audioContext);
+        state.engine.previewNote(track, payload.note, payload.velocity ?? 1);
         state._playingNotes.add(payload.note);
         state._pressedKeys.add(payload.note);  // track MIDI note for live recording
         lightPianoKey(el.kbdPiano, payload.note, true);
@@ -407,6 +407,15 @@ function emit(type, payload = {}) {
       state._pressedKeys.delete(payload.note);  // remove MIDI note from live recording set
       lightPianoKey(el.kbdPiano, payload.note, false);
       break;
+
+    case 'keyboard:velocityChange': {
+      // Update velocity display in the piano panel without full re-render
+      const velSlider = el.kbdPiano.querySelector('.kbd-vel-slider');
+      const velVal    = el.kbdPiano.querySelector('.kbd-vel-val');
+      if (velSlider) velSlider.value = payload.velocity;
+      if (velVal)    velVal.textContent = Math.round(payload.velocity * 100);
+      break;
+    }
 
     // ── Audio init ──
     case 'audio:init':
@@ -557,7 +566,7 @@ function emit(type, payload = {}) {
     // ── Octave ──
     case 'octave:shift':
       state.octaveShift = Math.max(-3, Math.min(3, state.octaveShift + payload.delta));
-      renderKbdContext(el.kbdContext, state.currentPage);
+      renderKbdContext(el.kbdContext, state.currentPage, state._pressedKeys, state);
       break;
 
     // ── Scene operations ──
@@ -988,7 +997,7 @@ function renderAll() {
   renderPage();
   renderTrackStrip();
   renderTrackSelector();
-  renderKbdContext(el.kbdContext, state.currentPage, state._pressedKeys);
+  renderKbdContext(el.kbdContext, state.currentPage, state._pressedKeys, state);
   renderPiano(el.kbdPiano, state);
   updateTransportUI();
 }

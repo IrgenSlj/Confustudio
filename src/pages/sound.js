@@ -70,6 +70,45 @@ function makeSlider(label, param, min, max, step, value, emit, trackIndex) {
   return row;
 }
 
+function drawWaveform(canvas, audioBuffer, sampleStart, sampleEnd) {
+  if (!audioBuffer) { canvas.style.display = 'none'; return; }
+  canvas.style.display = 'block';
+  const ctx2d = canvas.getContext('2d');
+  const W = canvas.offsetWidth || 200;
+  const H = canvas.height;
+  canvas.width = W;
+  ctx2d.clearRect(0, 0, W, H);
+
+  const data = audioBuffer.getChannelData(0);
+  const step = Math.floor(data.length / W);
+
+  ctx2d.strokeStyle = '#a0c060';
+  ctx2d.lineWidth = 1;
+  ctx2d.beginPath();
+
+  for (let x = 0; x < W; x++) {
+    let min = 1, max = -1;
+    for (let i = 0; i < step; i++) {
+      const v = data[x * step + i] ?? 0;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    const yMin = ((1 + min) / 2) * H;
+    const yMax = ((1 + max) / 2) * H;
+    if (x === 0) ctx2d.moveTo(x, yMin);
+    ctx2d.lineTo(x, yMin);
+    ctx2d.lineTo(x, yMax);
+  }
+  ctx2d.stroke();
+
+  // Center line
+  ctx2d.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx2d.beginPath();
+  ctx2d.moveTo(0, H / 2);
+  ctx2d.lineTo(W, H / 2);
+  ctx2d.stroke();
+}
+
 function makeSampleLoader(track, ti, emit, machCard) {
   const sampleInfo = document.createElement('div');
   sampleInfo.style.cssText = 'margin-top:8px;font-family:var(--font-mono);font-size:0.62rem;color:var(--muted)';
@@ -79,7 +118,112 @@ function makeSampleLoader(track, ti, emit, machCard) {
   loadBtn.style.marginTop = '6px';
   loadBtn.textContent = 'Load Sample';
   loadBtn.addEventListener('click', () => emit('state:change', { path: 'action_loadSample', value: ti }));
-  machCard.append(sampleInfo, loadBtn);
+
+  // Waveform wrap
+  const wfWrap = document.createElement('div');
+  wfWrap.className = 'sample-waveform-wrap';
+
+  const wfCanvas = document.createElement('canvas');
+  wfCanvas.className = 'sample-waveform';
+  wfCanvas.height = 48;
+  wfCanvas.style.display = 'none';
+
+  const playhead = document.createElement('div');
+  playhead.className = 'sample-playhead';
+  playhead.style.display = 'none';
+
+  const startLine = document.createElement('div');
+  startLine.className = 'sample-start-line';
+
+  const endLine = document.createElement('div');
+  endLine.className = 'sample-end-line';
+
+  wfWrap.append(wfCanvas, playhead, startLine, endLine);
+
+  // Start/End sliders row
+  const seRow = document.createElement('div');
+  seRow.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px';
+
+  function makeSeSlider(label, param, defaultVal) {
+    const lbl = document.createElement('label');
+    lbl.style.cssText = 'font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);display:flex;flex-direction:column;gap:2px';
+    const hdr = document.createElement('span');
+    hdr.textContent = label + ' ' + Number(track[param] ?? defaultVal).toFixed(2);
+    const inp = document.createElement('input');
+    inp.type = 'range';
+    inp.min = 0; inp.max = 1; inp.step = 0.01;
+    inp.value = track[param] ?? defaultVal;
+    inp.addEventListener('input', () => {
+      const v = parseFloat(inp.value);
+      hdr.textContent = label + ' ' + v.toFixed(2);
+      emit('track:change', { trackIndex: ti, param, value: v });
+      updateStartEndLines();
+      requestAnimationFrame(() => drawWaveform(wfCanvas, track.sampleBuffer,
+        parseFloat(startSlider.value), parseFloat(endSlider.value)));
+    });
+    lbl.append(hdr, inp);
+    return lbl;
+  }
+
+  const startLbl = makeSeSlider('Start', 'sampleStart', 0);
+  const endLbl   = makeSeSlider('End',   'sampleEnd',   1);
+  const startSlider = startLbl.querySelector('input');
+  const endSlider   = endLbl.querySelector('input');
+  seRow.append(startLbl, endLbl);
+
+  function updateStartEndLines() {
+    const s = parseFloat(startSlider.value);
+    const e = parseFloat(endSlider.value);
+    startLine.style.left = (s * 100) + '%';
+    endLine.style.left   = (e * 100) + '%';
+  }
+  updateStartEndLines();
+
+  machCard.append(sampleInfo, loadBtn, wfWrap, seRow);
+
+  // Draw waveform after layout — use rAF so canvas has width
+  requestAnimationFrame(() => {
+    drawWaveform(wfCanvas, track.sampleBuffer,
+      track.sampleStart ?? 0, track.sampleEnd ?? 1);
+    updateStartEndLines();
+  });
+
+  // Playhead rAF loop (closure over track ref via ti, reads state from window)
+  let _phRaf = null;
+  function tickPlayhead() {
+    const eng = window._confusynthEngine;
+    const st  = window._confusynthState;
+    if (!st?.isPlaying) {
+      playhead.style.display = 'none';
+      _phRaf = null;
+      return;
+    }
+    playhead.style.display = 'block';
+    const trackLen = st?.project?.banks?.[st.activeBank]
+      ?.patterns?.[st.activePattern]?.length ?? 16;
+    const pos = (st.currentStep ?? 0) / trackLen;
+    playhead.style.left = (pos * 100) + '%';
+    _phRaf = requestAnimationFrame(tickPlayhead);
+  }
+
+  // Observe playing state changes via a MutationObserver on the card or polling
+  // Use a lightweight interval that starts/stops with visibility
+  const phInterval = setInterval(() => {
+    const st = window._confusynthState;
+    if (st?.isPlaying && !_phRaf) {
+      tickPlayhead();
+    }
+  }, 200);
+
+  // Clean up when card is removed from DOM
+  const obs = new MutationObserver(() => {
+    if (!machCard.isConnected) {
+      clearInterval(phInterval);
+      if (_phRaf) cancelAnimationFrame(_phRaf);
+      obs.disconnect();
+    }
+  });
+  obs.observe(document.body, { childList: true, subtree: true });
 }
 
 export default {

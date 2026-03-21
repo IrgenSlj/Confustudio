@@ -411,9 +411,9 @@ export class AudioEngine {
   // Preview (keyboard note preview — fires immediately)
   // ——————————————————————————————————————————————
 
-  previewNote(track, note) {
+  previewNote(track, note, velocity = 1) {
     const when = this.context.currentTime;
-    this.triggerTrack(track, when, 0.25, { note, accent: false, velocity: 1 });
+    this.triggerTrack(track, when, 0.25, { note, accent: false, velocity });
   }
 
   // ——————————————————————————————————————————————
@@ -650,16 +650,29 @@ export class AudioEngine {
 
     // Sample machine
     if (params.machine === "sample" && params.sampleBuffer) {
+      const sampleStart = params.sampleStart ?? 0;
+      const sampleEnd   = Math.max(sampleStart + 0.001, params.sampleEnd ?? 1);
+      const bufDur      = params.sampleBuffer.duration;
+      const offsetSec   = bufDur * sampleStart;
+      const clipDur     = bufDur * (sampleEnd - sampleStart);
+
       if (this._workletReady) {
         // High-quality 4-point Hermite resampler via AudioWorklet
         const node = new AudioWorkletNode(this.context, 'cs-resampler');
         const channelData = params.sampleBuffer.getChannelData(0);
-        const copy = channelData.buffer.slice(0); // transferable copy
         const playbackRate = Math.pow(2, ((note || 48) - 48) / 12);
-        const duration = params.sampleBuffer.duration / playbackRate;
+        const sr = params.sampleBuffer.sampleRate;
+        const ctxRate = this.context.sampleRate;
+        const startSample = Math.floor(offsetSec * sr);
+        const endSample   = Math.min(channelData.length, Math.floor((bufDur * sampleEnd) * sr));
+        const slice = channelData.buffer.slice(
+          startSample * Float32Array.BYTES_PER_ELEMENT,
+          endSample   * Float32Array.BYTES_PER_ELEMENT
+        );
+        const duration = clipDur / playbackRate;
         node.port.postMessage(
-          { type: 'load', buffer: copy, playbackRate, sampleRate: params.sampleBuffer.sampleRate, ctxRate: this.context.sampleRate },
-          [copy]
+          { type: 'load', buffer: slice, playbackRate, sampleRate: sr, ctxRate },
+          [slice]
         );
         node.connect(output);
         // Disconnect after playback completes — no BufferSource stop() equivalent
@@ -670,7 +683,7 @@ export class AudioEngine {
         source.buffer = params.sampleBuffer;
         source.playbackRate.value = Math.pow(2, ((note || 48) - 48) / 12);
         source.connect(output);
-        source.start(when, 0, Math.min(totalTime, params.sampleBuffer.duration));
+        source.start(when, offsetSec, Math.min(totalTime, clipDur));
         source.stop(when + totalTime + 0.02);
       }
       return;

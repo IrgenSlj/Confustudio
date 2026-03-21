@@ -227,12 +227,19 @@ export function createAppState() {
     copyBuffer:        null,
     tapTimes:          [],
     activeKeyboardKey: null,
+    keyboardVelocity:  1.0,
+    chordMode:         'off',
+    humanizeAmount:    0.2,
 
     // Scenes / crossfader
     crossfader: 0,
     sceneA:     0,  // index of scene slot at crossfader A end
     sceneB:     1,  // index of scene slot at crossfader B end
     scenes:     Array.from({ length: 8 }, (_, i) => createScene(i)),
+
+    // Scene auto-morph
+    sceneMorphActive: false,
+    sceneMorphBars:   4,
 
     // Arranger
     arranger: [],   // [{sceneIdx, bars}]
