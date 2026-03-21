@@ -44,6 +44,12 @@ export class AudioEngine {
     this.master = context.createGain();
     this.master.gain.value = 0.82;
 
+    // Master drive saturator — inserted between masterGain and masterAnalyser
+    this.masterSaturator = context.createWaveShaper();
+    this.masterSaturator.oversample = "2x";
+    // Default: linear passthrough (no drive)
+    this.masterSaturator.curve = null;
+
     // Analyser for oscilloscope (public)
     this.analyser = context.createAnalyser();
     this.analyser.fftSize = 1024;
@@ -86,7 +92,9 @@ export class AudioEngine {
     this.delayWet.connect(this.master);
     this.reverbWet.connect(this.master);
 
-    this.master.connect(this.analyser);
+    // Master chain: masterGain → masterSaturator → masterAnalyser → destination
+    this.master.connect(this.masterSaturator);
+    this.masterSaturator.connect(this.analyser);
     this.analyser.connect(context.destination);
 
     // Shared noise buffer — pre-created once, looped per trigger (not per-note allocation)
@@ -216,6 +224,32 @@ export class AudioEngine {
   }
 
   // ——————————————————————————————————————————————
+  // Master Drive — WaveShaper saturator on master bus
+  // ——————————————————————————————————————————————
+
+  // Standard overdrive curve: (3 + k) * x / (π + k * |x|), 256 samples
+  _makeDriveCurve(amount) {
+    const samples = 256;
+    const curve = new Float32Array(samples);
+    const k = amount * 100;
+    for (let i = 0; i < samples; i++) {
+      const x = (i * 2) / (samples - 1) - 1;
+      curve[i] = ((3 + k) * x) / (Math.PI + k * Math.abs(x));
+    }
+    return curve;
+  }
+
+  // v: 0–1. Below 0.01 bypasses drive (linear passthrough via null curve).
+  setMasterDrive(v) {
+    v = Math.max(0, Math.min(1, v));
+    if (v < 0.01) {
+      this.masterSaturator.curve = null;
+    } else {
+      this.masterSaturator.curve = this._makeDriveCurve(v);
+    }
+  }
+
+  // ——————————————————————————————————————————————
   // AudioWorklet init
   // ——————————————————————————————————————————————
 
@@ -326,6 +360,33 @@ export class AudioEngine {
   }
 
   // ——————————————————————————————————————————————
+  // Metronome click — scheduled oscillator burst
+  // ——————————————————————————————————————————————
+
+  // time: AudioContext timestamp to schedule the click
+  // isDownbeat: true for the first step of a pattern (higher pitch)
+  playMetronomeClick(time, isDownbeat) {
+    const ctx = this.context;
+    const freq = isDownbeat ? 1000 : 800;
+    const duration = 0.015;
+
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.3, time);
+    env.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+
+    // Bypass reverb/delay — connect directly to masterGain
+    osc.connect(env);
+    env.connect(this.master);
+
+    osc.start(time);
+    osc.stop(time + duration + 0.005);
+  }
+
+  // ——————————————————————————————————————————————
   // Preview (keyboard note preview — fires immediately)
   // ——————————————————————————————————————————————
 
@@ -362,7 +423,7 @@ export class AudioEngine {
       return;
     }
 
-    // Signal chain: source → output (ADSR env gain) → panner → filter → saturator → master
+    // Signal chain: source → [bitCrusher?] → output (ADSR env gain) → panner → filter → saturator → master
     //   saturator → delaySend → delay ↺ feedback
     //   saturator → reverbSend → reverbInput → reverb graph → reverbWet → master
 
@@ -381,7 +442,35 @@ export class AudioEngine {
     saturator.curve = this.getDriveCurve(params.drive);
     saturator.oversample = "2x";
 
-    output.connect(panner);
+    // Bit-crusher — inserted between output and panner when bitDepth < 16 or srDiv > 1
+    const bitDepth = params.bitDepth ?? 16;
+    const srDiv = params.srDiv ?? 1;
+    const needsCrusher = bitDepth < 16 || srDiv > 1;
+
+    if (needsCrusher) {
+      const crusher = this.context.createScriptProcessor(256, 1, 1);
+      const step = Math.pow(2, bitDepth);
+      let held = 0;
+      let sampleCount = 0;
+
+      crusher.onaudioprocess = (e) => {
+        const input = e.inputBuffer.getChannelData(0);
+        const outBuf = e.outputBuffer.getChannelData(0);
+        for (let i = 0; i < input.length; i++) {
+          if (sampleCount % srDiv === 0) {
+            held = Math.round(input[i] * step) / step;
+          }
+          outBuf[i] = held;
+          sampleCount++;
+        }
+      };
+
+      output.connect(crusher);
+      crusher.connect(panner);
+    } else {
+      output.connect(panner);
+    }
+
     panner.connect(filter);
     filter.connect(saturator);
     saturator.connect(this.master);

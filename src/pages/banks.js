@@ -91,6 +91,39 @@ export default {
         emit('state:change', { path: 'activePattern', value: pi });
         this.render(container, { ...state, activePattern: pi }, emit);
       });
+
+      btn.addEventListener('dblclick', e => {
+        e.stopPropagation();
+        const originalName = pat.name;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = originalName.replace(/^Pattern /, '');
+        input.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;background:transparent;border:none;color:white;width:100%;outline:none;text-align:center;padding:0';
+        // Replace the name span with an input
+        name.replaceWith(input);
+        input.focus();
+        input.select();
+
+        const commit = () => {
+          const trimmed = input.value.trim();
+          const bank = state.project.banks[activeBank];
+          bank.patterns[pi].name = trimmed
+            ? (trimmed.startsWith('Pattern ') ? trimmed : trimmed)
+            : originalName;
+          emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+          this.render(container, { ...state }, emit);
+        };
+
+        input.addEventListener('blur', commit);
+        input.addEventListener('keydown', ev => {
+          if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+          if (ev.key === 'Escape') {
+            input.removeEventListener('blur', commit);
+            input.replaceWith(name);
+          }
+        });
+      });
+
       patGrid.append(btn);
     });
     container.append(patGrid);

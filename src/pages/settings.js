@@ -219,6 +219,85 @@ export default {
       }
     });
 
+    // ── MIDI Learn section ───────────────────────────────────────────────────
+    if (!state.midiLearnMap) state.midiLearnMap = {};
+
+    const midiLearnSection = document.createElement('div');
+    midiLearnSection.style.cssText = 'margin-top:10px;flex-shrink:0;border-top:1px solid var(--border);padding-top:8px';
+
+    const learnHeader = document.createElement('div');
+    learnHeader.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px';
+
+    const learnTitle = document.createElement('span');
+    learnTitle.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em';
+    learnTitle.textContent = 'MIDI Learn';
+
+    const learnToggle = document.createElement('button');
+    learnToggle.className = 'ctx-btn' + (state.midiLearnMode ? ' active' : '');
+    learnToggle.textContent = state.midiLearnMode ? 'Learning…' : 'MIDI Learn Mode';
+    learnToggle.style.marginLeft = 'auto';
+    learnToggle.addEventListener('click', () => {
+      state.midiLearnMode = !state.midiLearnMode;
+      learnToggle.classList.toggle('active', state.midiLearnMode);
+      learnToggle.textContent = state.midiLearnMode ? 'Learning…' : 'MIDI Learn Mode';
+      learnStatus.style.display = state.midiLearnMode ? '' : 'none';
+      saveState(state);
+    });
+
+    learnHeader.append(learnTitle, learnToggle);
+    midiLearnSection.append(learnHeader);
+
+    const learnStatus = document.createElement('div');
+    learnStatus.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--accent);margin-bottom:6px;display:' + (state.midiLearnMode ? '' : 'none');
+    learnStatus.textContent = 'Move a CC knob on your controller…';
+    midiLearnSection.append(learnStatus);
+
+    const mappings = Object.entries(state.midiLearnMap);
+    if (mappings.length > 0) {
+      const table = document.createElement('div');
+      table.style.cssText = 'display:grid;grid-template-columns:auto 1fr;gap:2px 8px;margin-bottom:6px';
+      const hCC = document.createElement('span');
+      hCC.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);text-transform:uppercase';
+      hCC.textContent = 'CC';
+      const hParam = document.createElement('span');
+      hParam.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);text-transform:uppercase';
+      hParam.textContent = 'Parameter';
+      table.append(hCC, hParam);
+      mappings.forEach(([cc, param]) => {
+        const ccEl = document.createElement('span');
+        ccEl.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--accent)';
+        ccEl.textContent = cc;
+        const paramEl = document.createElement('span');
+        paramEl.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--screen-text)';
+        paramEl.textContent = param;
+        table.append(ccEl, paramEl);
+      });
+      midiLearnSection.append(table);
+    } else {
+      const noMappings = document.createElement('div');
+      noMappings.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--muted);margin-bottom:6px';
+      noMappings.textContent = 'No mappings yet.';
+      midiLearnSection.append(noMappings);
+    }
+
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'seq-btn';
+    clearBtn.textContent = 'Clear All Mappings';
+    clearBtn.style.cssText = 'font-size:0.58rem;border-color:rgba(240,91,82,0.3);color:var(--record)';
+    clearBtn.addEventListener('click', () => {
+      state.midiLearnMap = {};
+      saveState(state);
+      // Re-render the section in place
+      midiLearnSection.querySelectorAll('div, span').forEach(el => {});
+      emit('state:change', { path: 'midiLearnMap', value: {} });
+    });
+    midiLearnSection.append(clearBtn);
+
+    // TODO: In app.js / engine, MIDI CC input should read from state.midiLearnMap
+    // to route incoming CC values to the mapped parameters via emit('state:change').
+
+    container.append(midiLearnSection);
+
     container.addEventListener('change', e => {
       const el = e.target;
       if (!el.dataset.action) return;

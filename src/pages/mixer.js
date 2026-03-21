@@ -17,6 +17,39 @@ export default {
 
     const meterData = new Uint8Array(32);
     const meterEls = [];
+    const _peakLevels = new Array(8).fill(0);
+    const _peakDecay  = new Array(8).fill(0);
+
+    // Bulk mute/unmute/solo-off bar
+    const bulkBar = document.createElement('div');
+    bulkBar.className = 'mixer-bulk-bar';
+
+    const muteAllBtn = document.createElement('button');
+    muteAllBtn.className = 'mixer-bulk-btn';
+    muteAllBtn.textContent = 'Mute All';
+    muteAllBtn.addEventListener('click', () => {
+      tracks.forEach(t => { t.mute = true; });
+      emit('state:change', { path: 'mixer.bulkMute', value: true });
+    });
+
+    const unmuteAllBtn = document.createElement('button');
+    unmuteAllBtn.className = 'mixer-bulk-btn';
+    unmuteAllBtn.textContent = 'Unmute All';
+    unmuteAllBtn.addEventListener('click', () => {
+      tracks.forEach(t => { t.mute = false; });
+      emit('state:change', { path: 'mixer.bulkMute', value: false });
+    });
+
+    const soloOffBtn = document.createElement('button');
+    soloOffBtn.className = 'mixer-bulk-btn';
+    soloOffBtn.textContent = 'Solo off';
+    soloOffBtn.addEventListener('click', () => {
+      tracks.forEach(t => { t.solo = false; });
+      emit('state:change', { path: 'mixer.soloOff', value: true });
+    });
+
+    bulkBar.append(muteAllBtn, unmuteAllBtn, soloOffBtn);
+    container.append(bulkBar);
 
     const faderGrid = document.createElement('div');
     faderGrid.className = 'mixer-fader-grid';
@@ -90,9 +123,11 @@ export default {
       meterWrap.className = 'mixer-meter-wrap';
       const meterBar = document.createElement('div');
       meterBar.className = 'mixer-meter-bar';
-      meterWrap.append(meterBar);
+      const peakLine = document.createElement('div');
+      peakLine.className = 'mixer-peak-line';
+      meterWrap.append(meterBar, peakLine);
       strip.append(meterWrap);
-      meterEls.push({ bar: meterBar, track });
+      meterEls.push({ bar: meterBar, peak: peakLine, track });
 
       // Volume readout
       const vol = document.createElement('span');
@@ -140,9 +175,21 @@ export default {
           sum += s * s;
         }
         const rms = Math.sqrt(sum / meterData.length);
-        meterEls.forEach(({ bar, track: t }) => {
-          const h = t.mute ? 0 : Math.min(100, Math.round(rms * 140 * (t.volume + 0.15)));
+        meterEls.forEach(({ bar, peak, track: t }, i) => {
+          const level = t.mute ? 0 : Math.min(1, rms * 1.4 * (t.volume + 0.15));
+          const h = Math.round(level * 100);
           bar.style.height = h + '%';
+
+          // Peak-hold logic
+          if (level > _peakLevels[i]) {
+            _peakLevels[i] = level;
+            _peakDecay[i]  = 60;
+          } else if (_peakDecay[i] > 0) {
+            _peakDecay[i]--;
+          } else {
+            _peakLevels[i] = Math.max(0, _peakLevels[i] - 0.005);
+          }
+          peak.style.setProperty('--peak', _peakLevels[i]);
         });
       }
       requestAnimationFrame(updateMeters);

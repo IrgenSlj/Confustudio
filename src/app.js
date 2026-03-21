@@ -60,6 +60,32 @@ state._fillActive = false;
 const LEGACY_STORAGE_KEY = 'confusynth-v2';
 
 // ─────────────────────────────────────────────
+// UNDO / REDO HISTORY
+// ─────────────────────────────────────────────
+const _history = [];
+let _historyIdx = -1;
+
+function pushHistory(state) {
+  // Trim any redo entries ahead of current position
+  _history.splice(_historyIdx + 1);
+  _history.push(JSON.parse(JSON.stringify(state.project)));
+  if (_history.length > 50) _history.shift();
+  _historyIdx = _history.length - 1;
+}
+
+function undoHistory(state) {
+  if (_historyIdx <= 0) return;
+  _historyIdx--;
+  state.project = JSON.parse(JSON.stringify(_history[_historyIdx]));
+}
+
+function redoHistory(state) {
+  if (_historyIdx >= _history.length - 1) return;
+  _historyIdx++;
+  state.project = JSON.parse(JSON.stringify(_history[_historyIdx]));
+}
+
+// ─────────────────────────────────────────────
 // DOM REFS
 // ─────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -141,6 +167,7 @@ function handleAction(path, value, pattern) {
 
     case 'action_paste':
       if (state.copyBuffer?.type !== 'steps') return true;
+      pushHistory(state);
       pattern.kit.tracks[state.selectedTrackIndex].steps.forEach((step, index) => {
         const source = state.copyBuffer.data[index];
         if (source) Object.assign(step, source);
@@ -151,6 +178,7 @@ function handleAction(path, value, pattern) {
       return true;
 
     case 'action_clear':
+      pushHistory(state);
       pattern.kit.tracks[state.selectedTrackIndex].steps.forEach(step => {
         step.active = false;
         step.accent = false;
@@ -276,8 +304,28 @@ function handleStateChange(path, value, pattern) {
     return;
   }
 
+  if (path === 'patternShift') {
+    state.patternShift = value;
+    const track = getActiveTrack(state);
+    const trackLen = track.steps.length;
+    const shift = ((Math.round(value) % trackLen) + trackLen) % trackLen;
+    if (shift !== 0) {
+      track.steps = [...track.steps.slice(shift), ...track.steps.slice(0, shift)];
+    }
+    scheduleSave();
+    renderPage();
+    return;
+  }
+
   if (path === 'crossfader') {
     state.crossfader = value;
+    scheduleSave();
+    renderPage();
+    return;
+  }
+
+  if (path === 'scale') {
+    state.scale = Math.max(0, Math.min(6, Number(value)));
     scheduleSave();
     renderPage();
     return;
@@ -339,12 +387,14 @@ function emit(type, payload = {}) {
       if (state.audioContext) {
         state.engine.previewNote(track, payload.note, state.audioContext);
         state._playingNotes.add(payload.note);
+        state._pressedKeys.add(payload.note);  // track MIDI note for live recording
         lightPianoKey(el.kbdPiano, payload.note, true);
       }
       break;
 
     case 'note:off':
       state._playingNotes.delete(payload.note);
+      state._pressedKeys.delete(payload.note);  // remove MIDI note from live recording set
       lightPianoKey(el.kbdPiano, payload.note, false);
       break;
 
@@ -357,6 +407,7 @@ function emit(type, payload = {}) {
     case 'step:toggle': {
       const step = pattern.kit.tracks[state.selectedTrackIndex].steps[payload.stepIndex];
       if (!step) break;
+      pushHistory(state);
       if (payload.shiftKey) {
         step.accent = !step.accent;
       } else {
@@ -379,6 +430,7 @@ function emit(type, payload = {}) {
     }
 
     case 'step:plock':
+      pushHistory(state);
       applyParamLock(state, payload.stepIndex, payload.param, payload.value);
       scheduleSave();
       renderPage();
@@ -399,6 +451,7 @@ function emit(type, payload = {}) {
     case 'track:change': {
       const t = pattern.kit.tracks[payload.trackIndex ?? state.selectedTrackIndex];
       if (t && payload.param) {
+        pushHistory(state);
         t[payload.param] = payload.value;
         scheduleSave();
       }
@@ -471,6 +524,7 @@ function emit(type, payload = {}) {
       break;
 
     case 'pattern:clear':
+      pushHistory(state);
       pattern.kit.tracks[state.selectedTrackIndex].steps.forEach(s => {
         s.active = false; s.accent = false; s.paramLocks = {};
       });
@@ -479,6 +533,7 @@ function emit(type, payload = {}) {
       break;
 
     case 'pattern:randomize': {
+      pushHistory(state);
       const len = pattern.length;
       pattern.kit.tracks[state.selectedTrackIndex].steps.slice(0, len).forEach(s => {
         s.active = Math.random() < 0.4;
@@ -664,9 +719,23 @@ function scheduleLoop() {
 
       // Per-track scheduling with individual step counters for polyrhythm
       pattern.kit.tracks.forEach((track, ti) => {
-        if (track.mute || (isSoloing && !track.solo)) return;
         const trackLen = (track.trackLength > 0) ? track.trackLength : pattern.length;
         const stepIdx = _trackStepIdx[ti];
+
+        // Live recording: capture held MIDI notes onto the selected track
+        if (state.isRecording && ti === state.selectedTrackIndex && state._pressedKeys.size > 0) {
+          const step = track.steps[stepIdx];
+          if (step) {
+            step.active = true;
+            // Use the lowest held MIDI note (numeric keys are MIDI notes)
+            const heldNotes = [...state._pressedKeys].filter(k => typeof k === 'number');
+            if (heldNotes.length > 0) {
+              step.paramLocks = { ...step.paramLocks, note: Math.min(...heldNotes) };
+            }
+          }
+        }
+
+        if (track.mute || (isSoloing && !track.solo)) return;
         const step = track.steps[stepIdx];
         if (!step?.active) return;
 
@@ -696,6 +765,45 @@ function scheduleLoop() {
       // state.currentStep tracks track 0 for the playhead display
       state.currentStep = _trackStepIdx[0];
       _schedStepIdx = _trackStepIdx[0]; // keep alias in sync
+
+      // Pattern chain / arranger advance on loop wrap-around (track 0 step wrapped to 0)
+      if (state.currentStep === 0) {
+        state._patternLoopCount = (state._patternLoopCount ?? 0) + 1;
+
+        // Arranger playback
+        if (state.arrangementMode && Array.isArray(state.arranger) && state.arranger.length > 0) {
+          state._arrSectionBars = (state._arrSectionBars ?? 0) + 1;
+          const section = state.arranger[state._arrSection ?? 0];
+          if (section && state._arrSectionBars >= section.bars) {
+            state._arrSectionBars = 0;
+            state._arrSection = ((state._arrSection ?? 0) + 1) % state.arranger.length;
+            const nextSection = state.arranger[state._arrSection];
+            if (nextSection != null) {
+              // Map sceneIdx to a pattern index (use sceneIdx as pattern index within active bank)
+              state.activePattern = Math.max(0, Math.min(15, nextSection.sceneIdx ?? 0));
+            }
+          }
+        }
+
+        // Pattern chain: advance to next pattern after chainLength loops
+        if ((state.chainPatterns ?? false) && !state.arrangementMode) {
+          if (state._patternLoopCount >= (state.chainLength ?? 1)) {
+            state._patternLoopCount = 0;
+            state.activePattern = (state.activePattern + 1) % 16;
+          }
+        }
+      }
+
+      // Metronome clicks on quarter-note boundaries (every patLen/4 steps)
+      if (state.metronome && state.engine?.playMetronomeClick) {
+        const patLen = pattern.length || 16;
+        const quarterStep = Math.max(1, Math.floor(patLen / 4));
+        // state.currentStep is the post-advance value; the step just scheduled is one behind
+        const justScheduled = ((state.currentStep - 1) + patLen) % patLen;
+        if (justScheduled % quarterStep === 0) {
+          state.engine.playMetronomeClick(_schedNextTime, justScheduled === 0);
+        }
+      }
 
       // Swing is applied based on track 0's next step parity
       const swing = (_trackStepIdx[0] % 2 !== 0 ? 1 : -1) * state.swing * secsPerStep;
@@ -1058,6 +1166,98 @@ function bindUI() {
   // Knob events delegation (persistent on containers)
   el.leftKnobs.addEventListener('knob:change', e => emit('knob:change', e.detail));
   el.rightKnobs.addEventListener('knob:change', e => emit('knob:change', e.detail));
+
+  // Undo / Redo keyboard shortcuts
+  document.addEventListener('keydown', e => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    if (e.key === 'z' || e.key === 'Z') {
+      if (e.shiftKey) {
+        redoHistory(state);
+      } else {
+        undoHistory(state);
+      }
+      renderPage();
+      saveState(state);
+      e.preventDefault();
+    } else if (e.key === 'y' || e.key === 'Y') {
+      redoHistory(state);
+      renderPage();
+      saveState(state);
+      e.preventDefault();
+    }
+  });
+
+  // Chain toggle button (if present in DOM)
+  const btnChain = document.getElementById('btn-chain');
+  if (btnChain) {
+    btnChain.addEventListener('click', () => {
+      state.chainPatterns = !(state.chainPatterns ?? false);
+      btnChain.classList.toggle('active', state.chainPatterns);
+    });
+  }
+
+  // Help modal
+  const helpModal = document.createElement('div');
+  helpModal.id = 'help-modal';
+  helpModal.innerHTML = `
+  <div class="help-backdrop"></div>
+  <div class="help-content">
+    <h3>Keyboard Shortcuts</h3>
+    <div class="help-grid">
+      <div class="help-section">
+        <h4>Global</h4>
+        <dl>
+          <dt>Space</dt><dd>Play / Stop</dd>
+          <dt>P</dt><dd>Record</dd>
+          <dt>Q–O</dt><dd>Switch pages</dd>
+          <dt>Ctrl+Z</dt><dd>Undo</dd>
+          <dt>Ctrl+Y</dt><dd>Redo</dd>
+          <dt>?</dt><dd>This help</dd>
+        </dl>
+      </div>
+      <div class="help-section">
+        <h4>Pattern Page</h4>
+        <dl>
+          <dt>A–M</dt><dd>Toggle steps 1–16</dd>
+          <dt>Shift+A–M</dt><dd>Accent steps</dd>
+          <dt>Ctrl+C/V</dt><dd>Copy / Paste pattern</dd>
+        </dl>
+      </div>
+      <div class="help-section">
+        <h4>Sound / Piano Roll</h4>
+        <dl>
+          <dt>A–M</dt><dd>Play notes C–D'</dd>
+          <dt>W,E,T,Y,U</dt><dd>Black keys C#–A#</dd>
+        </dl>
+      </div>
+      <div class="help-section">
+        <h4>Mixer Page</h4>
+        <dl>
+          <dt>A–K</dt><dd>Select track 1–8</dd>
+          <dt>L</dt><dd>Mute selected</dd>
+          <dt>M</dt><dd>Solo selected</dd>
+        </dl>
+      </div>
+    </div>
+    <button class="help-close seq-btn">Close</button>
+  </div>
+`;
+  document.body.append(helpModal);
+  helpModal.querySelector('.help-backdrop').addEventListener('click', () => helpModal.style.display = 'none');
+  helpModal.querySelector('.help-close').addEventListener('click', () => helpModal.style.display = 'none');
+
+  // ? / F1 key opens help modal; Escape closes it
+  document.addEventListener('keydown', e => {
+    if (e.key === '?' || e.key === 'F1') {
+      e.preventDefault();
+      const m = document.getElementById('help-modal');
+      if (m) m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
+    }
+    if (e.key === 'Escape') {
+      const m = document.getElementById('help-modal');
+      if (m && m.style.display === 'flex') { m.style.display = 'none'; e.preventDefault(); }
+    }
+  });
 }
 
 // ─────────────────────────────────────────────

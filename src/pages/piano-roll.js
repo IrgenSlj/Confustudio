@@ -5,6 +5,16 @@ import { TRACK_COLORS } from '../state.js';
 const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const BLACK_PCS  = new Set([1, 3, 6, 8, 10]); // pitch-class indices for black keys
 
+const SCALES = [
+  { name: 'Chromatic', intervals: null },
+  { name: 'Major',     intervals: [0,2,4,5,7,9,11] },
+  { name: 'Minor',     intervals: [0,2,3,5,7,8,10] },
+  { name: 'Pent Maj',  intervals: [0,2,4,7,9] },
+  { name: 'Pent Min',  intervals: [0,3,5,7,10] },
+  { name: 'Dorian',    intervals: [0,2,3,5,7,9,10] },
+  { name: 'Blues',     intervals: [0,3,5,6,7,10] },
+];
+
 // Build 24 rows: B4 (MIDI 71) down to C3 (MIDI 48)
 function buildRows() {
   const rows = [];
@@ -27,6 +37,10 @@ export default {
     const track   = pattern.kit.tracks[state.selectedTrackIndex];
     const steps   = pattern.length;
 
+    const scaleIdx    = state.scale ?? 0;
+    const currentScale = SCALES[Math.max(0, Math.min(SCALES.length - 1, scaleIdx))];
+    const scaleSet    = currentScale.intervals ? new Set(currentScale.intervals) : null;
+
     // Build a set of active (midi, stepIndex) pairs from step notes
     const activeSet = new Set();
     track.steps.slice(0, steps).forEach((step, si) => {
@@ -42,6 +56,20 @@ export default {
       <span style="margin-left:auto;font-family:var(--font-mono);font-size:0.58rem;color:var(--muted)">scroll/zoom via knobs</span>
     `;
     container.append(header);
+
+    // Scale bar
+    const scaleBar = document.createElement('div');
+    scaleBar.className = 'roll-scale-bar';
+    SCALES.forEach((scale, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'roll-scale-btn' + (idx === scaleIdx ? ' active' : '');
+      btn.textContent = scale.name;
+      btn.addEventListener('click', () => {
+        emit('state:change', { path: 'scale', value: idx });
+      });
+      scaleBar.append(btn);
+    });
+    container.append(scaleBar);
 
     // Piano roll view
     const view = document.createElement('div');
@@ -75,7 +103,40 @@ export default {
     }
     gridCol.prepend(beatHeader);
 
+    // Drag-velocity state
+    let dragCell      = null;
+    let dragStep      = null;
+    let dragStartY    = 0;
+    let dragStartVel  = 1;
+    let dragging      = false;
+
+    function onWindowPointerMove(e) {
+      if (!dragCell) return;
+      const dy = dragStartY - e.clientY;
+      if (!dragging && Math.abs(dy) > 5) dragging = true;
+      if (!dragging) return;
+      const newVel = Math.max(0.05, Math.min(1, dragStartVel + dy / 80));
+      dragStep.velocity = newVel;
+      dragCell.style.opacity = String(0.3 + newVel * 0.7);
+      dragCell.title = `vel:${Math.round(newVel * 127)}`;
+    }
+
+    function onWindowPointerUp() {
+      if (dragCell) {
+        if (dragging) {
+          emit('track:change', { param: 'steps', value: track.steps });
+        }
+        dragCell  = null;
+        dragStep  = null;
+        dragging  = false;
+      }
+      window.removeEventListener('pointermove', onWindowPointerMove);
+      window.removeEventListener('pointerup', onWindowPointerUp);
+    }
+
     ROWS.forEach(({ midi, name, isBlack }) => {
+      const isMuted = scaleSet !== null && !scaleSet.has(midi % 12);
+
       // Key label
       const key = document.createElement('div');
       key.className = 'roll-key' + (isBlack ? ' black-key' : '');
@@ -84,28 +145,53 @@ export default {
 
       // Grid row
       const row = document.createElement('div');
-      row.className = 'roll-row' + (isBlack ? ' black-row' : '');
+      row.className = 'roll-row' + (isBlack ? ' black-row' : '') + (isMuted ? ' roll-row-muted' : '');
 
       for (let si = 0; si < steps; si++) {
         const cell = document.createElement('div');
         cell.className = 'piano-cell' + (si % 4 === 0 ? ' beat-start' : '');
         cell.dataset.col = si;
 
+        if (isMuted) {
+          cell.style.pointerEvents = 'none';
+          row.append(cell);
+          continue;
+        }
+
         if (activeSet.has(`${midi}_${si}`)) {
           cell.classList.add('active');
           const step = track.steps[si];
           const vel = step?.velocity ?? 1;
-          cell.style.opacity = String(0.5 + vel * 0.5);
+          cell.style.opacity = String(0.3 + vel * 0.7);
+          cell.style.cursor = 'ns-resize';
           cell.title = `${name} vel:${Math.round(vel * 127)}`;
         }
 
-        cell.addEventListener('click', () => {
+        // Velocity drag on active cells
+        cell.addEventListener('pointerdown', (e) => {
+          if (!cell.classList.contains('active')) return;
+          e.preventDefault();
+          const step = track.steps[si];
+          dragCell     = cell;
+          dragStep     = step;
+          dragStartY   = e.clientY;
+          dragStartVel = step.velocity ?? 1;
+          dragging     = false;
+          window.addEventListener('pointermove', onWindowPointerMove);
+          window.addEventListener('pointerup', onWindowPointerUp);
+        });
+
+        cell.addEventListener('click', (e) => {
+          // Suppress click if we just finished a drag
+          if (dragging) return;
+
           const step = track.steps[si];
           const alreadyThisNote = step.active && (step.paramLocks?.note === midi || (step.note === midi && !step.paramLocks?.note));
           if (alreadyThisNote) {
             // Toggle off
             emit('step:toggle', { stepIndex: si, shiftKey: false });
             cell.classList.remove('active');
+            cell.style.cursor = '';
             activeSet.delete(`${midi}_${si}`);
           } else {
             // Activate and set note
@@ -114,6 +200,7 @@ export default {
             }
             emit('step:plock', { stepIndex: si, param: 'note', value: midi });
             cell.classList.add('active');
+            cell.style.cursor = 'ns-resize';
             activeSet.add(`${midi}_${si}`);
           }
         });

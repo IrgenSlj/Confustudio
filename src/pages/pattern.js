@@ -159,6 +159,22 @@ export default {
         emit('state:change', { path: 'euclidBeats', value: state.euclidBeats }); // trigger save+render
       });
       labelWrap.append(randBtn);
+
+      const cloneBtn = document.createElement('button');
+      cloneBtn.className = 'mtg-rand-btn';
+      cloneBtn.title = 'Clone track to next';
+      cloneBtn.textContent = '⧉';
+      cloneBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        const nextTi = (ti + 1) % 8;
+        pattern.kit.tracks[nextTi].steps = JSON.parse(JSON.stringify(trk.steps));
+        ['machine','waveform','attack','decay','cutoff','resonance','drive','volume','pan','pitch','filterType'].forEach(key => {
+          if (trk[key] !== undefined) pattern.kit.tracks[nextTi][key] = trk[key];
+        });
+        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      });
+      labelWrap.append(cloneBtn);
+
       labelWrap.addEventListener('click', () => emit('track:select', { trackIndex: ti }));
       row.append(labelWrap);
 
@@ -178,6 +194,11 @@ export default {
         btn.dataset.prob = String(step.probability);
         btn.dataset.step = si;
         btn.dataset.track = ti;
+        if (step.probability < 1.0) {
+          btn.classList.add('has-prob');
+          btn.style.setProperty('--prob', step.probability);
+          btn.title = `${Math.round(step.probability * 100)}%`;
+        }
         if (si > 0 && si % 4 === 0) btn.classList.add('step-group-start');
 
         btn.addEventListener('click', e => {

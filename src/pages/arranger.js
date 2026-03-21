@@ -4,7 +4,8 @@ export default {
   render(container, state, emit) {
     container.innerHTML = '';
 
-    const { arranger, arrangementMode, arrangementCursor, scenes } = state;
+    const { arranger, arrangementMode, arrangementCursor, scenes, isPlaying } = state;
+    const activeSectionIdx = (arrangementMode && isPlaying) ? (state._arrSection ?? 0) : -1;
 
     // Header
     const header = document.createElement('div');
@@ -43,14 +44,28 @@ export default {
         row.style.borderColor = 'rgba(240,91,82,0.5)';
         row.style.background  = 'rgba(240,91,82,0.05)';
       }
+      if (idx === activeSectionIdx) {
+        row.classList.add('active');
+        row.style.borderColor = 'rgba(90,221,113,0.6)';
+        row.style.background  = 'rgba(90,221,113,0.06)';
+      }
 
       const sceneLabel = document.createElement('span');
       sceneLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.65rem;color:var(--accent);min-width:24px';
       sceneLabel.textContent   = String.fromCharCode(65 + (section.sceneIdx ?? 0));
 
-      const sceneName = document.createElement('span');
-      sceneName.style.cssText  = 'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);flex:1';
-      sceneName.textContent    = (scenes[section.sceneIdx] && scenes[section.sceneIdx].name) || '—';
+      const sceneName = document.createElement('input');
+      sceneName.type = 'text';
+      sceneName.value = section.name || (scenes[section.sceneIdx] && scenes[section.sceneIdx].name) || '—';
+      sceneName.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);flex:1;background:transparent;border:none;outline:none;padding:0;min-width:0';
+      sceneName.addEventListener('change', () => {
+        state.arranger.sections
+          ? (state.arranger.sections[idx].name = sceneName.value)
+          : (arranger[idx].name = sceneName.value);
+        emit('state:change', { path: 'arranger', value: state.arranger ?? arranger });
+      });
+      sceneName.addEventListener('focus', () => { sceneName.style.color = 'var(--screen-text)'; sceneName.select(); });
+      sceneName.addEventListener('blur',  () => { sceneName.style.color = 'var(--muted)'; });
 
       const barsLabel = document.createElement('span');
       barsLabel.style.cssText  = 'font-family:var(--font-mono);font-size:0.62rem;color:var(--screen-text);min-width:32px;text-align:right';
@@ -148,6 +163,28 @@ export default {
 
     if (arranger.length === 0) {
       timeline.innerHTML = `<div style="flex:1;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:0.6rem;color:var(--muted)">Empty — add sections below</div>`;
+    }
+
+    // Pulsing playhead cursor overlaid on the timeline
+    if (activeSectionIdx >= 0 && arranger.length > 0) {
+      const barsBefore = arranger.slice(0, activeSectionIdx).reduce((s, sec) => s + (sec.bars ?? 1), 0);
+      const sectionBars = arranger[activeSectionIdx]?.bars ?? 1;
+      const sectionProgress = state._arrSectionBar != null ? (state._arrSectionBar / sectionBars) : 0;
+      const totalBarsForHead = totalBarsAll;
+      const playheadPct = ((barsBefore + sectionProgress * sectionBars) / totalBarsForHead * 100).toFixed(2);
+
+      const playhead = document.createElement('div');
+      playhead.style.cssText = `
+        position:absolute; top:0; bottom:0; width:2px;
+        left:${playheadPct}%;
+        background:var(--live);
+        border-radius:1px;
+        animation: arrPlayheadPulse 0.5s ease-in-out infinite alternate;
+        pointer-events:none;
+        z-index:10;
+      `;
+      timeline.style.position = 'relative';
+      timeline.append(playhead);
     }
 
     container.append(timeline);
