@@ -438,6 +438,10 @@ export default {
       const perfDiv = document.createElement('div');
       perfDiv.className = 'perf-monitor';
 
+      // 60-frame rolling average for FPS
+      const _frameTimes = [];
+      let _lastFrameTs = null;
+
       const updatePerf = () => {
         const eng = window._confusynthEngine;
         if (!eng?.context) {
@@ -445,11 +449,36 @@ export default {
           return;
         }
         const ctx = eng.context;
+
+        // Rolling FPS calculation
+        const now = performance.now();
+        if (_lastFrameTs !== null) {
+          const delta = now - _lastFrameTs;
+          _frameTimes.push(delta);
+          if (_frameTimes.length > 60) _frameTimes.shift();
+        }
+        _lastFrameTs = now;
+
+        let fpsDisplay = '—';
+        let fpsColor = 'var(--screen-text)';
+        if (_frameTimes.length >= 2) {
+          const avgDelta = _frameTimes.reduce((a, b) => a + b, 0) / _frameTimes.length;
+          const fps = 1000 / avgDelta;
+          fpsDisplay = fps.toFixed(1);
+          if (fps > 55) fpsColor = '#5cb85c';
+          else if (fps >= 45) fpsColor = '#e6a817';
+          else fpsColor = '#d9534f';
+        }
+
+        const baseLatMs = ((ctx.baseLatency ?? 0) * 1000).toFixed(1);
+        const outLatMs  = ((ctx.outputLatency ?? 0) * 1000).toFixed(1);
+
         perfDiv.innerHTML = `
+          <div class="perf-row perf-fps-row"><span>FPS</span><span style="color:${fpsColor};font-weight:bold">${fpsDisplay} <span style="color:var(--muted);font-weight:normal">| CPU: ~${baseLatMs}ms</span></span></div>
           <div class="perf-row"><span>State</span><span>${ctx.state}</span></div>
           <div class="perf-row"><span>Sample Rate</span><span>${ctx.sampleRate} Hz</span></div>
-          <div class="perf-row"><span>Base Latency</span><span>${((ctx.baseLatency ?? 0) * 1000).toFixed(1)} ms</span></div>
-          <div class="perf-row"><span>Output Latency</span><span>${((ctx.outputLatency ?? 0) * 1000).toFixed(1)} ms</span></div>
+          <div class="perf-row"><span>Base Latency</span><span>${baseLatMs} ms</span></div>
+          <div class="perf-row"><span>Output Latency</span><span>${outLatMs} ms</span></div>
           <div class="perf-row"><span>Current Time</span><span>${ctx.currentTime.toFixed(1)} s</span></div>
         `;
       };

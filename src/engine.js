@@ -274,6 +274,46 @@ export class AudioEngine {
     }
   }
 
+  // ——————————————————————————————————————————————
+  // Reverb type — maps named presets to roomSize + damping combinations
+  // ——————————————————————————————————————————————
+
+  setReverbType(type) {
+    // Each preset encodes: roomSize (comb feedback 0–0.98), damping (0–1)
+    const PRESETS = {
+      room:      { roomSize: 0.72, damping: 0.65 },
+      hall:      { roomSize: 0.90, damping: 0.35 },
+      plate:     { roomSize: 0.82, damping: 0.20 },
+      spring:    { roomSize: 0.76, damping: 0.55 },
+      cathedral: { roomSize: 0.96, damping: 0.18 },
+    };
+    const preset = PRESETS[type] ?? PRESETS.room;
+    this.setReverbRoomSize(preset.roomSize);
+    this.setReverbDamping(preset.damping);
+
+    // Spring: modulate allpass delay times with a fast LFO for flutter character.
+    // Stop any previously running spring LFO first.
+    if (this._springLFO) {
+      try { this._springLFO.stop(); } catch (_) {}
+      this._springLFO = null;
+    }
+    if (type === 'spring' && this._allpassNodes && this._allpassNodes.length > 0) {
+      const ctx = this.context;
+      const lfo = ctx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.value = 8; // 8 Hz flutter characteristic of spring reverbs
+      const lfoDepth = ctx.createGain();
+      lfoDepth.gain.value = 0.0004; // subtle time modulation in seconds
+      lfo.connect(lfoDepth);
+      // Modulate the first two allpass nodes
+      for (let i = 0; i < Math.min(2, this._allpassNodes.length); i++) {
+        lfoDepth.connect(this._allpassNodes[i].delayTime);
+      }
+      lfo.start();
+      this._springLFO = lfo;
+    }
+  }
+
   setDelayFeedback(v) {
     this.delayFeedback.gain.setTargetAtTime(Math.max(0, Math.min(0.95, v)), this.context.currentTime, 0.01);
   }

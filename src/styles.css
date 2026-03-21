@@ -1095,6 +1095,17 @@ button {
   line-height: 1;
 }
 
+.step-plock-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #2dd4bf;
+  pointer-events: none;
+}
+
 .step-btn.step-muted {
   opacity: 0.25 !important;
   text-decoration: line-through;
@@ -3278,6 +3289,12 @@ button {
 }
 .perf-row span:last-child {
   color: var(--screen-text);
+}
+.perf-fps-row {
+  border-bottom: 1px solid #2a3a1a;
+  padding-bottom: 4px;
+  margin-bottom: 2px;
+  font-size: 0.56rem;
 }
 .preset-bar {
   display: flex;

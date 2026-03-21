@@ -167,7 +167,11 @@ export const CHORD_VOICINGS = {
 // 1 key-unit ≈ key-width + gap. Used to calculate row stagger padding.
 const KEY_UNIT = 46; // px  (key ~43px + 3px gap)
 
-export function renderKbdContext(containerEl, page, activeKeys = new Set(), state = null) {
+export function renderKbdContext(containerEl, page, activeKeys = new Set(), state = null, getActiveTrackFn = null) {
+  // Cancel any running arp rAF before wiping innerHTML
+  containerEl.querySelectorAll('.arp-dots-row').forEach(el => {
+    if (typeof el._arpCancel === 'function') el._arpCancel();
+  });
   containerEl.innerHTML = '';
 
   const roles = KEY_ROLES[page] || {};
@@ -248,6 +252,72 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
 
 // Internal reference to emit, set by initKeyboard
 let _emit = null;
+
+// ─── Arp pattern visualizer ────────────────────────────────────────────────────
+
+// Track active rAF handles keyed by containerEl so we can cancel on re-render
+const _arpRafHandles = new WeakMap();
+
+function startArpVisualizer(dotsRow, state, getActiveTrackFn) {
+  let rafId = null;
+
+  function tick() {
+    const track = getActiveTrackFn();
+    if (!track || !track.arpEnabled) return; // stop if arp toggled off
+    if (!dotsRow.isConnected) return;         // element removed from DOM
+
+    const arpIdx   = state._arpIdx ?? 0;
+    const dotEls   = dotsRow.querySelectorAll('.arp-dot');
+    dotEls.forEach((dot, i) => {
+      const isCurrent = (i === arpIdx % dotEls.length);
+      dot.classList.toggle('arp-dot-current', isCurrent);
+    });
+
+    rafId = requestAnimationFrame(tick);
+  }
+
+  rafId = requestAnimationFrame(tick);
+  return () => { if (rafId !== null) cancelAnimationFrame(rafId); };
+}
+
+function buildArpVisualizer(state, TRACK_COLORS, getActiveTrackFn) {
+  const track = getActiveTrackFn();
+  const color = TRACK_COLORS[state.selectedTrackIndex] ?? '#f0c640';
+
+  // Number of dots: clamp between 4 and 8 based on arpRange
+  const range = track?.arpRange ?? 1;
+  const dotCount = Math.min(8, Math.max(4, range * 4));
+
+  const wrap = document.createElement('div');
+  wrap.className = 'arp-visualizer';
+
+  const label = document.createElement('span');
+  label.className = 'arp-vis-label';
+  label.textContent = 'ARP';
+  wrap.append(label);
+
+  const modeLabel = document.createElement('span');
+  modeLabel.className = 'arp-vis-mode';
+  modeLabel.textContent = (track?.arpMode ?? 'up').toUpperCase();
+  wrap.append(modeLabel);
+
+  const dotsRow = document.createElement('div');
+  dotsRow.className = 'arp-dots-row';
+
+  for (let i = 0; i < dotCount; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'arp-dot';
+    dot.style.setProperty('--arp-color', color);
+    dotsRow.append(dot);
+  }
+  wrap.append(dotsRow);
+
+  const cancel = startArpVisualizer(dotsRow, state, getActiveTrackFn);
+  // Store cancel fn on the element so it can be stopped if needed
+  dotsRow._arpCancel = cancel;
+
+  return wrap;
+}
 
 export function pressKey(containerEl, code, pressed) {
   const el = containerEl.querySelector(`[data-code="${code}"]`);

@@ -5,6 +5,18 @@ import { getActiveTrack, saveState } from '../state.js';
 const FILTER_TYPES = ['lowpass', 'bandpass', 'highpass'];
 const FILTER_LABELS = { lowpass: 'LP', bandpass: 'BP', highpass: 'HP' };
 
+const REVERB_TYPES = ['room', 'hall', 'plate', 'spring', 'cathedral'];
+const REVERB_LABELS = { room: 'Room', hall: 'Hall', plate: 'Plate', spring: 'Spring', cathedral: 'Cathedral' };
+
+const DELAY_SYNC_DIVS = ['1/32', '1/16', '1/8', '1/4', '1/2', '1/1'];
+
+function calcSyncDelayTime(bpm, div) {
+  const parts = div.split('/');
+  const num = parseInt(parts[0], 10);
+  const den = parseInt(parts[1], 10);
+  return (60 / bpm) * (num / den);
+}
+
 function sliderHTML(label, param, scope, min, max, step, value) {
   const decimals = step < 1 ? 2 : 0;
   return `
@@ -83,6 +95,12 @@ export default {
         `)}
 
         ${cardHTML('REVERB', `
+          <div class="fx-type-row" data-group="reverb-type">
+            ${REVERB_TYPES.map(t => `
+              <button class="fx-type-btn${(state.reverbType ?? 'room') === t ? ' active' : ''}"
+                      data-reverb-type="${t}">${REVERB_LABELS[t]}</button>
+            `).join('')}
+          </div>
           ${sliderHTML('ROOM', 'reverbSize',    'global', 0.1,  0.98, 0.01, state.reverbSize    ?? 0.5)}
           ${sliderHTML('DAMP', 'reverbDamping', 'global', 0,    1,    0.01, state.reverbDamping ?? 0.5)}
           ${sliderHTML('MIX',  'reverbMix',     'global', 0,    1,    0.01, state.reverbMix     ?? 0.22)}

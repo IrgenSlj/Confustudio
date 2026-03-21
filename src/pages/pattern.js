@@ -306,6 +306,12 @@ export default {
             btn.append(gateBar);
           }
         }
+        // P-lock dot — shown when any paramLocks are set
+        if (step.paramLocks && Object.keys(step.paramLocks).length > 0) {
+          const plockDot = document.createElement('div');
+          plockDot.className = 'step-plock-dot';
+          btn.append(plockDot);
+        }
         // Trig condition badge
         if (step.trigCondition && step.trigCondition !== 'always') {
           btn.classList.add('has-trig');
