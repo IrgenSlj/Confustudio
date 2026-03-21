@@ -231,6 +231,8 @@ export function createAppState() {
     // Playback
     isPlaying:          false,
     isRecording:        false,
+    stepRecordMode:     false,
+    _stepRecordCursor:  0,
     currentStep:        -1,
     arrangementMode:    false,
     arrangementCursor:  0,

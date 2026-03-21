@@ -18,6 +18,31 @@ export default {
         A=${String.fromCharCode(65 + sceneA)} B=${String.fromCharCode(65 + sceneB)}
         &bull; crossfade ${Math.round(crossfader * 100)}%
       </span>`;
+
+    // CHAIN SCENES toggle
+    const chainBtn = document.createElement('button');
+    chainBtn.className = 'seq-btn' + (state.sceneChainEnabled ? ' active' : '');
+    chainBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;margin-left:auto';
+    chainBtn.title = 'Auto-advance through scenes every N bars';
+
+    const chainBarsInput = document.createElement('input');
+    chainBarsInput.type = 'number';
+    chainBarsInput.min = 1;
+    chainBarsInput.max = 64;
+    chainBarsInput.value = state.sceneChainBars ?? 4;
+    chainBarsInput.style.cssText = 'width:32px;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--screen-text);font-family:var(--font-mono);font-size:0.52rem;text-align:center;outline:none';
+    chainBarsInput.title = 'Bars per scene';
+    chainBarsInput.addEventListener('click', e => e.stopPropagation());
+    chainBarsInput.addEventListener('change', () => {
+      state.sceneChainBars = Math.max(1, Math.min(64, parseInt(chainBarsInput.value) || 4));
+    });
+
+    chainBtn.textContent = state.sceneChainEnabled ? '\u25A0 CHAIN' : '\u25BA CHAIN';
+    chainBtn.addEventListener('click', () => {
+      emit('state:change', { path: 'sceneChainEnabled', value: !state.sceneChainEnabled });
+    });
+
+    header.append(chainBtn, chainBarsInput);
     container.append(header);
 
     // Crossfader
@@ -96,6 +121,7 @@ export default {
       const letter = String.fromCharCode(65 + si);
       const displayName = scene.name || `Scene ${letter}`;
       btn.innerHTML = `<strong>${letter}</strong><span>${displayName}</span>`;
+      btn.title = `Scene slot ${si + 1} (${letter})`;
 
       if (si === sceneA) btn.style.borderColor = 'rgba(240,198,64,0.7)';
       if (si === sceneB) btn.style.borderColor = 'rgba(90,221,113,0.7)';
@@ -172,20 +198,31 @@ export default {
     snapCard.style.cssText = 'flex:0 0 auto;display:flex;flex-direction:column;gap:6px';
     snapCard.innerHTML = '<h4>Snapshot</h4>';
 
+    // Helper: briefly flash the scene slot button in the grid to confirm a snap
+    function flashSceneSlot(slotIdx) {
+      const btns = sceneGrid.querySelectorAll('.scene-btn');
+      const target = btns[slotIdx];
+      if (!target) return;
+      target.classList.add('scene-snap-confirm');
+      setTimeout(() => target.classList.remove('scene-snap-confirm'), 300);
+    }
+
     const snapBtn = document.createElement('button');
     snapBtn.className = 'screen-btn';
-    snapBtn.textContent = 'Snapshot → A';
+    snapBtn.textContent = 'Snapshot \u2192 A';
     snapBtn.style.cssText = 'margin-bottom:4px';
-    snapBtn.addEventListener('click', () =>
-      emit('state:change', { path: 'action_snapshot', value: { sceneIdx: sceneA, trackIdx: selectedTrackIndex } })
-    );
+    snapBtn.addEventListener('click', () => {
+      emit('state:change', { path: 'action_snapshot', value: { sceneIdx: sceneA, trackIdx: selectedTrackIndex } });
+      flashSceneSlot(sceneA);
+    });
 
     const snapBBtn = document.createElement('button');
     snapBBtn.className = 'screen-btn';
-    snapBBtn.textContent = 'Snapshot → B';
-    snapBBtn.addEventListener('click', () =>
-      emit('state:change', { path: 'action_snapshot', value: { sceneIdx: sceneB, trackIdx: selectedTrackIndex } })
-    );
+    snapBBtn.textContent = 'Snapshot \u2192 B';
+    snapBBtn.addEventListener('click', () => {
+      emit('state:change', { path: 'action_snapshot', value: { sceneIdx: sceneB, trackIdx: selectedTrackIndex } });
+      flashSceneSlot(sceneB);
+    });
 
     snapCard.append(snapBtn, snapBBtn);
     bottomRow.append(snapCard);
