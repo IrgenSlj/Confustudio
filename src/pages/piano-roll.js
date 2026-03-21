@@ -309,6 +309,31 @@ export default {
     view.append(keysCol, scrollContainer);
     container.append(view);
 
+    // Animated playhead: highlight current step column
+    let rafId = null;
+    let lastHighlightedCol = -1;
+    function animatePlayhead() {
+      if (!container.isConnected) {
+        if (rafId !== null) cancelAnimationFrame(rafId);
+        return;
+      }
+      const stepIdx = state.currentStep;
+      if (stepIdx !== lastHighlightedCol) {
+        for (let i = 0; i < allCells.length; i++) {
+          const c = allCells[i];
+          const col = Number(c.dataset.col);
+          if (col === stepIdx) {
+            c.classList.add('piano-cell-playing');
+          } else if (col === lastHighlightedCol) {
+            c.classList.remove('piano-cell-playing');
+          }
+        }
+        lastHighlightedCol = stepIdx;
+      }
+      rafId = requestAnimationFrame(animatePlayhead);
+    }
+    rafId = requestAnimationFrame(animatePlayhead);
+
     // Velocity lane
     const velLane = document.createElement('div');
     velLane.className = 'roll-vel-lane';

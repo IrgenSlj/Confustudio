@@ -84,9 +84,25 @@ export default {
     // Collect mini-EQ canvases for later redraws
     const eqCanvases = [];
 
+    // Collect strip elements so solo dimming can be applied globally
+    const stripEls = [];
+
+    // Update strip opacity whenever any solo state changes
+    const updateSoloDim = () => {
+      const anySolo = tracks.some(t => t.solo);
+      stripEls.forEach((el, i) => {
+        if (anySolo && !tracks[i].solo) {
+          el.classList.add('strip-muted-by-solo');
+        } else {
+          el.classList.remove('strip-muted-by-solo');
+        }
+      });
+    };
+
     tracks.forEach((track, ti) => {
       const strip = document.createElement('div');
       strip.className = 'fader-strip';
+      stripEls.push(strip);
       strip.style.cursor = 'pointer';
       strip.style.borderLeft = `3px solid ${TRACK_COLORS[ti]}`;
       strip.style.setProperty('--track-color', TRACK_COLORS[ti]);
@@ -355,8 +371,10 @@ export default {
       soloBtn.textContent = 'S';
       soloBtn.addEventListener('click', e => {
         e.stopPropagation();
-        emit('track:change', { trackIndex: ti, param: 'solo', value: !track.solo });
-        soloBtn.classList.toggle('active');
+        track.solo = !track.solo;
+        soloBtn.classList.toggle('active', track.solo);
+        emit('track:change', { trackIndex: ti, param: 'solo', value: track.solo });
+        updateSoloDim();
       });
 
       msRow.append(muteBtn, soloBtn);

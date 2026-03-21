@@ -503,7 +503,7 @@ export class AudioEngine {
     let finalVel = velScale;
     if (curve === 'exp')  finalVel = Math.pow(velScale, 2);
     if (curve === 'comp') finalVel = Math.pow(velScale, 0.5);
-    const loudness = (accent ? 1.22 : 1) * params.volume * finalVel;
+    const loudness = (accent ? 1.22 : 1) * params.volume * finalVel * (params.inputGain ?? 1.0);
 
     // Crossfader comes from the track's stored crossfader value or falls back to 0.5
     const crossfader = typeof params.crossfader === "number" ? params.crossfader : 0.5;

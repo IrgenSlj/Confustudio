@@ -424,7 +424,8 @@ export default {
       row.querySelector('input').addEventListener('change', e => {
         const v = parseInt(e.target.value) || 0;
         trk.midiChannel = v > 0 ? v : null;
-        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+        emit('state:change', { path: 'trackMidiChannel', value: { trackIndex: ti, midiChannel: trk.midiChannel } });
+        saveState(state);
       });
       midiChGrid.append(row);
     });

@@ -622,6 +622,33 @@ export default {
     );
     actionsDiv.prepend(fillBtn);
 
+    // ── Randomize Fill button ─────────────────────────────────────────────────
+    const randFillBtn = document.createElement('button');
+    randFillBtn.className = 'seq-btn';
+    randFillBtn.textContent = 'Rnd Fill';
+    randFillBtn.title = 'Randomize all tracks (50% per step) during fill — restores on fill off';
+    randFillBtn.style.cssText = state._fillActive
+      ? 'color:var(--live);border-color:rgba(90,221,113,0.5)'
+      : 'opacity:0.45';
+    randFillBtn.addEventListener('click', () => {
+      if (!state._fillActive) return; // no-op when fill is not active
+      // Save snapshot of all tracks' steps before randomizing
+      state._preFillSnapshot = pattern.kit.tracks.map(trk =>
+        trk.steps.map(s => ({ ...s, paramLocks: { ...s.paramLocks } }))
+      );
+      // Randomize with 50% probability per active step slot
+      pattern.kit.tracks.forEach(trk => {
+        const len = trk.trackLength > 0 ? trk.trackLength : pattern.length;
+        trk.steps.slice(0, len).forEach(s => {
+          s.active = Math.random() < 0.5;
+          s.accent = s.active && Math.random() < 0.25;
+        });
+      });
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+    });
+    // Insert after fillBtn (fillBtn is prepended, so insert after it)
+    fillBtn.insertAdjacentElement('afterend', randFillBtn);
+
     // ── Morph button ──────────────────────────────────────────────────────────
     const morphBtn = document.createElement('button');
     morphBtn.className = 'seq-btn';

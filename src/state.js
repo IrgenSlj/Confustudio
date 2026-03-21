@@ -262,6 +262,7 @@ export function createAppState() {
     // Scene auto-morph
     sceneMorphActive: false,
     sceneMorphBars:   4,
+    morphCurve:       'linear', // 'linear' | 'ease' | 'bounce'
 
     // Arranger
     arranger: [],   // [{sceneIdx, bars, bpmOverride, timeSignature, name}]

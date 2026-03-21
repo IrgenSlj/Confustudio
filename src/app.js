@@ -300,6 +300,7 @@ function handleAction(path, value, pattern) {
 
     case 'action_fill':
       state._fillActive = !state._fillActive;
+      if (!state._fillActive) restorePreFillSnapshot();
       renderFillBtn();
       renderPage(); // re-render to update fill button style
       return true;
@@ -311,7 +312,26 @@ function handleAction(path, value, pattern) {
 
 function toggleFill() {
   state._fillActive = !state._fillActive;
+  if (!state._fillActive) restorePreFillSnapshot();
   renderFillBtn();
+}
+
+function restorePreFillSnapshot() {
+  if (!state._preFillSnapshot) return;
+  const pattern = getActivePattern(state);
+  if (!pattern) return;
+  state._preFillSnapshot.forEach((snapTrack, ti) => {
+    const trk = pattern.kit.tracks[ti];
+    if (!trk) return;
+    snapTrack.forEach((snapStep, si) => {
+      const s = trk.steps[si];
+      if (!s) return;
+      s.active = snapStep.active;
+      s.accent = snapStep.accent;
+    });
+  });
+  state._preFillSnapshot = null;
+  renderPage();
 }
 
 function renderFillBtn() {
@@ -731,6 +751,7 @@ async function ensureAudio() {
   state.audioContext = ctx;
   state.engine = new AudioEngine(ctx);
   window._confusynthEngine = state.engine;
+  state.engine.setBpm(state.bpm ?? 120);
   state.engine.initWorklets(); // async — loads cs-resampler worklet in background
   state.engine.setMasterLevel(state.masterLevel);
   if (el.masterVolume) el.masterVolume.value = state.masterLevel;
@@ -1103,6 +1124,12 @@ function stopPlay() {
   state._pressedKeys.clear();
   if (_schedRafId) { cancelAnimationFrame(_schedRafId); _schedRafId = null; }
   state.engine?.stopAllNotes();
+  // Restore any randomized fill steps when stopping
+  if (state._preFillSnapshot) {
+    state._fillActive = false;
+    renderFillBtn();
+    restorePreFillSnapshot();
+  }
   updateTransportUI();
   renderPlayhead();
 }
