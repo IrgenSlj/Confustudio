@@ -71,6 +71,41 @@ export default {
     abBar.append(markABtn, markBBtn, swapBtn);
     container.append(abBar);
 
+    // Chain toggle bar
+    const chainBar = document.createElement('div');
+    chainBar.className = 'ab-compare-bar';
+
+    const chainLabel = document.createElement('label');
+    chainLabel.textContent = 'CHAIN';
+    chainBar.append(chainLabel);
+
+    const chainBtn = document.createElement('button');
+    chainBtn.className = 'ab-btn' + (state.chainPatterns ? ' has-a' : '');
+    chainBtn.textContent = state.chainPatterns ? '⛓ ON' : '⛓ OFF';
+    chainBtn.addEventListener('click', () => {
+      state.chainPatterns = !state.chainPatterns;
+      state._patternLoopCount = 0;
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+    });
+
+    const chainLenLabel = document.createElement('label');
+    chainLenLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.5rem;color:var(--muted)';
+    chainLenLabel.textContent = 'Loops:';
+
+    const chainLenInput = document.createElement('input');
+    chainLenInput.type = 'number';
+    chainLenInput.min = '1';
+    chainLenInput.max = '16';
+    chainLenInput.value = state.chainLength ?? 1;
+    chainLenInput.style.cssText = 'width:36px;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 3px;font-family:var(--font-mono);font-size:0.5rem';
+    chainLenInput.addEventListener('change', () => {
+      state.chainLength = parseInt(chainLenInput.value) || 1;
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+    });
+
+    chainBar.append(chainBtn, chainLenLabel, chainLenInput);
+    container.append(chainBar);
+
     // Bank selector (A–H)
     const bankRow = document.createElement('div');
     bankRow.style.cssText = 'display:grid;grid-template-columns:repeat(8,1fr);gap:4px;margin-bottom:8px;flex-shrink:0';
@@ -98,6 +133,9 @@ export default {
       btn.style.cssText = 'padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:2px';
       if (pi === activePattern) {
         btn.style.cssText += ';color:var(--accent);border-color:rgba(240,198,64,0.5);background:rgba(240,198,64,0.07)';
+        if (state.chainPatterns) {
+          btn.classList.add('chain-active');
+        }
       }
 
       // A/B badges
@@ -219,6 +257,61 @@ export default {
 
     actions.append(copyBtn, pasteBtn);
     container.append(actions);
+
+    // Copy to Bank... section
+    const copyToDiv = document.createElement('div');
+    copyToDiv.style.cssText = 'display:flex;align-items:center;gap:4px;padding:3px 4px;border-bottom:1px solid #2a2a2a;flex-shrink:0';
+
+    const copyToLbl = document.createElement('label');
+    copyToLbl.textContent = 'Copy to:';
+    Object.assign(copyToLbl.style, { fontFamily: 'var(--font-mono)', fontSize: '0.5rem', color: 'var(--muted)' });
+
+    const bankSelect = document.createElement('select');
+    bankSelect.style.cssText = 'background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 4px;font-family:var(--font-mono);font-size:0.52rem';
+    'ABCDEFGH'.split('').forEach((letter, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = `Bank ${letter}`;
+      if (i === activeBank) opt.selected = true;
+      bankSelect.append(opt);
+    });
+
+    const patSelect = document.createElement('select');
+    patSelect.style.cssText = bankSelect.style.cssText;
+    for (let i = 0; i < 16; i++) {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = `P${String(i + 1).padStart(2, '0')}`;
+      patSelect.append(opt);
+    }
+
+    const copyToBtn = document.createElement('button');
+    copyToBtn.className = 'seq-btn';
+    copyToBtn.textContent = 'Copy To →';
+    copyToBtn.addEventListener('click', () => {
+      const targetBank = parseInt(bankSelect.value);
+      const targetPat = parseInt(patSelect.value);
+      const src = state.project.banks[activeBank].patterns[activePattern];
+      state.project.banks[targetBank].patterns[targetPat] = JSON.parse(JSON.stringify(src));
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+    });
+
+    copyToDiv.append(copyToLbl, bankSelect, patSelect, copyToBtn);
+    container.append(copyToDiv);
+
+    // Pattern info panel
+    const infoPanel = document.createElement('div');
+    infoPanel.className = 'pattern-info-panel';
+    const pat = project.banks[activeBank].patterns[activePattern];
+    const activeTracks = pat.kit.tracks.filter(t => t.steps.some(s => s.active)).length;
+    const totalSteps = pat.kit.tracks.reduce((sum, t) => sum + t.steps.filter(s => s.active).length, 0);
+    infoPanel.innerHTML = `
+      <span class="pinfo-name">${pat.name}</span>
+      <span class="pinfo-stat">${pat.length} steps</span>
+      <span class="pinfo-stat">${activeTracks} tracks</span>
+      <span class="pinfo-stat">${totalSteps} notes</span>
+    `;
+    container.append(infoPanel);
   },
 
   knobMap: [

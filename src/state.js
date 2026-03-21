@@ -84,6 +84,8 @@ export function createTrack(index) {
     // Mixer
     mute:         false,
     solo:         false,
+    cue:          false,
+    stereoWidth:  1,    // 0=mono, 1=normal, 2=wide (stored; engine support TODO)
 
     // Per-track FX
     filterType:   "lowpass",  // "lowpass"|"bandpass"|"highpass"
@@ -256,6 +258,9 @@ export function createAppState() {
     arrLoop:      false,
     arrLoopStart: 0,
     arrLoopEnd:   0,
+
+    // Fader links — array of {a, b} track index pairs that move together
+    faderLinks: [],
 
     // Project
     project: createProject(),

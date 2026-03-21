@@ -2,6 +2,12 @@
 
 import { TRACK_COLORS } from '../state.js';
 
+// ─── Note name helper ─────────────────────────────────────────────────────────
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function midiToNoteName(midi) {
+  return NOTE_NAMES[midi % 12] + (Math.floor(midi / 12) - 1);
+}
+
 // ─── Euclidean rhythm generator (Bjorklund algorithm) ────────────────────────
 function euclidean(beats, steps) {
   if (beats <= 0) return Array(steps).fill(false);
@@ -263,6 +269,13 @@ export default {
           velSpan.textContent = String(Math.round(vel * 100));
           btn.append(velSpan);
         }
+        // Note lock label
+        if (step.paramLocks?.note != null) {
+          const noteSpan = document.createElement('span');
+          noteSpan.className = 'step-note-label';
+          noteSpan.textContent = midiToNoteName(step.paramLocks.note);
+          btn.append(noteSpan);
+        }
         // Trig condition badge
         if (step.trigCondition && step.trigCondition !== 'always') {
           btn.classList.add('has-trig');
@@ -277,6 +290,10 @@ export default {
 
         btn.addEventListener('click', e => {
           e.stopPropagation();
+          if (btn._blockNextClick) {
+            btn._blockNextClick = false;
+            return;
+          }
           if (ti !== state.selectedTrackIndex) {
             emit('track:select', { trackIndex: ti });
           }
@@ -358,19 +375,71 @@ export default {
           setTimeout(() => document.addEventListener('click', () => menu.remove(), { once: true }), 0);
         });
 
-        // Long-press p-lock (only on selected track)
+        // ── Velocity drag + long-press p-lock ─────────────────────────────────
+        let velDragTimer = null, velDragging = false, velStartY = 0, velStartVal = 1;
         let holdTimer = null;
-        btn.addEventListener('pointerdown', () => {
+
+        btn.addEventListener('pointerdown', e => {
+          // Velocity drag — only on active steps of the selected track
+          if (step.active && ti === selTi) {
+            velStartY   = e.clientY;
+            velStartVal = step.velocity ?? 1;
+            velDragging = false;
+            velDragTimer = setTimeout(() => {
+              velDragging = true;
+              btn.setPointerCapture(e.pointerId);
+              // Cancel any p-lock hold timer that may also be running
+              clearTimeout(holdTimer);
+              holdTimer = null;
+            }, 180);
+          }
+
+          // Long-press p-lock (only on selected track, fires at 500 ms)
           if (ti !== selTi) return;
           holdTimer = setTimeout(() => {
+            if (velDragging) return; // velocity drag took over
             holdTimer = null;
             wrapper.querySelectorAll('.plock-panel').forEach(p => p.remove());
             plockPanel = si;
             wrapper.append(buildPlockPanel(si));
           }, 500);
         });
-        btn.addEventListener('pointerup',    () => clearTimeout(holdTimer));
-        btn.addEventListener('pointerleave', () => clearTimeout(holdTimer));
+
+        btn.addEventListener('pointermove', e => {
+          if (!velDragging) return;
+          const newVel = Math.max(0.05, Math.min(1, velStartVal + (velStartY - e.clientY) / 60));
+          step.velocity = newVel;
+          btn.style.opacity = String(0.45 + newVel * 0.55);
+          let velSpan = btn.querySelector('.step-vel');
+          if (velSpan) {
+            velSpan.textContent = Math.round(newVel * 100);
+          } else {
+            velSpan = document.createElement('span');
+            velSpan.className = 'step-vel';
+            velSpan.textContent = Math.round(newVel * 100);
+            btn.append(velSpan);
+          }
+        });
+
+        btn.addEventListener('pointerup', e => {
+          clearTimeout(velDragTimer);
+          clearTimeout(holdTimer);
+          holdTimer = null;
+          if (velDragging) {
+            velDragging = false;
+            btn._blockNextClick = true;
+            emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+            return;
+          }
+          velDragging = false;
+        });
+
+        btn.addEventListener('pointerleave', () => {
+          clearTimeout(velDragTimer);
+          clearTimeout(holdTimer);
+          holdTimer = null;
+          // Do not cancel velDragging here — pointer capture keeps events flowing
+        });
 
         row.append(btn);
       });

@@ -138,6 +138,11 @@ export default {
         input.select();
       });
 
+      // ── Color stripe at top of strip ────────────────────────────────────
+      const colorStripe = document.createElement('div');
+      colorStripe.style.cssText = `height:3px;background:${TRACK_COLORS[ti]};border-radius:2px 2px 0 0;margin-bottom:2px`;
+      strip.prepend(colorStripe);
+
       strip.append(nameSpan);
 
       // ── Mini EQ canvas ───────────────────────────────────────────────────
@@ -176,6 +181,34 @@ export default {
 
       panRow.append(panLabel, panSlider, panVal);
       strip.append(panRow);
+
+      // ── Stereo width row ─────────────────────────────────────────────────
+      const widthRow = document.createElement('div');
+      widthRow.style.cssText = 'display:flex;align-items:center;gap:3px;width:100%';
+
+      const widthLabel = document.createElement('span');
+      widthLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);flex-shrink:0';
+      widthLabel.textContent = 'W';
+
+      const widthSlider = document.createElement('input');
+      widthSlider.type = 'range';
+      widthSlider.min = 0; widthSlider.max = 2; widthSlider.step = 0.05;
+      widthSlider.value = track.stereoWidth ?? 1;
+      widthSlider.style.cssText = 'flex:1;accent-color:var(--track-color,var(--accent));height:3px';
+      // stereoWidth controls how wide the stereo image is (0=mono,1=normal,2=wide)
+      // TODO: wire to engine.js triggerTrack panner/channelSplitter for actual M-S processing
+      widthSlider.addEventListener('input', () => {
+        const v = parseFloat(widthSlider.value);
+        widthVal.textContent = v.toFixed(2);
+        emit('track:change', { trackIndex: ti, param: 'stereoWidth', value: v });
+      });
+
+      const widthVal = document.createElement('span');
+      widthVal.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);min-width:22px;text-align:right';
+      widthVal.textContent = (track.stereoWidth ?? 1).toFixed(2);
+
+      widthRow.append(widthLabel, widthSlider, widthVal);
+      strip.append(widthRow);
 
       // ── FX Send controls ─────────────────────────────────────────────────
       const sendsDiv = document.createElement('div');
@@ -232,10 +265,46 @@ export default {
       fader.value = track.volume;
       fader.style.cssText = 'writing-mode:vertical-lr;direction:rtl;flex:1;width:24px;accent-color:var(--accent)';
       fader.style.setProperty('accent-color', TRACK_COLORS[ti]);
-      fader.addEventListener('input', () =>
-        emit('track:change', { trackIndex: ti, param: 'volume', value: parseFloat(fader.value) })
-      );
+      fader.addEventListener('input', () => {
+        const v = parseFloat(fader.value);
+        emit('track:change', { trackIndex: ti, param: 'volume', value: v });
+        // Fader link: if this track is linked to an adjacent track, mirror the change
+        const links = state.faderLinks ?? [];
+        const linked = links.find(l => l.a === ti || l.b === ti);
+        if (linked) {
+          const otherIdx = linked.a === ti ? linked.b : linked.a;
+          const otherTrack = tracks[otherIdx];
+          if (otherTrack) {
+            otherTrack.volume = v;
+            emit('track:change', { trackIndex: otherIdx, param: 'volume', value: v });
+          }
+        }
+      });
       strip.append(fader);
+
+      // ── Fader link button (links this strip with the next) ───────────────
+      if (ti < tracks.length - 1) {
+        const linkBtn = document.createElement('button');
+        linkBtn.className = 'fader-link-btn';
+        linkBtn.title = `Link T${ti + 1} + T${ti + 2}`;
+        linkBtn.textContent = '\u26D3'; // ⛓
+        const isLinked = (state.faderLinks ?? []).some(l => l.a === ti && l.b === ti + 1);
+        if (isLinked) linkBtn.classList.add('active');
+        linkBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          state.faderLinks = state.faderLinks ?? [];
+          const idx = state.faderLinks.findIndex(l => l.a === ti && l.b === ti + 1);
+          if (idx >= 0) {
+            state.faderLinks.splice(idx, 1);
+            linkBtn.classList.remove('active');
+          } else {
+            state.faderLinks.push({ a: ti, b: ti + 1 });
+            linkBtn.classList.add('active');
+          }
+          emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+        });
+        strip.append(linkBtn);
+      }
 
       // ── Level meter bar (animated) ───────────────────────────────────────
       const meterWrap = document.createElement('div');
@@ -253,6 +322,20 @@ export default {
       vol.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--accent)';
       vol.textContent = Math.round(track.volume * 100);
       strip.append(vol);
+
+      // ── CUE button (pre-fader listen) ────────────────────────────────────
+      const cueBtn = document.createElement('button');
+      cueBtn.className = 'fader-cue' + (track.cue ? ' active' : '');
+      cueBtn.textContent = 'CUE';
+      cueBtn.title = 'Pre-fader listen';
+      // track.cue = true routes audio to cue bus (stored only; audio routing TODO)
+      cueBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        track.cue = !track.cue;
+        cueBtn.classList.toggle('active', track.cue);
+        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      });
+      strip.append(cueBtn);
 
       // ── Mute / Solo buttons ──────────────────────────────────────────────
       const msRow = document.createElement('div');
