@@ -85,6 +85,7 @@ export function createTrack(index) {
     mute:         false,
     solo:         false,
     cue:          false,
+    inputGain:    1.0,
     stereoWidth:  1,    // 0=mono, 1=normal, 2=wide
     outputBus:    'master', // 'master' | 'bus1' | 'bus2'
     velocityCurve: 'linear', // 'linear' | 'exp' | 'comp'

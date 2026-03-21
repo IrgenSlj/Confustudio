@@ -97,6 +97,9 @@ export class AudioEngine {
     this.midiOutput = null;
     this._midiClockInterval = null;
 
+    // BPM tracked locally so triggerTrack can compute gate durations for MIDI note-off
+    this._bpm = 120;
+
     // AudioWorklet readiness flags — set true after initWorklets() resolves
     this._workletReady = false;
     this._plaitsReady  = false;
@@ -393,6 +396,12 @@ export class AudioEngine {
   // MIDI output
   // ——————————————————————————————————————————————
 
+  // Keep _bpm in sync with the sequencer BPM for MIDI gate duration calculations.
+  // Call this whenever state.bpm changes.
+  setBpm(bpm) {
+    this._bpm = bpm;
+  }
+
   sendMidiNote(track, note, velocity, durationSec) {
     if (!this.midiOutput) return;
     const ch = ((track.midiChannel ?? this.midiChannel ?? 1) - 1) & 0xf;
@@ -510,6 +519,23 @@ export class AudioEngine {
     if (params.machine === "midi") {
       this.sendMidiNote(params, note ?? 60, loudness, totalTime);
       return;
+    }
+
+    // MIDI note output — send on the track's assigned MIDI channel for all non-MIDI machines
+    if (this.midiOutput && track.midiChannel) {
+      const ch = (track.midiChannel - 1) & 0x0F;
+      const noteNum = options.note ?? params.pitch ?? track.note ?? 60;
+      const vel = Math.round((options.velocity ?? 1) * 127);
+      const delayMs = Math.max(0, (when - this.context.currentTime) * 1000);
+      const gateDurMs = (params.gate ?? 0.5) * (60000 / this._bpm / 4) * 4;
+      setTimeout(() => {
+        try {
+          this.midiOutput.send([0x90 | ch, noteNum, vel]);
+          setTimeout(() => {
+            try { this.midiOutput.send([0x80 | ch, noteNum, 0]); } catch (e) {}
+          }, gateDurMs);
+        } catch (e) {}
+      }, delayMs);
     }
 
     // Signal chain: source → [bitCrusher?] → output (ADSR env gain) → panner → filter → saturator → master

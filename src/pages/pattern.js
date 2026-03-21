@@ -519,6 +519,30 @@ export default {
 
     wrapper.append(multiGrid);
 
+    // ── Playhead rAF highlight ────────────────────────────────────────────────
+    // Each frame: stamp the current-step column with .step-playing across all rows.
+    // The loop is self-terminating: once multiGrid leaves the DOM the loop stops.
+    let _playheadRafId = null;
+    const stepBtns = multiGrid.querySelectorAll('.step-btn[data-step]');
+    const runPlayheadHighlight = () => {
+      if (!multiGrid.isConnected) {
+        // Page was re-rendered; stop looping.
+        if (_playheadRafId) { cancelAnimationFrame(_playheadRafId); _playheadRafId = null; }
+        return;
+      }
+      const cur = state.currentStep;
+      stepBtns.forEach(btn => {
+        const isPlaying = (cur >= 0) && (Number(btn.dataset.step) === cur);
+        if (isPlaying) {
+          btn.classList.add('step-playing');
+        } else {
+          btn.classList.remove('step-playing');
+        }
+      });
+      _playheadRafId = requestAnimationFrame(runPlayheadHighlight);
+    };
+    _playheadRafId = requestAnimationFrame(runPlayheadHighlight);
+
     // ── Toolbar ───────────────────────────────────────────────────────────────
     const toolbar = document.createElement('div');
     toolbar.className = 'seq-toolbar';

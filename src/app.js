@@ -322,6 +322,7 @@ function renderFillBtn() {
 function handleStateChange(path, value, pattern) {
   if (path === 'bpm') {
     state.bpm = Math.max(40, Math.min(240, Number(value)));
+    if (state.engine?.setBpm) state.engine.setBpm(state.bpm);
     updateTopbar();
     scheduleSave();
     return;

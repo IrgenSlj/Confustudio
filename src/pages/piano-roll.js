@@ -144,6 +144,9 @@ export default {
     }
     gridView.append(beatHeader);
 
+    // Flat array of all grid cells for playhead animation
+    const allCells = [];
+
     // Drag-velocity state
     let dragCell      = null;
     let dragStep      = null;
@@ -180,7 +183,8 @@ export default {
 
       // Key label
       const key = document.createElement('div');
-      key.className = 'roll-key' + (isBlack ? ' black-key' : '');
+      const isRoot = name.startsWith('C') && !name.includes('#');
+      key.className = 'roll-key' + (isBlack ? ' black-key' : '') + (isRoot ? ' roll-key-root' : '');
       key.textContent = name;
       keysCol.append(key);
 
@@ -201,6 +205,8 @@ export default {
           continue;
         }
 
+        allCells.push(cell);
+
         if (activeSet.has(`${midi}_${si}`)) {
           cell.classList.add('active');
           const step = track.steps[si];
@@ -211,6 +217,14 @@ export default {
           cell.title = `${name} vel:${Math.round(vel * 127)} gate:${Math.round(gate * 100)}%`;
           if (gate >= 0.75) cell.classList.add('gate-long');
           else if (gate <= 0.25) cell.classList.add('gate-short');
+
+          // Note name label (only at zoom levels where cellW >= 24)
+          if (cellW >= 24) {
+            const label = document.createElement('span');
+            label.className = 'piano-cell-label';
+            label.textContent = name;
+            cell.append(label);
+          }
 
           // Resize handle for gate length
           const handle = document.createElement('div');
