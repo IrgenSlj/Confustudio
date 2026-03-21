@@ -43,6 +43,7 @@ export default {
 
     const meterData = new Uint8Array(32);
     const meterEls = [];
+    const voiceCountEls = [];
     const _peakLevels = new Array(8).fill(0);
     const _peakDecay  = new Array(8).fill(0);
 

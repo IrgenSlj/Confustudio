@@ -937,8 +937,16 @@ export class AudioEngine {
           [slice]
         );
         node.connect(output);
+        const voiceHandle = {
+          stop: () => { try { node.disconnect(); } catch (_) {} },
+          _worklet: true,
+        };
+        this._registerVoice(trackKey, voiceHandle, params.maxVoices ?? 8);
         // Disconnect after playback completes — no BufferSource stop() equivalent
-        setTimeout(() => { try { node.disconnect(); } catch (e) {} }, (totalTime + 0.1) * 1000);
+        setTimeout(() => {
+          try { node.disconnect(); } catch (e) {}
+          if (voiceHandle._voiceCleanup) voiceHandle._voiceCleanup();
+        }, (totalTime + 0.1) * 1000);
       } else {
         // Fallback: native BufferSourceNode (browser linear interpolation)
         const source = this.context.createBufferSource();
@@ -958,6 +966,7 @@ export class AudioEngine {
         if (!params.loopEnabled) {
           source.stop(when + totalTime + 0.02);
         }
+        this._registerVoice(trackKey, source, params.maxVoices ?? 8);
       }
       return;
     }
@@ -970,6 +979,7 @@ export class AudioEngine {
       source.connect(output);
       source.start(when);
       source.stop(when + totalTime + 0.02);
+      this._registerVoice(trackKey, source, params.maxVoices ?? 8);
       return;
     }
 
@@ -1005,6 +1015,7 @@ export class AudioEngine {
       osc.connect(output);
       osc.start(when);
       osc.stop(when + totalTime + 0.02);
+      this._registerVoice(trackKey, osc, params.maxVoices ?? 8);
 
       if (params.legato) {
         this._legatoSources.set(legatoKey, { osc, output, stopAt: when + totalTime + 0.02 });

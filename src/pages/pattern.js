@@ -475,6 +475,48 @@ export default {
         let holdTimer = null;
 
         btn.addEventListener('pointerdown', e => {
+          // Alt+drag horizontally = set microTime (early/late nudge)
+          if (e.altKey) {
+            e.stopPropagation();
+            e.preventDefault();
+            btn.setPointerCapture(e.pointerId);
+            const startX  = e.clientX;
+            const startMT = step.microTime ?? 0;
+            let dragged = false;
+            function onMicroMove(ev) {
+              dragged = true;
+              const delta = (ev.clientX - startX) / 40; // 40px = full 0.5 range each side
+              step.microTime = Math.max(-0.5, Math.min(0.5, startMT + delta));
+              // update or create micro bar live
+              let microBar = btn.querySelector('.step-micro-bar');
+              if (Math.abs(step.microTime) > 0.02) {
+                if (!microBar) {
+                  microBar = document.createElement('div');
+                  microBar.className = 'step-micro-bar';
+                  btn.append(microBar);
+                }
+                const mt = step.microTime;
+                microBar.style.cssText = `
+                  width: ${Math.abs(mt) * 80}%;
+                  left: ${mt > 0 ? '50%' : (50 - Math.abs(mt) * 80) + '%'};
+                `;
+              } else if (microBar) {
+                microBar.remove();
+              }
+            }
+            function onMicroUp() {
+              window.removeEventListener('pointermove', onMicroMove);
+              window.removeEventListener('pointerup', onMicroUp);
+              if (dragged) {
+                btn._blockNextClick = true;
+                emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+              }
+            }
+            window.addEventListener('pointermove', onMicroMove);
+            window.addEventListener('pointerup', onMicroUp);
+            return;
+          }
+
           // Velocity drag — only on active steps of the selected track
           if (step.active && ti === selTi) {
             velStartY   = e.clientY;
@@ -947,12 +989,18 @@ export default {
 
     const humanizeDiv = document.createElement('div');
     humanizeDiv.style.cssText = 'display:flex;align-items:center;gap:3px';
+    const humanizeAmtInit = state.humanizeAmount ?? 0.2;
     humanizeDiv.innerHTML = `
-      <input type="range" min="0" max="1" step="0.1" value="${state.humanizeAmount ?? 0.2}"
+      <input type="range" min="0" max="1" step="0.1" value="${humanizeAmtInit}"
         title="Humanize amount" style="width:36px;accent-color:var(--accent)">
       <button class="seq-btn" title="Add human timing/velocity variations">Human</button>
+      <span class="humanize-label" style="font-family:var(--font-mono);font-size:0.48rem;color:var(--muted);min-width:40px">±${Math.round(humanizeAmtInit * 100)}%</span>
     `;
-    humanizeDiv.querySelector('input').addEventListener('input', e => { state.humanizeAmount = parseFloat(e.target.value); });
+    const humanizeLabel = humanizeDiv.querySelector('.humanize-label');
+    humanizeDiv.querySelector('input').addEventListener('input', e => {
+      state.humanizeAmount = parseFloat(e.target.value);
+      humanizeLabel.textContent = `±${Math.round(state.humanizeAmount * 100)}%`;
+    });
     humanizeDiv.querySelector('button').addEventListener('click', () => {
       const amt = state.humanizeAmount ?? 0.2;
       const len = track.trackLength || pattern.length;
@@ -961,6 +1009,7 @@ export default {
         s.microTime = (Math.random() - 0.5) * amt;
         s.velocity = Math.max(0.3, Math.min(1, (s.velocity ?? 1) + (Math.random() - 0.5) * 0.3));
       });
+      humanizeLabel.textContent = `±${Math.round(amt * 100)}%`;
       emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
     });
     actionsDiv.append(humanizeDiv);

@@ -1246,16 +1246,18 @@ function scheduleLoop() {
           }
           state._lastNotes[ti] = noteToPlay;
           state.engine.triggerTrack(track, _schedNextTime + microOffset, secsPerStep, {
-            accent:     step.accent,
-            note:       step.note,
-            velocity:   step.velocity ?? 1,
+            accent:      step.accent,
+            note:        step.note,
+            velocity:    step.velocity ?? 1,
+            trackIndex:  ti,
             paramLocks: { gate: step.gate ?? 0.5, ...sceneOverride, ...step.paramLocks, note: noteToPlay },
           });
         } else {
           state.engine.triggerTrack(track, _schedNextTime + microOffset, secsPerStep, {
-            accent:     step.accent,
-            note:       step.note,
-            velocity:   step.velocity ?? 1,
+            accent:      step.accent,
+            note:        step.note,
+            velocity:    step.velocity ?? 1,
+            trackIndex:  ti,
             paramLocks: { gate: step.gate ?? 0.5, ...sceneOverride, ...step.paramLocks },
           });
         }

@@ -127,6 +127,9 @@ export function createTrack(index) {
     rnDamping:    0.7,
     rnExciter:    0,
 
+    // Polyphony
+    maxVoices: 8,      // 1–16, maximum simultaneous voices before voice stealing
+
     // Legato
     legato: false,
 
