@@ -564,15 +564,17 @@ export class AudioEngine {
     const gate = Math.max(stepDuration * params.noteLength * stepGate, params.attack + 0.01);
     const totalTime = gate + decayTime;
 
-    // Sidechain ducking — when this track is the sidechain source, duck sidechainGain
+    // Sidechain ducking — when this track is the sidechain source, duck sidechainGain.
+    // Uses params.sidechainAmount (from track state) so changes take effect immediately.
     if (params.isSidechainSource && this._sidechainEnabled) {
+      const amount   = typeof params.sidechainAmount === 'number' ? params.sidechainAmount : this._sidechainAmount;
       const scGain   = this.sidechainGain.gain;
-      const floor    = 1 - this._sidechainAmount;        // target duck level (e.g. 0.2)
-      const releaseS = this._sidechainRelease / 1000;    // ms → seconds
+      const floor    = 1 - Math.max(0, Math.min(1, amount)); // target duck level (e.g. 0.2)
+      const releaseS = this._sidechainRelease / 1000;        // ms → seconds
       scGain.cancelScheduledValues(when);
-      scGain.setValueAtTime(1, when);                    // ensure we start from 1
-      scGain.setTargetAtTime(floor, when, 0.003);        // fast attack (~3 ms time constant)
-      scGain.setTargetAtTime(1, when + 0.01, releaseS / 3); // recover over release window
+      scGain.setValueAtTime(1, when);                        // ensure we start from 1
+      scGain.setTargetAtTime(floor, when, 0.003);            // fast attack (~3 ms time constant)
+      scGain.setTargetAtTime(1, when + 0.01, releaseS / 3);  // recover over release window
     }
 
     // MIDI machine — skip audio, send MIDI note

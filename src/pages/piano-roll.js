@@ -82,6 +82,9 @@ export default {
       if (step.active) activeSet.add(`${step.note}_${si}`);
     });
 
+    // Ensure rollSelected is initialised on state
+    if (!state.rollSelected) state.rollSelected = new Set();
+
     // Header
     const header = document.createElement('div');
     header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0';
@@ -207,6 +210,10 @@ export default {
 
         allCells.push(cell);
 
+        if (state.rollSelected.has(`${midi}_${si}`)) {
+          cell.classList.add('piano-cell-selected');
+        }
+
         if (activeSet.has(`${midi}_${si}`)) {
           cell.classList.add('active');
           const step = track.steps[si];
@@ -278,14 +285,36 @@ export default {
           // Suppress click if we just finished a drag
           if (dragging) return;
 
+          const key = `${midi}_${si}`;
           const step = track.steps[si];
           const alreadyThisNote = step.active && (step.paramLocks?.note === midi || (step.note === midi && !step.paramLocks?.note));
+
+          if (e.shiftKey) {
+            // Shift+click: toggle in selection without deselecting others
+            if (state.rollSelected.has(key)) {
+              state.rollSelected.delete(key);
+              cell.classList.remove('piano-cell-selected');
+            } else if (alreadyThisNote) {
+              state.rollSelected.add(key);
+              cell.classList.add('piano-cell-selected');
+            }
+            return;
+          }
+
+          // Regular click: clear selection unless clicking an already-selected note
+          if (!state.rollSelected.has(key)) {
+            state.rollSelected.clear();
+            // Remove selected class from all cells in the grid
+            gridCol.querySelectorAll('.piano-cell-selected').forEach(c => c.classList.remove('piano-cell-selected'));
+          }
+
           if (alreadyThisNote) {
-            // Toggle off
+            // Toggle off — also remove from selection
+            state.rollSelected.delete(key);
             emit('step:toggle', { stepIndex: si, shiftKey: false });
-            cell.classList.remove('active');
+            cell.classList.remove('active', 'piano-cell-selected');
             cell.style.cursor = '';
-            activeSet.delete(`${midi}_${si}`);
+            activeSet.delete(key);
           } else {
             // Activate and set note
             if (!step.active) {
@@ -294,7 +323,7 @@ export default {
             emit('step:plock', { stepIndex: si, param: 'note', value: midi });
             cell.classList.add('active');
             cell.style.cursor = 'ns-resize';
-            activeSet.add(`${midi}_${si}`);
+            activeSet.add(key);
           }
         });
 

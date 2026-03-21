@@ -289,6 +289,14 @@ export function createAppState() {
     // Fader links — array of {a, b} track index pairs that move together
     faderLinks: [],
 
+    // Global macro controls (4 mappable sliders)
+    macros: [
+      { name: 'Macro 1', param: null, min: 0, max: 1, value: 0.5 },
+      { name: 'Macro 2', param: null, min: 0, max: 1, value: 0.5 },
+      { name: 'Macro 3', param: null, min: 0, max: 1, value: 0.5 },
+      { name: 'Macro 4', param: null, min: 0, max: 1, value: 0.5 },
+    ],
+
     // Project
     project: createProject(),
   };

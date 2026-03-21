@@ -408,6 +408,71 @@ export default {
       msRow.append(muteBtn, soloBtn);
       strip.append(msRow);
 
+      // ── Sidechain controls ───────────────────────────────────────────────
+      const scRow = document.createElement('div');
+      scRow.style.cssText = 'display:flex;align-items:center;gap:3px;width:100%;margin-top:3px';
+
+      // SC button — sets this track as the sidechain source (only one at a time)
+      const scBtn = document.createElement('button');
+      const isScSource = !!track.isSidechainSource;
+      scBtn.className = 'fader-cue' + (isScSource ? ' active' : '');
+      scBtn.textContent = 'SC';
+      scBtn.title = 'Set as sidechain source (ducks other tracks on trigger)';
+      scBtn.style.cssText = 'font-size:0.44rem;padding:1px 4px;flex-shrink:0' +
+        (isScSource ? ';border:1px solid #00d4ff;color:#00d4ff;font-weight:bold;background:rgba(0,212,255,0.12)' : '');
+      scBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        // Toggle: if already the source, clear it; otherwise set this track
+        const wasActive = !!track.isSidechainSource;
+        tracks.forEach(t => { t.isSidechainSource = false; });
+        track.isSidechainSource = !wasActive;
+
+        // Update all SC button styles in this render pass
+        faderGrid.querySelectorAll('.sc-btn').forEach((b, i) => {
+          const active = !!tracks[i].isSidechainSource;
+          b.classList.toggle('active', active);
+          b.style.border     = active ? '1px solid #00d4ff' : '';
+          b.style.color      = active ? '#00d4ff' : '';
+          b.style.fontWeight = active ? 'bold' : '';
+          b.style.background = active ? 'rgba(0,212,255,0.12)' : '';
+        });
+
+        // Emit canonical event so app.js can sync the engine
+        const newSourceIndex = track.isSidechainSource ? ti : -1;
+        emit('state:change', { path: 'sidechainSource', value: newSourceIndex });
+      });
+      scBtn.classList.add('sc-btn');
+      scRow.append(scBtn);
+
+      // Duck slider — 0 (no duck) to 1 (full mute)
+      const duckLabel = document.createElement('span');
+      duckLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);flex-shrink:0';
+      duckLabel.textContent = 'DUCK';
+
+      const duckSlider = document.createElement('input');
+      duckSlider.type = 'range';
+      duckSlider.min = 0; duckSlider.max = 1; duckSlider.step = 0.01;
+      duckSlider.value = track.sidechainAmount ?? 0;
+      duckSlider.style.cssText = 'flex:1;accent-color:var(--accent);height:3px';
+
+      const duckVal = document.createElement('span');
+      duckVal.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);min-width:22px;text-align:right';
+      duckVal.textContent = Math.round((track.sidechainAmount ?? 0) * 100) + '%';
+
+      duckSlider.addEventListener('input', () => {
+        const v = parseFloat(duckSlider.value);
+        duckVal.textContent = Math.round(v * 100) + '%';
+        track.sidechainAmount = v;
+        // If this track is the active sidechain source, update engine immediately
+        if (track.isSidechainSource && state.engine) {
+          state.engine.setSidechainAmount(v);
+        }
+        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      });
+
+      scRow.append(duckLabel, duckSlider, duckVal);
+      strip.append(scRow);
+
       // ── Bus selector ─────────────────────────────────────────────────────
       const busRow = document.createElement('div');
       busRow.style.cssText = 'display:flex;gap:2px;margin-top:3px';

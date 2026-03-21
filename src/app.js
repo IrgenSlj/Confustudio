@@ -360,6 +360,23 @@ function handleStateChange(path, value, pattern) {
     return;
   }
 
+  if (path === 'sidechainSource') {
+    // value: track index (0-7) or -1 to clear
+    const tracks = getActivePattern(state).kit.tracks;
+    tracks.forEach((t, i) => { t.isSidechainSource = (i === value); });
+    if (state.engine) {
+      if (value >= 0) {
+        state.engine.setSidechainSource(value);
+        const amount = tracks[value]?.sidechainAmount ?? 0.8;
+        state.engine.setSidechainAmount(amount);
+      } else {
+        if (state.engine.setSidechainSource) state.engine.setSidechainSource(-1);
+      }
+    }
+    scheduleSave();
+    return;
+  }
+
   if (path === 'swing') {
     state.swing = value;
     scheduleSave();
@@ -457,6 +474,23 @@ function handleStateChange(path, value, pattern) {
       if (s.active) s.trigCondition = condStr;
     });
     renderPage();
+    scheduleSave();
+    return;
+  }
+
+  if (path === 'sidechainSource') {
+    // value: track index (≥0) to set as source, or -1 to disable
+    const scTracks = getActivePattern(state).kit.tracks;
+    scTracks.forEach((t, i) => { t.isSidechainSource = (i === value); });
+    if (state.engine) {
+      if (value >= 0) {
+        state.engine.setSidechainSource(value);
+        const srcTrack = scTracks[value];
+        if (srcTrack) state.engine.setSidechainAmount(srcTrack.sidechainAmount ?? 0);
+      } else {
+        state.engine._sidechainEnabled = false;
+      }
+    }
     scheduleSave();
     return;
   }
@@ -580,10 +614,15 @@ function emit(type, payload = {}) {
 
     // ── Track changes ──
     case 'track:change': {
-      const t = pattern.kit.tracks[payload.trackIndex ?? state.selectedTrackIndex];
+      const tIdx = payload.trackIndex ?? state.selectedTrackIndex;
+      const t = pattern.kit.tracks[tIdx];
       if (t && payload.param) {
         pushHistory(state);
         t[payload.param] = payload.value;
+        // If this track is the sidechain source and sidechainAmount changed, sync engine
+        if (payload.param === 'sidechainAmount' && t.isSidechainSource && state.engine) {
+          state.engine.setSidechainAmount(payload.value);
+        }
         scheduleSave();
       }
       break;
@@ -804,6 +843,15 @@ async function ensureAudio() {
   state.engine.setBpm(state.bpm ?? 120);
   state.engine.initWorklets(); // async — loads cs-resampler worklet in background
   state.engine.setMasterLevel(state.masterLevel);
+
+  // Restore sidechain state from saved track data
+  const _activPattern = state.project.banks[state.activeBank].patterns[state.activePattern];
+  const _scTrack = _activPattern.kit.tracks.find(t => t.isSidechainSource);
+  if (_scTrack) {
+    const _scIdx = _activPattern.kit.tracks.indexOf(_scTrack);
+    state.engine.setSidechainSource(_scIdx);
+    state.engine.setSidechainAmount(_scTrack.sidechainAmount ?? 0);
+  }
   if (el.masterVolume) el.masterVolume.value = state.masterLevel;
   el.btnAudio.classList.add('active');
   drawOscilloscope(el.oscilloscope, state.engine, _oscAnimRef, state);
@@ -1862,6 +1910,173 @@ function bindUI() {
 }
 
 // ─────────────────────────────────────────────
+// GLOBAL MACROS
+// ─────────────────────────────────────────────
+
+const MACRO_PARAMS = ['cutoff', 'reverb', 'swing', 'volume'];
+
+function applyMacro(i) {
+  const macro = state.macros[i];
+  if (!macro || !macro.param) return;
+  const v = macro.value;
+
+  switch (macro.param) {
+    case 'cutoff': {
+      // Apply to all tracks in active pattern
+      const pattern = getActivePattern(state);
+      for (const track of pattern.kit.tracks) {
+        track.cutoff = v * 8000; // map 0–1 to 0–8000 Hz
+      }
+      break;
+    }
+    case 'reverb': {
+      state.reverbMix = v;
+      if (state.engine?.setReverbMix) state.engine.setReverbMix(v);
+      break;
+    }
+    case 'swing': {
+      state.swing = v;
+      if (state.engine?.setSwing) state.engine.setSwing(v);
+      break;
+    }
+    case 'volume': {
+      state.masterLevel = v;
+      if (state.engine?.setMasterLevel) state.engine.setMasterLevel(v);
+      if (el.masterVolume) el.masterVolume.value = v;
+      break;
+    }
+  }
+
+  scheduleSave();
+}
+
+function initMacros() {
+  // Ensure macros array is initialised (backwards compat with saved state)
+  if (!Array.isArray(state.macros) || state.macros.length < 4) {
+    state.macros = [
+      { name: 'Macro 1', param: null, min: 0, max: 1, value: 0.5 },
+      { name: 'Macro 2', param: null, min: 0, max: 1, value: 0.5 },
+      { name: 'Macro 3', param: null, min: 0, max: 1, value: 0.5 },
+      { name: 'Macro 4', param: null, min: 0, max: 1, value: 0.5 },
+    ];
+  }
+
+  const leftCol = document.querySelector('aside.left-col');
+  if (!leftCol) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'macro-controls';
+  wrap.innerHTML = `<div class="macro-label-row">MACROS</div>`;
+
+  state.macros.forEach((macro, i) => {
+    const col = document.createElement('div');
+    col.className = 'macro-col';
+    col.dataset.macroIndex = i;
+
+    const sliderWrap = document.createElement('div');
+    sliderWrap.className = 'macro-slider-wrap';
+
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.className = 'macro-slider';
+    slider.min = '0';
+    slider.max = '1';
+    slider.step = '0.01';
+    slider.value = String(macro.value);
+    slider.title = macro.name;
+    slider.dataset.macroIndex = i;
+
+    slider.addEventListener('input', e => {
+      const v = parseFloat(e.target.value);
+      state.macros[i].value = v;
+      applyMacro(i);
+    });
+
+    sliderWrap.appendChild(slider);
+
+    const nameBtn = document.createElement('div');
+    nameBtn.className = 'macro-name';
+    nameBtn.textContent = macro.name;
+    nameBtn.title = 'Click to map; double-click to rename';
+
+    // Single click → show target param picker
+    nameBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      // Remove any existing popup
+      document.querySelectorAll('.macro-popup').forEach(p => p.remove());
+
+      const popup = document.createElement('div');
+      popup.className = 'macro-popup';
+
+      const sel = document.createElement('select');
+      sel.innerHTML = `<option value="">— none —</option>` +
+        MACRO_PARAMS.map(p => `<option value="${p}"${macro.param === p ? ' selected' : ''}>${p}</option>`).join('');
+
+      sel.addEventListener('change', ev => {
+        state.macros[i].param = ev.target.value || null;
+        popup.remove();
+        applyMacro(i);
+        saveState(state);
+      });
+
+      popup.appendChild(sel);
+
+      // Position near the name button
+      const rect = nameBtn.getBoundingClientRect();
+      popup.style.top  = (rect.bottom + window.scrollY + 2) + 'px';
+      popup.style.left = (rect.left  + window.scrollX)      + 'px';
+      document.body.appendChild(popup);
+
+      // Close on outside click
+      const dismiss = ev => {
+        if (!popup.contains(ev.target) && ev.target !== nameBtn) {
+          popup.remove();
+          document.removeEventListener('click', dismiss, true);
+        }
+      };
+      document.addEventListener('click', dismiss, true);
+      sel.focus();
+    });
+
+    // Double-click → rename inline
+    nameBtn.addEventListener('dblclick', e => {
+      e.stopPropagation();
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'macro-name-input';
+      input.value = macro.name;
+      input.maxLength = 12;
+
+      const commit = () => {
+        const newName = input.value.trim() || macro.name;
+        state.macros[i].name = newName;
+        nameBtn.textContent = newName;
+        slider.title = newName;
+        input.replaceWith(nameBtn);
+        saveState(state);
+      };
+
+      input.addEventListener('blur', commit);
+      input.addEventListener('keydown', ev => {
+        if (ev.key === 'Enter') commit();
+        if (ev.key === 'Escape') { input.value = macro.name; commit(); }
+        ev.stopPropagation();
+      });
+
+      nameBtn.replaceWith(input);
+      input.focus();
+      input.select();
+    });
+
+    col.appendChild(sliderWrap);
+    col.appendChild(nameBtn);
+    wrap.appendChild(col);
+  });
+
+  leftCol.appendChild(wrap);
+}
+
+// ─────────────────────────────────────────────
 // BOOT
 // ─────────────────────────────────────────────
 function boot() {
@@ -1873,6 +2088,7 @@ function boot() {
   }
   renderAll();
   if (el.masterVolume) el.masterVolume.value = state.masterLevel;
+  initMacros();
   initStudio();
   initCables();
   console.log('CONFUsynth v3 ready — press A to init audio, Space to play');
