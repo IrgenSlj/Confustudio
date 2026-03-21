@@ -1,6 +1,6 @@
 // src/pages/settings.js — MIDI, clock, audio, storage, sync, version
 
-import { saveState } from '../state.js';
+import { saveState, getActivePattern } from '../state.js';
 
 const VERSION = 'v3.0.0';
 
@@ -13,6 +13,9 @@ function infoRow(label, value, color) {
 
 export default {
   render(container, state, emit) {
+    // Stop any running perf monitor rAF before wiping container
+    container._cleanupPerf?.();
+
     const midiOutputs = state.engine?.midiOutputs || state.midiOutputs || [];
     const sampleRate  = state.audioContext?.sampleRate ?? '—';
     const latencyMs   = state.audioContext?.baseLatency != null
@@ -112,6 +115,11 @@ export default {
           <div style="font-family:var(--font-mono);font-size:0.56rem;color:var(--muted);margin-top:10px;line-height:1.6">
             CONFUsynth ${VERSION}<br>Web Audio API sequencer<br>ES modules
           </div>
+        </div>
+
+        <!-- Performance Monitor -->
+        <div class="settings-section" id="perf-section">
+          <h4>CPU / Performance</h4>
         </div>
 
       </div>`;
@@ -297,6 +305,134 @@ export default {
     // to route incoming CC values to the mapped parameters via emit('state:change').
 
     container.append(midiLearnSection);
+
+    // ── Performance Monitor ──────────────────────────────────────────────────
+    const perfSection = container.querySelector('#perf-section');
+    if (perfSection) {
+      const perfDiv = document.createElement('div');
+      perfDiv.className = 'perf-monitor';
+
+      const updatePerf = () => {
+        const eng = window._confusynthEngine;
+        if (!eng?.context) {
+          perfDiv.innerHTML = '<span style="color:var(--muted);font-size:0.55rem">Audio not initialized</span>';
+          return;
+        }
+        const ctx = eng.context;
+        perfDiv.innerHTML = `
+          <div class="perf-row"><span>State</span><span>${ctx.state}</span></div>
+          <div class="perf-row"><span>Sample Rate</span><span>${ctx.sampleRate} Hz</span></div>
+          <div class="perf-row"><span>Base Latency</span><span>${((ctx.baseLatency ?? 0) * 1000).toFixed(1)} ms</span></div>
+          <div class="perf-row"><span>Output Latency</span><span>${((ctx.outputLatency ?? 0) * 1000).toFixed(1)} ms</span></div>
+          <div class="perf-row"><span>Current Time</span><span>${ctx.currentTime.toFixed(1)} s</span></div>
+        `;
+      };
+      updatePerf();
+      let perfRaf;
+      const startPerfMonitor = () => {
+        perfRaf = requestAnimationFrame(() => { updatePerf(); startPerfMonitor(); });
+      };
+      startPerfMonitor();
+      container._cleanupPerf = () => cancelAnimationFrame(perfRaf);
+
+      perfSection.append(perfDiv);
+    }
+
+    // ── Presets ──────────────────────────────────────────────────────────────
+    const presetsSection = document.createElement('div');
+    presetsSection.style.cssText = 'margin-top:10px;flex-shrink:0;border-top:1px solid var(--border);padding-top:8px';
+
+    const presetsTitle = document.createElement('span');
+    presetsTitle.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px';
+    presetsTitle.textContent = 'Presets';
+    presetsSection.append(presetsTitle);
+
+    const presetBar = document.createElement('div');
+    presetBar.className = 'preset-bar';
+
+    // Save Project
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'seq-btn';
+    saveBtn.textContent = 'Save Project';
+    saveBtn.addEventListener('click', () => {
+      const json = JSON.stringify(state.project, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${state.project.name ?? 'confusynth'}-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    // Load Project
+    const loadInput = document.createElement('input');
+    loadInput.type = 'file';
+    loadInput.accept = '.json';
+    loadInput.style.display = 'none';
+    loadInput.addEventListener('change', () => {
+      const file = loadInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const project = JSON.parse(e.target.result);
+          state.project = project;
+          saveState(state);
+          emit('state:change', { path: 'action_renderPage', value: true });
+        } catch (err) {
+          alert('Invalid project file: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    });
+    const loadBtn = document.createElement('button');
+    loadBtn.className = 'seq-btn';
+    loadBtn.textContent = 'Load Project';
+    loadBtn.addEventListener('click', () => loadInput.click());
+
+    // Save Kit
+    const saveKitBtn = document.createElement('button');
+    saveKitBtn.className = 'seq-btn';
+    saveKitBtn.textContent = 'Save Kit';
+    saveKitBtn.addEventListener('click', () => {
+      const kit = getActivePattern(state).kit;
+      const blob = new Blob([JSON.stringify(kit, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `kit-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    // Load Kit
+    const loadKitInput = document.createElement('input');
+    loadKitInput.type = 'file';
+    loadKitInput.accept = '.json';
+    loadKitInput.style.display = 'none';
+    loadKitInput.addEventListener('change', () => {
+      const file = loadKitInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const kit = JSON.parse(e.target.result);
+          getActivePattern(state).kit = kit;
+          saveState(state);
+          emit('state:change', { path: 'action_renderPage', value: true });
+        } catch (err) {
+          alert('Invalid kit file: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    });
+    const loadKitBtn = document.createElement('button');
+    loadKitBtn.className = 'seq-btn';
+    loadKitBtn.textContent = 'Load Kit';
+    loadKitBtn.addEventListener('click', () => loadKitInput.click());
+
+    presetBar.append(saveBtn, loadInput, loadBtn, saveKitBtn, loadKitInput, loadKitBtn);
+    presetsSection.append(presetBar);
+    container.append(presetsSection);
 
     container.addEventListener('change', e => {
       const el = e.target;

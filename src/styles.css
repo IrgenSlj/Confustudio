@@ -2668,7 +2668,6 @@ button {
 
 .roll-grid {
   flex: 1;
-  overflow: auto;
 }
 
 .roll-row {
@@ -2680,8 +2679,9 @@ button {
 .roll-row.black-row { background: rgba(0,0,0,0.15); }
 
 .piano-cell {
-  flex: 1;
-  min-width: 20px;
+  flex: none;
+  width: 24px;
+  min-width: 24px;
   border-right: 1px solid rgba(255,255,255,0.03);
   cursor: pointer;
   transition: background 0.05s;
@@ -2731,6 +2731,17 @@ button {
 }
 .roll-row-muted .roll-key {
   opacity: 0.4;
+}
+
+.roll-scroll-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1;
+  min-height: 0;
+}
+
+.roll-view {
+  min-width: max-content;
 }
 
 /* ============================================================
@@ -2811,4 +2822,65 @@ button {
 @keyframes arrPlayheadPulse {
   from { opacity: 1; }
   to   { opacity: 0.4; }
+}
+
+/* ── Arranger drag-to-reorder ───────────────────────────────────────────── */
+.arr-row {
+  cursor: grab;
+}
+
+.arr-row.dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+.arr-row.drag-over {
+  border-top: 2px solid var(--accent) !important;
+}
+
+/* ── Scenes: manual edit panel ──────────────────────────────────────────── */
+.scene-edit-panel {
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+/* ── Keyboard: octave shift key role ────────────────────────────────────── */
+.qwerty-key.role-oct-shift {
+  background: rgba(103, 215, 255, 0.12);
+  border-color: rgba(103, 215, 255, 0.35);
+  color: var(--electric);
+}
+
+.qwerty-key.role-oct-shift .qkey-hint {
+  color: var(--electric);
+  opacity: 0.85;
+}
+
+/* ============================================================
+   Performance Monitor
+   ============================================================ */
+
+.perf-monitor {
+  background: #0a0e06;
+  border: 1px solid #2a3a1a;
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin-top: 6px;
+}
+.perf-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 0.52rem;
+  color: var(--muted);
+  padding: 1px 0;
+}
+.perf-row span:last-child {
+  color: var(--screen-text);
+}
+.preset-bar {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 4px;
 }

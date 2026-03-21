@@ -15,10 +15,15 @@ const SCALES = [
   { name: 'Blues',     intervals: [0,3,5,6,7,10] },
 ];
 
-// Build 24 rows: B4 (MIDI 71) down to C3 (MIDI 48)
-function buildRows() {
+const TOTAL_NOTE_MIN = 24;  // C1
+const TOTAL_NOTE_MAX = 96;  // C7
+const TOTAL_RANGE    = TOTAL_NOTE_MAX - TOTAL_NOTE_MIN + 1; // 73, but we use 72 steps
+const VISIBLE_ROWS   = 24;
+
+// Build rows dynamically for a given MIDI range [noteMin, noteMax] (inclusive, top-down)
+function buildRows(noteMax, noteMin) {
   const rows = [];
-  for (let midi = 71; midi >= 48; midi--) {
+  for (let midi = noteMax; midi >= noteMin; midi--) {
     const pc   = midi % 12;
     const oct  = Math.floor(midi / 12) - 1;
     const name = NOTE_NAMES[pc] + oct;
@@ -27,7 +32,7 @@ function buildRows() {
   return rows;
 }
 
-const ROWS = buildRows();
+const ZOOM_WIDTHS = [12, 18, 24, 32, 48];
 
 export default {
   render(container, state, emit) {
@@ -40,6 +45,36 @@ export default {
     const scaleIdx    = state.scale ?? 0;
     const currentScale = SCALES[Math.max(0, Math.min(SCALES.length - 1, scaleIdx))];
     const scaleSet    = currentScale.intervals ? new Set(currentScale.intervals) : null;
+
+    // Zoom: cell width
+    const zoomIdx = Math.round(Math.max(0, Math.min(4, state.rollZoom ?? 1)));
+    const cellW   = ZOOM_WIDTHS[zoomIdx];
+
+    // Scroll: determine visible note window
+    const scrollRaw  = state.rollScroll ?? 0.5;
+    const scrollNote = Math.round((1 - scrollRaw) * (72 - VISIBLE_ROWS));
+    let   noteMax    = 96 - scrollNote;
+    let   noteMin    = noteMax - VISIBLE_ROWS + 1;
+    // clamp
+    if (noteMin < TOTAL_NOTE_MIN) { noteMin = TOTAL_NOTE_MIN; noteMax = noteMin + VISIBLE_ROWS - 1; }
+    if (noteMax > TOTAL_NOTE_MAX) { noteMax = TOTAL_NOTE_MAX; noteMin = noteMax - VISIBLE_ROWS + 1; }
+
+    // Scroll to show first active note if it is outside the current window
+    const patLen = steps;
+    const firstNote = track.steps.slice(0, patLen).find(s => s.active && s.paramLocks?.note != null)?.paramLocks?.note;
+    if (firstNote != null && (firstNote < noteMin || firstNote > noteMax)) {
+      let newScroll = 1 - (96 - firstNote - VISIBLE_ROWS / 2) / (72 - VISIBLE_ROWS);
+      newScroll = Math.max(0, Math.min(1, newScroll));
+      state.rollScroll = newScroll;
+      // Recompute window with updated scroll
+      const sn2 = Math.round((1 - state.rollScroll) * (72 - VISIBLE_ROWS));
+      noteMax = 96 - sn2;
+      noteMin = noteMax - VISIBLE_ROWS + 1;
+      if (noteMin < TOTAL_NOTE_MIN) { noteMin = TOTAL_NOTE_MIN; noteMax = noteMin + VISIBLE_ROWS - 1; }
+      if (noteMax > TOTAL_NOTE_MAX) { noteMax = TOTAL_NOTE_MAX; noteMin = noteMax - VISIBLE_ROWS + 1; }
+    }
+
+    const ROWS = buildRows(noteMax, noteMin);
 
     // Build a set of active (midi, stepIndex) pairs from step notes
     const activeSet = new Set();
@@ -83,25 +118,31 @@ export default {
     keysCol.className = 'roll-keys';
     keysCol.style.cssText = 'flex-shrink:0;width:36px;';
 
-    // Right: note grid
+    // Right: scroll container + inner grid view
+    const scrollContainer = document.createElement('div');
+    scrollContainer.className = 'roll-scroll-container';
+
+    const gridView = document.createElement('div');
+    gridView.className = 'roll-view';
+
     const gridCol = document.createElement('div');
     gridCol.className = 'roll-grid';
-    gridCol.style.cssText = 'overflow:auto;flex:1';
 
     // Beat marker header row
     const beatHeader = document.createElement('div');
-    beatHeader.style.cssText = 'display:flex;padding-left:36px;margin-bottom:2px;flex-shrink:0';
+    beatHeader.style.cssText = 'display:flex;padding-left:0;margin-bottom:2px;flex-shrink:0';
     for (let si = 0; si < steps; si++) {
       const cell = document.createElement('div');
       cell.style.cssText = `
-        flex: 1; text-align: center; font-family: var(--font-mono); font-size: 0.38rem;
+        width: ${cellW}px; min-width: ${cellW}px; flex-shrink: 0;
+        text-align: center; font-family: var(--font-mono); font-size: 0.38rem;
         color: ${si % 4 === 0 ? 'var(--accent)' : 'transparent'};
         border-left: ${si % 4 === 0 ? '1px solid rgba(255,255,255,0.06)' : 'none'};
       `;
       cell.textContent = si % 4 === 0 ? String(si + 1) : '';
       beatHeader.append(cell);
     }
-    gridCol.prepend(beatHeader);
+    gridView.append(beatHeader);
 
     // Drag-velocity state
     let dragCell      = null;
@@ -151,6 +192,8 @@ export default {
         const cell = document.createElement('div');
         cell.className = 'piano-cell' + (si % 4 === 0 ? ' beat-start' : '');
         cell.dataset.col = si;
+        cell.style.width    = cellW + 'px';
+        cell.style.minWidth = cellW + 'px';
 
         if (isMuted) {
           cell.style.pointerEvents = 'none';
@@ -211,12 +254,14 @@ export default {
       gridCol.append(row);
     });
 
-    view.append(keysCol, gridCol);
+    gridView.append(gridCol);
+    scrollContainer.append(gridView);
+    view.append(keysCol, scrollContainer);
     container.append(view);
   },
 
   knobMap: [
-    { label: 'Zoom',     param: 'rollZoom',     min: 0.5, max: 4,   step: 0.1 },
+    { label: 'Zoom',     param: 'rollZoom',     min: 0,   max: 4,   step: 1   },
     { label: 'Scroll',   param: 'rollScroll',   min: 0,   max: 1,   step: 0.01 },
     { label: 'Gate',     param: 'noteLength',   min: 0.01,max: 1,   step: 0.01 },
     { label: 'Velocity', param: 'velocity',     min: 0,   max: 1,   step: 0.01 },

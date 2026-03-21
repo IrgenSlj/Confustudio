@@ -340,6 +340,16 @@ function handleStateChange(path, value, pattern) {
     return;
   }
 
+  if (path === 'defaultProb') {
+    state.defaultProb = value;
+    const track = getActiveTrack(state);
+    const len = track.trackLength || getActivePattern(state).length;
+    track.steps.slice(0, len).forEach(s => { s.probability = value; });
+    renderPage();
+    scheduleSave();
+    return;
+  }
+
   if (setNestedStateValue(path, value)) {
     scheduleSave();
     renderPage();
@@ -601,10 +611,21 @@ function emit(type, payload = {}) {
 function handleKnobChange(knobIndex, value) {
   const map = KNOB_MAPS[state.currentPage];
   if (!map) return;
-  const def = map[knobIndex];
+  // Support direct param routing (from MIDI CC) — knobIndex may be a param string
+  let def;
+  if (typeof knobIndex === 'string') {
+    def = map.find(d => d && d.param === knobIndex) ?? { param: knobIndex };
+  } else {
+    def = map[knobIndex];
+  }
   if (!def || !def.param) return;
 
-  _activeKnobIndex = knobIndex;
+  // MIDI learn: record last-touched param so next CC gets mapped to it
+  if (state.midiLearnMode) {
+    state.midiLearnTarget = def.param;
+  }
+
+  _activeKnobIndex = typeof knobIndex === 'number' ? knobIndex : null;
 
   const pattern = getActivePattern(state);
 
@@ -660,6 +681,26 @@ async function ensureAudio() {
   initSignalMeter();
   startMeterAnimation();
   await initMidi();
+
+  // MIDI CC input routing
+  if (typeof state.engine.setupMidiInput === 'function') {
+    state.engine.setupMidiInput((cc, value) => {
+      const map = state.midiLearnMap ?? {};
+      // If in learn mode, assign the last-touched param
+      if (state.midiLearnMode && state.midiLearnTarget) {
+        map[cc] = state.midiLearnTarget;
+        state.midiLearnMap = map;
+        state.midiLearnMode = false;
+        saveState(state);
+        renderPage();
+        return;
+      }
+      // Route CC to mapped param
+      const param = map[cc];
+      if (!param) return;
+      emit('knob:change', { param, value });
+    });
+  }
 }
 
 function initSignalMeter() {
@@ -724,7 +765,12 @@ function scheduleLoop() {
 
         // Live recording: capture held MIDI notes onto the selected track
         if (state.isRecording && ti === state.selectedTrackIndex && state._pressedKeys.size > 0) {
-          const step = track.steps[stepIdx];
+          // Quantize step index to nearest recQuantize subdivision
+          const recQ = state.recQuantize ?? 1;
+          const qStepIdx = recQ <= 1
+            ? stepIdx
+            : Math.round(stepIdx / recQ) * recQ % trackLen;
+          const step = track.steps[qStepIdx];
           if (step) {
             step.active = true;
             // Use the lowest held MIDI note (numeric keys are MIDI notes)
@@ -773,14 +819,29 @@ function scheduleLoop() {
         // Arranger playback
         if (state.arrangementMode && Array.isArray(state.arranger) && state.arranger.length > 0) {
           state._arrSectionBars = (state._arrSectionBars ?? 0) + 1;
-          const section = state.arranger[state._arrSection ?? 0];
-          if (section && state._arrSectionBars >= section.bars) {
+          const arrSectionLen = state.arrSectionLen ?? 1;
+          const currentArrIdx = state._arrSection ?? 0;
+          const section = state.arranger[currentArrIdx];
+          if (section && state._arrSectionBars >= section.bars * arrSectionLen) {
             state._arrSectionBars = 0;
-            state._arrSection = ((state._arrSection ?? 0) + 1) % state.arranger.length;
-            const nextSection = state.arranger[state._arrSection];
-            if (nextSection != null) {
+            const nextIdx = currentArrIdx + 1;
+            const isLast = nextIdx >= state.arranger.length;
+            if (isLast && state.arrLoop) {
+              // Loop: wrap back to start
+              state._arrSection = 0;
+            } else if (!isLast) {
+              state._arrSection = nextIdx;
+            }
+            // Apply bpmOverride from the now-current section
+            const nowSection = state.arranger[state._arrSection ?? 0];
+            if (nowSection != null) {
               // Map sceneIdx to a pattern index (use sceneIdx as pattern index within active bank)
-              state.activePattern = Math.max(0, Math.min(15, nextSection.sceneIdx ?? 0));
+              state.activePattern = Math.max(0, Math.min(15, nowSection.sceneIdx ?? 0));
+              // BPM override: if section carries bpmOverride and state.bpmOverride is non-zero
+              if (state.bpmOverride && nowSection.bpmOverride != null) {
+                state.bpm = nowSection.bpmOverride;
+                updateTopbar();
+              }
             }
           }
         }
@@ -1110,6 +1171,28 @@ function addNumericDrag(inputEl, onUpdate) {
 }
 
 // ─────────────────────────────────────────────
+// AUDIO EXPORT
+// ─────────────────────────────────────────────
+async function exportAudio(engine) {
+  const ctx = engine.context;
+  const dest = ctx.createMediaStreamDestination();
+  engine.master.connect(dest);
+  const rec = new MediaRecorder(dest.stream);
+  const chunks = [];
+  rec.ondataavailable = e => chunks.push(e.data);
+  rec.onstop = () => {
+    const blob = new Blob(chunks, { type: 'audio/webm' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'confusynth-export.webm';
+    a.click();
+    engine.master.disconnect(dest);
+  };
+  rec.start();
+  setTimeout(() => rec.stop(), 8000); // 8 second capture
+}
+
+// ─────────────────────────────────────────────
 // BIND UI
 // ─────────────────────────────────────────────
 function bindUI() {
@@ -1257,6 +1340,55 @@ function bindUI() {
       const m = document.getElementById('help-modal');
       if (m && m.style.display === 'flex') { m.style.display = 'none'; e.preventDefault(); }
     }
+  });
+
+  // Record quantize selector — inject next to record button if not already present
+  const recQuantizeSel = document.getElementById('rec-quantize') ?? (() => {
+    const sel = document.createElement('select');
+    sel.id = 'rec-quantize';
+    sel.className = 't-select';
+    sel.title = 'Record quantize';
+    [
+      { label: 'Free', value: 1 },
+      { label: '1/16', value: 1 },
+      { label: '1/8',  value: 2 },
+      { label: '1/4',  value: 4 },
+    ].forEach(({ label, value }) => {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = label;
+      sel.append(opt);
+    });
+    const transportBtns = document.querySelector('.transport-buttons');
+    if (el.btnRecord && el.btnRecord.parentNode) {
+      el.btnRecord.parentNode.insertBefore(sel, el.btnRecord.nextSibling);
+    } else if (transportBtns) {
+      transportBtns.append(sel);
+    }
+    return sel;
+  })();
+  recQuantizeSel.value = state.recQuantize ?? 1;
+  recQuantizeSel.addEventListener('change', e => {
+    state.recQuantize = Number(e.target.value);
+  });
+
+  // Export button — inject into transport area if not already present
+  const exportBtn = document.getElementById('btn-export') ?? (() => {
+    const b = document.createElement('button');
+    b.id = 'btn-export';
+    b.className = 't-btn';
+    b.textContent = 'Exp';
+    b.title = 'Export 8s audio (WebM)';
+    const transportBtns = document.querySelector('.transport-buttons');
+    if (transportBtns) {
+      transportBtns.append(b);
+    } else if (el.btnStop && el.btnStop.parentNode) {
+      el.btnStop.parentNode.append(b);
+    }
+    return b;
+  })();
+  exportBtn.addEventListener('click', () => {
+    if (state.engine) exportAudio(state.engine);
   });
 }
 

@@ -168,6 +168,43 @@ export default {
 
     bottomRow.append(valCard);
     container.append(bottomRow);
+
+    // ── Manual Scene Edit panel ───────────────────────────────────────────────
+    const sceneEditDiv = document.createElement('div');
+    sceneEditDiv.className = 'scene-edit-panel';
+
+    const editTitle = document.createElement('div');
+    editTitle.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em';
+    editTitle.textContent = `Edit Scene ${String.fromCharCode(65 + (state.sceneA ?? 0))} · Trk ${(state.selectedTrackIndex ?? 0) + 1}`;
+    sceneEditDiv.append(editTitle);
+
+    const sceneAData = state.project.scenes[state.sceneA ?? 0];
+    const SCENE_PARAMS = [
+      { label: 'Cutoff', param: 'cutoff',     min: 80,   max: 16000, step: 10   },
+      { label: 'Decay',  param: 'decay',       min: 0.01, max: 2,     step: 0.01 },
+      { label: 'Delay',  param: 'delaySend',   min: 0,    max: 1,     step: 0.01 },
+      { label: 'Pitch',  param: 'pitch',       min: 0,    max: 127,   step: 1    },
+      { label: 'Vol',    param: 'volume',      min: 0,    max: 1,     step: 0.01 },
+    ];
+    const trackData = sceneAData?.tracks?.[state.selectedTrackIndex] ?? {};
+    SCENE_PARAMS.forEach(({ label, param, min, max, step }) => {
+      const val = trackData[param] ?? min;
+      const row = document.createElement('div');
+      row.className = 'plock-row';
+      row.innerHTML = `<label>${label}</label><input type="range" min="${min}" max="${max}" step="${step}" value="${val}"><span>${Number(val).toFixed(step < 1 ? 2 : 0)}</span>`;
+      const input = row.querySelector('input');
+      const span  = row.querySelector('span');
+      input.addEventListener('input', () => {
+        const v = parseFloat(input.value);
+        span.textContent = v.toFixed(step < 1 ? 2 : 0);
+        if (!sceneAData.tracks) sceneAData.tracks = Array(8).fill(null).map(() => ({}));
+        if (!sceneAData.tracks[state.selectedTrackIndex]) sceneAData.tracks[state.selectedTrackIndex] = {};
+        sceneAData.tracks[state.selectedTrackIndex][param] = v;
+        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      });
+      sceneEditDiv.append(row);
+    });
+    container.append(sceneEditDiv);
   },
 
   knobMap: [

@@ -36,6 +36,7 @@ export default {
 
     arranger.forEach((section, idx) => {
       const row = document.createElement('div');
+      row.className = 'arr-row';
       row.style.cssText = `
         display:flex;align-items:center;gap:8px;padding:6px 8px;
         border-radius:5px;border:1px solid var(--border);background:#141414;
@@ -49,6 +50,26 @@ export default {
         row.style.borderColor = 'rgba(90,221,113,0.6)';
         row.style.background  = 'rgba(90,221,113,0.06)';
       }
+
+      // Drag-to-reorder
+      row.draggable = true;
+      row.addEventListener('dragstart', e => {
+        e.dataTransfer.setData('text/plain', idx);
+        row.classList.add('dragging');
+      });
+      row.addEventListener('dragend', () => row.classList.remove('dragging'));
+      row.addEventListener('dragover', e => { e.preventDefault(); row.classList.add('drag-over'); });
+      row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+      row.addEventListener('drop', e => {
+        e.preventDefault();
+        row.classList.remove('drag-over');
+        const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+        if (fromIdx === idx) return;
+        const sections = state.arranger;
+        const [moved] = sections.splice(fromIdx, 1);
+        sections.splice(idx, 0, moved);
+        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      });
 
       const sceneLabel = document.createElement('span');
       sceneLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.65rem;color:var(--accent);min-width:24px';
@@ -90,12 +111,13 @@ export default {
         barsLabel.textContent = `${newBars}B`;
       });
 
-      // Move up/down
+      // Move up/down (secondary — drag-to-reorder is preferred)
       const upBtn = document.createElement('button');
       upBtn.className = 'bpm-arrow';
       upBtn.textContent = '↑';
       upBtn.disabled = idx === 0;
-      upBtn.style.opacity = idx === 0 ? '0.3' : '1';
+      upBtn.style.cssText = `opacity:${idx === 0 ? '0.2' : '0.45'};font-size:0.55rem;padding:1px 4px`;
+      upBtn.title = 'Move up';
       upBtn.addEventListener('click', () =>
         emit('state:change', { path: 'action_arrMoveUp', value: idx })
       );
@@ -104,7 +126,8 @@ export default {
       dnBtn.className = 'bpm-arrow';
       dnBtn.textContent = '↓';
       dnBtn.disabled = idx === arranger.length - 1;
-      dnBtn.style.opacity = idx === arranger.length - 1 ? '0.3' : '1';
+      dnBtn.style.cssText = `opacity:${idx === arranger.length - 1 ? '0.2' : '0.45'};font-size:0.55rem;padding:1px 4px`;
+      dnBtn.title = 'Move down';
       dnBtn.addEventListener('click', () =>
         emit('state:change', { path: 'action_arrMoveDown', value: idx })
       );

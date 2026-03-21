@@ -311,6 +311,36 @@ export default {
     );
     actionsDiv.prepend(fillBtn);
 
+    // Quantize grid select + button
+    const qSelect = document.createElement('select');
+    qSelect.className = 'seq-btn';
+    qSelect.style.cssText = 'padding:2px 4px;font-family:var(--font-mono);font-size:0.55rem';
+    [{ label: 'Q:1/16', v: 1 }, { label: 'Q:1/8', v: 2 }, { label: 'Q:1/4', v: 4 }].forEach(({ label, v }) => {
+      const opt = document.createElement('option');
+      opt.value = v; opt.textContent = label;
+      if (v === (state.quantizeGrid ?? 1)) opt.selected = true;
+      qSelect.append(opt);
+    });
+    qSelect.addEventListener('change', () => { state.quantizeGrid = parseInt(qSelect.value); });
+
+    const quantizeBtn = document.createElement('button');
+    quantizeBtn.className = 'seq-btn';
+    quantizeBtn.textContent = 'Quant';
+    quantizeBtn.addEventListener('click', () => {
+      const grid    = state.quantizeGrid ?? 1;
+      const trackLen = track.trackLength || pattern.length;
+      const newActive = new Set();
+      track.steps.slice(0, trackLen).forEach((s, si) => {
+        if (s.active) {
+          const snapped = Math.round(si / grid) * grid % trackLen;
+          newActive.add(snapped);
+        }
+      });
+      track.steps.slice(0, trackLen).forEach((s, si) => { s.active = newActive.has(si); });
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+    });
+    actionsDiv.append(qSelect, quantizeBtn);
+
     toolbar.append(euclidDiv, actionsDiv);
     wrapper.append(toolbar);
     container.append(wrapper);

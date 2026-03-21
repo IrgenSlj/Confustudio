@@ -44,7 +44,15 @@ export class AudioEngine {
     this.master = context.createGain();
     this.master.gain.value = 0.82;
 
-    // Master drive saturator — inserted between masterGain and masterAnalyser
+    // Master dynamics compressor — inserted between masterGain and masterSaturator
+    this.masterCompressor = context.createDynamicsCompressor();
+    this.masterCompressor.threshold.value = -18;
+    this.masterCompressor.knee.value = 6;
+    this.masterCompressor.ratio.value = 4;
+    this.masterCompressor.attack.value = 0.003;
+    this.masterCompressor.release.value = 0.25;
+
+    // Master drive saturator — inserted between masterCompressor and masterAnalyser
     this.masterSaturator = context.createWaveShaper();
     this.masterSaturator.oversample = "2x";
     // Default: linear passthrough (no drive)
@@ -92,8 +100,9 @@ export class AudioEngine {
     this.delayWet.connect(this.master);
     this.reverbWet.connect(this.master);
 
-    // Master chain: masterGain → masterSaturator → masterAnalyser → destination
-    this.master.connect(this.masterSaturator);
+    // Master chain: masterGain → masterCompressor → masterSaturator → masterAnalyser → destination
+    this.master.connect(this.masterCompressor);
+    this.masterCompressor.connect(this.masterSaturator);
     this.masterSaturator.connect(this.analyser);
     this.analyser.connect(context.destination);
 
@@ -247,6 +256,18 @@ export class AudioEngine {
     } else {
       this.masterSaturator.curve = this._makeDriveCurve(v);
     }
+  }
+
+  // Update master compressor parameters smoothly via setTargetAtTime.
+  // Each key is optional; omitted keys are left unchanged.
+  setCompressor({ threshold, knee, ratio, attack, release } = {}) {
+    const t = this.context.currentTime;
+    const c = this.masterCompressor;
+    if (threshold !== undefined) c.threshold.setTargetAtTime(threshold, t, 0.01);
+    if (knee      !== undefined) c.knee.setTargetAtTime(knee,           t, 0.01);
+    if (ratio     !== undefined) c.ratio.setTargetAtTime(ratio,         t, 0.01);
+    if (attack    !== undefined) c.attack.setTargetAtTime(attack,       t, 0.01);
+    if (release   !== undefined) c.release.setTargetAtTime(release,     t, 0.01);
   }
 
   // ——————————————————————————————————————————————
@@ -447,6 +468,17 @@ export class AudioEngine {
     const srDiv = params.srDiv ?? 1;
     const needsCrusher = bitDepth < 16 || srDiv > 1;
 
+    // Per-trigger 3-band EQ (lowShelf / peaking / highShelf).
+    // Only created when at least one band has a non-trivial gain (abs > 0.1 dB).
+    const eqLow  = params.eqLow  ?? 0;
+    const eqMid  = params.eqMid  ?? 0;
+    const eqHigh = params.eqHigh ?? 0;
+    const needsEQ = Math.abs(eqLow) > 0.1 || Math.abs(eqMid) > 0.1 || Math.abs(eqHigh) > 0.1;
+
+    // eqTail is the node that should connect to the panner (either a plain output
+    // node, the last EQ shelf, or the crusher when that is also present).
+    let eqTail = output;
+
     if (needsCrusher) {
       const crusher = this.context.createScriptProcessor(256, 1, 1);
       const step = Math.pow(2, bitDepth);
@@ -466,10 +498,33 @@ export class AudioEngine {
       };
 
       output.connect(crusher);
-      crusher.connect(panner);
-    } else {
-      output.connect(panner);
+      eqTail = crusher;
     }
+
+    if (needsEQ) {
+      const lowShelf = this.context.createBiquadFilter();
+      lowShelf.type = 'lowshelf';
+      lowShelf.frequency.value = 200;
+      lowShelf.gain.value = eqLow;
+
+      const midPeak = this.context.createBiquadFilter();
+      midPeak.type = 'peaking';
+      midPeak.frequency.value = 1000;
+      midPeak.Q.value = 1.0;
+      midPeak.gain.value = eqMid;
+
+      const highShelf = this.context.createBiquadFilter();
+      highShelf.type = 'highshelf';
+      highShelf.frequency.value = 6000;
+      highShelf.gain.value = eqHigh;
+
+      eqTail.connect(lowShelf);
+      lowShelf.connect(midPeak);
+      midPeak.connect(highShelf);
+      eqTail = highShelf;
+    }
+
+    eqTail.connect(panner);
 
     panner.connect(filter);
     filter.connect(saturator);
@@ -640,6 +695,42 @@ export class AudioEngine {
     osc.connect(output);
     osc.start(when);
     osc.stop(when + totalTime + 0.02);
+  }
+
+  // ——————————————————————————————————————————————
+  // MIDI Input — CC listener
+  // ——————————————————————————————————————————————
+
+  // onCC: (cc: number, value: number 0–1) => void
+  // Returns the requestMIDIAccess promise (resolves to midiAccess).
+  setupMidiInput(onCC) {
+    if (!navigator.requestMIDIAccess) {
+      return Promise.reject(new Error('WebMIDI not supported'));
+    }
+
+    const attachInputs = (midiAccess) => {
+      midiAccess.inputs.forEach((input) => {
+        input.onmidimessage = (msg) => {
+          const [status, cc, val] = msg.data;
+          if ((status & 0xf0) === 0xb0) onCC(cc, val / 127);
+        };
+      });
+    };
+
+    return navigator.requestMIDIAccess({ sysex: false }).then((midiAccess) => {
+      this._midiAccess = midiAccess;
+      attachInputs(midiAccess);
+      midiAccess.onstatechange = () => attachInputs(midiAccess);
+      return midiAccess;
+    });
+  }
+
+  // Remove all MIDI input message handlers attached by setupMidiInput.
+  teardownMidiInput() {
+    if (!this._midiAccess) return;
+    this._midiAccess.inputs.forEach((input) => {
+      input.onmidimessage = null;
+    });
   }
 }
 

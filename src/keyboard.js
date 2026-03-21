@@ -75,24 +75,25 @@ const QWERTY_ROWS = [
 // ─── Key role definitions per page ────────────────────────────────────────────
 
 const PAGE_NAV = {
-  KeyQ:{ role:'page',   hint:'PATN'  }, KeyW:{ role:'page',   hint:'ROLL'  },
-  KeyE:{ role:'page',   hint:'SOUND' }, KeyR:{ role:'page',   hint:'MIX'   },
-  KeyT:{ role:'page',   hint:'FX'    }, KeyY:{ role:'page',   hint:'SCENE' },
-  KeyU:{ role:'page',   hint:'BANKS' }, KeyI:{ role:'page',   hint:'ARR'   },
-  KeyO:{ role:'page',   hint:'SET'   }, KeyP:{ role:'record', hint:'REC'   },
-  Space:{ role:'play',  hint:'PLAY'  },
+  KeyQ:{ role:'page',      hint:'PATN'  }, KeyW:{ role:'page',      hint:'ROLL'  },
+  KeyE:{ role:'page',      hint:'SOUND' }, KeyR:{ role:'page',      hint:'MIX'   },
+  KeyT:{ role:'page',      hint:'FX'    }, KeyY:{ role:'page',      hint:'SCENE' },
+  KeyU:{ role:'page',      hint:'BANKS' }, KeyI:{ role:'page',      hint:'ARR'   },
+  KeyO:{ role:'page',      hint:'SET'   }, KeyP:{ role:'record',    hint:'REC'   },
+  Space:{ role:'play',     hint:'PLAY'  },
+  KeyZ:{ role:'oct-shift', hint:'Oct-'  }, KeyX:{ role:'oct-shift', hint:'Oct+'  },
 };
 
 const NOTE_ROLES = {
-  KeyA:{ role:'note',       hint:'C'   }, KeyS:{ role:'note',       hint:'D'   },
-  KeyD:{ role:'note',       hint:'E'   }, KeyF:{ role:'note',       hint:'F'   },
-  KeyG:{ role:'note',       hint:'G'   }, KeyH:{ role:'note',       hint:'A'   },
-  KeyJ:{ role:'note',       hint:'B'   }, KeyK:{ role:'note',       hint:"C'"  },
-  KeyL:{ role:'note',       hint:"D'"  },
-  KeyZ:{ role:'note-black', hint:'C#'  }, KeyX:{ role:'note-black', hint:'D#'  },
-  KeyC:{ role:'note-black', hint:'F#'  }, KeyV:{ role:'note-black', hint:'G#'  },
-  KeyB:{ role:'note-black', hint:'A#'  }, KeyN:{ role:'note-black', hint:"C#'" },
-  KeyM:{ role:'note-black', hint:"D#'" },
+  KeyA:{ role:'note',       hint:'C'    }, KeyS:{ role:'note',       hint:'D'   },
+  KeyD:{ role:'note',       hint:'E'    }, KeyF:{ role:'note',       hint:'F'   },
+  KeyG:{ role:'note',       hint:'G'    }, KeyH:{ role:'note',       hint:'A'   },
+  KeyJ:{ role:'note',       hint:'B'    }, KeyK:{ role:'note',       hint:"C'"  },
+  KeyL:{ role:'note',       hint:"D'"   },
+  KeyZ:{ role:'oct-shift',  hint:'Oct-' }, KeyX:{ role:'oct-shift',  hint:'Oct+' },
+  KeyC:{ role:'note-black', hint:'F#'   }, KeyV:{ role:'note-black', hint:'G#'  },
+  KeyB:{ role:'note-black', hint:'A#'   }, KeyN:{ role:'note-black', hint:"C#'" },
+  KeyM:{ role:'note-black', hint:"D#'"  },
 };
 
 const KEY_ROLES = {
@@ -297,6 +298,12 @@ export function initKeyboard(state, emit) {
         else                 emit('step:toggle',    { stepIndex: stepIdx, shiftKey: false });
         return;
       }
+    }
+
+    // Z / X → octave shift (global, except on pattern page where they are step keys)
+    if (page !== 'pattern') {
+      if (e.code === 'KeyZ') { e.preventDefault(); emit('octave:shift', { delta: -1 }); return; }
+      if (e.code === 'KeyX') { e.preventDefault(); emit('octave:shift', { delta: +1 }); return; }
     }
 
     // Sound / piano-roll: A-M = note preview
