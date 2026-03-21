@@ -1,7 +1,6 @@
 // src/pages/settings.js — MIDI, clock, audio, storage, sync, version
 
 import { saveState, getActivePattern } from '../state.js';
-import { exportMidi } from '../app.js';
 
 const VERSION = 'v3.0.0';
 
@@ -761,7 +760,16 @@ export default {
     loadKitBtn.textContent = 'Load Kit';
     loadKitBtn.addEventListener('click', () => loadKitInput.click());
 
-    presetBar.append(saveBtn, loadInput, loadBtn, saveKitBtn, loadKitInput, loadKitBtn);
+    // Export MIDI
+    const exportMidiBtn = document.createElement('button');
+    exportMidiBtn.className = 'seq-btn';
+    exportMidiBtn.textContent = 'Export MIDI';
+    exportMidiBtn.title = 'Export active pattern as Standard MIDI File (Ctrl+Shift+E)';
+    exportMidiBtn.addEventListener('click', () => {
+      if (typeof window.exportMidi === 'function') window.exportMidi(state);
+    });
+
+    presetBar.append(saveBtn, loadInput, loadBtn, saveKitBtn, loadKitInput, loadKitBtn, exportMidiBtn);
     presetsSection.append(presetBar);
     container.append(presetsSection);
 

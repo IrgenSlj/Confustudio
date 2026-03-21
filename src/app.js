@@ -133,6 +133,8 @@ export function exportMidi(state) {
   a.click();
   URL.revokeObjectURL(url);
 }
+// Expose for settings.js (avoids circular import)
+window.exportMidi = exportMidi;
 
 // ─────────────────────────────────────────────
 // PAGE REGISTRY
@@ -1556,6 +1558,47 @@ function updateTopbar() {
   el.bpmDisplay.textContent  = `${state.bpm} BPM`;
   if (el.kbdBpm) el.kbdBpm.textContent = `${state.bpm} BPM`;
   if (el.bpmInput) el.bpmInput.value = state.bpm;
+
+  // Chain display
+  let chainDisplay = document.getElementById('chain-display');
+  if (!chainDisplay) {
+    chainDisplay = document.createElement('span');
+    chainDisplay.id = 'chain-display';
+    chainDisplay.className = 'topbar-item topbar-chain';
+    document.getElementById('bank-pattern')?.insertAdjacentElement('afterend', chainDisplay);
+  }
+
+  if (state.chainPatterns) {
+    chainDisplay.classList.add('chain-active');
+    const bank = state.activeBank;
+    const patterns = state.project?.banks?.[bank]?.patterns;
+    const PREVIEW_COUNT = 3;
+    const parts = [`${BANKS[bank]}·${String(state.activePattern + 1).padStart(2, '0')}`];
+
+    let cursor = state.activePattern;
+    for (let i = 0; i < PREVIEW_COUNT - 1; i++) {
+      const followAction = patterns?.[cursor]?.followAction ?? 'next';
+      if (followAction === 'stop') {
+        parts.push('■');
+        break;
+      } else if (followAction === 'random') {
+        parts.push('???');
+        break;
+      } else if (followAction === 'loop') {
+        parts.push(`${BANKS[bank]}·${String(cursor + 1).padStart(2, '0')}`);
+        break;
+      } else {
+        // 'next' or default
+        cursor = (cursor + 1) % 16;
+        parts.push(`${BANKS[bank]}·${String(cursor + 1).padStart(2, '0')}`);
+      }
+    }
+
+    chainDisplay.textContent = parts.join(' → ');
+  } else {
+    chainDisplay.classList.remove('chain-active');
+    chainDisplay.textContent = '';
+  }
 }
 
 function updateTransportUI() {

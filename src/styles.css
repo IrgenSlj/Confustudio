@@ -627,6 +627,15 @@ button {
   white-space: nowrap;
 }
 
+.topbar-chain {
+  font-size: 0.52rem;
+  color: var(--muted);
+  letter-spacing: 0.03em;
+}
+.topbar-chain.chain-active {
+  color: #ffd700;
+}
+
 .topbar-bpm {
   color: var(--accent);
   font-size: 0.78rem;

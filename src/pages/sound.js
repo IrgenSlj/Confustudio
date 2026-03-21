@@ -23,7 +23,7 @@ const WAVEFORM_SVGS = {
   sine:     `<svg width="20" height="10" viewBox="0 0 20 10" xmlns="http://www.w3.org/2000/svg"><path d="M0,5 C2,5 3,1 5,1 C7,1 8,9 10,9 C12,9 13,1 15,1 C17,1 18,5 20,5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
   triangle: `<svg width="20" height="10" viewBox="0 0 20 10" xmlns="http://www.w3.org/2000/svg"><polyline points="0,9 5,1 10,9 15,1 20,9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`,
   sawtooth: `<svg width="20" height="10" viewBox="0 0 20 10" xmlns="http://www.w3.org/2000/svg"><polyline points="0,9 10,1 10,9 20,1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`,
-  square:   `<svg width="20" height="10" viewBox="0 0 20 10" xmlns="http://www.w3.org/2000/svg"><polyline points="0,9 0,1 10,1 10,9 10,9 10,1 20,1 20,9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`,
+  square:   `<svg width="20" height="10" viewBox="0 0 20 10" xmlns="http://www.w3.org/2000/svg"><polyline points="0,9 0,1 10,1 10,9 20,9 20,1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`,
 };
 
 function buildArpPreview(arpMode, arpRange, rootMidi, trackColor) {
