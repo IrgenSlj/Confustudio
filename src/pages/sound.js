@@ -10,6 +10,71 @@ function midiToNoteName(midi) {
   return NOTE_NAMES[midi % 12] + oct;
 }
 
+const CHORD_VOICINGS = {
+  off:  [],
+  maj:  [0, 4, 7],
+  min:  [0, 3, 7],
+  pwr:  [0, 7, 12],
+  dom7: [0, 4, 7, 10],
+  min7: [0, 3, 7, 10],
+};
+
+const WAVEFORM_SVGS = {
+  sine:     `<svg width="20" height="10" viewBox="0 0 20 10" xmlns="http://www.w3.org/2000/svg"><path d="M0,5 C2,5 3,1 5,1 C7,1 8,9 10,9 C12,9 13,1 15,1 C17,1 18,5 20,5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+  triangle: `<svg width="20" height="10" viewBox="0 0 20 10" xmlns="http://www.w3.org/2000/svg"><polyline points="0,9 5,1 10,9 15,1 20,9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`,
+  sawtooth: `<svg width="20" height="10" viewBox="0 0 20 10" xmlns="http://www.w3.org/2000/svg"><polyline points="0,9 10,1 10,9 20,1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`,
+  square:   `<svg width="20" height="10" viewBox="0 0 20 10" xmlns="http://www.w3.org/2000/svg"><polyline points="0,9 0,1 10,1 10,9 10,9 10,1 20,1 20,9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`,
+};
+
+function buildArpPreview(arpMode, arpRange, rootMidi, trackColor) {
+  const range = Math.max(1, Math.min(4, arpRange ?? 1));
+  // Build a sequence of MIDI offsets (semitones from root) for the octave steps
+  const octaves = [];
+  for (let o = 0; o < range; o++) octaves.push(o * 12);
+
+  let sequence;
+  if (arpMode === 'up' || !arpMode) {
+    sequence = octaves;
+  } else if (arpMode === 'down') {
+    sequence = [...octaves].reverse();
+  } else if (arpMode === 'updown') {
+    // ascending then descending, no repeat at top/bottom
+    const asc = octaves;
+    const desc = octaves.slice(1, -1).reverse();
+    sequence = [...asc, ...desc];
+  } else {
+    // random — deterministic shuffle based on range for stable preview
+    sequence = [...octaves];
+    for (let i = sequence.length - 1; i > 0; i--) {
+      const j = (i * 7 + 3) % (i + 1);
+      [sequence[i], sequence[j]] = [sequence[j], sequence[i]];
+    }
+  }
+
+  // Pad or trim to exactly 8 steps (repeat pattern if shorter)
+  const steps = 8;
+  const bars = [];
+  for (let i = 0; i < steps; i++) {
+    bars.push(sequence[i % sequence.length]);
+  }
+
+  const maxOffset = (range - 1) * 12 || 1;
+  const color = trackColor || 'var(--accent)';
+
+  const barEls = bars.map(offset => {
+    const heightPct = 20 + ((offset / maxOffset) * 75);
+    const el = document.createElement('div');
+    el.className = 'arp-preview-bar';
+    el.style.cssText = `height:${heightPct.toFixed(0)}%;background:${color};`;
+    return el;
+  });
+
+  const wrap = document.createElement('div');
+  wrap.className = 'arp-preview';
+  barEls.forEach(b => wrap.appendChild(b));
+  return wrap;
+}
+
 const LFO_TARGETS = ['cutoff', 'volume', 'pan', 'pitch'];
 
 const PLAITS_ENGINES = [
@@ -546,8 +611,9 @@ export default {
       wfRow.style.cssText = 'display:flex;gap:5px;flex-wrap:wrap';
       WAVEFORMS.forEach(w => {
         const btn = document.createElement('button');
-        btn.className = 'ctx-btn' + (track.waveform === w ? ' active' : '');
-        btn.textContent = w.slice(0, 3);
+        btn.className = 'ctx-btn waveform-btn' + (track.waveform === w ? ' active' : '');
+        btn.title = w;
+        btn.innerHTML = `${WAVEFORM_SVGS[w] ?? ''}<span class="wf-label">${w.slice(0, 3)}</span>`;
         btn.addEventListener('click', () => {
           wfRow.querySelectorAll('.ctx-btn').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');

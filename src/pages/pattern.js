@@ -327,8 +327,20 @@ export default {
           btn.dataset.trig = step.trigCondition;
           const trigSpan = document.createElement('span');
           trigSpan.className = 'step-trig';
-          const abbrev = { fill: 'F', first: '1', not_first: '¬1', '1:2': '½' };
-          trigSpan.textContent = abbrev[step.trigCondition] ?? step.trigCondition.slice(0, 2);
+          const abbrev = {
+            '1st':      '1st',
+            'not1st':   'n1',
+            'every2':   '÷2',
+            'every3':   '÷3',
+            'every4':   '÷4',
+            'random':   'rnd',
+            'fill':     'F',
+            'not_fill': '¬F',
+            'first':    '1',
+            'not_first':'¬1',
+            '1:2':      '½',
+          };
+          trigSpan.textContent = abbrev[step.trigCondition] ?? step.trigCondition.slice(0, 3);
           btn.append(trigSpan);
         }
         if (si > 0 && si % 4 === 0) btn.classList.add('step-group-start');
@@ -402,11 +414,21 @@ export default {
           trigLabel.textContent = 'TRIG CONDITION';
           menu.append(trigLabel);
 
-          const CONDITIONS = ['always', 'fill', 'not_fill', 'first', 'not_first', '1:2', '2:2'];
-          CONDITIONS.forEach(cond => {
+          const CONDITIONS = [
+            { value: 'always',  label: 'always' },
+            { value: '1st',     label: '1st (1st loop only)' },
+            { value: 'not1st',  label: 'not1st (skip 1st)' },
+            { value: 'every2',  label: 'every2 (÷2)' },
+            { value: 'every3',  label: 'every3 (÷3)' },
+            { value: 'every4',  label: 'every4 (÷4)' },
+            { value: 'random',  label: 'random' },
+            { value: 'fill',    label: 'fill' },
+            { value: 'not_fill',label: 'not_fill' },
+          ];
+          CONDITIONS.forEach(({ value: cond, label }) => {
             const item = document.createElement('div');
             item.className = 'ctx-item' + ((step.trigCondition ?? 'always') === cond ? ' active' : '');
-            item.textContent = cond;
+            item.textContent = label;
             item.addEventListener('click', () => {
               step.trigCondition = cond;
               emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });

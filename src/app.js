@@ -1194,19 +1194,32 @@ function scheduleLoop() {
   _schedRafId = requestAnimationFrame(tick);
 }
 
-function evalTrigCondition(cond, stepIdx) {
-  if (!cond || cond === 'always') return true;
-  if (cond === 'fill')      return state._fillActive ?? false;
-  if (cond === 'not_fill')  return !(state._fillActive ?? false);
-  if (cond === 'first')     return stepIdx === 0;
-  if (cond === 'not_first' || cond === 'not:first') return stepIdx !== 0;
-  // Ratio: "1:2", "1:4", "3:4"
-  const m = cond.match(/^(\d+):(\d+)$/);
-  if (m) {
-    const [, num, den] = m.map(Number);
-    return (stepIdx % den) < num;
+function evalTrigCondition(step, loopCount) {
+  const cond = step.trigCondition ?? 'always';
+  switch (cond) {
+    case 'always':    return true;
+    case '1st':       return loopCount === 0;
+    case 'not1st':    return loopCount > 0;
+    case 'every2':    return loopCount % 2 === 0;
+    case 'every3':    return loopCount % 3 === 0;
+    case 'every4':    return loopCount % 4 === 0;
+    case 'random':    return Math.random() < (step.prob ?? step.probability ?? 1);
+    case 'fill':      return state._fillActive ?? false;
+    case 'not_fill':  return !(state._fillActive ?? false);
+    // Legacy conditions kept for backward compat
+    case 'first':     return loopCount === 0;
+    case 'not_first':
+    case 'not:first': return loopCount > 0;
+    default: {
+      // Legacy ratio format: "1:2", "1:4", "3:4" — evaluated against loopCount
+      const m = cond.match(/^(\d+):(\d+)$/);
+      if (m) {
+        const [, num, den] = m.map(Number);
+        return loopCount % den < num;
+      }
+      return true;
+    }
   }
-  return true;
 }
 
 async function togglePlay() {
