@@ -408,6 +408,8 @@ button {
 .t-btn--record.active    { color: var(--record); }
 .t-btn--fill.active      { color: var(--accent); }
 .t-btn--audio.active     { color: var(--accent); }
+.t-btn--panic            { color: #ff4444; font-weight: bold; }
+.t-btn--panic:hover      { background: rgba(255,68,68,0.15); }
 
 /* BPM edit */
 .bpm-edit {

@@ -438,6 +438,76 @@ export default {
 
     container.append(midiLearnSection);
 
+    // ── Project Backups ───────────────────────────────────────────────────────
+    const backupSection = document.createElement('div');
+    backupSection.className = 'settings-section';
+    backupSection.style.cssText = 'flex-shrink:0;border-top:1px solid var(--border);padding-top:8px;margin-top:8px';
+
+    function renderBackups() {
+      backupSection.innerHTML = '<div class="settings-label">BACKUPS</div>';
+      const actionRow = document.createElement('div');
+      actionRow.style.cssText = 'display:flex;gap:4px;margin-bottom:6px';
+      const backupBtn = document.createElement('button');
+      backupBtn.className = 'ctx-btn';
+      backupBtn.textContent = 'Backup Now';
+      backupBtn.addEventListener('click', () => {
+        const key = `confusynth_backup_${Date.now()}`;
+        localStorage.setItem(key, JSON.stringify(state.project));
+        emit('toast', { msg: 'Backup saved' });
+        renderBackups();
+      });
+      actionRow.append(backupBtn);
+      backupSection.append(actionRow);
+
+      const keys = Object.keys(localStorage)
+        .filter(k => k.startsWith('confusynth_backup_'))
+        .sort((a, b) => b.localeCompare(a))
+        .slice(0, 5);
+
+      if (keys.length === 0) {
+        const none = document.createElement('div');
+        none.style.cssText = 'font-family:var(--font-mono);font-size:0.55rem;color:var(--muted)';
+        none.textContent = 'No backups';
+        backupSection.append(none);
+      } else {
+        keys.forEach(key => {
+          const ts = parseInt(key.replace('confusynth_backup_', ''), 10);
+          const label = isNaN(ts) ? key : new Date(ts).toLocaleString(undefined, { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;align-items:center;gap:4px;margin-bottom:3px';
+          const lbl = document.createElement('span');
+          lbl.style.cssText = 'font-family:var(--font-mono);font-size:0.55rem;color:var(--muted);flex:1';
+          lbl.textContent = label;
+          const restoreBtn = document.createElement('button');
+          restoreBtn.className = 'ctx-btn';
+          restoreBtn.textContent = 'Restore';
+          restoreBtn.style.fontSize = '0.5rem';
+          restoreBtn.addEventListener('click', () => {
+            if (!confirm('Restore this backup? Current project will be lost.')) return;
+            try {
+              const proj = JSON.parse(localStorage.getItem(key));
+              state.project = proj;
+              saveState(state);
+              emit('state:change', { path: 'scale', value: state.scale });
+              emit('toast', { msg: 'Backup restored' });
+            } catch(e) { emit('toast', { msg: 'Restore failed' }); }
+          });
+          const delBtn = document.createElement('button');
+          delBtn.className = 'ctx-btn';
+          delBtn.textContent = '×';
+          delBtn.style.cssText = 'font-size:0.5rem;color:var(--muted)';
+          delBtn.addEventListener('click', () => {
+            localStorage.removeItem(key);
+            renderBackups();
+          });
+          row.append(lbl, restoreBtn, delBtn);
+          backupSection.append(row);
+        });
+      }
+    }
+    renderBackups();
+    container.append(backupSection);
+
     // ── Oscilloscope Mode Selector ────────────────────────────────────────────
     const oscSection = document.createElement('div');
     oscSection.className = 'settings-section';

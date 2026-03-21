@@ -1025,6 +1025,21 @@ export class AudioEngine {
       this.master.gain.setTargetAtTime(0.82, ctx.currentTime, 0.05);
     }, 100);
   }
+
+  panic() {
+    const ctx = this.context;
+    try { this.master.gain.cancelScheduledValues(ctx.currentTime); } catch(e) {}
+    this.master.gain.setTargetAtTime(0, ctx.currentTime, 0.005);
+    setTimeout(() => {
+      this.master.gain.setTargetAtTime(0.82, ctx.currentTime, 0.05);
+    }, 80);
+    if (this.midiOutput) {
+      for (let ch = 0; ch < 16; ch++) {
+        try { this.midiOutput.send([0xB0 | ch, 123, 0]); } catch(e) {}
+        try { this.midiOutput.send([0xB0 | ch, 120, 0]); } catch(e) {}
+      }
+    }
+  }
 }
 
 // ——————————————————————————————————————————————

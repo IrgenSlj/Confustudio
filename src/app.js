@@ -1662,19 +1662,30 @@ function bindUI() {
   // Delete/Backspace: deactivate all selected steps on pattern page
   document.addEventListener('keydown', e => {
     if ((e.key === 'Delete' || e.key === 'Backspace') &&
-        state.currentPage === 'pattern' &&
-        state._selectedSteps?.size > 0) {
+        state.currentPage === 'pattern') {
       // Only act if focus is not in an input/textarea
       if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
-      e.preventDefault();
-      pushHistory(state);
-      const track = getActiveTrack(state);
-      state._selectedSteps.forEach(si => {
-        if (track.steps[si]) track.steps[si].active = false;
-      });
-      state._selectedSteps = new Set();
-      scheduleSave();
-      renderPage();
+      if (e.shiftKey) {
+        // Shift+Delete: clear entire selected track
+        e.preventDefault();
+        pushHistory(state);
+        const track = getActiveTrack(state);
+        track.steps.forEach(s => { s.active = false; });
+        state._selectedSteps = new Set();
+        scheduleSave();
+        renderPage();
+        showToast('Track cleared');
+      } else if (state._selectedSteps?.size > 0) {
+        e.preventDefault();
+        pushHistory(state);
+        const track = getActiveTrack(state);
+        state._selectedSteps.forEach(si => {
+          if (track.steps[si]) track.steps[si].active = false;
+        });
+        state._selectedSteps = new Set();
+        scheduleSave();
+        renderPage();
+      }
     }
   });
 
@@ -1830,6 +1841,23 @@ function bindUI() {
       showToast('Recording 8s…', 8500);
       exportAudio(state.engine);
     }
+  });
+
+  // Panic button — all notes off
+  const panicBtn = document.getElementById('btn-panic') ?? (() => {
+    const b = document.createElement('button');
+    b.id = 'btn-panic';
+    b.className = 't-btn t-btn--panic';
+    b.textContent = '!';
+    b.title = 'Panic — all notes off';
+    const transportBtns = document.querySelector('.transport-buttons');
+    if (transportBtns) transportBtns.append(b);
+    return b;
+  })();
+  panicBtn.addEventListener('click', () => {
+    if (state.engine?.panic) state.engine.panic();
+    else if (state.engine?.stopAllNotes) state.engine.stopAllNotes();
+    showToast('Panic!', 800);
   });
 }
 
