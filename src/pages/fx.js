@@ -125,4 +125,6 @@ function _applyGlobal(param, v, state) {
   if (param === 'delayFeedback' && eng.setDelayFeedback) eng.setDelayFeedback(v);
   if (param === 'delayWet' && eng.setDelayMix) eng.setDelayMix(v);
   if (param === 'masterLevel' && eng.setMasterLevel) eng.setMasterLevel(v);
+  if (param === 'reverbMix'   && eng.setReverbMix)   eng.setReverbMix(v);
+  if (param === 'masterDrive') state.masterDrive = v; // stored for future saturator
 }

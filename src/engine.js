@@ -211,6 +211,10 @@ export class AudioEngine {
     this.master.gain.setTargetAtTime(Math.max(0, Math.min(1, v)), this.context.currentTime, 0.01);
   }
 
+  setReverbMix(v) {
+    this.reverbWet.gain.setTargetAtTime(Math.max(0, Math.min(1, v)), this.context.currentTime, 0.01);
+  }
+
   // ——————————————————————————————————————————————
   // AudioWorklet init
   // ——————————————————————————————————————————————

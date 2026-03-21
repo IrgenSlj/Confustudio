@@ -243,6 +243,17 @@ export default {
     adsrParams.forEach(({ label, param, min, max, step }) =>
       adsrCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti))
     );
+    adsrCard.addEventListener('input', () => {
+      const inputs = adsrCard.querySelectorAll('input[type="range"]');
+      const a = parseFloat(inputs[0]?.value ?? track.attack);
+      const d = parseFloat(inputs[1]?.value ?? track.decay);
+      const existingSvg = adsrCard.querySelector('svg');
+      if (existingSvg) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = buildEnvelopeSVG(a, d);
+        existingSvg.replaceWith(tmp.firstElementChild);
+      }
+    });
     grid.append(adsrCard);
 
     // ── Filter card ──
@@ -258,6 +269,17 @@ export default {
     filtParams.forEach(({ label, param, min, max, step }) =>
       filtCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti))
     );
+    filtCard.addEventListener('input', () => {
+      const inputs = filtCard.querySelectorAll('input[type="range"]');
+      const c = parseFloat(inputs[0]?.value ?? track.cutoff);
+      const r = parseFloat(inputs[1]?.value ?? track.resonance);
+      const existingSvg = filtCard.querySelector('svg');
+      if (existingSvg) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = buildFilterSVG(c, r);
+        existingSvg.replaceWith(tmp.firstElementChild);
+      }
+    });
     grid.append(filtCard);
 
     // ── Mix card ──

@@ -74,14 +74,19 @@ export default {
         if (si === state.currentStep)        cell.classList.add('playhead');
 
         cell.addEventListener('click', () => {
-          // Toggle note: set step active + note, or clear if already set
-          const isActive = activeSet.has(`${midi}_${si}`);
-          emit('step:toggle', { stepIndex: si, shiftKey: false });
-          emit('step:plock', { stepIndex: si, param: 'note', value: midi });
-          if (isActive) {
+          const step = track.steps[si];
+          const alreadyThisNote = step.active && (step.paramLocks?.note === midi || (step.note === midi && !step.paramLocks?.note));
+          if (alreadyThisNote) {
+            // Toggle off
+            emit('step:toggle', { stepIndex: si, shiftKey: false });
             cell.classList.remove('active');
             activeSet.delete(`${midi}_${si}`);
           } else {
+            // Activate and set note
+            if (!step.active) {
+              emit('step:toggle', { stepIndex: si, shiftKey: false });
+            }
+            emit('step:plock', { stepIndex: si, param: 'note', value: midi });
             cell.classList.add('active');
             activeSet.add(`${midi}_${si}`);
           }

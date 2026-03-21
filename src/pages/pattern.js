@@ -92,7 +92,7 @@ export default {
         microSpan.textContent = (v >= 0 ? '+' : '') + v.toFixed(2);
         const s = track.steps[stepIndex];
         if (s) s.microTime = v;
-        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+        emit('step:plock', { stepIndex, param: 'microTime', value: v });
       });
       panel.append(microRow);
 

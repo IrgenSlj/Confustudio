@@ -205,7 +205,8 @@ export function initStudio() {
       }
     } else if (type === 'djmixer') {
       import('/src/modules/djmixer.js').then(m => {
-        mod.appendChild(m.createDJMixer());
+        const ctx = window._confusynthEngine?.context ?? null;
+        mod.appendChild(m.createDJMixer(ctx));
       });
     } else if (type.startsWith('figure-')) {
       const emoji = { 'figure-cat': '🐱', 'figure-robot': '🤖', 'figure-cactus': '🌵' }[type] || '🎵';

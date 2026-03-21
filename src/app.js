@@ -417,7 +417,7 @@ function emit(type, payload = {}) {
 
     case 'track:mute': {
       const t = pattern.kit.tracks[payload.trackIndex ?? state.selectedTrackIndex];
-      if (t) { t.mute = !t.mute; scheduleSave(); renderTrackStrip(); renderTrackSelector(); }
+      if (t) { t.mute = !t.mute; scheduleSave(); renderTrackStrip(); renderTrackSelector(); renderPage(); }
       break;
     }
 
@@ -430,13 +430,14 @@ function emit(type, payload = {}) {
         scheduleSave();
         renderTrackStrip();
         renderTrackSelector();
+        renderPage();
       }
       break;
     }
 
     case 'track:muteToggle': {
       const t = pattern.kit.tracks[payload.trackIndex];
-      if (t) { t.mute = !t.mute; scheduleSave(); renderTrackStrip(); renderTrackSelector(); }
+      if (t) { t.mute = !t.mute; scheduleSave(); renderTrackStrip(); renderTrackSelector(); renderPage(); }
       break;
     }
 
@@ -603,13 +604,6 @@ async function ensureAudio() {
   drawOscilloscope(el.oscilloscope, state.engine, _oscAnimRef);
   initSignalMeter();
   startMeterAnimation();
-  if (el.masterVolume) {
-    el.masterVolume.addEventListener('input', e => {
-      const v = parseFloat(e.target.value);
-      state.masterLevel = v;
-      if (state.engine) state.engine.setMasterLevel(v);
-    });
-  }
   await initMidi();
 }
 
@@ -747,6 +741,8 @@ function stopPlay() {
   state.currentStep = -1;
   _trackStepIdx = Array(8).fill(0);
   _schedStepIdx = 0;
+  state._playingNotes.clear();
+  state._pressedKeys.clear();
   if (_schedRafId) { cancelAnimationFrame(_schedRafId); _schedRafId = null; }
   updateTransportUI();
   renderPlayhead();
@@ -762,7 +758,7 @@ function tapTempo() {
   if (state.tapTimes.length >= 2) {
     const gaps = state.tapTimes.slice(1).map((t, i) => t - state.tapTimes[i]);
     const avg  = gaps.reduce((a, b) => a + b, 0) / gaps.length;
-    state.bpm  = Math.round(60000 / avg);
+    state.bpm  = Math.max(40, Math.min(240, Math.round(60000 / avg)));
     updateTopbar();
     if (el.bpmInput) el.bpmInput.value = state.bpm;
   }
@@ -1016,6 +1012,14 @@ function bindUI() {
     emit('state:change', { path: 'bpm', value: state.bpm + 1 });
     if (el.bpmInput) el.bpmInput.value = state.bpm;
   });
+
+  if (el.masterVolume) {
+    el.masterVolume.addEventListener('input', e => {
+      const v = parseFloat(e.target.value);
+      state.masterLevel = v;
+      if (state.engine) state.engine.setMasterLevel(v);
+    });
+  }
 
   // Sample file
   if (el.sampleFile) {
