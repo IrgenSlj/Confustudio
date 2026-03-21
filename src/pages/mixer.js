@@ -1,5 +1,7 @@
 // src/pages/mixer.js — 8-channel vertical fader mixer
 
+import { TRACK_COLORS } from '../state.js';
+
 export default {
   render(container, state, emit) {
     container.innerHTML = '';
@@ -24,6 +26,8 @@ export default {
       const strip = document.createElement('div');
       strip.className = 'fader-strip';
       strip.style.cursor = 'pointer';
+      strip.style.borderLeft = `3px solid ${TRACK_COLORS[ti]}`;
+      strip.style.setProperty('--track-color', TRACK_COLORS[ti]);
       if (ti === state.selectedTrackIndex) {
         strip.style.outline = '1px solid rgba(240,198,64,0.35)';
         strip.style.borderRadius = '5px';
@@ -32,16 +36,39 @@ export default {
         emit('state:change', { path: 'selectedTrackIndex', value: ti })
       );
 
-      // Track name
+      // Track name with machine type badge
       const name = document.createElement('strong');
-      name.textContent = track.name;
+      name.style.cssText = 'font-size:0.6rem;color:var(--track-color,var(--screen-text));display:flex;align-items:center;gap:4px';
+      name.innerHTML = `${track.name} <span style="font-size:0.44rem;color:var(--muted);font-family:var(--font-mono);font-weight:400">${(track.machine||'tone').toUpperCase()}</span>`;
       strip.append(name);
 
-      // Pan indicator (small)
+      // Pan row — interactive horizontal slider
+      const panRow = document.createElement('div');
+      panRow.style.cssText = 'display:flex;align-items:center;gap:3px;width:100%';
+
+      const panLabel = document.createElement('span');
+      panLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);flex-shrink:0';
+      panLabel.textContent = 'PAN';
+
+      const panSlider = document.createElement('input');
+      panSlider.type = 'range';
+      panSlider.min = -1; panSlider.max = 1; panSlider.step = 0.05;
+      panSlider.value = track.pan;
+      panSlider.style.cssText = 'flex:1;accent-color:var(--track-color,var(--accent));height:3px';
+      panSlider.addEventListener('input', () =>
+        emit('track:change', { trackIndex: ti, param: 'pan', value: parseFloat(panSlider.value) })
+      );
+
       const panVal = document.createElement('span');
-      panVal.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted)';
-      panVal.textContent = track.pan >= 0 ? `R${Math.round(track.pan * 100)}` : `L${Math.round(-track.pan * 100)}`;
-      strip.append(panVal);
+      panVal.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);min-width:22px;text-align:right';
+      panVal.textContent = track.pan === 0 ? 'C' : track.pan > 0 ? `R${Math.round(track.pan * 100)}` : `L${Math.round(-track.pan * 100)}`;
+      panSlider.addEventListener('input', () => {
+        const v = parseFloat(panSlider.value);
+        panVal.textContent = v === 0 ? 'C' : v > 0 ? `R${Math.round(v * 100)}` : `L${Math.round(-v * 100)}`;
+      });
+
+      panRow.append(panLabel, panSlider, panVal);
+      strip.append(panRow);
 
       // Vertical fader
       const fader = document.createElement('input');
@@ -52,6 +79,7 @@ export default {
       fader.step  = 0.01;
       fader.value = track.volume;
       fader.style.cssText = 'writing-mode:vertical-lr;direction:rtl;flex:1;width:24px;accent-color:var(--accent)';
+      fader.style.setProperty('accent-color', TRACK_COLORS[ti]);
       fader.addEventListener('input', () =>
         emit('track:change', { trackIndex: ti, param: 'volume', value: parseFloat(fader.value) })
       );
@@ -122,14 +150,14 @@ export default {
   },
 
   knobMap: [
-    { label: 'Trk 1', param: 'volume', min: 0, max: 1, step: 0.01 },
-    { label: 'Trk 2', param: 'volume', min: 0, max: 1, step: 0.01 },
-    { label: 'Trk 3', param: 'volume', min: 0, max: 1, step: 0.01 },
-    { label: 'Trk 4', param: 'volume', min: 0, max: 1, step: 0.01 },
-    { label: 'Trk 5', param: 'volume', min: 0, max: 1, step: 0.01 },
-    { label: 'Trk 6', param: 'volume', min: 0, max: 1, step: 0.01 },
-    { label: 'Trk 7', param: 'volume', min: 0, max: 1, step: 0.01 },
-    { label: 'Trk 8', param: 'volume', min: 0, max: 1, step: 0.01 },
+    { label: 'Vol 1', param: 'track.0.volume', min: 0, max: 1, step: 0.01 },
+    { label: 'Pan 1', param: 'track.0.pan',    min: -1, max: 1, step: 0.05 },
+    { label: 'Vol 2', param: 'track.1.volume', min: 0, max: 1, step: 0.01 },
+    { label: 'Pan 2', param: 'track.1.pan',    min: -1, max: 1, step: 0.05 },
+    { label: 'Vol 3', param: 'track.2.volume', min: 0, max: 1, step: 0.01 },
+    { label: 'Pan 3', param: 'track.2.pan',    min: -1, max: 1, step: 0.05 },
+    { label: 'Vol 4', param: 'track.3.volume', min: 0, max: 1, step: 0.01 },
+    { label: 'Pan 4', param: 'track.3.pan',    min: -1, max: 1, step: 0.05 },
   ],
 
   keyboardContext: 'mixer',

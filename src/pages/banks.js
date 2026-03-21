@@ -57,7 +57,35 @@ export default {
       name.style.cssText = 'font-size:0.52rem;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
       name.textContent = pat.name.replace(/^Pattern /, '');
 
-      btn.append(num, name);
+      // Mini step density dots — show which tracks have steps
+      const density = document.createElement('div');
+      density.style.cssText = 'display:flex;gap:1px;justify-content:center;margin-top:2px;flex-wrap:wrap;max-width:100%';
+
+      const patTracks = pat.kit?.tracks ?? [];
+      patTracks.slice(0, 8).forEach((trk, ti) => {
+        const activeCount = trk.steps?.slice(0, pat.length ?? 16).filter(s => s.active).length ?? 0;
+        const dot = document.createElement('div');
+        // Width proportional to active step density (0–16 → 1–5px)
+        const w = Math.max(1, Math.round(activeCount / (pat.length ?? 16) * 5));
+        dot.style.cssText = `
+          width: ${w}px; height: 3px; border-radius: 1px;
+          background: ${activeCount > 0
+            ? ['#f0c640','#5add71','#67d7ff','#ff8c52','#c67dff','#ff6eb4','#40e0d0','#f05b52'][ti]
+            : 'rgba(255,255,255,0.08)'};
+        `;
+        density.append(dot);
+      });
+
+      const tracksWithContent = patTracks.filter(t => t.steps?.some(s => s.active)).length;
+      if (tracksWithContent > 0) {
+        const countEl = document.createElement('div');
+        countEl.style.cssText = 'font-size:0.38rem;font-family:var(--font-mono);color:var(--muted);margin-top:1px';
+        countEl.textContent = `${tracksWithContent}t`;
+        btn.append(num, name, density, countEl);
+      } else {
+        btn.append(num, name, density);
+      }
+
       btn.addEventListener('click', () => {
         emit('state:change', { path: 'activeBank', value: activeBank });
         emit('state:change', { path: 'activePattern', value: pi });

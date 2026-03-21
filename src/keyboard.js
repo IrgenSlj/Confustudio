@@ -214,6 +214,17 @@ export function renderPiano(containerEl, state) {
       const k = document.createElement('div');
       k.className = 'piano-white' + (active.has(midi) ? ' lit' : '');
       k.dataset.midi = midi;
+      if (midi % 12 === 0) {  // C notes
+        k.textContent = 'C' + (Math.floor(midi / 12) - 1);
+        k.style.fontSize = '0.38rem';
+        k.style.paddingTop = 'auto';
+        k.style.display = 'flex';
+        k.style.alignItems = 'flex-end';
+        k.style.justifyContent = 'center';
+        k.style.paddingBottom = '2px';
+        k.style.color = 'rgba(0,0,0,0.4)';
+        k.style.fontFamily = 'var(--font-mono)';
+      }
       wrapper.append(k);
     });
   });

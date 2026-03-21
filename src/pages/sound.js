@@ -4,6 +4,14 @@ import { openSampleBrowser } from '../sample-browser.js';
 const MACHINES  = ['tone', 'noise', 'sample', 'midi', 'plaits', 'clouds', 'rings'];
 const WAVEFORMS = ['sine', 'triangle', 'sawtooth', 'square'];
 
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function midiToNoteName(midi) {
+  const oct = Math.floor(midi / 12) - 1;
+  return NOTE_NAMES[midi % 12] + oct;
+}
+
+const LFO_TARGETS = ['cutoff', 'volume', 'pan', 'pitch'];
+
 const PLAITS_ENGINES = [
   { label: 'VA',     value: 0 },
   { label: 'Wave',   value: 1 },
@@ -89,6 +97,35 @@ export default {
     const grid = document.createElement('div');
     grid.className = 'page-grid-2';
     grid.style.cssText = 'flex:1;min-height:0';
+
+    // ── Pitch card ──
+    const pitchCard = document.createElement('div');
+    pitchCard.className = 'page-card';
+
+    const noteDisplay = document.createElement('div');
+    noteDisplay.style.cssText = 'font-family:var(--font-mono);font-size:1.4rem;font-weight:600;color:var(--accent);text-align:center;margin-bottom:4px;letter-spacing:0.05em';
+    noteDisplay.textContent = midiToNoteName(track.pitch ?? 60);
+
+    const pitchSlider = document.createElement('input');
+    pitchSlider.type = 'range';
+    pitchSlider.min = 0; pitchSlider.max = 127; pitchSlider.step = 1;
+    pitchSlider.value = track.pitch ?? 60;
+    pitchSlider.style.cssText = 'width:100%;accent-color:var(--accent)';
+
+    const pitchLabel = document.createElement('div');
+    pitchLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);text-align:center;margin-top:2px';
+    pitchLabel.textContent = `MIDI ${track.pitch ?? 60}`;
+
+    pitchSlider.addEventListener('input', () => {
+      const v = parseInt(pitchSlider.value);
+      noteDisplay.textContent = midiToNoteName(v);
+      pitchLabel.textContent = `MIDI ${v}`;
+      emit('track:change', { trackIndex: ti, param: 'pitch', value: v });
+    });
+
+    pitchCard.innerHTML = '<h4>Pitch</h4>';
+    pitchCard.append(noteDisplay, pitchSlider, pitchLabel);
+    grid.append(pitchCard);
 
     // ── Machine type card ──
     const machCard = document.createElement('div');
@@ -296,6 +333,35 @@ export default {
       mixCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti))
     );
     grid.append(mixCard);
+
+    // ── LFO card ──
+    const lfoCard = document.createElement('div');
+    lfoCard.className = 'page-card';
+    lfoCard.innerHTML = '<h4>LFO</h4>';
+
+    const targetRow = document.createElement('div');
+    targetRow.style.cssText = 'display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap';
+    LFO_TARGETS.forEach(tgt => {
+      const btn = document.createElement('button');
+      btn.className = 'ctx-btn' + ((track.lfoTarget || 'cutoff') === tgt ? ' active' : '');
+      btn.textContent = tgt.slice(0, 3).toUpperCase();
+      btn.addEventListener('click', () => {
+        targetRow.querySelectorAll('.ctx-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        emit('track:change', { trackIndex: ti, param: 'lfoTarget', value: tgt });
+      });
+      targetRow.append(btn);
+    });
+    lfoCard.append(targetRow);
+
+    [
+      { label: 'Rate',  param: 'lfoRate',  min: 0.1, max: 20,  step: 0.1,  value: track.lfoRate  ?? 2 },
+      { label: 'Depth', param: 'lfoDepth', min: 0,   max: 1,   step: 0.01, value: track.lfoDepth ?? 0 },
+    ].forEach(({ label, param, min, max, step, value }) => {
+      lfoCard.append(makeSlider(label, param, min, max, step, value, emit, ti));
+    });
+
+    grid.append(lfoCard);
 
     container.append(grid);
   },
