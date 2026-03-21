@@ -207,7 +207,10 @@ export default {
           const vel = step?.velocity ?? 1;
           cell.style.opacity = String(0.3 + vel * 0.7);
           cell.style.cursor = 'ns-resize';
-          cell.title = `${name} vel:${Math.round(vel * 127)}`;
+          const gate = step?.gate ?? 0.5;
+          cell.title = `${name} vel:${Math.round(vel * 127)} gate:${Math.round(gate * 100)}%`;
+          if (gate >= 0.75) cell.classList.add('gate-long');
+          else if (gate <= 0.25) cell.classList.add('gate-short');
         }
 
         // Velocity drag on active cells

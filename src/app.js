@@ -22,6 +22,29 @@ import arrangerPage from './pages/arranger.js';
 import settingsPage from './pages/settings.js';
 
 // ─────────────────────────────────────────────
+// TOAST NOTIFICATION
+// ─────────────────────────────────────────────
+function showToast(msg, duration = 1200) {
+  let toast = document.getElementById('toast-msg');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toast-msg';
+    toast.style.cssText = [
+      'position:fixed', 'bottom:24px', 'left:50%', 'transform:translateX(-50%)',
+      'background:#1a1e14', 'border:1px solid var(--accent)', 'border-radius:4px',
+      'padding:5px 12px', 'font-family:var(--font-mono)', 'font-size:0.6rem',
+      'color:var(--screen-text)', 'z-index:2000', 'pointer-events:none',
+      'opacity:0', 'transition:opacity 0.2s'
+    ].join(';');
+    document.body.append(toast);
+  }
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { toast.style.opacity = '0'; }, duration);
+}
+
+// ─────────────────────────────────────────────
 // PAGE REGISTRY
 // ─────────────────────────────────────────────
 const PAGES = {
@@ -163,6 +186,7 @@ function handleAction(path, value, pattern) {
         data: cloneJson(pattern.kit.tracks[state.selectedTrackIndex].steps),
       };
       renderPage();
+      showToast('Copied');
       return true;
 
     case 'action_paste':
@@ -175,6 +199,7 @@ function handleAction(path, value, pattern) {
       scheduleSave();
       renderPage();
       renderTrackStrip();
+      showToast('Pasted');
       return true;
 
     case 'action_clear':
@@ -187,6 +212,7 @@ function handleAction(path, value, pattern) {
       scheduleSave();
       renderPage();
       renderTrackStrip();
+      showToast('Cleared');
       return true;
 
     case 'action_snapshot':
@@ -560,6 +586,7 @@ function emit(type, payload = {}) {
       });
       scheduleSave();
       renderPage();
+      showToast('Randomized');
       break;
     }
 
@@ -686,7 +713,7 @@ async function ensureAudio() {
   state.engine.setMasterLevel(state.masterLevel);
   if (el.masterVolume) el.masterVolume.value = state.masterLevel;
   el.btnAudio.classList.add('active');
-  drawOscilloscope(el.oscilloscope, state.engine, _oscAnimRef);
+  drawOscilloscope(el.oscilloscope, state.engine, _oscAnimRef, state);
   initSignalMeter();
   startMeterAnimation();
   await initMidi();
@@ -1331,16 +1358,21 @@ function bindUI() {
     if (e.key === 'z' || e.key === 'Z') {
       if (e.shiftKey) {
         redoHistory(state);
+        renderPage();
+        saveState(state);
+        showToast('↪ Redo');
       } else {
         undoHistory(state);
+        renderPage();
+        saveState(state);
+        showToast('↩ Undo (' + (_historyIdx + 1) + '/' + _history.length + ')');
       }
-      renderPage();
-      saveState(state);
       e.preventDefault();
     } else if (e.key === 'y' || e.key === 'Y') {
       redoHistory(state);
       renderPage();
       saveState(state);
+      showToast('↪ Redo');
       e.preventDefault();
     }
   });
@@ -1463,7 +1495,10 @@ function bindUI() {
     return b;
   })();
   exportBtn.addEventListener('click', () => {
-    if (state.engine) exportAudio(state.engine);
+    if (state.engine) {
+      showToast('Recording 8s…', 8500);
+      exportAudio(state.engine);
+    }
   });
 }
 

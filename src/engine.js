@@ -100,7 +100,16 @@ export class AudioEngine {
     this.delayWet.connect(this.master);
     this.reverbWet.connect(this.master);
 
-    // Master chain: masterGain → masterCompressor → masterSaturator → masterAnalyser → destination
+    // Master limiter — hard brickwall compressor, bypassed by default
+    this.masterLimiter = context.createDynamicsCompressor();
+    this.masterLimiter.threshold.value = -3;
+    this.masterLimiter.knee.value = 0;
+    this.masterLimiter.ratio.value = 20;
+    this.masterLimiter.attack.value = 0.001;
+    this.masterLimiter.release.value = 0.1;
+
+    // Master chain: masterGain → masterCompressor → masterSaturator → [limiter?] → masterAnalyser → destination
+    // Initially bypassed — setLimiter(true) inserts it between saturator and analyser
     this.master.connect(this.masterCompressor);
     this.masterCompressor.connect(this.masterSaturator);
     this.masterSaturator.connect(this.analyser);
@@ -788,6 +797,23 @@ export class AudioEngine {
     this._midiStartCallback = onStart;
     this._midiStopCallback  = onStop;
   }
+
+  // Insert or remove the master limiter between masterSaturator and analyser.
+  setLimiter(enabled) {
+    this.masterSaturator.disconnect();
+    if (enabled) {
+      this.masterSaturator.connect(this.masterLimiter);
+      this.masterLimiter.connect(this.analyser);
+    } else {
+      this.masterSaturator.connect(this.analyser);
+    }
+  }
+
+  // Send a MIDI Program Change on the given 1-based channel.
+  sendProgramChange(channel, program) {
+    if (!this.midiOutput) return;
+    this.midiOutput.send([0xC0 | ((channel - 1) & 0x0f), program & 0x7f]);
+  }
 }
 
 // ——————————————————————————————————————————————
@@ -798,16 +824,20 @@ export class AudioEngine {
 let _oscDataBuffer = null;
 
 /**
- * drawOscilloscope(canvas, engine, animRef)
+ * drawOscilloscope(canvas, engine, animRef, state)
  *
  * @param {HTMLCanvasElement} canvas
  * @param {AudioEngine|null} engine
  * @param {{id: number|null}} animRef — caller-owned object storing the rAF id
+ * @param {object|null} state — app state; read state.oscMode each frame
  */
-export function drawOscilloscope(canvas, engine, animRef) {
+export function drawOscilloscope(canvas, engine, animRef, state) {
   const ctx = canvas.getContext("2d");
   const W = canvas.width;
   const H = canvas.height;
+
+  // Preallocated frequency-domain buffer (sized lazily)
+  let _freqDataBuffer = null;
 
   const loop = () => {
     if (!engine?.analyser) {
@@ -824,6 +854,54 @@ export function drawOscilloscope(canvas, engine, animRef) {
     }
 
     const analyser = engine.analyser;
+    const mode = state?.oscMode ?? 'wave';
+
+    // ── Spectrum mode ─────────────────────────────────────────────────────────
+    if (mode === 'spectrum') {
+      const binCount = analyser.frequencyBinCount;
+      if (!_freqDataBuffer || _freqDataBuffer.length !== binCount) {
+        _freqDataBuffer = new Uint8Array(binCount);
+      }
+      analyser.getByteFrequencyData(_freqDataBuffer);
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = 'rgba(10, 14, 6, 0.4)';
+      ctx.fillRect(0, 0, W, H);
+      const barW = Math.max(1, W / (binCount / 4));
+      for (let i = 0; i < binCount / 4; i++) {
+        const h = (_freqDataBuffer[i] / 255) * H;
+        const hue = 120 - (_freqDataBuffer[i] / 255) * 60;
+        ctx.fillStyle = `hsl(${hue}, 70%, 45%)`;
+        ctx.fillRect(i * barW, H - h, barW - 1, h);
+      }
+      animRef.id = requestAnimationFrame(loop);
+      return;
+    }
+
+    // ── Lissajous (XY) mode ───────────────────────────────────────────────────
+    if (mode === 'lissajous') {
+      const fftSize = analyser.fftSize;
+      if (!_oscDataBuffer || _oscDataBuffer.length !== fftSize) {
+        _oscDataBuffer = new Uint8Array(fftSize);
+      }
+      analyser.getByteTimeDomainData(_oscDataBuffer);
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = 'rgba(10, 14, 6, 0.15)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = '#5add71';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 0; i < _oscDataBuffer.length - 1; i += 2) {
+        const x = (_oscDataBuffer[i] / 255) * W;
+        const y = (_oscDataBuffer[i + 1] / 255) * H;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      animRef.id = requestAnimationFrame(loop);
+      return;
+    }
+
+    // ── Wave mode (default) ───────────────────────────────────────────────────
     const bufLen = analyser.frequencyBinCount;
 
     if (!_oscDataBuffer || _oscDataBuffer.length !== bufLen) {

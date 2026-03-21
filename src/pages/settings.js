@@ -307,6 +307,82 @@ export default {
 
     container.append(midiLearnSection);
 
+    // ── Oscilloscope Mode Selector ────────────────────────────────────────────
+    const oscSection = document.createElement('div');
+    oscSection.className = 'settings-section';
+    oscSection.innerHTML = `<div class="settings-label">OSCILLOSCOPE</div>`;
+    const oscModeBar = document.createElement('div');
+    oscModeBar.className = 'settings-row';
+    oscModeBar.style.gap = '4px';
+    const oscBtns = [];
+    ['wave', 'spectrum', 'lissajous'].forEach(mode => {
+      const btn = document.createElement('button');
+      btn.className = 'seq-btn' + ((state.oscMode ?? 'wave') === mode ? ' active' : '');
+      btn.textContent = mode === 'wave' ? 'Wave' : mode === 'spectrum' ? 'Spectrum' : 'XY';
+      btn.addEventListener('click', () => {
+        state.oscMode = mode;
+        oscBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        emit('state:change', { path: 'oscMode', value: mode });
+        saveState(state);
+      });
+      oscBtns.push(btn);
+      oscModeBar.append(btn);
+    });
+    oscSection.append(oscModeBar);
+    container.append(oscSection);
+
+    // ── Master Limiter Toggle ─────────────────────────────────────────────────
+    // Append limiter button into the Audio settings-section already in the DOM
+    const audioSection = container.querySelector('[data-action="initAudio"]')?.closest('.settings-section');
+    if (audioSection) {
+      const limiterRow = document.createElement('div');
+      limiterRow.className = 'settings-row';
+      limiterRow.style.marginTop = '6px';
+      const limiterLabel = document.createElement('label');
+      limiterLabel.textContent = 'Limiter';
+      const limiterBtn = document.createElement('button');
+      limiterBtn.className = 'ctx-btn' + (state.masterLimiter ? ' active' : '');
+      limiterBtn.textContent = state.masterLimiter ? 'ON' : 'OFF';
+      limiterBtn.addEventListener('click', () => {
+        state.masterLimiter = !state.masterLimiter;
+        const eng = window._confusynthEngine;
+        if (eng?.setLimiter) eng.setLimiter(state.masterLimiter);
+        limiterBtn.classList.toggle('active', state.masterLimiter);
+        limiterBtn.textContent = state.masterLimiter ? 'ON' : 'OFF';
+        emit('state:change', { path: 'masterLimiter', value: state.masterLimiter });
+        saveState(state);
+      });
+      limiterRow.append(limiterLabel, limiterBtn);
+      audioSection.append(limiterRow);
+    }
+
+    // ── MIDI Programs ─────────────────────────────────────────────────────────
+    const progSection = document.createElement('div');
+    progSection.className = 'settings-section';
+    progSection.innerHTML = '<div class="settings-label">MIDI PROGRAMS (0=off)</div>';
+    const progGrid = document.createElement('div');
+    progGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:3px;';
+    const tracks = state.project.banks[state.activeBank].patterns[state.activePattern].kit.tracks;
+    tracks.forEach((trk, ti) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:0.52rem;color:var(--muted)';
+      const prog = trk.midiProgram != null ? trk.midiProgram + 1 : 0;
+      row.innerHTML = `<span>T${ti+1}</span><input type="number" min="0" max="128" value="${prog}" style="width:38px;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 3px;font-family:var(--font-mono);font-size:0.52rem">`;
+      row.querySelector('input').addEventListener('change', e => {
+        const v = parseInt(e.target.value) || 0;
+        trk.midiProgram = v > 0 ? v - 1 : null;
+        if (v > 0) {
+          const eng = window._confusynthEngine;
+          if (eng?.sendProgramChange) eng.sendProgramChange(state.midiChannel ?? 1, v - 1);
+        }
+        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      });
+      progGrid.append(row);
+    });
+    progSection.append(progGrid);
+    container.append(progSection);
+
     // ── Performance Monitor ──────────────────────────────────────────────────
     const perfSection = container.querySelector('#perf-section');
     if (perfSection) {
