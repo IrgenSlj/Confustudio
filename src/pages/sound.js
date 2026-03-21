@@ -141,10 +141,12 @@ function makeSlider(label, param, min, max, step, value, emit, trackIndex) {
  * The view window is defined by [viewStart, viewEnd] as 0–1 fractions of the
  * full buffer (controlled by zoom + pan).  sampleStart/sampleEnd are the trim
  * handles drawn inside that window.  loopStart/loopEnd are the loop markers.
+ * bitDepth is optional; when < 16 a "LO-FI" label is drawn at the top-right.
  */
 function drawWaveform(canvas, audioBuffer, sampleStart, sampleEnd,
                       viewStart = 0, viewEnd = 1,
-                      loopStart = 0, loopEnd = 1, loopEnabled = false) {
+                      loopStart = 0, loopEnd = 1, loopEnabled = false,
+                      bitDepth = 32) {
   if (!audioBuffer) { canvas.style.display = 'none'; return; }
   canvas.style.display = 'block';
   const ctx2d = canvas.getContext('2d');
@@ -248,6 +250,16 @@ function drawWaveform(canvas, audioBuffer, sampleStart, sampleEnd,
       ctx2d.stroke();
     }
     ctx2d.setLineDash([]);
+  }
+
+  // ── LO-FI indicator ───────────────────────────────────────────────────────
+  if (bitDepth < 16) {
+    ctx2d.font = 'bold 9px monospace';
+    ctx2d.textAlign = 'right';
+    ctx2d.textBaseline = 'top';
+    ctx2d.fillStyle = '#ff3333';
+    ctx2d.fillText('LO-FI', W - 3, 2);
+    ctx2d.textAlign = 'left';
   }
 }
 

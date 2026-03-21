@@ -490,12 +490,12 @@ export default {
         btn.dataset.busVal = val;
         btn.textContent = label;
         btn.title = `Route to ${val}`;
+        btn.style.cssText = 'font-size:0.44rem;padding:1px 3px;flex:1';
         btn.style.color = BUS_BTN_COLORS[val];
         if (isActive) {
           btn.style.borderColor = BUS_BTN_COLORS[val];
           btn.style.background  = BUS_BTN_COLORS[val] + '22';
         }
-        btn.style.cssText += ';font-size:0.44rem;padding:1px 3px;flex:1';
         btn.addEventListener('click', e => {
           e.stopPropagation();
           busRow.querySelectorAll('.bus-btn').forEach(b => {

@@ -100,6 +100,12 @@ export function createTrack(index) {
     bitDepth:     32,         // 4–32, integer; 32 = off (full resolution)
     srDiv:        1,          // 1–16, sample rate reduction divisor; 1 = off
 
+    // Per-track 3-band EQ
+    eqLow:       0,           // -12..+12 dB, low shelf @200Hz
+    eqMid:       0,           // -12..+12 dB, peaking band
+    eqMidFreq:   1000,        // 200–8000 Hz, peaking band center frequency
+    eqHigh:      0,           // -12..+12 dB, high shelf @6kHz
+
     // Plaits multi-engine synth
     plEngine:    0,
     plTimbre:    0.5,
@@ -276,6 +282,11 @@ export function createAppState() {
     sceneA:     0,  // index of scene slot at crossfader A end
     sceneB:     1,  // index of scene slot at crossfader B end
     scenes:     Array.from({ length: 8 }, (_, i) => createScene(i)),
+
+    // Scene chain mode — auto-advance through scene slots
+    sceneChainEnabled: false,
+    sceneChainBars:    4,
+    sceneChainIdx:     0,
 
     // Scene auto-morph
     sceneMorphActive: false,

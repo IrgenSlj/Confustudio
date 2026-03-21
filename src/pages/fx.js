@@ -252,7 +252,15 @@ export default {
       }
 
       const out = input.closest('label')?.querySelector('output');
-      if (out) out.textContent = Number(v).toFixed(step < 1 ? 2 : 0);
+      if (out) {
+        if (param === 'bitDepth') {
+          out.textContent = v >= 32 ? 'OFF' : v + 'b';
+        } else if (param === 'srDiv') {
+          out.textContent = v <= 1 ? 'OFF' : '\xF7' + v;
+        } else {
+          out.textContent = Number(v).toFixed(step < 1 ? 2 : 0);
+        }
+      }
 
       if (scope === 'global') {
         state[param] = v;

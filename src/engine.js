@@ -668,7 +668,7 @@ export class AudioEngine {
 
       const midPeak = this.context.createBiquadFilter();
       midPeak.type = 'peaking';
-      midPeak.frequency.value = 1000;
+      midPeak.frequency.value = params.eqMidFreq ?? 1000;
       midPeak.Q.value = 1.0;
       midPeak.gain.value = eqMid;
 

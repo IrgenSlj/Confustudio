@@ -538,6 +538,11 @@ export function initKeyboard(state, emit, trackColors = []) {
         if (e.altKey)        emit('step:plockMode', { stepIndex: stepIdx });
         else if (e.shiftKey) emit('step:toggle',    { stepIndex: stepIdx, shiftKey: true });
         else                 emit('step:toggle',    { stepIndex: stepIdx, shiftKey: false });
+        const btns = document.querySelectorAll(`.step-btn[data-step="${stepIdx}"]`);
+        btns.forEach(b => {
+          b.classList.add('step-trigger-flash');
+          setTimeout(() => b.classList.remove('step-trigger-flash'), 100);
+        });
         return;
       }
     }
