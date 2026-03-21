@@ -1154,7 +1154,10 @@ function scheduleLoop() {
         const sceneOverride = sceneParams[ti] || {};
 
         // Micro-timing offset: fraction of one step duration, range -0.5 to +0.5
-        const microOffset = (step.microTime ?? 0) * secsPerStep;
+        // Per-track swing: if track has swingOverride, use it; else fall back to global state.swing
+        const trackSwing = track.swingOverride ?? state.swing ?? 0;
+        const trackSwingOffset = (_trackStepIdx[ti] % 2 !== 0 ? 1 : -1) * trackSwing * secsPerStep;
+        const microOffset = (step.microTime ?? 0) * secsPerStep + trackSwingOffset;
 
         // Track last-played note for live display on sound page
         state._lastNotes = state._lastNotes ?? {};
@@ -1328,13 +1331,9 @@ function scheduleLoop() {
         }
       }
 
-      // Swing is applied based on track 0's next step parity
-      // Per-track swing: use track 0's swing override if set, else global state.swing
-      const trk0 = pattern.kit.tracks[0];
-      const trackSwing = (trk0 && trk0.swing !== null && trk0.swing !== undefined)
-        ? trk0.swing
-        : (state.swing ?? 0);
-      const swing = (_trackStepIdx[0] % 2 !== 0 ? 1 : -1) * trackSwing * secsPerStep;
+      // Advance global clock with global swing (per-track swing is applied as micro-offsets above)
+      const globalSwing = state.swing ?? 0;
+      const swing = (_trackStepIdx[0] % 2 !== 0 ? 1 : -1) * globalSwing * secsPerStep;
       _schedNextTime += secsPerStep + swing;
     }
 

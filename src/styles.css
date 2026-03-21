@@ -1257,6 +1257,32 @@ button {
   background: rgba(255,255,255,0.4) !important;
 }
 
+/* Step-record cursor — blue highlight on the next step to be written */
+.step-btn.step-record-cursor {
+  outline: 2px solid #3af !important;
+  outline-offset: -2px;
+  z-index: 2;
+}
+
+/* REC arm button — armed state turns red dot bright */
+.mtg-rec-arm-btn {
+  font-size: 0.65rem;
+}
+.mtg-rec-arm-btn.armed {
+  animation: rec-arm-pulse 1s ease-in-out infinite;
+}
+@keyframes rec-arm-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+
+/* Record button in step-record mode — teal tint */
+.t-btn.step-record-mode,
+#btn-record.step-record-mode {
+  color: #3af;
+  border-color: #3af;
+}
+
 .step-btn.step-active-prob {
   filter: brightness(1.6);
   transition: filter 0.12s ease-out;

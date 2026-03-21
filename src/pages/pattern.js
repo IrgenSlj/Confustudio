@@ -264,6 +264,22 @@ export default {
       });
       labelWrap.append(pasteBtn);
 
+      // REC arm button per track
+      const recArmBtn = document.createElement('button');
+      recArmBtn.className = 'mtg-rand-btn mtg-rec-arm-btn' + (trk.recArmed ? ' armed' : '');
+      recArmBtn.title = trk.recArmed ? 'Disarm track from recording' : 'Arm track for recording';
+      recArmBtn.textContent = '●';
+      recArmBtn.style.color = trk.recArmed ? 'var(--live, #f44)' : 'var(--muted, #555)';
+      recArmBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        trk.recArmed = !trk.recArmed;
+        recArmBtn.classList.toggle('armed', trk.recArmed);
+        recArmBtn.style.color = trk.recArmed ? 'var(--live, #f44)' : 'var(--muted, #555)';
+        recArmBtn.title = trk.recArmed ? 'Disarm track from recording' : 'Arm track for recording';
+        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      });
+      labelWrap.append(recArmBtn);
+
       labelWrap.addEventListener('click', () => emit('track:select', { trackIndex: ti }));
       row.append(labelWrap);
 
@@ -275,6 +291,8 @@ export default {
         if (step.accent)                          btn.classList.add('accent');
         if (Object.keys(step.paramLocks).length)  btn.classList.add('plock');
         if (si === state.currentStep)             btn.classList.add('playhead');
+        if (state.stepRecordMode && si === (state._stepRecordCursor ?? 0) && ti === selTi)
+                                                  btn.classList.add('step-record-cursor');
         if (si >= trackLen)                       btn.classList.add('dim');
         if (step.mute)                            btn.classList.add('step-muted');
         if (step.trigCondition === 'fill')        btn.classList.add('trig-fill');
