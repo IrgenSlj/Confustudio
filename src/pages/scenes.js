@@ -126,6 +126,16 @@ export default {
       if (si === sceneA) btn.style.borderColor = 'rgba(240,198,64,0.7)';
       if (si === sceneB) btn.style.borderColor = 'rgba(90,221,113,0.7)';
 
+      // ── Task 3: Scene "sit modified" highlight ─────────────────────────────
+      // Hook point: if state._scenesModified is a Set of scene indices that have
+      // unsaved/live-modified params, we apply a subtle glow to those cards.
+      // state._scenesModified is expected to be populated by the audio engine or
+      // state reducer whenever a param is edited in a scene without a new snapshot.
+      if (state._scenesModified instanceof Set && state._scenesModified.has(si)) {
+        btn.style.boxShadow = '0 0 8px 2px rgba(255,200,0,0.25)';
+        btn.title = (btn.title || '') + ' [modified]';
+      }
+
       // ── Feature 1: Scene preview on hover ──────────────────────────────────
       btn.addEventListener('mouseenter', () => {
         const previewScene = state.project.scenes[si];
@@ -337,10 +347,21 @@ export default {
       { label: 'Vol',    param: 'volume',      min: 0,    max: 1,     step: 0.01 },
     ];
     const trackData = sceneAData?.tracks?.[state.selectedTrackIndex] ?? {};
+    const sceneBData = state.project.scenes[state.sceneB ?? 1];
+    const trackDataB = sceneBData?.tracks?.[state.selectedTrackIndex] ?? {};
     SCENE_PARAMS.forEach(({ label, param, min, max, step }) => {
       const val = trackData[param] ?? min;
       const row = document.createElement('div');
-      row.className = 'plock-row';
+      row.className = 'plock-row scene-param-row';
+
+      // Task 1: diff highlight — compare scene A vs scene B for this param
+      const valA = trackData[param];
+      const valB = trackDataB[param];
+      const hasBoth = valA !== undefined && valB !== undefined;
+      if (hasBoth && Math.abs(valA - valB) > 1e-9) {
+        row.dataset.diff = 'true';
+      }
+
       row.innerHTML = `<label>${label}</label><input type="range" min="${min}" max="${max}" step="${step}" value="${val}"><span>${Number(val).toFixed(step < 1 ? 2 : 0)}</span>`;
       const input = row.querySelector('input');
       const span  = row.querySelector('span');
@@ -393,6 +414,22 @@ export default {
       curveRow.append(btn);
     });
     container.append(curveRow);
+
+    // ── Task 2: Morph preview mini-bar ────────────────────────────────────────
+    const morphPreviewBar = document.createElement('div');
+    morphPreviewBar.style.cssText = 'height:3px;background:rgba(255,255,255,0.08);border-radius:2px;margin-top:4px;position:relative;overflow:hidden';
+    const morphFill = document.createElement('div');
+    morphFill.style.cssText = 'position:absolute;left:0;top:0;height:100%;background:var(--accent);border-radius:2px;width:0%;transition:none';
+    morphPreviewBar.append(morphFill);
+    container.append(morphPreviewBar);
+
+    // Animate fill using state._morphProgress
+    function animateMorph() {
+      const t = state._morphProgress ?? 0;
+      morphFill.style.width = `${Math.round(t * 100)}%`;
+      if (container.isConnected) requestAnimationFrame(animateMorph);
+    }
+    animateMorph();
 
     // ── Feature 4: Record XFade automation button ─────────────────────────────
     const xfRecBtn = document.createElement('button');

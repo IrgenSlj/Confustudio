@@ -3943,6 +3943,12 @@ button {
 .sit-snap { color: rgba(255, 140, 82, 0.75); }
 .sit-cell.sit-modified { background: rgba(100,200,100,0.08); }
 .scene-snap-confirm { outline: 2px solid var(--live); }
+
+/* ── Scenes: diff highlight for scene A vs B param comparison ────────────── */
+.scene-param-row[data-diff="true"] {
+  background: rgba(255,200,0,0.07);
+  border-left: 2px solid rgba(255,200,0,0.4);
+}
 .sit-interp-chk {
   display: block;
   margin: 1px auto 0;
