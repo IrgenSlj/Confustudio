@@ -825,6 +825,28 @@ function emit(type, payload = {}) {
         if (payload.param === 'sidechainAmount' && t.isSidechainSource && state.engine) {
           state.engine.setSidechainAmount(payload.value);
         }
+        // sendMuted: mute/unmute per-track FX sends in the engine.
+        // The engine creates delaySend/reverbSend as ephemeral per-trigger nodes, so
+        // persistent gain nodes on eng.tracks[] are updated when present; the state write
+        // above (t[payload.param] = payload.value) ensures future triggers respect the value.
+        if (payload.param === 'sendMuted') {
+          const eng = state.engine;
+          if (eng?.tracks?.[tIdx]) {
+            const et = eng.tracks[tIdx];
+            const muted = payload.value ?? [false, false];
+            if (et.reverbSend) et.reverbSend.gain.setTargetAtTime(muted[0] ? 0 : (t.reverbSend ?? 0), eng.context.currentTime, 0.02);
+            if (et.delaySend) et.delaySend.gain.setTargetAtTime(muted[1] ? 0 : (t.delaySend ?? 0), eng.context.currentTime, 0.02);
+          }
+        }
+        // inputGain: update the engine's per-track input gain node when present.
+        // inputGain is folded into loudness per trigger from track state, so the state
+        // write above is sufficient for future triggers; this syncs any persistent node.
+        if (payload.param === 'inputGain') {
+          const eng = state.engine;
+          if (eng?.tracks?.[tIdx]?.inputGain) {
+            eng.tracks[tIdx].inputGain.gain.setTargetAtTime(payload.value, eng.context.currentTime, 0.02);
+          }
+        }
         // legato is read per-trigger from track.legato — no engine call needed
         scheduleSave();
       }
