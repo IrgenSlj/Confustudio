@@ -561,6 +561,13 @@ function handleStateChange(path, value, pattern) {
     return;
   }
 
+  if (path === 'maxVoicesGlobal') {
+    state.maxVoicesGlobal = Math.max(1, Math.round(value));
+    if (state.engine?.setMaxVoicesGlobal) state.engine.setMaxVoicesGlobal(state.maxVoicesGlobal);
+    scheduleSave();
+    return;
+  }
+
   if (path === 'sidechainSource') {
     // value: track index (0-7) or -1 to clear
     const tracks = getActivePattern(state).kit.tracks;
@@ -1226,6 +1233,23 @@ async function ensureAudio() {
   if (el.masterVolume) el.masterVolume.value = state.masterLevel;
   el.btnAudio.classList.add('active');
   drawOscilloscope(el.oscilloscope, state.engine, _oscAnimRef, state);
+
+  // Oscilloscope click-to-cycle visualizer mode
+  if (el.oscilloscope) {
+    el.oscilloscope.style.cursor = 'pointer';
+    el.oscilloscope.title = state.oscMode ?? 'wave';
+    el.oscilloscope.addEventListener('click', () => {
+      const modes = ['wave', 'spectrum', 'lissajous'];
+      const cur = state.oscMode ?? 'wave';
+      state.oscMode = modes[(modes.indexOf(cur) + 1) % modes.length];
+      el.oscilloscope.title = state.oscMode;
+      showToast(state.oscMode);
+    });
+  }
+
+  // Initialise global voice ceiling on the engine
+  if (state.engine) state.engine.setMaxVoicesGlobal(state.maxVoicesGlobal ?? 16);
+
   initSignalMeter();
   startMeterAnimation();
   await initMidi();

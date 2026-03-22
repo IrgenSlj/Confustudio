@@ -374,6 +374,11 @@ export class AudioEngine {
     this.master.gain.setTargetAtTime(Math.max(0, Math.min(1, v)), this.context.currentTime, 0.01);
   }
 
+  // Set the global maximum voice ceiling (absolute cap across all per-track maxVoices)
+  setMaxVoicesGlobal(n) {
+    this._maxVoicesGlobal = Math.max(1, Math.round(n));
+  }
+
   setReverbMix(v) {
     this.reverbWet.gain.setTargetAtTime(Math.max(0, Math.min(1, v)), this.context.currentTime, 0.01);
   }
@@ -580,7 +585,12 @@ export class AudioEngine {
   //           or an AudioWorkletNode; for worklets, pass a plain object with stop() wrapping
   //           the port.postMessage({ type: 'stop' }) call.
   // maxVoices: polyphony ceiling for this track (default 8)
-  _registerVoice(trackKey, source, maxVoices = 8) {
+  // globalMax: absolute ceiling across all tracks (default this._maxVoicesGlobal ?? 16)
+  _registerVoice(trackKey, source, maxVoices = 8, globalMax) {
+    // Apply global ceiling
+    const ceiling = globalMax ?? this._maxVoicesGlobal ?? 16;
+    maxVoices = Math.min(maxVoices, ceiling);
+
     // Increment active voice count
     this._activeVoices.set(trackKey, (this._activeVoices.get(trackKey) ?? 0) + 1);
 
