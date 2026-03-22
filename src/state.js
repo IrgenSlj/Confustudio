@@ -94,6 +94,7 @@ export function createTrack(index) {
     inputGain:    1.0,
     stereoWidth:  1,    // 0=mono, 1=normal, 2=wide
     outputBus:    'master', // 'master' | 'bus1' | 'bus2'
+    groupIndex:   null,     // null = no group, 0-7 = group index
     velocityCurve: 'linear', // 'linear' | 'exp' | 'comp'
 
     // Sidechain
@@ -337,6 +338,13 @@ export function createAppState() {
 
     // Fader links — array of {a, b} track index pairs that move together
     faderLinks: [],
+
+    // Track groups (G1-G8): mute/solo all tracks in a group together
+    groups: Array.from({ length: 8 }, (_, i) => ({
+      name: `G${i + 1}`,
+      muted: false,
+      solo:  false,
+    })),
 
     // Global macro controls (4 mappable sliders)
     macros: [

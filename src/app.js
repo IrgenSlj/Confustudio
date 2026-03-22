@@ -1959,9 +1959,115 @@ function renderTrackSelector() {
     volBar.style.cssText = `position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--track-color,var(--accent));opacity:${track.volume ?? 0.8};border-radius:0 0 2px 2px`;
 
     row.append(led, info, btnM, btnS, volBar);
+
+    // Group assignment dot
+    if (track.groupIndex != null) {
+      const grpDot = document.createElement('span');
+      grpDot.style.cssText = `width:4px;height:4px;border-radius:50%;background:${GRP_COLORS[track.groupIndex]};flex-shrink:0`;
+      grpDot.title = `Group: ${(state.groups ?? [])[track.groupIndex]?.name ?? `G${track.groupIndex + 1}`}`;
+      row.append(grpDot);
+    }
+
     row.addEventListener('click', () => emit('track:select', { trackIndex: i }));
     el_cs.append(row);
   });
+
+  // ── Group buttons (2×4 grid below track strip) ────────────────────────────
+  // Remove existing group section if re-rendering
+  document.getElementById('group-buttons-section')?.remove();
+
+  const grpSection = document.createElement('div');
+  grpSection.id = 'group-buttons-section';
+  grpSection.style.cssText = [
+    'margin-top:6px',
+    'padding-top:6px',
+    'border-top:1px solid rgba(255,255,255,0.08)',
+  ].join(';');
+
+  const grpLabel = document.createElement('div');
+  grpLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);letter-spacing:0.12em;text-align:center;margin-bottom:4px';
+  grpLabel.textContent = 'GROUPS';
+  grpSection.append(grpLabel);
+
+  const grpGrid = document.createElement('div');
+  grpGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:3px';
+
+  (state.groups ?? []).forEach((grp, gi) => {
+    const btn = document.createElement('button');
+    btn.style.cssText = [
+      'display:flex', 'align-items:center', 'gap:3px',
+      'padding:2px 4px',
+      `border:1px solid ${grp.muted ? 'rgba(255,255,255,0.1)' : GRP_COLORS[gi] + '60'}`,
+      `background:${grp.muted ? 'rgba(0,0,0,0.3)' : GRP_COLORS[gi] + '18'}`,
+      'border-radius:3px', 'cursor:pointer',
+      'font-family:var(--font-mono)', 'font-size:0.42rem',
+      `color:${grp.muted ? 'var(--muted)' : GRP_COLORS[gi]}`,
+      'white-space:nowrap', 'overflow:hidden',
+    ].join(';');
+
+    // Count tracks in this group
+    const trackCount = pattern.kit.tracks.filter(t => t.groupIndex === gi).length;
+
+    const dot = document.createElement('span');
+    dot.style.cssText = `width:5px;height:5px;border-radius:50%;background:${GRP_COLORS[gi]};flex-shrink:0;opacity:${grp.muted ? 0.3 : 1}`;
+
+    const nameLbl = document.createElement('span');
+    nameLbl.textContent = grp.name;
+    nameLbl.style.flex = '1';
+
+    const countLbl = document.createElement('span');
+    countLbl.style.cssText = 'font-size:0.38rem;opacity:0.6';
+    countLbl.textContent = trackCount > 0 ? `${trackCount}t` : '';
+
+    btn.append(dot, nameLbl, countLbl);
+
+    // Click = mute-toggle all tracks in this group
+    btn.addEventListener('click', e => {
+      if (e.shiftKey) {
+        // Shift+click = assign selected track to this group (or remove if already assigned)
+        const track = pattern.kit.tracks[state.selectedTrackIndex];
+        if (track) {
+          track.groupIndex = (track.groupIndex === gi) ? null : gi;
+          emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+          renderTrackSelector(); // re-render to show updated assignment
+        }
+        return;
+      }
+      // Normal click = toggle group mute
+      grp.muted = !grp.muted;
+      pattern.kit.tracks.forEach((t, ti) => {
+        if (t.groupIndex === gi) {
+          t.mute = grp.muted;
+          emit('track:change', { trackIndex: ti, param: 'mute', value: grp.muted });
+        }
+      });
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      renderTrackSelector();
+    });
+
+    // Right-click = rename group
+    btn.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      const newName = window.prompt('Group name:', grp.name);
+      if (newName?.trim()) {
+        grp.name = newName.trim().substring(0, 4).toUpperCase();
+        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+        renderTrackSelector();
+      }
+    });
+
+    grpGrid.append(btn);
+  });
+
+  grpSection.append(grpGrid);
+
+  // Group assignment hint
+  const hint = document.createElement('div');
+  hint.style.cssText = 'font-family:var(--font-mono);font-size:0.38rem;color:var(--muted);text-align:center;margin-top:3px;opacity:0.6';
+  hint.textContent = 'SHIFT+click to assign track';
+  grpSection.append(hint);
+
+  el_cs.append(grpSection);
 }
 
 function renderPlayhead() {
