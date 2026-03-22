@@ -2836,6 +2836,53 @@ function initMacros() {
 }
 
 // ─────────────────────────────────────────────
+// SWIPE PAGE NAVIGATION
+// ─────────────────────────────────────────────
+function setupSwipe() {
+  const PAGE_ORDER = ['pattern', 'piano-roll', 'sound', 'mixer', 'fx', 'arranger', 'scenes', 'banks', 'settings'];
+  const content = document.getElementById('main-content') ?? document.querySelector('.page-content') ?? document.querySelector('main');
+  if (!content) return;
+
+  let touchStartX = 0, touchStartY = 0;
+  content.addEventListener('touchstart', e => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  content.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2) {
+      const curPage = state.currentPage ?? 'pattern';
+      const idx = PAGE_ORDER.indexOf(curPage);
+      if (dx < 0 && idx < PAGE_ORDER.length - 1) {
+        emit('page:set', { page: PAGE_ORDER[idx + 1] });
+      } else if (dx > 0 && idx > 0) {
+        emit('page:set', { page: PAGE_ORDER[idx - 1] });
+      }
+    }
+  }, { passive: true });
+}
+
+// ─────────────────────────────────────────────
+// DOUBLE-TAP ZOOM
+// ─────────────────────────────────────────────
+function setupDoubleTap() {
+  const content = document.getElementById('main-content') ?? document.querySelector('.page-content');
+  if (!content) return;
+  let lastTap = 0;
+  content.addEventListener('touchend', e => {
+    const now = Date.now();
+    if (now - lastTap < 300) {
+      // Double tap
+      content.classList.toggle('mobile-zoom');
+      e.preventDefault();
+    }
+    lastTap = now;
+  });
+}
+
+// ─────────────────────────────────────────────
 // BOOT
 // ─────────────────────────────────────────────
 function boot() {
@@ -2857,6 +2904,8 @@ function boot() {
   initMacros();
   initStudio();
   initCables();
+  setupSwipe();
+  setupDoubleTap();
   console.log('CONFUsynth v3 ready — press A to init audio, Space to play');
 }
 

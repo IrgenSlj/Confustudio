@@ -4214,3 +4214,9 @@ input[type=range] {
   min-height: 3px;
   transition: height 0.15s ease;
 }
+
+/* Mobile zoom (double-tap toggle) */
+.mobile-zoom { transform: scale(1.5); transform-origin: top left; }
+@media (max-width: 768px) {
+  .mobile-zoom { transform: scale(1.3); }
+}

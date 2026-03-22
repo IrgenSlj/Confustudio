@@ -463,6 +463,41 @@ export default {
     view.append(keysCol, scrollContainer);
     container.append(view);
 
+    // Pinch-to-zoom on the roll grid
+    const rollContainer = container.querySelector('.roll-grid') ?? gridCol;
+
+    function renderRoll() {
+      emit('knob:change', { param: 'rollZoom', value: state.rollZoom });
+    }
+
+    let pinchStartDist = 0;
+
+    rollContainer.addEventListener('touchstart', e => {
+      if (e.touches.length === 2) {
+        pinchStartDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    rollContainer.addEventListener('touchmove', e => {
+      if (e.touches.length === 2) {
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const scale = dist / pinchStartDist;
+        if (Math.abs(scale - 1) > 0.1) {
+          state.rollZoom = Math.max(0, Math.min(4, Math.round((state.rollZoom ?? 1) * scale)));
+          pinchStartDist = dist;
+          renderRoll();
+        }
+        e.preventDefault();
+      }
+    }, { passive: false });
+
     // Animated playhead: highlight current step column
     let rafId = null;
     let lastHighlightedCol = -1;
