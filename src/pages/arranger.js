@@ -157,6 +157,21 @@ export default {
         emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
       });
 
+      // ── Section rename on double-click ─────────────────────────────────
+      row.addEventListener('dblclick', e => {
+        e.stopPropagation();
+        const name = prompt('Section name:', section.name ?? `Section ${idx + 1}`);
+        if (name !== null) {
+          section.name = name;
+          const nameEl = row.querySelector('.arr-section-name, .section-label');
+          if (nameEl) nameEl.textContent = name;
+          // Also update the inline text input if present
+          const nameInput = row.querySelector('input[type="text"]');
+          if (nameInput) nameInput.value = name;
+          emit('state:change', { param: 'sectionName' });
+        }
+      });
+
       // Scene label (colored)
       const sceneLabel = document.createElement('span');
       sceneLabel.style.cssText = `font-family:var(--font-mono);font-size:0.65rem;color:${sceneColorFull};min-width:18px;font-weight:700`;
@@ -433,18 +448,106 @@ export default {
     });
 
     // Loop region overlay
+    let loopOverlay = null;
     if (arrLoop && arranger.length > 0) {
       const barsBeforeStart = arranger.slice(0, arrLoopStart).reduce((s, sec) => s + (sec.bars ?? 1), 0);
       const loopBars = arranger.slice(arrLoopStart, arrLoopEnd + 1).reduce((s, sec) => s + (sec.bars ?? 1), 0);
       const leftPct  = (barsBeforeStart / totalBarsAll * 100).toFixed(2);
       const widthPct = (loopBars / totalBarsAll * 100).toFixed(2);
 
-      const loopRegion = document.createElement('div');
-      loopRegion.className = 'arr-loop-region';
-      loopRegion.style.left  = `${leftPct}%`;
-      loopRegion.style.width = `${widthPct}%`;
-      timeline.append(loopRegion);
+      loopOverlay = document.createElement('div');
+      loopOverlay.className = 'arr-loop-region';
+      loopOverlay.style.left  = `${leftPct}%`;
+      loopOverlay.style.width = `${widthPct}%`;
+      loopOverlay.style.pointerEvents = 'none';
+
+      // ── Loop start handle ────────────────────────────────────────────────
+      const loopStartHandle = document.createElement('div');
+      loopStartHandle.style.cssText = 'position:absolute;top:0;bottom:0;left:-3px;width:6px;background:rgba(90,220,255,0.5);cursor:ew-resize;z-index:5;pointer-events:auto';
+      loopStartHandle.title = 'Drag to set loop start';
+
+      loopStartHandle.addEventListener('mousedown', e => {
+        e.stopPropagation();
+        const rect = timeline.getBoundingClientRect();
+        const onMove = me => {
+          const frac = Math.max(0, Math.min(1, (me.clientX - rect.left) / rect.width));
+          const bar = Math.round(frac * totalBarsAll);
+          // Convert bar offset to section index
+          let cumBars = 0;
+          let sectionIdx = 0;
+          for (let i = 0; i < arranger.length; i++) {
+            cumBars += (arranger[i].bars ?? 1);
+            if (bar <= cumBars || i === arranger.length - 1) { sectionIdx = i; break; }
+          }
+          if (sectionIdx < (state.arrLoopEnd ?? arrLoopEnd)) {
+            state.arrLoopStart = sectionIdx;
+            const newLeft = (arranger.slice(0, sectionIdx).reduce((s, sec) => s + (sec.bars ?? 1), 0) / totalBarsAll * 100).toFixed(2);
+            loopOverlay.style.left = `${newLeft}%`;
+            const newLoopBars = arranger.slice(sectionIdx, (state.arrLoopEnd ?? arrLoopEnd) + 1).reduce((s, sec) => s + (sec.bars ?? 1), 0);
+            loopOverlay.style.width = `${(newLoopBars / totalBarsAll * 100).toFixed(2)}%`;
+            emit('state:change', { param: 'arrLoopStart', value: sectionIdx });
+          }
+        };
+        const onUp = () => {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      });
+
+      // ── Loop end handle ──────────────────────────────────────────────────
+      const loopEndHandle = document.createElement('div');
+      loopEndHandle.style.cssText = 'position:absolute;top:0;bottom:0;right:-3px;width:6px;background:rgba(90,220,255,0.5);cursor:ew-resize;z-index:5;pointer-events:auto';
+      loopEndHandle.title = 'Drag to set loop end';
+
+      loopEndHandle.addEventListener('mousedown', e => {
+        e.stopPropagation();
+        const rect = timeline.getBoundingClientRect();
+        const onMove = me => {
+          const frac = Math.max(0, Math.min(1, (me.clientX - rect.left) / rect.width));
+          const bar = Math.round(frac * totalBarsAll);
+          // Convert bar offset to section index
+          let cumBars = 0;
+          let sectionIdx = arranger.length - 1;
+          for (let i = 0; i < arranger.length; i++) {
+            cumBars += (arranger[i].bars ?? 1);
+            if (bar <= cumBars) { sectionIdx = i; break; }
+          }
+          if (sectionIdx > (state.arrLoopStart ?? arrLoopStart)) {
+            state.arrLoopEnd = sectionIdx;
+            const newLeft = (arranger.slice(0, state.arrLoopStart ?? arrLoopStart).reduce((s, sec) => s + (sec.bars ?? 1), 0) / totalBarsAll * 100).toFixed(2);
+            loopOverlay.style.left = `${newLeft}%`;
+            const newLoopBars = arranger.slice(state.arrLoopStart ?? arrLoopStart, sectionIdx + 1).reduce((s, sec) => s + (sec.bars ?? 1), 0);
+            loopOverlay.style.width = `${(newLoopBars / totalBarsAll * 100).toFixed(2)}%`;
+            emit('state:change', { param: 'arrLoopEnd', value: sectionIdx });
+          }
+        };
+        const onUp = () => {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      });
+
+      loopOverlay.append(loopStartHandle, loopEndHandle);
+      timeline.append(loopOverlay);
     }
+
+    // ── Timeline click-to-seek ───────────────────────────────────────────
+    timeline.addEventListener('click', e => {
+      // Ignore clicks on section blocks (they have their own handler)
+      if (e.target !== timeline && e.target !== loopOverlay) return;
+      if (arranger.length === 0) return;
+      const rect = timeline.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const totalW = rect.width;
+      const seekBar = Math.floor((x / totalW) * totalBarsAll);
+      state.arrPlayPos = seekBar;
+      emit('state:change', { param: 'arrPlayPos', value: seekBar });
+      emit('arranger:seek', { bar: seekBar });
+    });
 
     if (arranger.length === 0) {
       timeline.innerHTML = `<div style="flex:1;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:0.6rem;color:var(--muted)">Empty — add sections below</div>`;

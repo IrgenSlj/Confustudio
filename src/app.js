@@ -1088,6 +1088,39 @@ function emit(type, payload = {}) {
       pressKey(el.kbdContext, payload.code, false);
       break;
 
+    // ── Arranger seek ──
+    case 'arranger:seek': {
+      if (!Array.isArray(state.arranger) || state.arranger.length === 0) break;
+      // Find which section index the target bar falls in
+      const seekBar = payload.bar ?? 0;
+      let cumBars = 0;
+      let seekSectionIdx = 0;
+      let barsIntoSection = 0;
+      for (let i = 0; i < state.arranger.length; i++) {
+        const sectionBars = state.arranger[i].bars ?? 1;
+        if (seekBar < cumBars + sectionBars || i === state.arranger.length - 1) {
+          seekSectionIdx = i;
+          barsIntoSection = Math.max(0, seekBar - cumBars);
+          break;
+        }
+        cumBars += sectionBars;
+      }
+      state._arrSection = seekSectionIdx;
+      state._arrSectionBars = barsIntoSection;
+      state.arrangementCursor = seekSectionIdx;
+      // Switch to the scene/pattern for this section
+      const seekSection = state.arranger[seekSectionIdx];
+      if (seekSection != null) {
+        state.activePattern = Math.max(0, Math.min(15, seekSection.sceneIdx ?? 0));
+        if (state.bpmOverride && seekSection.bpmOverride) {
+          state.bpm = seekSection.bpmOverride;
+          updateTopbar();
+        }
+      }
+      renderPage();
+      break;
+    }
+
     // ── Toast notification ──
     case 'toast':
       showToast(payload.msg, payload.duration ?? 1200);
@@ -1341,7 +1374,7 @@ function scheduleLoop() {
 
       // Per-track scheduling with individual step counters for polyrhythm
       pattern.kit.tracks.forEach((track, ti) => {
-        const trackLen = (track.trackLength > 0) ? track.trackLength : pattern.length;
+        const trackLen = track.stepCount ?? ((track.trackLength > 0) ? track.trackLength : pattern.length);
         const stepIdx = _trackStepIdx[ti];
 
         // Live recording: capture held MIDI notes onto armed tracks (or selected track if none armed)
