@@ -1983,6 +1983,22 @@ function updateTopbar() {
   if (el.kbdBpm) el.kbdBpm.textContent = `${_bpmStr} BPM`;
   if (el.bpmInput) el.bpmInput.value = state.bpm;
 
+  // Page label in topbar
+  let pageLabel = document.getElementById('topbar-page-label');
+  if (!pageLabel) {
+    pageLabel = document.createElement('span');
+    pageLabel.id = 'topbar-page-label';
+    pageLabel.className = 'topbar-item';
+    pageLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em';
+    el.statusPill?.insertAdjacentElement('beforebegin', pageLabel);
+  }
+  const PAGE_LABELS = {
+    'pattern': 'PATTERN', 'piano-roll': 'PIANO ROLL', 'sound': 'SOUND',
+    'mixer': 'MIXER', 'fx': 'FX', 'scenes': 'SCENES',
+    'banks': 'BANKS', 'arranger': 'ARR', 'settings': 'SETTINGS',
+  };
+  pageLabel.textContent = PAGE_LABELS[state.currentPage] ?? '';
+
   // Step-record cursor indicator in topbar
   let stepCursorDisplay = document.getElementById('step-cursor-display');
   if (!stepCursorDisplay) {
@@ -2103,6 +2119,7 @@ function updateTransportUI() {
     }
   }
   el.kbdRecord?.classList.toggle('active', state.isRecording || state.stepRecordMode);
+  document.querySelector('.screen-bezel')?.classList.toggle('is-playing', state.isPlaying);
 }
 
 // ─────────────────────────────────────────────
@@ -2209,6 +2226,14 @@ function bindUI() {
       emit('state:change', { path: 'bpm', value: Number(e.target.value) });
     });
     addNumericDrag(el.bpmInput);
+  }
+  if (el.bpmDisplay) {
+    el.bpmDisplay.style.cursor = 'pointer';
+    el.bpmDisplay.title = 'Double-click to edit BPM';
+    el.bpmDisplay.addEventListener('dblclick', () => {
+      const inp = document.getElementById('bpm-input');
+      if (inp) { inp.focus(); inp.select(); }
+    });
   }
   if (el.bpmDec) el.bpmDec.addEventListener('click', () => {
     emit('state:change', { path: 'bpm', value: state.bpm - 1 });
