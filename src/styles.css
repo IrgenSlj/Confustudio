@@ -291,6 +291,7 @@ button {
   grid-template-columns: 82px 1fr 160px;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
   gap: 0;
 }
 
@@ -306,6 +307,8 @@ button {
   align-items: center;
   padding: 10px 6px;
   gap: 8px;
+  overflow: hidden;
+  min-height: 0;
 }
 
 /* Signal meter */
@@ -351,6 +354,8 @@ button {
   align-items: center;
   gap: 4px;
   flex: 1;
+  min-height: 0;
+  max-height: 160px;
 }
 
 .fader-master {
@@ -359,6 +364,7 @@ button {
   appearance: slider-vertical;
   -webkit-appearance: slider-vertical;
   width: 22px;
+  min-height: 60px;
   flex: 1;
   cursor: pointer;
   accent-color: var(--chassis-metal);
@@ -585,6 +591,9 @@ button {
   flex-direction: column;
   background: var(--chassis-bg);
   min-width: 0;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* ============================================================
@@ -807,7 +816,7 @@ button {
 
 .oscilloscope-strip {
   width: 100%;
-  height: 40px;
+  height: 24px;
   display: block;
   margin-top: 6px;
   border-radius: 3px;
@@ -884,6 +893,8 @@ button {
   flex-direction: column;
   padding: 8px 6px;
   gap: 0;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .channel-strip {
@@ -891,6 +902,8 @@ button {
   flex-direction: column;
   gap: 3px;
   flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .track-ch {
@@ -1521,6 +1534,27 @@ button {
    KEYBOARD PANEL — 3D physical button look
    ============================================================ */
 
+.kbd-collapse-bar {
+  display: flex;
+  justify-content: center;
+  padding: 1px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.kbd-collapse-btn {
+  font-family: var(--font-mono);
+  font-size: 0.42rem;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 1px 8px;
+  letter-spacing: 0.1em;
+  opacity: 0.6;
+  transition: opacity 0.1s;
+}
+.kbd-collapse-btn:hover { opacity: 1; color: var(--fg); }
+
 .kbd-panel {
   background: var(--chassis-dark);
   border-top: 2px solid rgba(0,0,0,0.5);
@@ -1605,10 +1639,11 @@ button {
   gap: 3px;
 }
 
-.qrow-fn    .qwerty-key { height: 34px; }
-.qrow-home  .qwerty-key { height: 42px; }
-.qrow-bot   .qwerty-key { height: 42px; }
-.qrow-space .qwerty-key { height: 30px; }
+.qrow-num   .qwerty-key { height: 28px; }
+.qrow-fn    .qwerty-key { height: 32px; }
+.qrow-home  .qwerty-key { height: 38px; }
+.qrow-bot   .qwerty-key { height: 38px; }
+.qrow-space .qwerty-key { height: 26px; }
 
 .qwerty-key {
   display: flex;
