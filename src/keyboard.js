@@ -202,6 +202,67 @@ function noteToName(midi) {
   return NAMES[midi % 12] + Math.floor(midi / 12 - 1);
 }
 
+// ─── Scale lock: snap a MIDI note to the nearest note in the given scale ──────
+
+function snapToScale(midiNote, scaleIndex, rootNote = 0) {
+  const intervals = SCALE_INTERVALS[scaleIndex ?? 0];
+  if (!intervals) return midiNote; // chromatic — no snapping
+  const pc = ((midiNote - rootNote) % 12 + 12) % 12;
+  // Find nearest interval by minimum semitone distance (wrap-around)
+  let bestInterval = intervals[0];
+  let bestDist = 12;
+  for (const iv of intervals) {
+    const dist = Math.min(Math.abs(pc - iv), 12 - Math.abs(pc - iv));
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestInterval = iv;
+    }
+  }
+  // Reconstruct the snapped MIDI note in the same octave region
+  const octaveBase = midiNote - pc;
+  let snapped = octaveBase + bestInterval;
+  // Keep within valid MIDI range
+  snapped = Math.max(0, Math.min(127, snapped));
+  return snapped;
+}
+
+// ─── Chord detection ──────────────────────────────────────────────────────────
+
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+// Interval sets (sorted) → chord suffix
+const CHORD_PATTERNS = [
+  { intervals: [0, 4, 7],      suffix: ''    },  // major triad
+  { intervals: [0, 3, 7],      suffix: 'm'   },  // minor triad
+  { intervals: [0, 4, 7, 10],  suffix: '7'   },  // dominant 7
+  { intervals: [0, 4, 7, 11],  suffix: 'maj7'},  // major 7
+  { intervals: [0, 3, 7, 10],  suffix: 'm7'  },  // minor 7
+];
+
+function detectChord(notes) {
+  const noteArr = [...notes].map(Number).filter(n => !isNaN(n));
+  if (noteArr.length < 2) return null;
+  const pcs = [...new Set(noteArr.map(n => ((n % 12) + 12) % 12))].sort((a, b) => a - b);
+  if (pcs.length < 2) return null;
+  // Try every pitch class as the root
+  for (const root of pcs) {
+    const normalized = pcs.map(pc => ((pc - root + 12) % 12)).sort((a, b) => a - b);
+    for (const { intervals, suffix } of CHORD_PATTERNS) {
+      if (intervals.length === normalized.length &&
+          intervals.every((iv, i) => iv === normalized[i])) {
+        return NOTE_NAMES[root] + suffix;
+      }
+    }
+  }
+  // 2-note interval name fallback
+  if (pcs.length === 2) {
+    const interval = ((pcs[1] - pcs[0] + 12) % 12);
+    if (interval === 7)  return NOTE_NAMES[pcs[0]] + '5';
+    if (interval === 5)  return NOTE_NAMES[pcs[0]] + 'sus4';
+  }
+  return null;
+}
+
 // ─── Graphical keyboard renderer ──────────────────────────────────────────────
 
 // 1 key-unit ≈ key-width + gap. Used to calculate row stagger padding.
@@ -348,6 +409,17 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
     });
     chordBar.append(splitBtn);
 
+    // LOCK toggle (scale lock)
+    const lockBtn = document.createElement('button');
+    lockBtn.className = 'kbd-chord-btn kbd-lock-btn' + (state.scaleLock ? ' active' : '');
+    lockBtn.textContent = 'LOCK';
+    lockBtn.title = 'Scale lock: snap played notes to active scale';
+    lockBtn.addEventListener('click', () => {
+      state.scaleLock = !state.scaleLock;
+      renderKbdContext(containerEl, page, activeKeys, state, getActiveTrackFn);
+    });
+    chordBar.append(lockBtn);
+
     containerEl.append(chordBar);
 
     // ── Octave indicator ──────────────────────────────────────────────────────
@@ -394,6 +466,42 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
     const bottomRow = document.createElement('div');
     bottomRow.style.cssText = 'display:flex;align-items:center;gap:4px;flex-wrap:wrap;';
     bottomRow.append(octWrap, touchBtn);
+
+    // Velocity curve selector
+    const velCurveWrap = document.createElement('label');
+    velCurveWrap.style.cssText = 'display:flex;align-items:center;gap:3px;font-size:0.55rem;color:var(--muted,#888);font-family:var(--font-mono);white-space:nowrap;';
+    velCurveWrap.textContent = 'VEL CURVE ';
+    const velCurveSelect = document.createElement('select');
+    velCurveSelect.style.cssText = 'font-size:0.55rem;font-family:var(--font-mono);background:var(--bg2,#1a1a1a);color:var(--screen-text,#e0d8c8);border:1px solid var(--muted,#888);border-radius:2px;padding:1px 2px;cursor:pointer;';
+    ['linear','log','exp','fixed','soft'].forEach(curve => {
+      const opt = document.createElement('option');
+      opt.value = curve;
+      opt.textContent = curve;
+      if ((state.velocityCurve ?? 'linear') === curve) opt.selected = true;
+      velCurveSelect.append(opt);
+    });
+    velCurveSelect.addEventListener('change', e => {
+      state.velocityCurve = e.target.value;
+    });
+    velCurveWrap.append(velCurveSelect);
+    bottomRow.append(velCurveWrap);
+
+    // Chord detection badge
+    const chordBadge = document.createElement('span');
+    chordBadge.className = 'kbd-chord-badge';
+    chordBadge.style.cssText = 'font-size:0.65rem;font-family:var(--font-mono);color:var(--accent,#f0c640);background:rgba(240,198,64,0.1);border:1px solid var(--accent,#f0c640);border-radius:3px;padding:1px 5px;min-width:36px;text-align:center;display:inline-block;opacity:0.85;';
+    function _updateChordBadge() {
+      const notes = state._playingNotes instanceof Set ? state._playingNotes : new Set();
+      const name = detectChord(notes);
+      chordBadge.textContent = name ?? '';
+      chordBadge.style.visibility = name ? 'visible' : 'hidden';
+    }
+    _updateChordBadge();
+    const _chordPollId = setInterval(() => {
+      if (!chordBadge.isConnected) { clearInterval(_chordPollId); return; }
+      _updateChordBadge();
+    }, 150);
+    bottomRow.append(chordBadge);
 
     // ── Arp pattern visualizer (only when arp is on) ─────────────────────────
     const track = getActiveTrackFn?.();
@@ -539,6 +647,19 @@ function buildArpVisualizer(state, TRACK_COLORS, getActiveTrackFn) {
   modeLabel.className = 'arp-vis-mode';
   modeLabel.textContent = (track?.arpMode ?? 'up').toUpperCase();
   wrap.append(modeLabel);
+
+  // Arp rate as musical note value label
+  const ARP_SPEED_LABELS = [[0.25,'1/1'],[0.5,'1/2'],[1,'1/4'],[2,'1/8'],[4,'1/16'],[8,'1/32']];
+  const arpSpeed = track?.arpSpeed ?? 1;
+  let rateLabel = '1/4';
+  for (const [spd, lbl] of ARP_SPEED_LABELS) {
+    if (Math.abs(arpSpeed - spd) < 0.01) { rateLabel = lbl; break; }
+  }
+  const rateEl = document.createElement('span');
+  rateEl.className = 'arp-vis-rate';
+  rateEl.textContent = rateLabel;
+  rateEl.style.cssText = 'font-size:0.55rem;color:var(--muted,#888);font-family:var(--font-mono);margin-left:3px;';
+  wrap.append(rateEl);
 
   const dotsRow = document.createElement('div');
   dotsRow.className = 'arp-dots-row';
@@ -915,7 +1036,8 @@ export function initKeyboard(state, emit, trackColors = []) {
     if (page === 'piano-roll' || page === 'sound') {
       const offset = NOTE_KEY_OFFSETS[e.code];
       if (offset != null) {
-        const midiNote = 60 + (state.octaveShift ?? 0) * 12 + offset;
+        let midiNote = 60 + (state.octaveShift ?? 0) * 12 + offset;
+        if (state.scaleLock) midiNote = snapToScale(midiNote, state.scale ?? 0);
         const velocity = applyVelocityCurve(state.keyboardVelocity ?? 1, state.velocityCurve ?? 'linear');
         const voicing = CHORD_VOICINGS[state.chordMode ?? 'off'] ?? [];
 

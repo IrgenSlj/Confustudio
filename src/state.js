@@ -300,6 +300,7 @@ export function createAppState() {
     latencyCompMs:    0,
     audioBufferSize:  512,
     maxVoicesGlobal:  16,
+    oscMode:          'wave',
 
     // Pattern editing
     octaveShift:       0,
