@@ -27,17 +27,20 @@ export function initCables() {
   `;
   studioWrap.appendChild(svg);
 
-  // Defs for glow filter
+  // Defs with port hover style (no glow filter — using layered strokes instead)
   const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
   defs.innerHTML = `
-    <filter id="cable-glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="2.5" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
+    <style>
+      .port-hover {
+        outline: 2px solid #f0c640;
+        outline-offset: 2px;
+        border-radius: 50%;
+      }
+    </style>
   `;
   svg.appendChild(defs);
 
-  const cables = []; // { id, fromEl, toEl, color, path, dot }
+  const cables = []; // { id, fromEl, toEl, color, group }
   let dragging = null; // { fromEl, color, tempPath, tempDot }
 
   // Get center of a port element in studio-wrap coordinates
@@ -51,58 +54,165 @@ export function initCables() {
   }
 
   function makeBezier(x1, y1, x2, y2) {
-    const dy = Math.abs(y2 - y1);
-    const slack = Math.min(80 + dy * 0.4, 200);
-    return `M${x1},${y1} C${x1},${y1 + slack} ${x2},${y2 + slack} ${x2},${y2}`;
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const dist = Math.hypot(dx, dy);
+    // Gravity sag: proportional to horizontal distance + minimum
+    const sag = Math.max(120, dist * 0.5 + 60);
+    // Control points hang below both endpoints
+    const cp1y = y1 + sag;
+    const cp2y = y2 + sag;
+    // Slight horizontal spread so cables don't all stack on top of each other
+    const spread = dist * 0.12;
+    const cp1x = x1 - spread;
+    const cp2x = x2 + spread;
+    return `M${x1},${y1} C${cp1x},${cp1y} ${cp2x},${cp2y} ${x2},${y2}`;
   }
 
-  function createCablePath(color) {
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', color);
-    path.setAttribute('stroke-width', '3');
-    path.setAttribute('stroke-linecap', 'round');
-    path.setAttribute('filter', 'url(#cable-glow)');
-    path.style.pointerEvents = 'stroke';
-    path.style.cursor = 'pointer';
-    return path;
+  // Create a 6.35mm TS audio jack plug SVG group at (x, y), upright
+  function createJackPlug(color) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const g = document.createElementNS(NS, 'g');
+    g.setAttribute('class', 'cable-plug');
+    g.style.pointerEvents = 'none';
+
+    // Black metal body (sleeve)
+    const sleeve = document.createElementNS(NS, 'rect');
+    sleeve.setAttribute('x', '-5');
+    sleeve.setAttribute('y', '-16');
+    sleeve.setAttribute('width', '10');
+    sleeve.setAttribute('height', '16');
+    sleeve.setAttribute('rx', '3');
+    sleeve.setAttribute('ry', '3');
+    sleeve.setAttribute('fill', '#1a1a1a');
+    g.appendChild(sleeve);
+
+    // Colored collar band matching cable color
+    const collar = document.createElementNS(NS, 'rect');
+    collar.setAttribute('x', '-5');
+    collar.setAttribute('y', '-9');
+    collar.setAttribute('width', '10');
+    collar.setAttribute('height', '4');
+    collar.setAttribute('fill', color);
+    collar.setAttribute('opacity', '0.9');
+    g.appendChild(collar);
+
+    // Tip ring insulator (dark band)
+    const insulator = document.createElementNS(NS, 'rect');
+    insulator.setAttribute('x', '-4');
+    insulator.setAttribute('y', '-13');
+    insulator.setAttribute('width', '8');
+    insulator.setAttribute('height', '2');
+    insulator.setAttribute('fill', '#0a0a0a');
+    g.appendChild(insulator);
+
+    // Shiny metal tip (outer)
+    const tipOuter = document.createElementNS(NS, 'ellipse');
+    tipOuter.setAttribute('cx', '0');
+    tipOuter.setAttribute('cy', '-16');
+    tipOuter.setAttribute('rx', '4');
+    tipOuter.setAttribute('ry', '3.5');
+    tipOuter.setAttribute('fill', '#888');
+    g.appendChild(tipOuter);
+
+    // Shiny metal tip (inner highlight)
+    const tipInner = document.createElementNS(NS, 'ellipse');
+    tipInner.setAttribute('cx', '0');
+    tipInner.setAttribute('cy', '-16');
+    tipInner.setAttribute('rx', '2');
+    tipInner.setAttribute('ry', '1.5');
+    tipInner.setAttribute('fill', '#bbb');
+    g.appendChild(tipInner);
+
+    // Body highlight
+    const highlight = document.createElementNS(NS, 'rect');
+    highlight.setAttribute('x', '-1.5');
+    highlight.setAttribute('y', '-15');
+    highlight.setAttribute('width', '3');
+    highlight.setAttribute('height', '12');
+    highlight.setAttribute('rx', '1.5');
+    highlight.setAttribute('fill', 'rgba(255,255,255,0.08)');
+    g.appendChild(highlight);
+
+    return g;
   }
 
-  function createEndDot(color) {
-    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    c.setAttribute('r', '5');
-    c.setAttribute('fill', color);
-    c.setAttribute('filter', 'url(#cable-glow)');
-    c.style.pointerEvents = 'none';
-    return c;
+  // Build the three-layer cable path set inside a group; returns { group, shadow, body, shine }
+  function createCableLayers(color) {
+    const NS = 'http://www.w3.org/2000/svg';
+
+    const shadow = document.createElementNS(NS, 'path');
+    shadow.setAttribute('fill', 'none');
+    shadow.setAttribute('stroke', 'rgba(0,0,0,0.4)');
+    shadow.setAttribute('stroke-width', '9');
+    shadow.setAttribute('stroke-linecap', 'round');
+    shadow.style.pointerEvents = 'none';
+
+    const body = document.createElementNS(NS, 'path');
+    body.setAttribute('fill', 'none');
+    body.setAttribute('stroke', color);
+    body.setAttribute('stroke-width', '5.5');
+    body.setAttribute('stroke-linecap', 'round');
+    body.style.pointerEvents = 'stroke';
+    body.style.cursor = 'pointer';
+
+    const shine = document.createElementNS(NS, 'path');
+    shine.setAttribute('fill', 'none');
+    shine.setAttribute('stroke', 'rgba(255,255,255,0.22)');
+    shine.setAttribute('stroke-width', '1.5');
+    shine.setAttribute('stroke-linecap', 'round');
+    shine.style.pointerEvents = 'none';
+
+    return { shadow, body, shine };
+  }
+
+  function setLayerPath(layers, d) {
+    layers.shadow.setAttribute('d', d);
+    layers.body.setAttribute('d', d);
+    layers.shine.setAttribute('d', d);
   }
 
   function drawCable(cable) {
     const a = portCenter(cable.fromEl);
     const b = portCenter(cable.toEl);
-    cable.path.setAttribute('d', makeBezier(a.x, a.y, b.x, b.y));
-    cable.dot.setAttribute('cx', b.x);
-    cable.dot.setAttribute('cy', b.y);
+    const d = makeBezier(a.x, a.y, b.x, b.y);
+    setLayerPath(cable.layers, d);
+    // Position plugs
+    cable.plugFrom.setAttribute('transform', `translate(${a.x},${a.y})`);
+    cable.plugTo.setAttribute('transform', `translate(${b.x},${b.y})`);
   }
 
   function addCable(fromEl, toEl) {
+    const NS = 'http://www.w3.org/2000/svg';
     const color = nextColor();
-    const path = createCablePath(color);
-    const dot  = createEndDot(color);
-    svg.appendChild(path);
-    svg.appendChild(dot);
-    const cable = { id: Date.now(), fromEl, toEl, color, path, dot };
+
+    // Wrapping group for the whole cable
+    const group = document.createElementNS(NS, 'g');
+    group.setAttribute('class', 'cable-group');
+
+    const layers = createCableLayers(color);
+    group.appendChild(layers.shadow);
+    group.appendChild(layers.body);
+    group.appendChild(layers.shine);
+
+    const plugFrom = createJackPlug(color);
+    const plugTo   = createJackPlug(color);
+    group.appendChild(plugFrom);
+    group.appendChild(plugTo);
+
+    svg.appendChild(group);
+
+    const cable = { id: Date.now(), fromEl, toEl, color, group, layers, plugFrom, plugTo };
     cables.push(cable);
     drawCable(cable);
 
     // Audio routing: if connecting synth audio-out to DJ mixer input
     const fromPort = fromEl.closest('.studio-module');
     const toPort   = toEl.closest('.studio-module');
-    const fromType = fromEl.textContent.trim().toLowerCase();
     const toType   = toEl.textContent.trim().toLowerCase();
 
     if (fromPort && toPort) {
-      const engine = window._confusynthEngine;
+      const engine  = window._confusynthEngine;
       const djmixer = toPort.querySelector('[data-djm]') || fromPort.querySelector('[data-djm]');
 
       if (engine && djmixer?._djmAudio) {
@@ -121,16 +231,15 @@ export function initCables() {
       }
     }
 
-    // Right-click to remove
-    path.addEventListener('contextmenu', e => {
+    // Right-click on body to remove cable
+    layers.body.addEventListener('contextmenu', e => {
       e.preventDefault();
       // Undo audio routing if this cable had routed audio
       if (cable._audioRouted && cable._engine) {
         try { cable._engine.master.disconnect(); } catch(e) {}
         cable._engine.master.connect(cable._engine.context.destination);
       }
-      svg.removeChild(path);
-      svg.removeChild(dot);
+      group.remove();
       const idx = cables.indexOf(cable);
       if (idx >= 0) cables.splice(idx, 1);
     });
@@ -149,14 +258,26 @@ export function initCables() {
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
+    const NS = 'http://www.w3.org/2000/svg';
     const fromEl = e.currentTarget;
     const color  = nextColor();
-    const tempPath = createCablePath(color);
-    const tempDot  = createEndDot(color);
+
+    // Dashed drag preview: single path + plug at origin
+    const tempPath = document.createElementNS(NS, 'path');
+    tempPath.setAttribute('fill', 'none');
+    tempPath.setAttribute('stroke', color);
+    tempPath.setAttribute('stroke-width', '3');
+    tempPath.setAttribute('stroke-linecap', 'round');
     tempPath.setAttribute('stroke-dasharray', '6 4');
+    tempPath.setAttribute('opacity', '0.75');
+    tempPath.style.pointerEvents = 'none';
+
+    const tempPlug = createJackPlug(color);
+
     svg.appendChild(tempPath);
-    svg.appendChild(tempDot);
-    dragging = { fromEl, color, tempPath, tempDot };
+    svg.appendChild(tempPlug);
+
+    dragging = { fromEl, color, tempPath, tempPlug };
   }
 
   // Mousemove: update dragging cable
@@ -167,15 +288,14 @@ export function initCables() {
     const my = e.clientY - wr.top;
     const a  = portCenter(dragging.fromEl);
     dragging.tempPath.setAttribute('d', makeBezier(a.x, a.y, mx, my));
-    dragging.tempDot.setAttribute('cx', mx);
-    dragging.tempDot.setAttribute('cy', my);
+    dragging.tempPlug.setAttribute('transform', `translate(${a.x},${a.y})`);
   });
 
   // Mouseup: if over a port (different module), connect; else cancel
   window.addEventListener('mouseup', e => {
     if (!dragging) return;
-    svg.removeChild(dragging.tempPath);
-    svg.removeChild(dragging.tempDot);
+    dragging.tempPath.remove();
+    dragging.tempPlug.remove();
 
     const toEl = document.elementFromPoint(e.clientX, e.clientY)?.closest('.port');
     if (toEl && toEl !== dragging.fromEl) {
