@@ -46,6 +46,10 @@ export default {
     const voiceCountEls = [];
     const _peakLevels = new Array(8).fill(0);
     const _peakDecay  = new Array(8).fill(0);
+    // GR meter canvases — one per strip that has sidechain active
+    const grMeterEls = [];
+    // Sparkline data — one entry per strip
+    const sparklineEls = [];
 
     // Bulk mute/unmute/solo-off bar
     const bulkBar = document.createElement('div');
@@ -525,6 +529,23 @@ export default {
       scRow.append(duckLabel, duckSlider, duckVal);
       stripBody.append(scRow);
 
+      // ── Sidechain GR meter ───────────────────────────────────────────────
+      const grMeter = document.createElement('canvas');
+      grMeter.width = 4; grMeter.height = 40;
+      grMeter.style.cssText = 'display:block;margin:2px auto;border-radius:1px;background:#111;cursor:default';
+      grMeter.title = 'Sidechain ducking amount';
+      stripBody.append(grMeter);
+      grMeterEls.push({ canvas: grMeter, track });
+
+      // ── Peak history sparkline ────────────────────────────────────────────
+      const sparkCanvas = document.createElement('canvas');
+      sparkCanvas.width = 40; sparkCanvas.height = 12;
+      sparkCanvas.style.cssText = 'display:block;width:100%;height:12px;margin-top:2px;border-radius:2px';
+      strip._peakHistory = new Float32Array(20);
+      strip._currentPeak = 0;
+      sparklineEls.push({ canvas: sparkCanvas, strip });
+      stripBody.append(sparkCanvas);
+
       // ── Bus selector ─────────────────────────────────────────────────────
       const busRow = document.createElement('div');
       busRow.style.cssText = 'display:flex;gap:2px;margin-top:3px';
@@ -643,7 +664,16 @@ export default {
     busSection.append(busStripsRow);
     container.append(busSection);
 
-    // Single rAF loop animates all 8 meters + voice counts
+    // Shared interval: shift peak history for all sparklines every 100 ms
+    const _sparkInterval = setInterval(() => {
+      if (!faderGrid.isConnected) { clearInterval(_sparkInterval); return; }
+      sparklineEls.forEach(({ strip: s }) => {
+        s._peakHistory.copyWithin(0, 1);
+        s._peakHistory[19] = s._currentPeak ?? 0;
+      });
+    }, 100);
+
+    // Single rAF loop animates all 8 meters + GR meters + sparklines + voice counts
     (function updateMeters() {
       if (!faderGrid.isConnected) return;
       if (state.engine?.analyser) {
@@ -669,6 +699,42 @@ export default {
             _peakLevels[i] = Math.max(0, _peakLevels[i] - 0.005);
           }
           peak.style.setProperty('--peak', _peakLevels[i]);
+
+          // Feed current peak into strip for sparkline sampling
+          if (stripEls[i]) stripEls[i]._currentPeak = level;
+        });
+
+        // Draw GR meters — single shared sidechainGain node drives all strips
+        const eng = state.engine;
+        const reduction = eng?._sidechainEnabled
+          ? 1 - (eng?.sidechainGain?.gain?.value ?? 1)
+          : 0;
+        grMeterEls.forEach(({ canvas: grc, track: gt }) => {
+          const ctx2d = grc.getContext('2d');
+          ctx2d.clearRect(0, 0, 4, 40);
+          if ((gt.sidechainAmount > 0 || gt.isSidechainSource) && reduction > 0.01) {
+            const h = Math.round(reduction * 40);
+            const g = ctx2d.createLinearGradient(0, 40 - h, 0, 40);
+            g.addColorStop(0, '#f44'); g.addColorStop(1, '#fa0');
+            ctx2d.fillStyle = g;
+            ctx2d.fillRect(0, 40 - h, 4, h);
+          }
+        });
+
+        // Draw sparklines
+        sparklineEls.forEach(({ canvas: sc, strip: ss }) => {
+          const sctx = sc.getContext('2d');
+          sctx.clearRect(0, 0, 40, 12);
+          sctx.beginPath();
+          sctx.strokeStyle = 'rgba(90,221,113,0.5)';
+          sctx.lineWidth = 1;
+          for (let i = 0; i < 20; i++) {
+            const x = i * 2;
+            const y = 12 - ss._peakHistory[i] * 12;
+            if (i === 0) sctx.moveTo(x, y);
+            else sctx.lineTo(x, y);
+          }
+          sctx.stroke();
         });
       }
 
