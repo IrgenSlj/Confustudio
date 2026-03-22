@@ -91,12 +91,25 @@ export function initStudio() {
     applyTransform();
   }
 
-  // Ctrl+scroll to zoom
+  // Wheel: pinch / ctrl+scroll → zoom; two-finger scroll on background → pan
   wrap.addEventListener('wheel', e => {
-    if (!e.ctrlKey && !e.metaKey) return;
+    if (e.ctrlKey || e.metaKey) {
+      // Pinch-to-zoom or ctrl+scroll → zoom toward cursor
+      e.preventDefault();
+      const rect = wrap.getBoundingClientRect();
+      zoomBy(e.deltaY > 0 ? 0.9 : 1.1, e.clientX - rect.left, e.clientY - rect.top);
+      return;
+    }
+    // Two-finger scroll: pan only when NOT over a scrollable content area inside a module
+    const onScrollable = e.target.closest(
+      '.page-content, .mixer-fader-grid, .right-col, .fx-layout, .fx-left, .fx-right, ' +
+      '.piano-roll-scroll, .arranger-scroll, [data-no-pan]'
+    );
+    if (onScrollable) return; // let natural scroll handle it
     e.preventDefault();
-    const rect = wrap.getBoundingClientRect();
-    zoomBy(e.deltaY > 0 ? 0.9 : 1.1, e.clientX - rect.left, e.clientY - rect.top);
+    panX -= e.deltaX;
+    panY -= e.deltaY;
+    applyTransform();
   }, { passive: false });
 
   // Middle-click or space+drag to pan
@@ -151,6 +164,54 @@ export function initStudio() {
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
   });
+
+  // ── Touch: two-finger pan + pinch-to-zoom ──────────────────────────────────
+  let _touches = [];
+  let _touchPanX0 = 0, _touchPanY0 = 0, _touchPanXStart = 0, _touchPanYStart = 0;
+  let _touchDist0 = 0, _touchScaleStart = 1;
+
+  function _touchDist(a, b) {
+    return Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+  }
+  function _touchMid(a, b) {
+    return { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
+  }
+
+  wrap.addEventListener('touchstart', e => {
+    _touches = [...e.touches];
+    if (_touches.length === 2) {
+      e.preventDefault();
+      _touchDist0 = _touchDist(_touches[0], _touches[1]);
+      _touchScaleStart = scale;
+      const mid = _touchMid(_touches[0], _touches[1]);
+      _touchPanX0 = mid.x; _touchPanY0 = mid.y;
+      _touchPanXStart = panX; _touchPanYStart = panY;
+    }
+  }, { passive: false });
+
+  wrap.addEventListener('touchmove', e => {
+    if (e.touches.length !== 2) return;
+    e.preventDefault();
+    const t = [...e.touches];
+    const dist = _touchDist(t[0], t[1]);
+    const mid  = _touchMid(t[0], t[1]);
+    const rect = wrap.getBoundingClientRect();
+    // Pinch zoom: zoom around the midpoint of the two fingers
+    const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, _touchScaleStart * dist / _touchDist0));
+    const ratio = newScale / scale;
+    const cx = mid.x - rect.left;
+    const cy = mid.y - rect.top;
+    panX = cx - ratio * (cx - panX);
+    panY = cy - ratio * (cy - panY);
+    scale = newScale;
+    // Two-finger pan
+    panX += mid.x - _touchPanX0;
+    panY += mid.y - _touchPanY0;
+    _touchPanX0 = mid.x; _touchPanY0 = mid.y;
+    applyTransform();
+  }, { passive: false });
+
+  wrap.addEventListener('touchend', e => { _touches = [...e.touches]; }, { passive: true });
 
   // Duplicate button — clones the main chassis as a new module
   document.getElementById('btn-duplicate')?.addEventListener('click', () => {
