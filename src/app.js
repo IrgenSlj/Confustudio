@@ -710,23 +710,6 @@ function handleStateChange(path, value, pattern) {
     return;
   }
 
-  if (path === 'sidechainSource') {
-    // value: track index (≥0) to set as source, or -1 to disable
-    const scTracks = getActivePattern(state).kit.tracks;
-    scTracks.forEach((t, i) => { t.isSidechainSource = (i === value); });
-    if (state.engine) {
-      if (value >= 0) {
-        state.engine.setSidechainSource(value);
-        const srcTrack = scTracks[value];
-        if (srcTrack) state.engine.setSidechainAmount(srcTrack.sidechainAmount ?? 0);
-      } else {
-        state.engine._sidechainEnabled = false;
-      }
-    }
-    scheduleSave();
-    return;
-  }
-
   if (path === 'arrSoloSection') {
     state.arrSoloSection = (value == null || value === -1) ? null : Number(value);
     renderPage();
@@ -3165,7 +3148,6 @@ function boot() {
   initCables();
   setupSwipe();
   setupDoubleTap();
-  console.log('CONFUsynth v3 ready — press A to init audio, Space to play');
 }
 
 boot();

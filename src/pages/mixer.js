@@ -142,7 +142,7 @@ export default {
           nameSpan.innerHTML = `${track.name} <span style="font-size:0.44rem;color:var(--muted);font-weight:400">${(track.machine || 'tone').toUpperCase()}</span>`;
           if (nameSpan.contains(input)) nameSpan.replaceChild(nameSpan.firstChild, input);
           // Persist
-          emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+          emit('state:change', { path: 'tracks', value: state.tracks });
         };
         const cancel = () => {
           nameSpan.innerHTML = `${track.name ?? `T${ti + 1}`} <span style="font-size:0.44rem;color:var(--muted);font-weight:400">${(track.machine || 'tone').toUpperCase()}</span>`;
@@ -401,7 +401,7 @@ export default {
             state.faderLinks.push({ a: ti, b: ti + 1 });
             linkBtn.classList.add('active');
           }
-          emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+          emit('state:change', { path: 'tracks', value: state.tracks });
         });
         stripBody.append(linkBtn);
       }
