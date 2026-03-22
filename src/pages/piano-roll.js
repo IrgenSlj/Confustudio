@@ -57,6 +57,7 @@ const ZOOM_WIDTHS = [12, 18, 24, 32, 48];
 export default {
   render(container, state, emit) {
     container.innerHTML = '';
+    container.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow:hidden';
 
     const pattern = state.project.banks[state.activeBank].patterns[state.activePattern];
     const track   = pattern.kit.tracks[state.selectedTrackIndex];
@@ -115,24 +116,9 @@ export default {
     `;
     container.append(header);
 
-    // Scale bar
-    const scaleBar = document.createElement('div');
-    scaleBar.className = 'roll-scale-bar';
-    SCALES.forEach((scale, idx) => {
-      const btn = document.createElement('button');
-      btn.className = 'roll-scale-btn' + (idx === scaleIdx ? ' active' : '');
-      btn.textContent = scale.name;
-      btn.addEventListener('click', () => {
-        emit('state:change', { path: 'scale', value: idx });
-      });
-      scaleBar.append(btn);
-    });
-    container.append(scaleBar);
-
-    // Toolbar
+    // Toolbar (single compact row — includes scale selectors)
     const toolbar = document.createElement('div');
-    toolbar.className = 'roll-scale-bar';
-    toolbar.style.cssText = 'margin-bottom:4px;';
+    toolbar.style.cssText = 'display:flex;align-items:center;gap:3px;padding:3px 6px;flex-shrink:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;background:rgba(0,0,0,0.15);border-bottom:1px solid rgba(255,255,255,0.06)';
 
     // Draw mode toggle
     const drawBtn = document.createElement('button');
@@ -218,13 +204,27 @@ export default {
     });
     toolbar.append(scaleToggle);
 
+    // Scale selector buttons (same row, separated by a thin divider)
+    const scaleDivider = document.createElement('span');
+    scaleDivider.style.cssText = 'width:1px;height:12px;background:rgba(255,255,255,0.12);flex-shrink:0;margin:0 2px';
+    toolbar.append(scaleDivider);
+
+    SCALES.forEach((scale, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'roll-scale-btn' + (idx === scaleIdx ? ' active' : '');
+      btn.textContent = scale.name;
+      btn.addEventListener('click', () => {
+        emit('state:change', { path: 'scale', value: idx });
+      });
+      toolbar.append(btn);
+    });
+
     container.append(toolbar);
 
     // Piano roll view
     const view = document.createElement('div');
     view.className = 'piano-roll-view';
-    view.style.flex = '1';
-    view.style.minHeight = '0';
+    view.style.cssText = 'flex:1;min-height:0;overflow:auto;display:flex';
     view.style.setProperty('--track-color', TRACK_COLORS[state.selectedTrackIndex]);
 
     // Left: note labels
@@ -526,7 +526,7 @@ export default {
     // Velocity lane
     const velLane = document.createElement('div');
     velLane.className = 'roll-vel-lane';
-    velLane.style.cssText = 'display:flex;height:40px;flex-shrink:0;border-top:1px solid #2a2a2a;overflow-x:hidden;position:relative;cursor:crosshair;';
+    velLane.style.cssText = 'display:flex;height:40px;max-height:60px;flex-shrink:0;border-top:1px solid #2a2a2a;overflow-x:hidden;position:relative;cursor:crosshair;';
 
     function renderVelocityLane() {
       velLane.innerHTML = '';

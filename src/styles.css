@@ -1610,10 +1610,10 @@ button {
 .kbd-panel {
   background: var(--chassis-dark);
   border-top: 2px solid rgba(0,0,0,0.5);
-  padding: 10px 10px 12px;
+  padding: 4px 8px 6px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
@@ -1671,7 +1671,8 @@ button {
 }
 
 .kbd-context {
-  padding: 2px 0;
+  padding: 0;
+  flex-shrink: 0;
 }
 
 /* ============================================================

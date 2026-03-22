@@ -1088,6 +1088,21 @@ function emit(type, payload = {}) {
       pressKey(el.kbdContext, payload.code, false);
       break;
 
+    // ── Arranger add section (from quick-add buttons) ──
+    case 'arranger:addSection': {
+      const { name: secName = 'Section', bars: secBars = 4 } = payload;
+      state.arranger.push({
+        sceneIdx: Math.max(0, Math.min(7, state.arrangementCursor ?? 0)),
+        bars: Math.max(1, Math.min(64, Number(secBars))),
+        name: secName,
+        repeat: 1,
+        muted: false,
+      });
+      state.arrangementCursor = state.arranger.length - 1;
+      renderPage();
+      break;
+    }
+
     // ── Arranger seek ──
     case 'arranger:seek': {
       if (!Array.isArray(state.arranger) || state.arranger.length === 0) break;
@@ -1636,6 +1651,22 @@ function scheduleLoop() {
       ? [...state.engine._voiceQueue.values()].reduce((s, q) => s + q.length, 0)
       : 0;
 
+    // Beat flash on topbar at each quarter-note boundary
+    if (state.isPlaying) {
+      const _pat = getActivePattern(state);
+      const _patLen = _pat?.length || 16;
+      const _quarterStep = Math.max(1, Math.floor(_patLen / 4));
+      const _justScheduled = ((state.currentStep - 1) + _patLen) % _patLen;
+      if (_justScheduled % _quarterStep === 0) {
+        const _topbar = document.querySelector('.screen-topbar');
+        if (_topbar) {
+          _topbar.classList.add('beat-flash');
+          clearTimeout(_topbar._beatTimeout);
+          _topbar._beatTimeout = setTimeout(() => _topbar.classList.remove('beat-flash'), 80);
+        }
+      }
+    }
+
     renderPlayhead();
     _schedRafId = requestAnimationFrame(tick);
   };
@@ -1886,10 +1917,16 @@ function renderTrackSelector() {
 }
 
 function renderPlayhead() {
-  el.statusPill.textContent = state.isPlaying
-    ? `STEP ${state.currentStep + 1}`
-    : 'IDLE';
-  el.statusPill.className = 'topbar-item topbar-status' + (state.isPlaying ? ' playing' : '');
+  if (state.isRecording && state.isPlaying) {
+    el.statusPill.textContent = '● REC';
+    el.statusPill.className = 'topbar-item topbar-status recording';
+  } else if (state.isPlaying) {
+    el.statusPill.textContent = '▶ PLAY';
+    el.statusPill.className = 'topbar-item topbar-status playing';
+  } else {
+    el.statusPill.textContent = 'IDLE';
+    el.statusPill.className = 'topbar-item topbar-status';
+  }
 
   // Update step buttons — data-step attr means all track rows show playhead
   el.pageContent.querySelectorAll('.step-btn[data-step]').forEach(btn => {

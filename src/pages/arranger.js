@@ -99,10 +99,33 @@ export default {
     list.style.cssText = 'flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px;min-height:0';
 
     if (arranger.length === 0) {
-      const empty = document.createElement('div');
-      empty.style.cssText = 'font-family:var(--font-mono);font-size:0.62rem;color:var(--muted);padding:16px;text-align:center';
-      empty.textContent = 'No sections. Add a section to start arranging.';
-      list.append(empty);
+      const emptyState = document.createElement('div');
+      emptyState.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;opacity:0.6;padding:20px';
+
+      const emptyIcon = document.createElement('div');
+      emptyIcon.style.cssText = 'font-size:2rem';
+      emptyIcon.textContent = '≡';
+
+      const emptyText = document.createElement('div');
+      emptyText.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);text-align:center;line-height:1.6';
+      emptyText.innerHTML = 'No sections yet<br><span style="font-size:0.5rem;opacity:0.7">Use "Add Section" below or drag patterns here</span>';
+
+      // Quick-add buttons for common arrangements
+      const quickAddRow = document.createElement('div');
+      quickAddRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;justify-content:center';
+      ['Intro', 'Verse', 'Chorus', 'Bridge', 'Outro'].forEach(name => {
+        const qBtn = document.createElement('button');
+        qBtn.className = 'seq-btn';
+        qBtn.textContent = `+ ${name}`;
+        qBtn.style.cssText = 'font-size:0.44rem;padding:3px 8px';
+        qBtn.addEventListener('click', () => {
+          emit('arranger:addSection', { name, bars: 4 });
+        });
+        quickAddRow.append(qBtn);
+      });
+
+      emptyState.append(emptyIcon, emptyText, quickAddRow);
+      list.append(emptyState);
     }
 
     arranger.forEach((section, idx) => {
@@ -609,7 +632,7 @@ export default {
 
     // ── Add section toolbar ────────────────────────────────────────────────
     const toolbar = document.createElement('div');
-    toolbar.style.cssText = 'display:flex;gap:6px;margin-top:8px;flex-shrink:0;flex-wrap:wrap;align-items:center';
+    toolbar.style.cssText = 'display:flex;gap:6px;margin-top:8px;flex-shrink:0;flex-wrap:wrap;align-items:center;border-top:1px solid rgba(255,255,255,0.08);padding-top:6px;margin-top:auto';
 
     const sceneSelect = document.createElement('select');
     sceneSelect.style.cssText = 'padding:4px 8px;border-radius:4px;border:1px solid var(--border);background:#1a1a1a;color:var(--screen-text);font-family:var(--font-mono);font-size:0.66rem';

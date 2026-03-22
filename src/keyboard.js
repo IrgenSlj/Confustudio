@@ -214,6 +214,10 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
   });
   containerEl.innerHTML = '';
 
+  // Compact context root — column layout so keyboard stays full-width,
+  // but with tighter padding/gap
+  containerEl.style.cssText = 'display:flex;flex-direction:column;gap:2px;padding:3px 6px 0;min-height:0;flex-shrink:0';
+
   const roles = KEY_ROLES[page] || {};
   const kb = document.createElement('div');
   kb.className = 'qwerty-keyboard';
@@ -392,20 +396,24 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
     });
     infoBar.append(touchBtn);
 
-    containerEl.append(infoBar);
+    // ── Combined bottom row: OCT / TOUCH / ARP HOLD / CHORD MEM — single flex row ──
+    const bottomRow = document.createElement('div');
+    bottomRow.style.cssText = 'display:flex;align-items:center;gap:4px;flex-wrap:wrap;';
+
+    // Move octave wrap + TOUCH into bottom row
+    bottomRow.append(octWrap, touchBtn);
 
     // ── Arp pattern visualizer (only when arp is on) ─────────────────────────
     const track = getActiveTrackFn?.();
     if (track?.arpEnabled) {
       const arpVis = buildArpVisualizer(state, _TRACK_COLORS, getActiveTrackFn);
-      containerEl.append(arpVis);
+      bottomRow.append(arpVis);
 
       // ARP HOLD toggle button
       const holdBtn = document.createElement('button');
       holdBtn.className = 'kbd-chord-btn kbd-arp-hold-btn' + (track.arpHold ? ' active' : '');
       holdBtn.textContent = 'HOLD';
       holdBtn.title = 'Arp hold: sustain notes after release';
-      holdBtn.style.marginLeft = '6px';
       holdBtn.addEventListener('click', () => {
         track.arpHold = !track.arpHold;
         holdBtn.classList.toggle('active', track.arpHold);
@@ -415,13 +423,15 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
         }
         _emit?.('track:change', { trackIndex: getActiveTrackFn(), param: 'arpHold', value: track.arpHold });
       });
-      // Insert after the arp visualizer element
-      containerEl.append(holdBtn);
+      bottomRow.append(holdBtn);
     }
+
+    containerEl.append(infoBar);
+    containerEl.append(bottomRow);
 
     // ── Chord memory slots ──────────────────────────────────────────────────
     const chordMemSection = document.createElement('div');
-    chordMemSection.style.cssText = 'display:flex;align-items:center;gap:4px;margin-top:4px;';
+    chordMemSection.style.cssText = 'display:flex;align-items:center;gap:4px;';
 
     const chordMemLabel = document.createElement('span');
     chordMemLabel.style.cssText = 'font-size:0.6rem;color:var(--muted,#888);font-family:var(--font-mono);margin-right:2px;white-space:nowrap;';
