@@ -263,21 +263,27 @@ export default {
         emit('state:change', { path: 'action_arrRemove', value: idx })
       );
 
-      // ── Color swatch (cycles through TRACK_COLORS) ──────────────────────
+      // ── Color swatch with color picker ──────────────────────────────────
       const colorSwatch = document.createElement('div');
       colorSwatch.className = 'arr-color-swatch';
       colorSwatch.style.cssText = `
         width:10px;height:22px;border-radius:2px;cursor:pointer;flex-shrink:0;
         background:${section.color};border:1px solid rgba(255,255,255,0.15);
+        position:relative;overflow:visible;
       `;
       colorSwatch.title = 'Click to change section color';
-      colorSwatch.addEventListener('click', e => {
-        e.stopPropagation();
-        const currentIdx = TRACK_COLORS.indexOf(section.color);
-        const nextIdx = (currentIdx + 1) % TRACK_COLORS.length;
-        section.color = TRACK_COLORS[nextIdx];
-        emit('state:change', { path: 'arranger', value: state.arranger });
+
+      const colorPick = document.createElement('input');
+      colorPick.type = 'color';
+      colorPick.value = section.color ?? '#3a4a5a';
+      colorPick.style.cssText = 'width:14px;height:14px;padding:0;border:none;border-radius:2px;cursor:pointer;opacity:0;position:absolute;inset:0;width:100%;height:100%';
+      colorPick.addEventListener('change', () => {
+        section.color = colorPick.value;
+        colorSwatch.style.background = colorPick.value;
+        row.style.borderLeftColor = colorPick.value;
+        emit('state:change', { param: 'arranger' });
       });
+      colorSwatch.append(colorPick);
 
       // ── Repeat count ──────────────────────────────────────────────────────
       if (section.repeat == null) section.repeat = 1;

@@ -279,6 +279,15 @@ export default {
         btn.append(num, name, density);
       }
 
+      // Follow action badge
+      const followAction = pat.followAction ?? 'next';
+      const followIcons = { next: '→', loop: '↺', stop: '■', random: '?' };
+      const followBadge = document.createElement('span');
+      followBadge.style.cssText = 'position:absolute;bottom:2px;right:2px;font-size:0.45rem;opacity:0.6;color:var(--muted)';
+      followBadge.textContent = followIcons[followAction] ?? '→';
+      btn.style.position = 'relative';
+      btn.append(followBadge);
+
       btn.addEventListener('click', () => {
         emit('state:change', { path: 'activeBank', value: activeBank });
         emit('state:change', { path: 'activePattern', value: pi });
