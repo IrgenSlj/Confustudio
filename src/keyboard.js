@@ -152,7 +152,12 @@ const KEY_ROLES = {
     KeyJ:{ role:'track', hint:'TRK7' }, KeyK:{ role:'track', hint:'TRK8' },
     KeyL:{ role:'util',  hint:'MUTE' }, KeyM:{ role:'util',  hint:'SOLO' },
   },
-  fx:       { ...PAGE_NAV },
+  fx: {
+    ...PAGE_NAV,
+    KeyA:{ role:'util', hint:'CLEAN' }, KeyS:{ role:'util', hint:'WARM'  },
+    KeyD:{ role:'util', hint:'SPACE' }, KeyF:{ role:'util', hint:'PUNCH' },
+    KeyG:{ role:'util', hint:'LO-FI' },
+  },
   scenes: {
     ...PAGE_NAV,
     KeyA:{ role:'scene', hint:'SCN1' }, KeyS:{ role:'scene', hint:'SCN2' },
@@ -168,7 +173,11 @@ const KEY_ROLES = {
     KeyG:{ role:'util', hint:'BNK E' }, KeyH:{ role:'util', hint:'BNK F' },
     KeyJ:{ role:'util', hint:'BNK G' }, KeyK:{ role:'util', hint:'BNK H' },
   },
-  arranger: { ...PAGE_NAV },
+  arranger: {
+    ...PAGE_NAV,
+    KeyL:{ role:'util', hint:'ADD' },
+    KeyM:{ role:'util', hint:'DEL' },
+  },
   settings: { ...PAGE_NAV },
 };
 
@@ -1130,6 +1139,27 @@ export function initKeyboard(state, emit, trackColors = []) {
       const BANK_KEYS = ['KeyA','KeyS','KeyD','KeyF','KeyG','KeyH','KeyJ','KeyK'];
       const bi = BANK_KEYS.indexOf(e.code);
       if (bi >= 0) { emit('bank:select', { bankIndex: bi }); return; }
+    }
+
+    // Scenes: A-K = select scene 1-8, L = snapshot active scene
+    if (page === 'scenes') {
+      const SCENE_KEYS = ['KeyA','KeyS','KeyD','KeyF','KeyG','KeyH','KeyJ','KeyK'];
+      const si = SCENE_KEYS.indexOf(e.code);
+      if (si >= 0) { emit('scene:select', { sceneIndex: si }); return; }
+      if (e.code === 'KeyL') { emit('scene:snapshot', { sceneIndex: state.activeScene ?? 0 }); return; }
+    }
+
+    // Arranger: L = add section, M = remove/clear last section
+    if (page === 'arranger') {
+      if (e.code === 'KeyL') { emit('arranger:addSection', {}); return; }
+      if (e.code === 'KeyM') { emit('arranger:removeSection', {}); return; }
+    }
+
+    // FX page: A-E = cycle through FX presets (CLEAN/WARM/SPACE/PUNCH/LO-FI)
+    if (page === 'fx') {
+      const FX_PRESET_KEYS = ['KeyA','KeyS','KeyD','KeyF','KeyG'];
+      const pi = FX_PRESET_KEYS.indexOf(e.code);
+      if (pi >= 0) { emit('fx:preset', { index: pi }); return; }
     }
   });
 

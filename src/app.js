@@ -928,6 +928,10 @@ function emit(type, payload = {}) {
           }
         }
         // legato is read per-trigger from track.legato — no engine call needed
+        // Arp/scale params affect keyboard context (shows/hides arp visualizer)
+        if (['arpEnabled','arpMode','arpRange','arpSpeed','arpHold'].includes(payload.param)) {
+          renderKbdContext(el.kbdContext, state.currentPage, state._pressedKeys, state, () => getActiveTrack(state));
+        }
         scheduleSave();
       }
       break;
@@ -967,6 +971,13 @@ function emit(type, payload = {}) {
     case 'track:muteToggle': {
       const t = pattern.kit.tracks[payload.trackIndex];
       if (t) { t.mute = !t.mute; scheduleSave(); renderTrackStrip(); renderTrackSelector(); renderPage(); }
+      break;
+    }
+
+    // ── FX preset shortcut (keyboard A-G on FX page) ──
+    case 'fx:preset': {
+      const btn = document.querySelector(`#page-content [data-preset-idx="${payload.index}"]`);
+      btn?.click();
       break;
     }
 
@@ -1049,7 +1060,7 @@ function emit(type, payload = {}) {
     // ── Octave ──
     case 'octave:shift':
       state.octaveShift = Math.max(-3, Math.min(3, state.octaveShift + payload.delta));
-      renderKbdContext(el.kbdContext, state.currentPage, state._pressedKeys, state);
+      renderKbdContext(el.kbdContext, state.currentPage, state._pressedKeys, state, () => getActiveTrack(state));
       break;
 
     // ── Scene operations ──
@@ -1799,7 +1810,7 @@ function renderAll() {
   renderPage();
   renderTrackStrip();
   renderTrackSelector();
-  renderKbdContext(el.kbdContext, state.currentPage, state._pressedKeys, state);
+  renderKbdContext(el.kbdContext, state.currentPage, state._pressedKeys, state, () => getActiveTrack(state));
   renderPiano(el.kbdPiano, state);
   updateTransportUI();
 }

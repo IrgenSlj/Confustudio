@@ -468,11 +468,12 @@ export default {
     presetLabel.textContent = 'PRESET:';
     presetBar.append(presetLabel);
 
-    BUILTIN_PRESETS.forEach(preset => {
+    BUILTIN_PRESETS.forEach((preset, presetIdx) => {
       const btn = document.createElement('button');
       btn.className = 'seq-btn';
       btn.textContent = preset.name;
       btn.title = `Apply ${preset.name} FX preset`;
+      btn.dataset.presetIdx = String(presetIdx);
       btn.addEventListener('click', () => {
         const t = getActiveTrack(state);
         // Apply global state values
