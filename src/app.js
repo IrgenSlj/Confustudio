@@ -2098,15 +2098,42 @@ function bindUI() {
       showToast('\u21AA Redo (' + _historyIdx + '/' + (_history.length - 1) + ')');
       e.preventDefault();
     } else if (e.key === 'm' || e.key === 'M') {
-      // Ctrl+M: mark named checkpoint at current history position
       e.preventDefault();
-      const pageNames = {
-        pattern: 'Pattern edit', 'piano-roll': 'Piano roll edit', sound: 'Sound edit',
-        mixer: 'Mixer edit', fx: 'FX edit', scenes: 'Scene edit', banks: 'Bank edit',
-        arranger: 'Arranger edit', settings: 'Settings edit',
-      };
-      const label = pageNames[state.currentPage] || 'Edit';
-      markCheckpoint(label);
+      if (e.shiftKey) {
+        // Ctrl+Shift+M: mark named checkpoint at current history position
+        const pageNames = {
+          pattern: 'Pattern edit', 'piano-roll': 'Piano roll edit', sound: 'Sound edit',
+          mixer: 'Mixer edit', fx: 'FX edit', scenes: 'Scene edit', banks: 'Bank edit',
+          arranger: 'Arranger edit', settings: 'Settings edit',
+        };
+        const label = pageNames[state.currentPage] || 'Edit';
+        markCheckpoint(label);
+      } else {
+        // Ctrl+M: toggle mute on selected track
+        emit('track:mute', { trackIndex: state.selectedTrackIndex });
+        const track = getActiveTrack(state);
+        showToast(`T${state.selectedTrackIndex + 1} ${track.mute ? 'Muted' : 'Unmuted'}`);
+      }
+    } else if (e.key === 'd' || e.key === 'D') {
+      // Ctrl+D: duplicate current pattern into next slot
+      e.preventDefault();
+      const bank = state.project.banks[state.activeBank];
+      const srcIdx = state.activePattern;
+      const srcPat = bank.patterns[srcIdx];
+      const destIdx = (srcIdx + 1) % bank.patterns.length;
+      pushHistory(state);
+      bank.patterns[destIdx] = JSON.parse(JSON.stringify(srcPat));
+      state.activePattern = destIdx;
+      scheduleSave();
+      renderAll();
+      showToast(`Pattern duplicated → ${String(destIdx + 1).padStart(2, '0')}`);
+    } else if (e.key === 's' || e.key === 'S') {
+      // Ctrl+S: save
+      if (!e.shiftKey) {
+        e.preventDefault();
+        saveState(state);
+        showToast('Saved');
+      }
     } else if ((e.key === 'e' || e.key === 'E') && e.shiftKey) {
       // Ctrl+Shift+E: Export MIDI
       e.preventDefault();
@@ -2147,6 +2174,15 @@ function bindUI() {
           <dt>Q–O</dt><dd>Switch pages</dd>
           <dt>Tab</dt><dd>Next page</dd>
           <dt>Shift+Tab</dt><dd>Previous page</dd>
+          <dt>F1</dt><dd>Settings page</dd>
+          <dt>F2</dt><dd>Pattern page</dd>
+          <dt>F3</dt><dd>Sound page</dd>
+          <dt>F4</dt><dd>Mixer page</dd>
+          <dt>F5</dt><dd>Piano Roll page</dd>
+          <dt>F6</dt><dd>FX page</dd>
+          <dt>F7</dt><dd>Arranger page</dd>
+          <dt>F8</dt><dd>Scenes page</dd>
+          <dt>F9</dt><dd>Banks page</dd>
         </dl>
       </div>
       <div class="help-section">
@@ -2171,7 +2207,10 @@ function bindUI() {
         <h4>Editing</h4>
         <dl>
           <dt>Ctrl+Z</dt><dd>Undo</dd>
-          <dt>Ctrl+Y</dt><dd>Redo</dd>
+          <dt>Ctrl+Shift+Z / Ctrl+Y</dt><dd>Redo</dd>
+          <dt>Ctrl+S</dt><dd>Save</dd>
+          <dt>Ctrl+D</dt><dd>Duplicate current pattern</dd>
+          <dt>Ctrl+M</dt><dd>Toggle mute on selected track</dd>
           <dt>Ctrl+C</dt><dd>Copy pattern</dd>
           <dt>Ctrl+V</dt><dd>Paste pattern</dd>
           <dt>Ctrl+Shift+E</dt><dd>Export MIDI</dd>
@@ -2183,7 +2222,7 @@ function bindUI() {
         <dl>
           <dt>+  /  =</dt><dd>BPM +1</dd>
           <dt>-  /  _</dt><dd>BPM −1</dd>
-          <dt>F1  /  ?</dt><dd>This help</dd>
+          <dt>?</dt><dd>This help</dd>
         </dl>
       </div>
     </div>
@@ -2224,9 +2263,19 @@ function bindUI() {
     }
   });
 
-  // ? / F1 key opens help modal; Escape closes it
+  // ? opens help modal; F1-F9 navigate pages; Escape closes modal
   document.addEventListener('keydown', e => {
-    if (e.key === '?' || e.key === 'F1') {
+    // F-key page navigation
+    const F_KEY_PAGES = {
+      F1: 'settings', F2: 'pattern', F3: 'sound', F4: 'mixer',
+      F5: 'piano-roll', F6: 'fx', F7: 'arranger', F8: 'scenes', F9: 'banks',
+    };
+    if (F_KEY_PAGES[e.key]) {
+      e.preventDefault();
+      emit('page:set', { page: F_KEY_PAGES[e.key] });
+      return;
+    }
+    if (e.key === '?') {
       e.preventDefault();
       const m = document.getElementById('help-modal');
       if (m) m.style.display = m.style.display === 'flex' ? 'none' : 'flex';

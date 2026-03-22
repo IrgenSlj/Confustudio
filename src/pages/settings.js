@@ -960,6 +960,40 @@ export default {
     themeSection.append(accentRow);
     container.append(themeSection);
 
+    // ── Keyboard shortcuts reference ─────────────────────────────────────────
+    const shortcutsSection = document.createElement('div');
+    shortcutsSection.className = 'settings-section';
+    shortcutsSection.innerHTML = `
+      <h4>Keyboard Shortcuts</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px;font-family:var(--font-mono);font-size:0.55rem;line-height:1.7">
+        <div style="color:var(--muted)">Space</div><div>Play / Stop</div>
+        <div style="color:var(--muted)">R</div><div>Record</div>
+        <div style="color:var(--muted)">Escape</div><div>Stop / Clear selection</div>
+        <div style="color:var(--muted)">Tab / Shift+Tab</div><div>Next / Prev page</div>
+        <div style="color:var(--muted)">1–8</div><div>Select track 1–8</div>
+        <div style="color:var(--muted)">F1</div><div>Settings page</div>
+        <div style="color:var(--muted)">F2</div><div>Pattern page</div>
+        <div style="color:var(--muted)">F3</div><div>Sound page</div>
+        <div style="color:var(--muted)">F4</div><div>Mixer page</div>
+        <div style="color:var(--muted)">F5</div><div>Piano Roll page</div>
+        <div style="color:var(--muted)">F6</div><div>FX page</div>
+        <div style="color:var(--muted)">F7</div><div>Arranger page</div>
+        <div style="color:var(--muted)">F8</div><div>Scenes page</div>
+        <div style="color:var(--muted)">F9</div><div>Banks page</div>
+        <div style="color:var(--muted)">Ctrl+Z</div><div>Undo</div>
+        <div style="color:var(--muted)">Ctrl+Shift+Z / Ctrl+Y</div><div>Redo</div>
+        <div style="color:var(--muted)">Ctrl+S</div><div>Save</div>
+        <div style="color:var(--muted)">Ctrl+D</div><div>Duplicate current pattern</div>
+        <div style="color:var(--muted)">Ctrl+M</div><div>Toggle mute on selected track</div>
+        <div style="color:var(--muted)">Ctrl+C / Ctrl+V</div><div>Copy / Paste pattern</div>
+        <div style="color:var(--muted)">Ctrl+Shift+E</div><div>Export MIDI</div>
+        <div style="color:var(--muted)">Del / Bksp</div><div>Clear selected steps</div>
+        <div style="color:var(--muted)">+ / -</div><div>BPM +1 / −1</div>
+        <div style="color:var(--muted)">?</div><div>Help modal</div>
+      </div>
+    `;
+    container.append(shortcutsSection);
+
     // ── Auto-save indicator ──────────────────────────────────────────────────
     const saveStatusDiv = document.createElement('div');
     saveStatusDiv.style.cssText = 'font-family:var(--font-mono);font-size:0.5rem;color:var(--muted);padding:4px 0 2px';
