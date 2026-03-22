@@ -133,6 +133,11 @@ export function createTrack(index) {
     // Polyphony
     maxVoices: 8,      // 1–16, maximum simultaneous voices before voice stealing
 
+    // LFO routing destinations (multi-target flags)
+    lfoToCutoff:  false,
+    lfoToPitch:   false,
+    lfoToVolume:  false,
+
     // Legato
     legato: false,
 

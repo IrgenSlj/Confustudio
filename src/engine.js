@@ -171,9 +171,26 @@ export class AudioEngine {
     this.chorusLFO.connect(this.chorusDepthGain);
     this.chorusDepthGain.connect(this.chorusDelay.delayTime);
     this.chorusLFO.start();
-    // Parallel send: master → chorusDelay → chorusWet → masterCompressor
+
+    // Chorus stereo width — dual panner approach.
+    // The mono chorus delay is sent to two StereoPanners: one panned left, one right.
+    // Width 0 = both panners at centre (mono), Width 1 = hard L/R (full stereo spread).
+    // A gain node sums both panned signals into the chorusWet output.
+    this._chorusPanL         = context.createStereoPanner();
+    this._chorusPanR         = context.createStereoPanner();
+    this._chorusWidthSum     = context.createGain(); // sums both panned stereo paths
+    this._chorusWidthSum.gain.value = 0.5; // -6 dB to compensate for double signal
+    this._chorusPanL.pan.value = -0.5; // default width 0.5 → pan ±0.5
+    this._chorusPanR.pan.value =  0.5;
+
+    this.chorusDelay.connect(this._chorusPanL);
+    this.chorusDelay.connect(this._chorusPanR);
+    this._chorusPanL.connect(this._chorusWidthSum);
+    this._chorusPanR.connect(this._chorusWidthSum);
+
+    // Parallel send: master → chorusDelay → [width panners] → chorusWet → masterCompressor
     this.master.connect(this.chorusDelay);
-    this.chorusDelay.connect(this.chorusWet);
+    this._chorusWidthSum.connect(this.chorusWet);
     this.chorusWet.connect(this.masterCompressor);
 
     // Master chain: masterGain → masterCompressor → masterSaturator → [limiter?] → masterEQLow → masterEQMid → masterEQHigh → analyser → destination
@@ -799,25 +816,52 @@ export class AudioEngine {
     }
     output.gain.exponentialRampToValueAtTime(0.0001, when + totalTime);
 
-    // LFO modulation
-    if (params.lfoDepth > 0.001) {
-      const lfo = this.context.createOscillator();
-      const lfoGain = this.context.createGain();
-      lfo.type = "sine";
-      lfo.frequency.value = params.lfoRate;
-      lfo.connect(lfoGain);
-      if (params.lfoTarget === "cutoff") {
-        lfoGain.gain.value = params.lfoDepth * 2500;
-        lfoGain.connect(filter.frequency);
-      } else if (params.lfoTarget === "volume") {
-        lfoGain.gain.value = params.lfoDepth * loudness * 0.7;
-        lfoGain.connect(output.gain);
-      } else if (params.lfoTarget === "pan") {
-        lfoGain.gain.value = params.lfoDepth;
-        lfoGain.connect(panner.pan);
+    // LFO modulation — trigLFO is shared across all routing destinations for this trigger
+    let trigLFO = null;
+    const lfoActive = params.lfoDepth > 0.001;
+    const hasRoutingFlags = params.lfoToCutoff || params.lfoToVolume || params.lfoToPitch;
+    if (lfoActive || hasRoutingFlags) {
+      trigLFO = this.context.createOscillator();
+      trigLFO.type = "sine";
+      trigLFO.frequency.value = params.lfoRate ?? 2;
+
+      // Legacy single-target routing via lfoTarget
+      if (lfoActive) {
+        const lfoGain = this.context.createGain();
+        trigLFO.connect(lfoGain);
+        if (params.lfoTarget === "cutoff") {
+          lfoGain.gain.value = params.lfoDepth * 2500;
+          lfoGain.connect(filter.frequency);
+        } else if (params.lfoTarget === "volume") {
+          lfoGain.gain.value = params.lfoDepth * loudness * 0.7;
+          lfoGain.connect(output.gain);
+        } else if (params.lfoTarget === "pan") {
+          lfoGain.gain.value = params.lfoDepth;
+          lfoGain.connect(panner.pan);
+        } else if (params.lfoTarget === "pitch") {
+          lfoGain.gain.value = (params.lfoDepth ?? 0.3) * 100;
+          // pitch routing needs osc.detune — deferred to after osc creation below
+          trigLFO._pitchGain = lfoGain;
+        }
       }
-      lfo.start(when);
-      lfo.stop(when + totalTime + 0.05);
+
+      // Multi-destination routing flags
+      if (params.lfoToCutoff) {
+        const g = this.context.createGain();
+        g.gain.value = (params.lfoDepth ?? 0.3) * (params.cutoff ?? 800);
+        trigLFO.connect(g);
+        g.connect(filter.frequency);
+      }
+      if (params.lfoToVolume) {
+        const g = this.context.createGain();
+        g.gain.value = (params.lfoDepth ?? 0.3) * 0.5;
+        trigLFO.connect(g);
+        g.connect(output.gain);
+      }
+      // lfoToPitch routing is applied after osc creation below
+
+      trigLFO.start(when);
+      trigLFO.stop(when + totalTime + 0.05);
     }
 
     // Plaits multi-engine synth
@@ -1035,6 +1079,21 @@ export class AudioEngine {
       osc.stop(when + totalTime + 0.02);
       this._registerVoice(trackKey, osc, params.maxVoices ?? 8);
 
+      // Apply LFO → pitch routing now that osc.detune is available
+      if (trigLFO) {
+        // lfoTarget === "pitch" deferred gain node
+        if (trigLFO._pitchGain) {
+          trigLFO._pitchGain.connect(osc.detune);
+        }
+        // lfoToPitch routing flag
+        if (params.lfoToPitch) {
+          const g = this.context.createGain();
+          g.gain.value = (params.lfoDepth ?? 0.3) * 100; // depth * 100 cents
+          trigLFO.connect(g);
+          g.connect(osc.detune);
+        }
+      }
+
       if (params.legato) {
         this._legatoSources.set(legatoKey, { osc, output, stopAt: when + totalTime + 0.02 });
         // Clean up entry after note ends
@@ -1145,6 +1204,15 @@ export class AudioEngine {
   setChorusRate(v)  { this.chorusLFO.frequency.setTargetAtTime(v, this.context.currentTime, 0.01); }
   setChorusDepth(v) { this.chorusDepthGain.gain.setTargetAtTime(v * 0.02, this.context.currentTime, 0.01); }
   setChorusMix(v)   { this.chorusWet.gain.setTargetAtTime(v, this.context.currentTime, 0.01); }
+
+  // Chorus stereo width (0 = mono, 1 = full stereo spread).
+  // Moves the L/R panner pair symmetrically: width 0 → pan 0 (mono), width 1 → pan ±1.
+  setChorusWidth(v) {
+    v = Math.max(0, Math.min(1, v));
+    const t = this.context.currentTime;
+    if (this._chorusPanL) this._chorusPanL.pan.setTargetAtTime(-v, t, 0.01);
+    if (this._chorusPanR) this._chorusPanR.pan.setTargetAtTime( v, t, 0.01);
+  }
 
   // ——————————————————————————————————————————————
   // Sidechain ducking

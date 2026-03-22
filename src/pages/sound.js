@@ -1315,6 +1315,28 @@ export default {
       lfoCard.append(makeSlider(label, param, min, max, step, value, emit, ti));
     });
 
+    // LFO routing destination toggles (multi-target flags)
+    const lfoRoutingRow = document.createElement('div');
+    lfoRoutingRow.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;margin-top:4px';
+    [
+      { param: 'lfoToCutoff', label: '→CUTOFF' },
+      { param: 'lfoToPitch',  label: '→PITCH'  },
+      { param: 'lfoToVolume', label: '→VOL'    },
+    ].forEach(({ param, label }) => {
+      const btn = document.createElement('button');
+      btn.className = 'ctx-btn' + (track[param] ? ' active' : '');
+      btn.textContent = label;
+      btn.style.fontSize = '0.44rem';
+      btn.addEventListener('click', () => {
+        const val = !track[param];
+        track[param] = val;
+        btn.classList.toggle('active', val);
+        emit('track:change', { trackIndex: ti, param, value: val });
+      });
+      lfoRoutingRow.append(btn);
+    });
+    lfoCard.append(lfoRoutingRow);
+
     grid.append(lfoCard);
 
     // ── Arp card ──
