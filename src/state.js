@@ -78,6 +78,9 @@ export function createTrack(index) {
     // Per-track length (0 = follow pattern.length)
     trackLength:  0,
 
+    // Per-track step count override for polyrhythm (null = use global pattern.length)
+    stepCount:    null,
+
     // Per-track swing (null = use global state.swing)
     swing:        null,
 
@@ -246,6 +249,7 @@ export function createAppState() {
     // Playback
     isPlaying:          false,
     isRecording:        false,
+    overdubMode:        false,
     stepRecordMode:     false,
     _stepRecordCursor:  0,
     currentStep:        -1,

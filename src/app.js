@@ -1354,11 +1354,17 @@ function scheduleLoop() {
             : Math.round(stepIdx / recQ) * recQ % trackLen;
           const step = track.steps[qStepIdx];
           if (step) {
+            if (!state.overdubMode) {
+              // Normal record: clear all steps in the pattern first, then record
+              track.steps.forEach(s => { s.active = false; });
+            }
             step.active = true;
             // Use the lowest held MIDI note (numeric keys are MIDI notes)
             const heldNotes = [...state._pressedKeys].filter(k => typeof k === 'number');
             if (heldNotes.length > 0) {
-              step.paramLocks = { ...step.paramLocks, note: Math.min(...heldNotes) };
+              const note = Math.min(...heldNotes);
+              step.note = note;
+              step.paramLocks = { ...step.paramLocks, note };
             }
           }
         }
@@ -1926,6 +1932,22 @@ function updateTopbar() {
     stepCursorDisplay.style.display = 'none';
   }
 
+  // Overdub indicator
+  let overdubDisplay = document.getElementById('overdub-display');
+  if (!overdubDisplay) {
+    overdubDisplay = document.createElement('span');
+    overdubDisplay.id = 'overdub-display';
+    overdubDisplay.className = 'topbar-item';
+    overdubDisplay.style.cssText = [
+      'font-family:var(--font-mono)', 'font-size:0.52rem', 'color:#f90',
+      'background:rgba(255,144,0,0.12)', 'border:1px solid rgba(255,144,0,0.4)',
+      'border-radius:3px', 'padding:1px 5px', 'display:none',
+    ].join(';');
+    overdubDisplay.textContent = 'OVR';
+    document.getElementById('step-cursor-display')?.insertAdjacentElement('afterend', overdubDisplay);
+  }
+  overdubDisplay.style.display = (state.overdubMode && state.isRecording) ? '' : 'none';
+
   // Chain display
   let chainDisplay = document.getElementById('chain-display');
   if (!chainDisplay) {
@@ -2082,6 +2104,23 @@ function bindUI() {
   el.btnPlay.addEventListener('click',   () => togglePlay());
   el.btnStop.addEventListener('click',   () => stopPlay());
   el.btnRecord?.addEventListener('click', () => emit('transport:record'));
+
+  // Overdub toggle button
+  let overdubBtn = document.getElementById('btn-overdub');
+  if (!overdubBtn) {
+    overdubBtn = document.createElement('button');
+    overdubBtn.id = 'btn-overdub';
+    overdubBtn.className = 'transport-btn' + (state.overdubMode ? ' active' : '');
+    overdubBtn.textContent = 'OVR';
+    overdubBtn.title = 'Overdub mode: add notes without erasing';
+    overdubBtn.style.fontSize = '0.52rem';
+    overdubBtn.addEventListener('click', () => {
+      state.overdubMode = !state.overdubMode;
+      overdubBtn.classList.toggle('active', state.overdubMode);
+      updateTopbar();
+    });
+    el.btnRecord?.insertAdjacentElement('afterend', overdubBtn);
+  }
   el.kbdPlay?.addEventListener('click',   () => togglePlay());
   el.kbdStop?.addEventListener('click',   () => stopPlay());
   el.kbdRecord?.addEventListener('click', () => emit('transport:record'));
