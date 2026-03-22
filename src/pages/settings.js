@@ -32,10 +32,10 @@ export default {
         <span class="page-title" style="margin:0">Settings</span>
         <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);margin-left:auto">CONFUsynth ${VERSION}</span>
       </div>
-      <div class="settings-grid" style="flex:1;min-height:0">
+      <div class="settings-grid" style="overflow-y:visible;height:auto;min-height:0">
 
         <!-- MIDI -->
-        <div class="settings-section">
+        <div class="settings-section" data-settings-tab="MIDI">
           <h4>MIDI</h4>
           <div class="settings-row">
             <label>Output</label>
@@ -58,7 +58,7 @@ export default {
         </div>
 
         <!-- Clock -->
-        <div class="settings-section">
+        <div class="settings-section" data-settings-tab="MIDI">
           <h4>Clock</h4>
           <div class="settings-row">
             <label>Source</label>
@@ -78,7 +78,7 @@ export default {
         </div>
 
         <!-- Sync -->
-        <div class="settings-section">
+        <div class="settings-section" data-settings-tab="MIDI">
           <h4>SYNC</h4>
           <div class="settings-row">
             <label>Ableton Link</label>
@@ -90,7 +90,7 @@ export default {
         </div>
 
         <!-- Audio -->
-        <div class="settings-section">
+        <div class="settings-section" data-settings-tab="AUDIO">
           <h4>AUDIO</h4>
           ${infoRow('Status',
             state.audioContext ? (state.audioContext.state === 'running' ? 'Running' : state.audioContext.state) : 'Not initialised',
@@ -110,7 +110,7 @@ export default {
         </div>
 
         <!-- Storage -->
-        <div class="settings-section">
+        <div class="settings-section" data-settings-tab="SYSTEM">
           <h4>Storage</h4>
           <button class="screen-btn" data-action="clearStorage"
                   style="border-color:rgba(240,91,82,0.3);color:var(--record)">
@@ -122,7 +122,7 @@ export default {
         </div>
 
         <!-- Performance Monitor -->
-        <div class="settings-section" id="perf-section">
+        <div class="settings-section" id="perf-section" data-settings-tab="SYSTEM">
           <h4>CPU / Performance</h4>
           <div style="font-family:var(--font-mono);font-size:0.56rem;color:var(--muted);margin-bottom:4px" id="perf-latency-static">
             Base latency: ${latencyMs} | Output: ${outputLatMs}
@@ -130,6 +130,47 @@ export default {
         </div>
 
       </div>`;
+
+    // ── Sub-tab bar ──────────────────────────────────────────────────────────
+    const SET_TABS = ['PROJECT', 'AUDIO', 'MIDI', 'SYSTEM'];
+    const activeSetTab = state._settingsTab ?? 'PROJECT';
+
+    const setTabBar = document.createElement('div');
+    setTabBar.style.cssText = 'display:flex;gap:2px;padding:4px 8px 0;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:6px';
+
+    SET_TABS.forEach(tab => {
+      const btn = document.createElement('button');
+      btn.className = 'tab' + (tab === activeSetTab ? ' active' : '');
+      btn.textContent = tab;
+      btn.style.cssText = 'font-size:0.5rem;padding:3px 10px';
+      btn.addEventListener('click', () => {
+        state._settingsTab = tab;
+        emit('state:change', { param: 'settingsTab' });
+        updateTabVisibility();
+      });
+      setTabBar.append(btn);
+    });
+
+    // Insert tab bar before the title row (which is the first child after innerHTML)
+    container.insertBefore(setTabBar, container.firstChild.nextSibling);
+
+    function updateTabVisibility() {
+      const current = state._settingsTab ?? 'PROJECT';
+      container.querySelectorAll('[data-settings-tab]').forEach(el => {
+        el.style.display = el.dataset.settingsTab === current ? '' : 'none';
+      });
+      // Show/hide the grid wrapper based on whether the active tab has grid children
+      const settingsGrid = container.querySelector('.settings-grid');
+      if (settingsGrid) {
+        const hasVisibleGridItems = Array.from(settingsGrid.children).some(
+          ch => ch.dataset?.settingsTab === current
+        );
+        settingsGrid.style.display = hasVisibleGridItems ? '' : 'none';
+      }
+      setTabBar.querySelectorAll('.tab').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent === current);
+      });
+    }
 
     // ── MIDI Output Routing section ──────────────────────────────────────────
     const midiSection = container.querySelector('.settings-section');
@@ -185,6 +226,7 @@ export default {
     const metaSection = document.createElement('div');
     metaSection.className = 'settings-section';
     metaSection.style.cssText = 'flex-shrink:0;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)';
+    metaSection.dataset.settingsTab = 'PROJECT';
     metaSection.innerHTML = `
       <div class="settings-label">PROJECT INFO</div>
       <div class="settings-row">
@@ -207,7 +249,7 @@ export default {
         Created: ${state.project.createdAt ? new Date(state.project.createdAt).toLocaleDateString() : 'Unknown'}
       </div>
     `;
-    container.prepend(metaSection);
+    container.append(metaSection);
 
     // Wire metadata inputs
     metaSection.querySelector('#proj-name-input').addEventListener('input', e => {
@@ -342,6 +384,7 @@ export default {
 
     const midiLearnSection = document.createElement('div');
     midiLearnSection.style.cssText = 'margin-top:10px;flex-shrink:0;border-top:1px solid var(--border);padding-top:8px';
+    midiLearnSection.dataset.settingsTab = 'MIDI';
 
     const learnHeader = document.createElement('div');
     learnHeader.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px';
@@ -536,6 +579,7 @@ export default {
     const backupSection = document.createElement('div');
     backupSection.className = 'settings-section';
     backupSection.style.cssText = 'flex-shrink:0;border-top:1px solid var(--border);padding-top:8px;margin-top:8px';
+    backupSection.dataset.settingsTab = 'PROJECT';
 
     function renderBackups() {
       backupSection.innerHTML = '<div class="settings-label">BACKUPS</div>';
@@ -610,6 +654,7 @@ export default {
     // ── Oscilloscope Mode Selector ────────────────────────────────────────────
     const oscSection = document.createElement('div');
     oscSection.className = 'settings-section';
+    oscSection.dataset.settingsTab = 'AUDIO';
     oscSection.innerHTML = `<div class="settings-label">OSCILLOSCOPE</div>`;
     const oscModeBar = document.createElement('div');
     oscModeBar.className = 'settings-row';
@@ -733,6 +778,7 @@ export default {
     // ── Performance Profiles ──────────────────────────────────────────────────
     const perfSection = document.createElement('div');
     perfSection.style.cssText = 'margin-top:10px;border-top:1px solid var(--border);padding-top:8px';
+    perfSection.dataset.settingsTab = 'AUDIO';
 
     const perfTitle = document.createElement('div');
     perfTitle.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);margin-bottom:6px';
@@ -795,6 +841,7 @@ export default {
     // ── MIDI Programs ─────────────────────────────────────────────────────────
     const progSection = document.createElement('div');
     progSection.className = 'settings-section';
+    progSection.dataset.settingsTab = 'MIDI';
     progSection.innerHTML = '<div class="settings-label">MIDI PROGRAMS (0=off)</div>';
     const progGrid = document.createElement('div');
     progGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:3px;';
@@ -821,6 +868,7 @@ export default {
     // ── MIDI Channels ────────────────────────────────────────────────────────
     const midiChSection = document.createElement('div');
     midiChSection.className = 'settings-section';
+    midiChSection.dataset.settingsTab = 'MIDI';
     midiChSection.innerHTML = '<div class="settings-label">MIDI CHANNELS (0=global)</div>';
     const midiChGrid = document.createElement('div');
     midiChGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:3px;';
@@ -914,6 +962,7 @@ export default {
     // ── Presets ──────────────────────────────────────────────────────────────
     const presetsSection = document.createElement('div');
     presetsSection.style.cssText = 'margin-top:10px;flex-shrink:0;border-top:1px solid var(--border);padding-top:8px';
+    presetsSection.dataset.settingsTab = 'PROJECT';
 
     const presetsTitle = document.createElement('span');
     presetsTitle.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px';
@@ -1021,6 +1070,7 @@ export default {
     const themes = ['default', 'blue', 'red', 'mono'];
     const themeSection = document.createElement('div');
     themeSection.className = 'settings-section';
+    themeSection.dataset.settingsTab = 'SYSTEM';
     themeSection.innerHTML = '<div class="settings-label">THEME</div>';
     const themeBar = document.createElement('div');
     themeBar.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;';
@@ -1103,6 +1153,7 @@ export default {
     // ── Keyboard shortcuts reference ─────────────────────────────────────────
     const shortcutsSection = document.createElement('div');
     shortcutsSection.className = 'settings-section';
+    shortcutsSection.dataset.settingsTab = 'SYSTEM';
     shortcutsSection.innerHTML = `
       <h4>Keyboard Shortcuts</h4>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px;font-family:var(--font-mono);font-size:0.55rem;line-height:1.7">
@@ -1137,6 +1188,7 @@ export default {
     // ── Auto-save indicator ──────────────────────────────────────────────────
     const saveStatusDiv = document.createElement('div');
     saveStatusDiv.style.cssText = 'font-family:var(--font-mono);font-size:0.5rem;color:var(--muted);padding:4px 0 2px';
+    saveStatusDiv.dataset.settingsTab = 'SYSTEM';
     const lastSave = state._lastSaveTime ? new Date(state._lastSaveTime).toLocaleTimeString() : 'Never';
     saveStatusDiv.textContent = `Auto-save: ${lastSave}`;
     container.append(saveStatusDiv);
@@ -1161,6 +1213,9 @@ export default {
         saveState(state);
       }
     });
+
+    // Apply initial tab visibility after all sections are in the DOM
+    updateTabVisibility();
   },
 
   knobMap: [
