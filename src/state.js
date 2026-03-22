@@ -295,6 +295,9 @@ export function createAppState() {
     clockMode:     0,
     midiClockOut:  false,
     clockSource:   "internal",
+    latencyCompMs:    0,
+    audioBufferSize:  512,
+    maxVoicesGlobal:  16,
 
     // Pattern editing
     octaveShift:       0,

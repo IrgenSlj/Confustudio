@@ -1423,6 +1423,7 @@ function scheduleLoop() {
           ? (Math.random() * 2 - 1) * humanize * secsPerStep * 0.5
           : 0;
         const totalOffset = microOffset + humanizeOffset;
+        const latencyComp = (state.latencyCompMs ?? 0) / 1000;
 
         // Track last-played note for live display on sound page
         state._lastNotes = state._lastNotes ?? {};
@@ -1454,7 +1455,7 @@ function scheduleLoop() {
             state._arpIdx[ti] = (state._arpIdx[ti] + 1) % arpNotes.length;
           }
           state._lastNotes[ti] = noteToPlay;
-          state.engine.triggerTrack(track, _schedNextTime + totalOffset, secsPerStep, {
+          state.engine.triggerTrack(track, _schedNextTime + totalOffset - latencyComp, secsPerStep, {
             accent:      step.accent,
             note:        step.note,
             velocity:    step.velocity ?? 1,
@@ -1472,7 +1473,7 @@ function scheduleLoop() {
             state.engine.midiOutput.send([0x80 | ch, note, 0], window.performance.now() + gateDur);
           }
         } else {
-          state.engine.triggerTrack(track, _schedNextTime + totalOffset, secsPerStep, {
+          state.engine.triggerTrack(track, _schedNextTime + totalOffset - latencyComp, secsPerStep, {
             accent:      step.accent,
             note:        step.note,
             velocity:    step.velocity ?? 1,

@@ -698,7 +698,99 @@ export default {
         devRow.append(devLabel, devSel, noteSpan);
         audioSection.append(devRow);
       }
+
+      // ── Buffer Size Selector ──────────────────────────────────────────────────
+      const audioDeviceSection = audioSection;
+      const bufferRow = document.createElement('div');
+      bufferRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:6px';
+      const bufferLabel = document.createElement('label');
+      bufferLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted)';
+      bufferLabel.textContent = 'BUFFER:';
+
+      const bufferSelect = document.createElement('select');
+      bufferSelect.style.cssText = 'font-size:0.48rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px';
+
+      [128, 256, 512, 1024, 2048, 4096].forEach(size => {
+        const opt = document.createElement('option');
+        opt.value = String(size); opt.textContent = `${size} samples`;
+        if (size === (state.audioBufferSize ?? 512)) opt.selected = true;
+        bufferSelect.append(opt);
+      });
+
+      const bufferNote = document.createElement('span');
+      bufferNote.style.cssText = 'font-family:var(--font-mono);font-size:0.44rem;color:var(--muted);opacity:0.7';
+      bufferNote.textContent = '(restart required)';
+
+      bufferSelect.addEventListener('change', () => {
+        state.audioBufferSize = parseInt(bufferSelect.value);
+        emit('state:change', { param: 'audioBufferSize', value: state.audioBufferSize });
+      });
+
+      bufferRow.append(bufferLabel, bufferSelect, bufferNote);
+      audioDeviceSection?.append(bufferRow);
     }
+
+    // ── Performance Profiles ──────────────────────────────────────────────────
+    const perfSection = document.createElement('div');
+    perfSection.style.cssText = 'margin-top:10px;border-top:1px solid var(--border);padding-top:8px';
+
+    const perfTitle = document.createElement('div');
+    perfTitle.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);margin-bottom:6px';
+    perfTitle.textContent = 'PERFORMANCE PROFILE';
+    perfSection.append(perfTitle);
+
+    const profiles = [
+      { name: 'LOW', desc: 'Low end devices', settings: { maxVoicesGlobal: 8, audioBufferSize: 2048, lookahead: 0.2 } },
+      { name: 'MID', desc: 'Balanced', settings: { maxVoicesGlobal: 16, audioBufferSize: 512, lookahead: 0.1 } },
+      { name: 'HIGH', desc: 'High end / Pro', settings: { maxVoicesGlobal: 32, audioBufferSize: 128, lookahead: 0.05 } },
+    ];
+
+    const profileRow = document.createElement('div');
+    profileRow.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap';
+
+    profiles.forEach(profile => {
+      const btn = document.createElement('button');
+      btn.className = 'seq-btn';
+      btn.textContent = profile.name;
+      btn.title = profile.desc;
+      btn.addEventListener('click', () => {
+        Object.assign(state, profile.settings);
+        if (state.engine) {
+          if (profile.settings.lookahead) state.engine.lookahead = profile.settings.lookahead;
+        }
+        emit('state:change', { param: 'performanceProfile', value: profile.settings });
+        emit('toast', { message: `Profile: ${profile.name}` });
+      });
+      profileRow.append(btn);
+    });
+
+    perfSection.append(profileRow);
+
+    // ── Latency Compensation ──────────────────────────────────────────────────
+    const latRow = document.createElement('div');
+    latRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:6px';
+    const latLabel = document.createElement('label');
+    latLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);min-width:80px';
+    latLabel.textContent = 'LAT COMP:';
+
+    const latSlider = document.createElement('input');
+    latSlider.type = 'range'; latSlider.min = '-100'; latSlider.max = '100'; latSlider.step = '5';
+    latSlider.value = String(state.latencyCompMs ?? 0);
+    latSlider.style.flex = '1';
+
+    const latVal = document.createElement('span');
+    latVal.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--fg);min-width:40px;text-align:right';
+    latVal.textContent = `${state.latencyCompMs ?? 0}ms`;
+
+    latSlider.addEventListener('input', () => {
+      state.latencyCompMs = parseInt(latSlider.value);
+      latVal.textContent = `${state.latencyCompMs}ms`;
+      emit('state:change', { param: 'latencyCompMs', value: state.latencyCompMs });
+    });
+
+    latRow.append(latLabel, latSlider, latVal);
+    perfSection.append(latRow);
+    container.append(perfSection);
 
     // ── MIDI Programs ─────────────────────────────────────────────────────────
     const progSection = document.createElement('div');
