@@ -2753,7 +2753,18 @@ function initMacros() {
 
   const wrap = document.createElement('div');
   wrap.className = 'macro-controls';
-  wrap.innerHTML = `<div class="macro-label-row">MACROS</div>`;
+
+  const collapsed = state.macrosCollapsed ?? true;
+  wrap.innerHTML = `<div class="macro-label-row macro-label-toggle">MACROS <span class="macro-caret">${collapsed ? '▶' : '▼'}</span></div>`;
+  if (collapsed) wrap.classList.add('macro-collapsed');
+
+  wrap.querySelector('.macro-label-toggle').addEventListener('click', () => {
+    const isNowCollapsed = !wrap.classList.contains('macro-collapsed');
+    wrap.classList.toggle('macro-collapsed', isNowCollapsed);
+    wrap.querySelector('.macro-caret').textContent = isNowCollapsed ? '▶' : '▼';
+    state.macrosCollapsed = isNowCollapsed;
+    saveState(state);
+  });
 
   state.macros.forEach((macro, i) => {
     const col = document.createElement('div');
