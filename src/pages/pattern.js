@@ -508,24 +508,38 @@ export default {
         // Trig condition badge
         if (step.trigCondition && step.trigCondition !== 'always') {
           btn.classList.add('has-trig');
+          btn.classList.add('has-trig-cond');
           btn.dataset.trig = step.trigCondition;
-          const trigSpan = document.createElement('span');
-          trigSpan.className = 'step-trig';
-          const abbrev = {
-            '1st':      '1st',
-            'not1st':   'n1',
-            'every2':   '÷2',
-            'every3':   '÷3',
-            'every4':   '÷4',
-            'random':   'rnd',
+          const condLabels = {
+            '1st':      '1',
+            'not1st':   '¬1',
+            'every2':   '/2',
+            'every3':   '/3',
+            'every4':   '/4',
+            'random50': '?',
+            'random':   '?',
             'fill':     'F',
             'not_fill': '¬F',
             'first':    '1',
             'not_first':'¬1',
             '1:2':      '½',
           };
-          trigSpan.textContent = abbrev[step.trigCondition] ?? step.trigCondition.slice(0, 3);
-          btn.append(trigSpan);
+          const condLabel = condLabels[step.trigCondition] ?? step.trigCondition.slice(0, 2);
+          btn.dataset.trigCond = condLabel;
+          const condColors = {
+            '1st':      '#4af',
+            'not1st':   '#fa4',
+            'every2':   '#4f4',
+            'every3':   '#4f4',
+            'every4':   '#4f4',
+            'random50': '#f44',
+            'random':   '#f44',
+            'fill':     '#af4',
+            'not_fill': '#f84',
+            'first':    '#4af',
+            'not_first':'#fa4',
+          };
+          btn.style.setProperty('--trig-cond-color', condColors[step.trigCondition] ?? 'var(--accent)');
         }
         if (si > 0 && si % 4 === 0) btn.classList.add('step-group-start');
 

@@ -1180,15 +1180,29 @@ button {
   100% { box-shadow: 0 0 12px 4px rgba(240,91,82,0); }
 }
 
-.step-btn.has-prob::after {
+.step-btn.has-prob::before {
   content: '';
   position: absolute;
-  bottom: 0;
-  left: 0;
-  height: 2px;
+  bottom: 1px;
+  left: 50%;
+  transform: translateX(-50%);
   width: calc(var(--prob, 1) * 100%);
-  background: var(--live, #ff6b35);
-  border-radius: 0 0 2px 2px;
+  height: 2px;
+  background: rgba(255,200,80,0.7);
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.step-btn.has-trig-cond::after {
+  content: attr(data-trig-cond);
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  font-size: 0.35rem;
+  color: var(--trig-cond-color, var(--accent));
+  font-family: var(--font-mono);
+  line-height: 1;
   pointer-events: none;
 }
 
@@ -1213,14 +1227,7 @@ button {
 }
 
 .step-trig {
-  position: absolute;
-  top: 1px;
-  left: 1px;
-  font-size: 0.38rem;
-  font-family: var(--font-mono);
-  color: var(--live);
-  pointer-events: none;
-  line-height: 1;
+  display: none;
 }
 
 .step-note-label {
