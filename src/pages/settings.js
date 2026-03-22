@@ -359,17 +359,20 @@ export default {
       if (mappings.length > 0) {
         const table = document.createElement('div');
         table.className = 'midi-learn-table';
-        table.style.cssText = 'display:grid;grid-template-columns:auto 1fr auto;gap:2px 6px;margin-bottom:6px;align-items:center';
+        table.style.cssText = 'display:grid;grid-template-columns:auto 60px 1fr auto;gap:2px 6px;margin-bottom:6px;align-items:center';
 
         // Headers
         const hCC = document.createElement('span');
         hCC.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);text-transform:uppercase';
         hCC.textContent = 'CC';
+        const hBar = document.createElement('span');
+        hBar.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);text-transform:uppercase';
+        hBar.textContent = 'Level';
         const hParam = document.createElement('span');
         hParam.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);text-transform:uppercase';
         hParam.textContent = 'Parameter';
         const hDel = document.createElement('span');
-        table.append(hCC, hParam, hDel);
+        table.append(hCC, hBar, hParam, hDel);
 
         mappings.forEach(([cc, param]) => {
           const isLearning = state.midiLearnMode && state.midiLearnTarget === param;
@@ -377,6 +380,14 @@ export default {
           ccEl.style.cssText = `font-family:var(--font-mono);font-size:0.56rem;color:${isLearning ? 'var(--live)' : 'var(--accent)'}`;
           if (isLearning) ccEl.style.fontWeight = 'bold';
           ccEl.textContent = cc;
+
+          // CC bar cell
+          const barCell = document.createElement('div');
+          barCell.style.cssText = 'width:60px;padding:1px 4px';
+          const bar = document.createElement('div');
+          bar.style.cssText = `height:4px;background:var(--accent);border-radius:2px;width:${Math.round((parseInt(cc) / 127) * 60)}px;opacity:0.7`;
+          barCell.append(bar);
+
           const paramEl = document.createElement('span');
           paramEl.style.cssText = `font-family:var(--font-mono);font-size:0.56rem;color:${isLearning ? 'var(--live)' : 'var(--screen-text)'}`;
           if (isLearning) paramEl.style.fontWeight = 'bold';
@@ -396,7 +407,7 @@ export default {
             ccEl.style.background = 'rgba(0,200,100,0.08)';
             paramEl.style.background = 'rgba(0,200,100,0.08)';
           }
-          table.append(ccEl, paramEl, delBtn);
+          table.append(ccEl, barCell, paramEl, delBtn);
         });
         midiLearnSection.insertBefore(table, midiLearnActionBar);
       } else {
@@ -486,8 +497,9 @@ export default {
       backupBtn.className = 'ctx-btn';
       backupBtn.textContent = 'Backup Now';
       backupBtn.addEventListener('click', () => {
-        const key = `confusynth_backup_${Date.now()}`;
-        localStorage.setItem(key, JSON.stringify(state.project));
+        const now = Date.now();
+        const key = `confusynth_backup_${now}`;
+        localStorage.setItem(key, JSON.stringify({ ...state.project, timestamp: now }));
         emit('toast', { msg: 'Backup saved' });
         renderBackups();
       });
@@ -506,8 +518,12 @@ export default {
         backupSection.append(none);
       } else {
         keys.forEach(key => {
-          const ts = parseInt(key.replace('confusynth_backup_', ''), 10);
-          const label = isNaN(ts) ? key : new Date(ts).toLocaleString(undefined, { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+          let backup = null;
+          try { backup = JSON.parse(localStorage.getItem(key)); } catch (_) {}
+          const rawTs = backup?.timestamp ?? backup?.savedAt ?? parseInt(key.replace('confusynth_backup_', ''), 10);
+          const date = new Date(rawTs ?? Date.now());
+          const dateStr = date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+          const label = isNaN(date.getTime()) ? key : dateStr;
           const row = document.createElement('div');
           row.style.cssText = 'display:flex;align-items:center;gap:4px;margin-bottom:3px';
           const lbl = document.createElement('span');
@@ -714,6 +730,8 @@ export default {
 
         let fpsDisplay = '—';
         let fpsColor = 'var(--screen-text)';
+        let cpuDisplay = '—';
+        let cpuColor = 'var(--muted)';
         if (_frameTimes.length >= 2) {
           const avgDelta = _frameTimes.reduce((a, b) => a + b, 0) / _frameTimes.length;
           const fps = 1000 / avgDelta;
@@ -721,13 +739,20 @@ export default {
           if (fps > 55) fpsColor = '#5cb85c';
           else if (fps >= 45) fpsColor = '#e6a817';
           else fpsColor = '#d9534f';
+          // Estimate CPU%: frame time vs 16.67ms budget, clamped 0-100
+          const cpuPct = Math.min(100, Math.max(0, Math.round((avgDelta / 16.667) * 100)));
+          cpuDisplay = cpuPct + '%';
+          if (cpuPct < 60) cpuColor = '#5cb85c';
+          else if (cpuPct < 80) cpuColor = '#e6a817';
+          else cpuColor = '#d9534f';
         }
 
         const baseLatMs = ((ctx.baseLatency ?? 0) * 1000).toFixed(1);
         const outLatMs  = ((ctx.outputLatency ?? 0) * 1000).toFixed(1);
 
         perfDiv.innerHTML = `
-          <div class="perf-row perf-fps-row"><span>FPS</span><span style="color:${fpsColor};font-weight:bold">${fpsDisplay} <span style="color:var(--muted);font-weight:normal">| CPU: ~${baseLatMs}ms</span></span></div>
+          <div class="perf-row perf-fps-row"><span>FPS</span><span style="color:${fpsColor};font-weight:bold">${fpsDisplay} fps</span></div>
+          <div class="perf-row"><span>CPU est.</span><span style="color:${cpuColor};font-weight:bold">~${cpuDisplay}</span></div>
           <div class="perf-row"><span>State</span><span>${ctx.state}</span></div>
           <div class="perf-row"><span>Sample Rate</span><span>${ctx.sampleRate} Hz</span></div>
           <div class="perf-row"><span>Base Latency</span><span>${baseLatMs} ms</span></div>
