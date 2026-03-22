@@ -98,36 +98,39 @@ body {
   height: 100vh;
   overflow: hidden;
   position: relative;
-  /* Plywood surface — pale birch veneer, visible lamination layers */
-  background-color: #c4aa74;
+  /* Plywood — stained pine, large visible grain + lamination bands */
+  background-color: #4e3c22;
   background-image:
-    /* Lamination layer edges — visible every ~52px, the hallmark of plywood */
+    /* Lamination layer edges — prominent bands every 88px, the defining
+       feature of plywood visible at distance */
     repeating-linear-gradient(180deg,
-      rgba(0,0,0,0.055) 0px, rgba(0,0,0,0.055) 1px,
-      rgba(255,255,255,0.04) 1px, rgba(255,255,255,0.04) 2px,
-      transparent 2px, transparent 50px,
-      rgba(0,0,0,0.04) 50px, rgba(0,0,0,0.04) 51px,
-      rgba(255,255,255,0.03) 51px, rgba(255,255,255,0.03) 52px,
-      transparent 52px, transparent 102px),
-    /* Fine horizontal wood grain within each veneer sheet */
-    repeating-linear-gradient(180deg,
-      transparent 0px, transparent 2px,
-      rgba(0,0,0,0.022) 2px, rgba(0,0,0,0.022) 3px,
-      transparent 3px, transparent 6px,
-      rgba(255,255,255,0.018) 6px, rgba(255,255,255,0.018) 7px,
-      transparent 7px, transparent 11px),
-    /* Slight diagonal — wood grain never runs perfectly horizontal */
-    repeating-linear-gradient(178.5deg,
-      transparent 0px, transparent 22px,
-      rgba(0,0,0,0.016) 22px, rgba(0,0,0,0.016) 23px,
-      transparent 23px, transparent 47px,
-      rgba(0,0,0,0.01) 47px, rgba(0,0,0,0.01) 48px),
-    /* Subtle tonal variation — birch plywood has some color shift */
-    radial-gradient(ellipse at 65% 35%, #d4bc88 0%, transparent 55%),
-    radial-gradient(ellipse at 25% 72%, #b89a60 0%, transparent 48%),
-    radial-gradient(ellipse at 80% 80%, #c8ae7a 0%, transparent 40%),
-    /* Base birch plywood tone — pale golden tan */
-    linear-gradient(180deg, #ccb87e 0%, #bfa86c 40%, #c8b278 70%, #c2aa72 100%);
+      rgba(0,0,0,0.30) 0px,   rgba(0,0,0,0.30) 3px,
+      rgba(255,255,255,0.07) 3px, rgba(255,255,255,0.07) 5px,
+      transparent 5px,        transparent 84px,
+      rgba(0,0,0,0.18) 84px,  rgba(0,0,0,0.18) 86px,
+      rgba(255,255,255,0.04) 86px, rgba(255,255,255,0.04) 88px,
+      transparent 88px,       transparent 176px),
+    /* Coarse wood grain — visible stripes every 18-28px */
+    repeating-linear-gradient(179deg,
+      transparent 0px,          transparent 12px,
+      rgba(0,0,0,0.14) 12px,    rgba(0,0,0,0.14) 14px,
+      transparent 14px,         transparent 22px,
+      rgba(255,255,255,0.05) 22px, rgba(255,255,255,0.05) 23px,
+      transparent 23px,         transparent 32px,
+      rgba(0,0,0,0.10) 32px,    rgba(0,0,0,0.10) 33px,
+      transparent 33px,         transparent 44px),
+    /* Medium grain detail between coarse stripes */
+    repeating-linear-gradient(178deg,
+      transparent 0px,          transparent 5px,
+      rgba(0,0,0,0.07) 5px,     rgba(0,0,0,0.07) 6px,
+      transparent 6px,          transparent 11px),
+    /* Tonal patches — wood never uniform */
+    radial-gradient(ellipse at 30% 25%, #6a5030 0%, transparent 40%),
+    radial-gradient(ellipse at 72% 60%, #3c2c14 0%, transparent 45%),
+    radial-gradient(ellipse at 15% 75%, #5a4222 0%, transparent 35%),
+    radial-gradient(ellipse at 85% 20%, #604828 0%, transparent 38%),
+    /* Base — dark stained pine */
+    linear-gradient(180deg, #52401e 0%, #3e2e10 35%, #4a3818 65%, #402e0e 100%);
 }
 
 #studio-canvas {
