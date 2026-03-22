@@ -272,9 +272,11 @@ export function createAppState() {
     reverbMix:        0.22,
     reverbDamping:    0.5,
     reverbType:       'room',
+    reverbPreDelay:   0,
     masterDrive:      0,
     lfoRate:          2,
     lfoDepth:         0,
+    chorusWidth:      0.5,
 
     // Settings
     midiChannel:   1,

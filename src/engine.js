@@ -196,6 +196,11 @@ export class AudioEngine {
     const sr = ctx.sampleRate;
     const scale = sr / 44100;
 
+    // Pre-delay node — inserted between reverbInput and comb filters (max 100 ms)
+    this.reverbPreDelay = ctx.createDelay(0.1);
+    this.reverbPreDelay.delayTime.value = 0;
+    this.reverbInput.connect(this.reverbPreDelay);
+
     // Sum node — all 8 comb outputs feed here
     const combSum = ctx.createGain();
     combSum.gain.value = 0.125; // normalize 8 parallel combs
@@ -218,7 +223,7 @@ export class AudioEngine {
       feedbackGain.gain.value = this.reverbRoomSize;
 
       // Comb loop: delayNode → damplp → feedbackGain → back to delayNode
-      this.reverbInput.connect(delayNode);
+      this.reverbPreDelay.connect(delayNode);
       delayNode.connect(damplp);
       damplp.connect(feedbackGain);
       feedbackGain.connect(delayNode);
@@ -287,6 +292,13 @@ export class AudioEngine {
     for (const { damplp } of this._combFilters) {
       damplp.frequency.setTargetAtTime(freq, this.context.currentTime, 0.01);
     }
+  }
+
+  // Set reverb pre-delay (0–100 ms)
+  setReverbPreDelay(ms) {
+    if (!this.reverbPreDelay) return;
+    const sec = Math.max(0, Math.min(0.1, ms / 1000));
+    this.reverbPreDelay.delayTime.setTargetAtTime(sec, this.context.currentTime, 0.005);
   }
 
   // ——————————————————————————————————————————————
