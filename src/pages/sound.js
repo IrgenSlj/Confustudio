@@ -738,9 +738,44 @@ export default {
       <span class="machine-badge" style="background:${badgeColors.bg};color:${badgeColors.text}">${machineType.toUpperCase()}</span>`;
     container.append(header);
 
-    const grid = document.createElement('div');
-    grid.className = 'page-grid-2';
-    grid.style.cssText = 'flex:1;min-height:0';
+    // ── Sub-tab bar ──────────────────────────────────────────────────────────
+    const SUB_TABS = ['SYNTH', 'MOD', 'SAMPLE'];
+    const activeSubTab = state._soundSubTab ?? 'SYNTH';
+
+    const subTabBar = document.createElement('div');
+    subTabBar.style.cssText = 'display:flex;gap:2px;padding:0 8px 4px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.06)';
+    SUB_TABS.forEach(tab => {
+      const btn = document.createElement('button');
+      btn.className = 'tab' + (tab === activeSubTab ? ' active' : '');
+      btn.textContent = tab;
+      btn.style.cssText = 'font-size:0.5rem;padding:3px 10px';
+      btn.addEventListener('click', () => {
+        state._soundSubTab = tab;
+        this.render(container, state, emit);
+      });
+      subTabBar.append(btn);
+    });
+    container.append(subTabBar);
+
+    const showSynth  = activeSubTab === 'SYNTH';
+    const showMod    = activeSubTab === 'MOD';
+    const showSample = activeSubTab === 'SAMPLE';
+
+    // Helper: make a tab content grid
+    function makeGrid() {
+      const g = document.createElement('div');
+      g.className = 'page-grid-2';
+      g.style.cssText = 'flex:1;min-height:0;overflow-y:auto';
+      return g;
+    }
+
+    const synthGrid  = makeGrid();
+    const modGrid    = makeGrid();
+    const sampleGrid = makeGrid();
+
+    synthGrid.style.display  = showSynth  ? '' : 'none';
+    modGrid.style.display    = showMod    ? '' : 'none';
+    sampleGrid.style.display = showSample ? '' : 'none';
 
     // ── Pitch card ──
     const pitchCard = document.createElement('div');
@@ -892,7 +927,7 @@ export default {
 
     pitchCard.append(noteDisplay, chordDisplay, pitchSlider, pitchLabel, legatoRow, keyTrackRow);
     if (autoDetectRow) pitchCard.append(autoDetectRow);
-    grid.append(pitchCard);
+    synthGrid.append(pitchCard);
 
     // ── Machine type card ──
     const machCard = document.createElement('div');
@@ -933,17 +968,22 @@ export default {
       machCard.append(wfRow);
     }
 
-    if (track.machine === 'sample') {
-      makeSampleLoader(track, ti, emit, machCard);
+    synthGrid.append(machCard);
+
+    // ── Sample card (SAMPLE tab) ──
+    if (track.machine === 'sample' || track.machine === 'clouds') {
+      const sampleCard = document.createElement('div');
+      sampleCard.className = 'page-card';
+      sampleCard.innerHTML = '<h4>Sample</h4>';
+      makeSampleLoader(track, ti, emit, sampleCard);
       const browseBtn = document.createElement('button');
       browseBtn.className = 'screen-btn';
       browseBtn.style.marginTop = '4px';
       browseBtn.textContent = 'Browse Library';
       browseBtn.addEventListener('click', () => openSampleBrowser(state, emit, ti));
-      machCard.append(browseBtn);
+      sampleCard.append(browseBtn);
+      sampleGrid.append(sampleCard);
     }
-
-    grid.append(machCard);
 
     // ── Plaits card ──
     if (track.machine === 'plaits') {
@@ -974,7 +1014,7 @@ export default {
         plaitsCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti))
       );
 
-      grid.append(plaitsCard);
+      synthGrid.append(plaitsCard);
     }
 
     // ── Clouds card ──
@@ -992,15 +1032,7 @@ export default {
         cloudsCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti))
       );
 
-      makeSampleLoader(track, ti, emit, cloudsCard);
-      const browseBtn = document.createElement('button');
-      browseBtn.className = 'screen-btn';
-      browseBtn.style.marginTop = '4px';
-      browseBtn.textContent = 'Browse Library';
-      browseBtn.addEventListener('click', () => openSampleBrowser(state, emit, ti));
-      cloudsCard.append(browseBtn);
-
-      grid.append(cloudsCard);
+      synthGrid.append(cloudsCard);
     }
 
     // ── Rings card ──
@@ -1032,7 +1064,7 @@ export default {
         ringsCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti))
       );
 
-      grid.append(ringsCard);
+      synthGrid.append(ringsCard);
     }
 
     // ── ADSR card ──
@@ -1148,7 +1180,7 @@ export default {
     // Draw after layout is complete
     requestAnimationFrame(() => { redrawADSR(); });
 
-    grid.append(adsrCard);
+    modGrid.append(adsrCard);
 
     // ── Filter card ──
     const FILTER_TYPES = [
@@ -1214,7 +1246,7 @@ export default {
         existingSvg.replaceWith(tmp.firstElementChild);
       }
     });
-    grid.append(filtCard);
+    modGrid.append(filtCard);
 
     // ── Mix card ──
     const mixCard = document.createElement('div');
@@ -1286,7 +1318,7 @@ export default {
     swingRow.append(swingLabel, swingInput, swingDisplay, swingResetBtn);
     mixCard.append(swingRow);
 
-    grid.append(mixCard);
+    modGrid.append(mixCard);
 
     // ── LFO card ──
     const lfoCard = document.createElement('div');
@@ -1337,7 +1369,7 @@ export default {
     });
     lfoCard.append(lfoRoutingRow);
 
-    grid.append(lfoCard);
+    modGrid.append(lfoCard);
 
     // ── Arp card ──
     const arpCard = document.createElement('div');
@@ -1431,9 +1463,19 @@ export default {
       refreshArpPreview();
     });
 
-    grid.append(arpCard);
+    synthGrid.append(arpCard);
 
-    container.append(grid);
+    // SAMPLE tab placeholder when machine has no sample support
+    if (track.machine !== 'sample' && track.machine !== 'clouds') {
+      const noSampleCard = document.createElement('div');
+      noSampleCard.className = 'page-card';
+      noSampleCard.style.cssText = 'grid-column:span 2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;opacity:0.5;padding:24px';
+      noSampleCard.innerHTML = `<h4 style="margin:0">No Sample</h4>
+        <p style="font-size:0.6rem;color:var(--muted);text-align:center;margin:0">Switch machine to SAMPLE or CLOUDS<br>to access sample controls.</p>`;
+      sampleGrid.append(noSampleCard);
+    }
+
+    container.append(synthGrid, modGrid, sampleGrid);
   },
 
   knobMap: [
