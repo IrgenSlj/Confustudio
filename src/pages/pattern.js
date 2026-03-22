@@ -284,6 +284,15 @@ export default {
       return panel;
     };
 
+    // ── Drag-to-paint state ───────────────────────────────────────────────────
+    let dragActivating = null; // true = activate, false = deactivate
+    let isDragging = false;
+
+    if (!window._patternDragHandlerSet) {
+      window._patternDragHandlerSet = true;
+      window.addEventListener('mouseup', () => { isDragging = false; dragActivating = null; });
+    }
+
     // Render each of the 8 tracks as a row
     pattern.kit.tracks.forEach((trk, ti) => {
       const isSelected = ti === selTi;
@@ -459,6 +468,25 @@ export default {
           btn.append(trigSpan);
         }
         if (si > 0 && si % 4 === 0) btn.classList.add('step-group-start');
+
+        btn.addEventListener('mousedown', (e) => {
+          if (e.button !== 0) return; // left button only
+          e.preventDefault();
+          const wasActive = step.active;
+          dragActivating = !wasActive;
+          isDragging = true;
+          step.active = dragActivating;
+          btn.classList.toggle('active', step.active);
+          btn._blockNextClick = true; // prevent the subsequent click from double-toggling
+          emit('state:change', { param: 'pattern' });
+        });
+
+        btn.addEventListener('mouseenter', () => {
+          if (!isDragging || dragActivating === null) return;
+          step.active = dragActivating;
+          btn.classList.toggle('active', step.active);
+          emit('state:change', { param: 'pattern' });
+        });
 
         btn.addEventListener('click', e => {
           e.stopPropagation();
@@ -1154,6 +1182,29 @@ export default {
       emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
     });
     actionsDiv.append(humanizeDiv);
+
+    // ── Fill every-N-steps ────────────────────────────────────────────────────
+    const fillRow = document.createElement('div');
+    fillRow.style.cssText = 'display:flex;align-items:center;gap:4px';
+    fillRow.innerHTML = `<span style="font-size:0.48rem;color:var(--muted);font-family:var(--font-mono)">FILL</span>`;
+
+    [2, 3, 4, 8].forEach(n => {
+      const btn = document.createElement('button');
+      btn.className = 'seq-btn';
+      btn.textContent = `/${n}`;
+      btn.title = `Activate every ${n} steps`;
+      btn.addEventListener('click', () => {
+        const bank = state.activeBank, pat = state.activePattern, ti = state.selectedTrackIndex;
+        const trk = state.project.banks[bank].patterns[pat].tracks[ti];
+        emit('state:change', { path: 'action_pushHistory', value: true });
+        trk.steps.forEach((s, i) => { s.active = (i % n === 0); });
+        emit('state:change', { param: 'pattern' });
+        render();
+      });
+      fillRow.append(btn);
+    });
+
+    actionsDiv.append(fillRow);
 
     // ── Swing visualizer ──────────────────────────────────────────────────────
     const swingViz = document.createElement('svg');
