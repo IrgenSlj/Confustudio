@@ -1399,6 +1399,16 @@ function scheduleLoop() {
             trackIndex:  ti,
             paramLocks: { gate: step.gate ?? 0.5, ...sceneOverride, ...step.paramLocks, note: noteToPlay },
           });
+          // MIDI output routing (arp path)
+          const midiChArp = state.midiOutputChannels?.[ti] ?? 0;
+          if (midiChArp > 0 && state.engine?.midiOutput) {
+            const note = noteToPlay ?? 60;
+            const vel = Math.round((step.velocity ?? 1) * 127);
+            const ch = midiChArp - 1; // 0-indexed
+            state.engine.midiOutput.send([0x90 | ch, note, vel], window.performance.now());
+            const gateDur = (track.gate ?? 0.5) * (60 / state.bpm) * 1000;
+            state.engine.midiOutput.send([0x80 | ch, note, 0], window.performance.now() + gateDur);
+          }
         } else {
           state.engine.triggerTrack(track, _schedNextTime + totalOffset, secsPerStep, {
             accent:      step.accent,
@@ -1407,6 +1417,16 @@ function scheduleLoop() {
             trackIndex:  ti,
             paramLocks: { gate: step.gate ?? 0.5, ...sceneOverride, ...step.paramLocks },
           });
+          // MIDI output routing (non-arp path)
+          const midiCh = state.midiOutputChannels?.[ti] ?? 0;
+          if (midiCh > 0 && state.engine?.midiOutput) {
+            const note = step.note ?? track.note ?? 60;
+            const vel = Math.round((step.velocity ?? 1) * 127);
+            const ch = midiCh - 1; // 0-indexed
+            state.engine.midiOutput.send([0x90 | ch, note, vel], window.performance.now());
+            const gateDur = (track.gate ?? 0.5) * (60 / state.bpm) * 1000;
+            state.engine.midiOutput.send([0x80 | ch, note, 0], window.performance.now() + gateDur);
+          }
         }
       });
 

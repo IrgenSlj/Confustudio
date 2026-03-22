@@ -131,6 +131,54 @@ export default {
 
       </div>`;
 
+    // ── MIDI Output Routing section ──────────────────────────────────────────
+    const midiSection = container.querySelector('.settings-section');
+    if (midiSection) {
+      const midiRoutingSection = document.createElement('div');
+      midiRoutingSection.style.cssText = 'margin-top:10px;border-top:1px solid var(--border);padding-top:8px';
+      const midiRoutingTitle = document.createElement('div');
+      midiRoutingTitle.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);margin-bottom:6px';
+      midiRoutingTitle.textContent = 'MIDI OUTPUT ROUTING';
+      midiRoutingSection.append(midiRoutingTitle);
+
+      // 8 track rows
+      for (let ti = 0; ti < 8; ti++) {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:3px';
+        const label = document.createElement('span');
+        label.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted);min-width:40px';
+        label.textContent = `TRK ${ti + 1}`;
+
+        const select = document.createElement('select');
+        select.style.cssText = 'font-size:0.48rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px';
+
+        // Off + channels 1-16
+        const offOpt = document.createElement('option');
+        offOpt.value = '0'; offOpt.textContent = 'Off (internal)';
+        select.append(offOpt);
+
+        for (let ch = 1; ch <= 16; ch++) {
+          const opt = document.createElement('option');
+          opt.value = String(ch); opt.textContent = `Ch ${ch}`;
+          select.append(opt);
+        }
+
+        const currentCh = state.midiOutputChannels?.[ti] ?? 0;
+        select.value = String(currentCh);
+
+        select.addEventListener('change', () => {
+          if (!state.midiOutputChannels) state.midiOutputChannels = new Array(8).fill(0);
+          state.midiOutputChannels[ti] = parseInt(select.value);
+          emit('state:change', { param: 'midiOutputChannels', value: state.midiOutputChannels });
+        });
+
+        row.append(label, select);
+        midiRoutingSection.append(row);
+      }
+
+      midiSection.append(midiRoutingSection);
+    }
+
     // ── Project metadata section ─────────────────────────────────────────────
     if (!state.project.createdAt) state.project.createdAt = Date.now();
 

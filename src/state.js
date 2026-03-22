@@ -329,6 +329,9 @@ export function createAppState() {
       { name: 'Macro 4', param: null, min: 0, max: 1, value: 0.5 },
     ],
 
+    // MIDI output routing (per-track channel, 0 = off/internal, 1–16 = MIDI channel)
+    midiOutputChannels: new Array(8).fill(0),
+
     // Project
     project: createProject(),
   };
