@@ -842,8 +842,8 @@ export default {
     container.append(midiChSection);
 
     // ── Performance Monitor ──────────────────────────────────────────────────
-    const perfSection = container.querySelector('#perf-section');
-    if (perfSection) {
+    const perfMonitorSection = container.querySelector('#perf-section');
+    if (perfMonitorSection) {
       const perfDiv = document.createElement('div');
       perfDiv.className = 'perf-monitor';
 
@@ -908,7 +908,7 @@ export default {
       startPerfMonitor();
       container._cleanupPerf = () => cancelAnimationFrame(perfRaf);
 
-      perfSection.append(perfDiv);
+      perfMonitorSection.append(perfDiv);
     }
 
     // ── Presets ──────────────────────────────────────────────────────────────
