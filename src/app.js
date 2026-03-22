@@ -1877,9 +1877,10 @@ function renderTrackSelector() {
     const hasTriggers = track.steps.slice(0, track.trackLength || pattern.length).some(s => s.active);
 
     const row = document.createElement('div');
-    row.className = 'track-ch' + (isActive ? ' active' : '') + (track.mute ? ' muted' : '');
+    row.className = 'track-ch' + (isActive ? ' active track-selected' : '') + (track.mute ? ' muted' : '');
     row.style.borderLeft = '3px solid ' + TRACK_COLORS[i];
     row.style.setProperty('--track-color', TRACK_COLORS[i]);
+    row.style.position = 'relative';
 
     const led = document.createElement('div');
     led.className = 'track-led' + (track.mute ? ' muted' : hasTriggers ? ' on' : '');
@@ -1895,6 +1896,8 @@ function renderTrackSelector() {
     const mac = document.createElement('span');
     mac.className = 'track-ch-machine';
     mac.textContent = (track.machine || 'tone').slice(0, 4).toUpperCase();
+    mac.style.color = TRACK_COLORS[i % TRACK_COLORS.length];
+    mac.style.opacity = '0.7';
 
     info.append(num, mac);
 
@@ -1910,7 +1913,10 @@ function renderTrackSelector() {
     btnS.title = 'Solo';
     btnS.addEventListener('click', e => { e.stopPropagation(); emit('track:solo', { trackIndex: i }); });
 
-    row.append(led, info, btnM, btnS);
+    const volBar = document.createElement('div');
+    volBar.style.cssText = `position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--track-color,var(--accent));opacity:${track.volume ?? 0.8};border-radius:0 0 2px 2px`;
+
+    row.append(led, info, btnM, btnS, volBar);
     row.addEventListener('click', () => emit('track:select', { trackIndex: i }));
     el_cs.append(row);
   });

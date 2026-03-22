@@ -969,13 +969,16 @@ button {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 5px;
+  padding: 5px 5px;
   border-radius: 3px;
   cursor: pointer;
   background: rgba(0,0,0,0.15);
   border: 1px solid rgba(0,0,0,0.2);
-  transition: background 80ms;
-  min-height: 44px;
+  border-left: 3px solid transparent;
+  transition: background 80ms, border-color 80ms;
+  min-height: 40px;
+  position: relative;
+  overflow: hidden;
 }
 
 .track-ch-info {
@@ -1041,6 +1044,12 @@ button {
 .track-ch.active {
   background: rgba(240,198,64,0.12);
   border-color: rgba(240,198,64,0.3);
+}
+
+.track-ch.track-selected {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.15);
+  box-shadow: inset 3px 0 0 var(--track-color, var(--accent));
 }
 
 .track-ch.muted { opacity: 0.45; }
