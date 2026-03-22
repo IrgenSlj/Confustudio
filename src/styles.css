@@ -134,6 +134,8 @@ body {
   cursor: default;
   filter: drop-shadow(0 24px 48px rgba(0,0,0,0.65)) drop-shadow(0 4px 8px rgba(0,0,0,0.4));
   transition: filter 0.2s;
+  display: flex;
+  flex-direction: column;
 }
 
 .studio-module:hover {
@@ -226,6 +228,8 @@ button {
 .chassis {
   width: 860px;
   height: 860px;
+  flex: 1;
+  min-height: 0;
   background-color: var(--chassis-bg);
   background-image:
     repeating-linear-gradient(135deg,
@@ -288,7 +292,7 @@ button {
 
 .machine-grid {
   display: grid;
-  grid-template-columns: 82px 1fr 160px;
+  grid-template-columns: 78px 1fr 148px;
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -1062,7 +1066,7 @@ button {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 2px 4px;
+  padding: 2px 0;
   border-radius: 4px;
   border-left: 3px solid var(--track-color, #555);
   background: rgba(0,0,0,0.12);
@@ -1081,10 +1085,13 @@ button {
 .mtg-row.muted { opacity: 0.35; }
 
 .mtg-label-wrap {
-  width: 38px;
+  min-width: 54px;
+  max-width: 54px;
   flex-shrink: 0;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 1px;
   padding-right: 4px;
   cursor: pointer;
@@ -1138,7 +1145,10 @@ button {
 
 .step-btn {
   aspect-ratio: 1;
-  min-height: 28px;
+  width: 28px;
+  height: 28px;
+  min-width: 24px;
+  min-height: 24px;
   border-radius: 5px;
   border: 1px solid rgba(255,255,255,0.06);
   background:
@@ -1146,7 +1156,7 @@ button {
     var(--step-off);
   color: rgba(255,255,255,0.18);
   font-family: var(--font-mono);
-  font-size: 0.5rem;
+  font-size: 0.42rem;
   cursor: pointer;
   position: relative;
   overflow: hidden;
