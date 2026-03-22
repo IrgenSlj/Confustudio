@@ -305,8 +305,8 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 10px 6px;
-  gap: 8px;
+  padding: 6px 5px 8px;
+  gap: 6px;
   overflow: hidden;
   min-height: 0;
 }
@@ -352,10 +352,11 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   flex: 1;
   min-height: 0;
-  max-height: 160px;
+  max-height: 120px;
+  width: 100%;
 }
 
 .fader-master {
@@ -363,9 +364,10 @@ button {
   direction: rtl;
   appearance: slider-vertical;
   -webkit-appearance: slider-vertical;
-  width: 22px;
-  min-height: 60px;
-  flex: 1;
+  width: 20px;
+  height: 80px;
+  max-height: 80px;
+  flex: none;
   cursor: pointer;
   accent-color: var(--chassis-metal);
 }
@@ -375,16 +377,17 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
+  gap: 3px;
   width: 100%;
+  flex-shrink: 0;
 }
 
 .t-btn {
-  width: 62px;
-  height: 38px;
-  font-size: 0.72rem;
+  width: 56px;
+  height: 32px;
+  font-size: 0.62rem;
   font-family: var(--font-mono);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   background: var(--chassis-bg);
   color: var(--chassis-text);
   border: 1px solid rgba(0,0,0,0.5);
@@ -394,6 +397,7 @@ button {
   display: grid;
   place-items: center;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .t-btn--play, .t-btn--stop, .t-btn--record {
@@ -422,15 +426,17 @@ button {
   display: flex;
   align-items: center;
   gap: 2px;
+  flex-shrink: 0;
   width: 100%;
 }
 
 .bpm-arrow {
   flex: 0 0 18px;
-  height: 20px;
+  width: 18px;
+  height: 22px;
   padding: 0;
   font-size: 0.7rem;
-  background: rgba(0,0,0,0.3);
+  background: var(--chassis-bg);
   color: var(--chassis-text);
   border: 1px solid rgba(0,0,0,0.4);
   border-radius: 2px;
@@ -447,16 +453,16 @@ button {
 .bpm-edit input,
 #bpm-input {
   flex: 1;
-  width: 0;
+  width: 36px;
   min-width: 0;
-  height: 20px;
-  padding: 0 2px;
+  height: 22px;
+  padding: 2px;
   text-align: center;
-  font-size: 0.55rem;
+  font-size: 0.6rem;
   font-family: var(--font-mono);
-  background: rgba(0,0,0,0.4);
-  color: var(--accent);
-  border: 1px solid rgba(0,0,0,0.4);
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--border);
   border-radius: 2px;
   -moz-appearance: textfield;
   font-weight: 600;
@@ -1907,33 +1913,7 @@ button {
   position: relative;
 }
 
-/* Keyboard collapse bar */
-.kbd-collapse-bar {
-  position: absolute;
-  top: -22px;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
-  z-index: 10;
-}
-.kbd-collapse-btn {
-  background: #1a1612;
-  border: 1px solid #3a3020;
-  border-bottom: none;
-  color: #c8a060;
-  font-family: var(--font-mono);
-  font-size: 0.5rem;
-  padding: 2px 10px;
-  cursor: pointer;
-  border-radius: 4px 4px 0 0;
-  letter-spacing: 0.08em;
-  transition: background 0.15s;
-}
-.kbd-collapse-btn:hover {
-  background: #2a2218;
-  color: #f0c060;
-}
+/* kbd-collapse-bar: see earlier definition */
 
 .piano-wrapper {
   display: flex;
@@ -2073,19 +2053,23 @@ button {
    ============================================================ */
 
 .mixer-fader-grid {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 6px;
+  display: flex;
+  flex-direction: row;
+  gap: 2px;
   height: 100%;
+  overflow-x: hidden;
 }
 
 .fader-strip {
+  flex: 1;
+  min-width: 0;
+  max-width: 140px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 10px 6px 8px;
-  border-radius: 10px;
+  gap: 2px;
+  padding: 4px 3px 4px;
+  border-radius: 6px;
   background:
     linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01) 22%, rgba(0,0,0,0.2)),
     rgba(10,13,14,0.65);
@@ -2093,6 +2077,7 @@ button {
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.04),
     inset 0 -10px 16px rgba(0,0,0,0.26);
+  overflow: hidden;
 }
 
 .fader-strip strong {
@@ -2116,15 +2101,15 @@ button {
 
 .fader-mute,
 .fader-solo {
-  width: 28px;
-  height: 20px;
-  border-radius: 3px;
+  width: 20px;
+  height: 16px;
+  border-radius: 2px;
   border: 1px solid var(--border);
   background:
     linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.015) 32%, rgba(0,0,0,0.28)),
     #1a1a1a;
   color: var(--muted);
-  font-size: 0.6rem;
+  font-size: 0.48rem;
   font-family: var(--font-mono);
   cursor: pointer;
   text-transform: uppercase;
@@ -2155,10 +2140,10 @@ button {
 }
 
 .mixer-meter-wrap {
-  width: 8px;
-  height: 64px;
+  width: 4px;
+  height: 48px;
   background: rgba(0,0,0,0.4);
-  border-radius: 4px;
+  border-radius: 2px;
   overflow: hidden;
   align-self: center;
   flex-shrink: 0;
@@ -2273,6 +2258,19 @@ button {
 /* Fader link button — absolute-positioned between adjacent strips */
 .fader-strip {
   position: relative;
+}
+
+/* Compact fader wrap */
+.mix-fader-wrap {
+  min-height: 0;
+  flex: 1;
+  max-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mix-fader {
+  max-height: 80px;
 }
 .fader-link-btn {
   font-size: 0.5rem;

@@ -85,7 +85,7 @@ export default {
 
     const faderGrid = document.createElement('div');
     faderGrid.className = 'mixer-fader-grid';
-    faderGrid.style.cssText = 'flex:1;min-height:0;padding-bottom:4px';
+    faderGrid.style.cssText = 'flex:1;min-height:0;padding-bottom:4px;overflow-x:hidden';
 
     // Collect mini-EQ canvases for later redraws
     const eqCanvases = [];
@@ -123,7 +123,7 @@ export default {
       // ── Track name (double-click to rename) ──────────────────────────────
       const nameSpan = document.createElement('span');
       nameSpan.className = 'fader-track-name';
-      nameSpan.style.cssText = 'font-size:0.6rem;color:var(--track-color,var(--screen-text));display:flex;align-items:center;gap:4px;font-family:var(--font-mono);font-weight:bold;cursor:text';
+      nameSpan.style.cssText = 'font-size:0.5rem;color:var(--track-color,var(--screen-text));display:flex;align-items:center;gap:2px;font-family:var(--font-mono);font-weight:bold;cursor:text;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0';
       nameSpan.innerHTML = `${track.name ?? `T${ti + 1}`} <span style="font-size:0.44rem;color:var(--muted);font-weight:400">${(track.machine || 'tone').toUpperCase()}</span>`;
 
       nameSpan.addEventListener('dblclick', e => {
@@ -165,14 +165,14 @@ export default {
       colorStripe.style.cssText = `height:3px;background:${TRACK_COLORS[ti]};border-radius:2px 2px 0 0;margin-bottom:2px`;
       strip.prepend(colorStripe);
 
-      // ── Strip header (name + color dot + collapse button) ────────────────
+      // ── Strip header (name + color dot + M/S buttons) ────────────────────
       const stripHeader = document.createElement('div');
       stripHeader.className = 'strip-header';
-      stripHeader.style.cssText = 'display:flex;align-items:center;gap:2px;width:100%';
+      stripHeader.style.cssText = 'display:flex;align-items:center;gap:2px;width:100%;padding:2px 2px 2px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0';
 
       const colorDot = document.createElement('span');
-      colorDot.style.cssText = `display:inline-block;width:6px;height:6px;border-radius:50%;background:${TRACK_COLORS[ti]};margin-right:4px;vertical-align:middle;flex-shrink:0`;
-      stripHeader.insertBefore(colorDot, stripHeader.firstChild);
+      colorDot.style.cssText = `width:6px;height:6px;border-radius:50%;background:${TRACK_COLORS[ti]};flex-shrink:0;display:inline-block`;
+      stripHeader.append(colorDot);
 
       stripHeader.append(nameSpan);
 
@@ -363,7 +363,7 @@ export default {
       fader.max   = 1;
       fader.step  = 0.01;
       fader.value = track.volume;
-      fader.style.cssText = 'writing-mode:vertical-lr;direction:rtl;flex:1;width:24px;accent-color:var(--accent)';
+      fader.style.cssText = 'writing-mode:vertical-lr;direction:rtl;height:70px;width:20px;accent-color:var(--track-color,var(--accent));flex-shrink:0';
       fader.style.setProperty('accent-color', TRACK_COLORS[ti]);
       fader.addEventListener('input', () => {
         const v = parseFloat(fader.value);
@@ -439,11 +439,12 @@ export default {
 
       // ── Mute / Solo buttons ──────────────────────────────────────────────
       const msRow = document.createElement('div');
-      msRow.style.cssText = 'display:flex;gap:3px';
+      msRow.style.cssText = 'display:flex;gap:2px;width:100%';
 
       const muteBtn = document.createElement('button');
       muteBtn.className = 'fader-mute' + (track.mute ? ' active' : '');
       muteBtn.textContent = 'M';
+      muteBtn.style.flex = '1';
       muteBtn.addEventListener('click', e => {
         e.stopPropagation();
         emit('track:change', { trackIndex: ti, param: 'mute', value: !track.mute });
@@ -453,6 +454,7 @@ export default {
       const soloBtn = document.createElement('button');
       soloBtn.className = 'fader-solo' + (track.solo ? ' active' : '');
       soloBtn.textContent = 'S';
+      soloBtn.style.flex = '1';
       soloBtn.addEventListener('click', e => {
         e.stopPropagation();
         track.solo = !track.solo;
