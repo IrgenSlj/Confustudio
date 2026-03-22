@@ -285,8 +285,43 @@ export default {
       const followBadge = document.createElement('span');
       followBadge.style.cssText = 'position:absolute;bottom:2px;right:2px;font-size:0.45rem;opacity:0.6;color:var(--muted)';
       followBadge.textContent = followIcons[followAction] ?? '→';
+      followBadge.style.cursor = 'pointer';
+      followBadge.title = 'Click to cycle follow action: next → loop → stop → random';
+      followBadge.addEventListener('click', e => {
+        e.stopPropagation();
+        const ACTIONS = ['next', 'loop', 'stop', 'random'];
+        const current = pat.followAction ?? 'next';
+        const idx = ACTIONS.indexOf(current);
+        pat.followAction = ACTIONS[(idx + 1) % ACTIONS.length];
+        const icons = { next:'→', loop:'↺', stop:'■', random:'?' };
+        followBadge.textContent = icons[pat.followAction];
+        emit('state:change', { param: 'followAction' });
+      });
       btn.style.position = 'relative';
-      btn.append(followBadge);
+
+      // Active step count badge
+      const lengthBadge = document.createElement('span');
+      lengthBadge.style.cssText = 'position:absolute;top:2px;left:2px;font-family:var(--font-mono);font-size:0.44rem;color:var(--muted);opacity:0.7';
+      const activeSteps = pat.tracks?.reduce((sum, t) => sum + (t.steps?.filter(s => s.active).length ?? 0), 0) ?? 0;
+      lengthBadge.textContent = activeSteps > 0 ? `${activeSteps}` : '';
+      btn.append(lengthBadge);
+
+      // Quick-clear button
+      const clearBtn = document.createElement('button');
+      clearBtn.className = 'bank-clear-btn';
+      clearBtn.textContent = '×';
+      clearBtn.title = 'Clear all steps in this pattern';
+      clearBtn.style.cssText = 'position:absolute;top:1px;right:18px;font-size:0.7rem;background:transparent;border:none;color:var(--muted);cursor:pointer;padding:0 2px;line-height:1;display:none;z-index:2';
+      btn.addEventListener('mouseenter', () => clearBtn.style.display = '');
+      btn.addEventListener('mouseleave', () => clearBtn.style.display = 'none');
+      clearBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        if (!confirm(`Clear all steps in pattern ${pi+1}?`)) return;
+        pat.tracks?.forEach(t => t.steps?.forEach(s => { s.active = false; }));
+        emit('state:change', { param: 'pattern' });
+        this.render(container, state, emit);
+      });
+      btn.append(followBadge, clearBtn);
 
       btn.addEventListener('click', () => {
         emit('state:change', { path: 'activeBank', value: activeBank });
