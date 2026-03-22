@@ -32,6 +32,14 @@ function buildRows(noteMax, noteMin) {
   return rows;
 }
 
+function gateToName(g) {
+  if (g <= 0.15) return '32nd';
+  if (g <= 0.3)  return '16th';
+  if (g <= 0.55) return '8th';
+  if (g <= 0.8)  return 'dotted 8th';
+  return 'quarter';
+}
+
 const ZOOM_WIDTHS = [12, 18, 24, 32, 48];
 
 export default {
@@ -108,6 +116,67 @@ export default {
       scaleBar.append(btn);
     });
     container.append(scaleBar);
+
+    // Toolbar
+    const toolbar = document.createElement('div');
+    toolbar.className = 'roll-scale-bar';
+    toolbar.style.cssText = 'margin-bottom:4px;';
+
+    // Draw mode toggle
+    const drawBtn = document.createElement('button');
+    drawBtn.className = 'pr-toolbar-btn' + (state.prDrawMode ? ' active' : '');
+    drawBtn.textContent = '✎';
+    drawBtn.title = 'Draw mode: click empty space to create notes';
+    drawBtn.addEventListener('click', () => {
+      state.prDrawMode = !state.prDrawMode;
+      drawBtn.classList.toggle('active', state.prDrawMode);
+    });
+    toolbar.append(drawBtn);
+
+    // Quantize selected (or all) notes to beat grid
+    const quantizeBtn = document.createElement('button');
+    quantizeBtn.className = 'pr-toolbar-btn';
+    quantizeBtn.textContent = 'QNT';
+    quantizeBtn.title = 'Quantize selected notes to beat grid (every 4 steps)';
+    quantizeBtn.addEventListener('click', () => {
+      // Determine which steps to quantize
+      const hasSelection = state.rollSelected.size > 0;
+      const gridSize = 4; // steps per beat
+      let changed = false;
+      for (let si = 0; si < steps; si++) {
+        const step = track.steps[si];
+        if (!step.active) continue;
+        const midi = step.paramLocks?.note ?? step.note;
+        if (hasSelection && !state.rollSelected.has(`${midi}_${si}`)) continue;
+        // Snap step index to nearest multiple of gridSize
+        const snappedSi = Math.round(si / gridSize) * gridSize;
+        const clampedSi = Math.max(0, Math.min(steps - 1, snappedSi));
+        if (clampedSi !== si) {
+          // Move note: deactivate source, activate destination
+          const dest = track.steps[clampedSi];
+          // Copy note data to destination
+          dest.active = true;
+          dest.note = step.note;
+          dest.velocity = step.velocity ?? 1;
+          dest.gate = step.gate ?? 0.5;
+          if (step.paramLocks?.note != null) {
+            dest.paramLocks = dest.paramLocks ?? {};
+            dest.paramLocks.note = step.paramLocks.note;
+          }
+          // Clear source
+          step.active = false;
+          changed = true;
+        }
+      }
+      if (changed) {
+        emit('track:change', { param: 'steps', value: track.steps });
+        // Re-render the page
+        emit('state:change', { path: 'rollScroll', value: state.rollScroll });
+      }
+    });
+    toolbar.append(quantizeBtn);
+
+    container.append(toolbar);
 
     // Piano roll view
     const view = document.createElement('div');
@@ -221,7 +290,7 @@ export default {
           cell.style.opacity = String(0.3 + vel * 0.7);
           cell.style.cursor = 'ns-resize';
           const gate = step?.gate ?? 0.5;
-          cell.title = `${name} vel:${Math.round(vel * 127)} gate:${Math.round(gate * 100)}%`;
+          cell.title = `${name} vel:${Math.round(vel * 127)} gate:${Math.round(gate * 100)}% (${gateToName(gate)})`;
           if (gate >= 0.75) cell.classList.add('gate-long');
           else if (gate <= 0.25) cell.classList.add('gate-short');
 
@@ -252,7 +321,7 @@ export default {
               cell.classList.remove('gate-long', 'gate-short');
               if (newGate >= 0.75) cell.classList.add('gate-long');
               else if (newGate <= 0.25) cell.classList.add('gate-short');
-              cell.title = `${name} vel:${Math.round((track.steps[si].velocity ?? 1) * 127)} gate:${Math.round(newGate * 100)}%`;
+              cell.title = `${name} vel:${Math.round((track.steps[si].velocity ?? 1) * 127)} gate:${Math.round(newGate * 100)}% (${gateToName(newGate)})`;
             }
 
             function onUp() {
@@ -288,6 +357,18 @@ export default {
           const key = `${midi}_${si}`;
           const step = track.steps[si];
           const alreadyThisNote = step.active && (step.paramLocks?.note === midi || (step.note === midi && !step.paramLocks?.note));
+
+          // Draw mode: clicking an empty cell creates a note
+          if (state.prDrawMode && !alreadyThisNote) {
+            if (!step.active) {
+              emit('step:toggle', { stepIndex: si, shiftKey: false });
+            }
+            emit('step:plock', { stepIndex: si, param: 'note', value: midi });
+            cell.classList.add('active');
+            cell.style.cursor = 'ns-resize';
+            activeSet.add(key);
+            return;
+          }
 
           if (e.shiftKey) {
             // Shift+click: toggle in selection without deselecting others
