@@ -654,18 +654,25 @@ button {
 
 .screen-topbar {
   display: flex;
-  gap: 12px;
   align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: rgba(0,0,0,0.25);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
   font-family: var(--font-mono);
   font-size: 0.7rem;
   color: #b7e0c4;
   margin-bottom: 6px;
   flex-shrink: 0;
+  overflow: hidden;
+  min-width: 0;
+  flex-wrap: nowrap;
   text-shadow: 0 0 8px rgba(90,221,113,0.08);
 }
 
 .topbar-item {
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .topbar-chain {
@@ -682,6 +689,7 @@ button {
   font-size: 0.78rem;
   font-weight: 500;
   text-shadow: 0 0 10px rgba(240,198,64,0.35);
+  flex-shrink: 1;
 }
 
 .topbar-status {
@@ -726,13 +734,17 @@ button {
    ============================================================ */
 
 .page-tabs {
-  display: grid;
-  grid-template-columns: repeat(9, 1fr);
-  gap: 3px;
+  display: flex;
+  gap: 2px;
+  padding: 4px 6px 0;
   margin-bottom: 8px;
   flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-wrap: nowrap;
   position: relative;
 }
+.page-tabs::-webkit-scrollbar { display: none; }
 
 .tab {
   background:
@@ -741,13 +753,15 @@ button {
   border: 1px solid rgba(255,255,255,0.05);
   color: #6c8f77;
   font-family: var(--font-mono);
-  font-size: 0.6rem;
+  font-size: 0.52rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 6px 2px;
+  padding: 4px 8px;
   cursor: pointer;
   border-radius: 6px;
   transition: all 0.12s;
+  white-space: nowrap;
+  flex-shrink: 0;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.06),
     inset 0 -8px 12px rgba(0,0,0,0.24),
@@ -4203,6 +4217,23 @@ input[type=range] {
 }
 
 /* Responsive layout for narrow screens */
+@media (max-width: 900px) {
+  .machine-grid {
+    grid-template-columns: 68px 1fr 130px;
+  }
+  .right-col .track-ch { min-height: 38px; }
+  .track-ch-num { font-size: 0.52rem; }
+}
+
+@media (max-width: 700px) {
+  .machine-grid {
+    grid-template-columns: 60px 1fr 0;
+  }
+  .right-col { display: none; }
+  .left-col { padding: 4px; }
+  .t-btn { width: 48px; height: 28px; font-size: 0.55rem; }
+}
+
 @media (max-width: 640px) {
   .machine-grid {
     grid-template-columns: 28px 1fr 28px;
