@@ -44,6 +44,18 @@ export const STEP_KEYS = [
 
 const QWERTY_ROWS = [
   {
+    cls: 'qrow-num',
+    pad: 0,
+    keys: [
+      { code:'Digit1', cap:'1', w:1 }, { code:'Digit2', cap:'2', w:1 },
+      { code:'Digit3', cap:'3', w:1 }, { code:'Digit4', cap:'4', w:1 },
+      { code:'Digit5', cap:'5', w:1 }, { code:'Digit6', cap:'6', w:1 },
+      { code:'Digit7', cap:'7', w:1 }, { code:'Digit8', cap:'8', w:1 },
+      { code:'Digit9', cap:'9', w:1 }, { code:'Digit0', cap:'0', w:1 },
+      { code:'Minus',  cap:'-', w:1 }, { code:'Equal',  cap:'=', w:1 },
+    ],
+  },
+  {
     cls: 'qrow-fn',
     pad: 0,
     keys: [
@@ -94,6 +106,15 @@ const PAGE_NAV = {
   KeyO:{ role:'page',      hint:'SET'   }, KeyP:{ role:'record',    hint:'REC'   },
   Space:{ role:'play',     hint:'PLAY'  },
   KeyZ:{ role:'oct-shift', hint:'Oct-'  }, KeyX:{ role:'oct-shift', hint:'Oct+'  },
+};
+
+const NUM_ROLES = {
+  Digit1:{ role:'track-sel', hint:'T1' }, Digit2:{ role:'track-sel', hint:'T2' },
+  Digit3:{ role:'track-sel', hint:'T3' }, Digit4:{ role:'track-sel', hint:'T4' },
+  Digit5:{ role:'track-sel', hint:'T5' }, Digit6:{ role:'track-sel', hint:'T6' },
+  Digit7:{ role:'track-sel', hint:'T7' }, Digit8:{ role:'track-sel', hint:'T8' },
+  Digit9:{ role:'util',      hint:'PANIC'}, Digit0:{ role:'util',   hint:'MUTE'},
+  Minus: { role:'util',      hint:'BPM-'}, Equal: { role:'util',    hint:'BPM+'},
 };
 
 const NOTE_ROLES = {
@@ -212,7 +233,7 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
 
     keys.forEach(({ code, cap, w }) => {
       const keyEl = document.createElement('div');
-      const roleInfo = roles[code];
+      const roleInfo = (cls === 'qrow-num' ? NUM_ROLES[code] : null) ?? roles[code];
       const role = roleInfo?.role || 'idle';
       const hint = roleInfo?.hint || '';
 
@@ -792,6 +813,32 @@ export function initKeyboard(state, emit, trackColors = []) {
   if (state.splitKeyboard    === undefined) state.splitKeyboard    = false;
   if (state.splitTrackLeft   === undefined) state.splitTrackLeft   = 0;
   if (state.splitTrackRight  === undefined) state.splitTrackRight  = 1;
+
+  // ── Collapse toggle bar ────────────────────────────────────────────────────
+  const kbdPianoEl = document.getElementById('kbd-piano');
+  if (kbdPianoEl) {
+    const collapseBar = document.createElement('div');
+    collapseBar.className = 'kbd-collapse-bar';
+    collapseBar.title = 'Click to collapse/expand keyboard';
+    const collapseBtn = document.createElement('button');
+    collapseBtn.id = 'kbd-collapse-btn';
+    collapseBtn.className = 'kbd-collapse-btn';
+    collapseBtn.textContent = state?.kbdCollapsed ? '▲ KEYBOARD' : '▼ KEYBOARD';
+    collapseBtn.addEventListener('click', () => {
+      if (!state) return;
+      state.kbdCollapsed = !state.kbdCollapsed;
+      collapseBtn.textContent = state.kbdCollapsed ? '▲ KEYBOARD' : '▼ KEYBOARD';
+      const piano = document.getElementById('kbd-piano');
+      const rows = piano?.querySelectorAll('.qwerty-row:not(.qrow-num):not(.qrow-fn)');
+      rows?.forEach(r => { r.style.display = state.kbdCollapsed ? 'none' : ''; });
+      const spaceRow = piano?.querySelector('.qrow-space');
+      if (spaceRow) spaceRow.style.display = state.kbdCollapsed ? 'none' : '';
+      const kbdContext = document.getElementById('kbd-context');
+      if (kbdContext) kbdContext.style.display = state.kbdCollapsed ? 'none' : '';
+    });
+    collapseBar.append(collapseBtn);
+    kbdPianoEl.prepend(collapseBar);
+  }
 
   window.addEventListener('keydown', (e) => {
     const tag = e.target.tagName;

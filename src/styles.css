@@ -1907,6 +1907,34 @@ button {
   position: relative;
 }
 
+/* Keyboard collapse bar */
+.kbd-collapse-bar {
+  position: absolute;
+  top: -22px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  z-index: 10;
+}
+.kbd-collapse-btn {
+  background: #1a1612;
+  border: 1px solid #3a3020;
+  border-bottom: none;
+  color: #c8a060;
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  padding: 2px 10px;
+  cursor: pointer;
+  border-radius: 4px 4px 0 0;
+  letter-spacing: 0.08em;
+  transition: background 0.15s;
+}
+.kbd-collapse-btn:hover {
+  background: #2a2218;
+  color: #f0c060;
+}
+
 .piano-wrapper {
   display: flex;
   position: relative;

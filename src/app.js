@@ -2468,6 +2468,33 @@ function bindUI() {
       return;
     }
 
+    // Number row: 1-8 = select track, 9 = panic, 0 = mute, - = BPM-1, = = BPM+1
+    if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+      const _digit = { Digit1:0, Digit2:1, Digit3:2, Digit4:3, Digit5:4, Digit6:5, Digit7:6, Digit8:7 }[e.code];
+      if (_digit !== undefined) {
+        e.preventDefault();
+        state.selectedTrackIndex = _digit;
+        emit('track:select', { trackIndex: _digit });
+        return;
+      }
+      if (e.code === 'Digit9') { e.preventDefault(); state.engine?.panic?.(); return; }
+      if (e.code === 'Digit0') { e.preventDefault(); emit('track:mute', { trackIndex: state.selectedTrackIndex ?? 0 }); return; }
+      if (e.code === 'Minus') {
+        state.bpm = Math.max(40, (state.bpm ?? 120) - 1);
+        state.engine?.setBpm?.(state.bpm);
+        updateTopbar(); saveState(state);
+        e.preventDefault();
+        return;
+      }
+      if (e.code === 'Equal') {
+        state.bpm = Math.min(240, (state.bpm ?? 120) + 1);
+        state.engine?.setBpm?.(state.bpm);
+        updateTopbar(); saveState(state);
+        e.preventDefault();
+        return;
+      }
+    }
+
     // +/= increment BPM, -/_ decrement BPM (no modifier)
     if (!e.ctrlKey && !e.metaKey && !e.altKey) {
       if (e.key === '+' || e.key === '=') {
