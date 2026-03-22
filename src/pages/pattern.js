@@ -376,7 +376,27 @@ export default {
       });
       labelWrap.append(velRandBtn);
 
+      labelWrap.style.cursor = 'pointer';
+      labelWrap.title = 'Click to select track; click label text to expand/collapse step details';
       labelWrap.addEventListener('click', () => emit('track:select', { trackIndex: ti }));
+
+      const labelTextEl = labelWrap.querySelector('.mtg-label');
+      if (labelTextEl) {
+        labelTextEl.style.cursor = 'pointer';
+        labelTextEl.title = 'Click to expand/collapse step details';
+        labelTextEl.addEventListener('click', e => {
+          e.stopPropagation();
+          if (!state._expandedTracks) state._expandedTracks = new Set();
+          if (state._expandedTracks.has(ti)) {
+            state._expandedTracks.delete(ti);
+          } else {
+            state._expandedTracks.add(ti);
+          }
+          // Re-render the step row to show/hide velocity bars
+          emit('state:change', { param: 'velocity' });
+        });
+      }
+
       row.append(labelWrap);
 
       // Step buttons
@@ -486,6 +506,41 @@ export default {
           step.active = dragActivating;
           btn.classList.toggle('active', step.active);
           emit('state:change', { param: 'pattern' });
+        });
+
+        btn.addEventListener('mouseenter', () => {
+          if (!step.active) return;
+          // Preview: emit note:preview so the engine plays briefly without recording
+          emit('note:preview', {
+            trackIndex: ti,
+            note: step.note ?? trk.note ?? 60,
+            velocity: step.velocity ?? 0.6,
+            duration: 0.1,
+          });
+        });
+
+        btn.addEventListener('mousedown', e => {
+          if (!e.shiftKey || !step.active) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const startY = e.clientY;
+          const startVel = step.velocity ?? 1.0;
+
+          const onMove = (me) => {
+            const delta = (startY - me.clientY) / 80; // 80px = full range
+            step.velocity = Math.max(0.05, Math.min(1.0, startVel + delta));
+            btn.style.setProperty('--vel', step.velocity);
+            btn.title = `Step ${si+1} vel:${Math.round(step.velocity * 100)}%`;
+            emit('state:change', { param: 'velocity' });
+          };
+
+          const onUp = () => {
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+          };
+
+          window.addEventListener('mousemove', onMove);
+          window.addEventListener('mouseup', onUp);
         });
 
         btn.addEventListener('click', e => {
@@ -742,7 +797,25 @@ export default {
       countBadge.textContent = activeCount > 0 ? String(activeCount) : '';
       row.append(countBadge);
 
-      multiGrid.append(row);
+      // Wrap row (and optional velocity bar) in a track container
+      const trackContainer = document.createElement('div');
+      trackContainer.style.cssText = 'display:flex;flex-direction:column';
+      trackContainer.append(row);
+
+      // Expanded velocity bar row
+      if (state._expandedTracks?.has(ti)) {
+        const velRow = document.createElement('div');
+        // Offset to align with step buttons (label wrap is approx 56px wide)
+        velRow.style.cssText = 'display:flex;gap:1px;height:12px;margin-top:1px;padding-left:56px;padding-right:2px';
+        trk.steps.slice(0, pattern.length).forEach(s => {
+          const bar = document.createElement('div');
+          bar.style.cssText = `flex:1;background:${s.active ? 'var(--accent)' : 'rgba(255,255,255,0.04)'};height:${s.active ? Math.round((s.velocity ?? 1) * 100) : 0}%;align-self:flex-end;border-radius:1px`;
+          velRow.append(bar);
+        });
+        trackContainer.append(velRow);
+      }
+
+      multiGrid.append(trackContainer);
     });
 
     wrapper.append(multiGrid);
