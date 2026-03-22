@@ -138,6 +138,7 @@ export function createTrack(index) {
     arpMode:    'up',
     arpRange:   1,
     arpSpeed:   1,
+    arpHold:    false,
 
     // Sample root note (MIDI 21–108) used for key tracking pitch detection.
     // Set manually or via auto-detect (detectPitch in sound.js).

@@ -1294,8 +1294,14 @@ function scheduleLoop() {
           state._arpIdx[ti] = state._arpIdx[ti] ?? 0;
           const base = step.paramLocks?.note ?? track.pitch ?? 60;
           const range = track.arpRange ?? 1;
-          const arpNotes = [];
-          for (let o = 0; o < range; o++) arpNotes.push(base + o * 12);
+          // When arp hold mode is active, use the latched keyboard notes; otherwise generate from octave range
+          let arpNotes;
+          if (track.arpHold && Array.isArray(state._arpHeldNotes) && state._arpHeldNotes.length > 0) {
+            arpNotes = [...state._arpHeldNotes];
+          } else {
+            arpNotes = [];
+            for (let o = 0; o < range; o++) arpNotes.push(base + o * 12);
+          }
           if (track.arpMode === 'down') arpNotes.reverse();
           if (track.arpMode === 'random') arpNotes.sort(() => Math.random() - 0.5);
           let noteToPlay;
@@ -1752,6 +1758,18 @@ function renderPlayhead() {
       cell.classList.toggle('playhead', Number(cell.dataset.col) === state.currentStep);
     });
   }
+
+  // Update loop counter display in realtime (lightweight — only touches the counter element)
+  const _loopCountEl = document.getElementById('loop-count-display');
+  if (_loopCountEl) {
+    const _loopN = state._patternLoopCount ?? 0;
+    if (state.isPlaying && _loopN > 0) {
+      _loopCountEl.style.display = '';
+      _loopCountEl.textContent = `\xd7${_loopN}`;
+    } else {
+      _loopCountEl.style.display = 'none';
+    }
+  }
 }
 
 function updateTopbar() {
@@ -1821,6 +1839,27 @@ function updateTopbar() {
   } else {
     chainDisplay.classList.remove('chain-active');
     chainDisplay.textContent = '';
+  }
+
+  // Loop counter indicator
+  let loopCountDisplay = document.getElementById('loop-count-display');
+  if (!loopCountDisplay) {
+    loopCountDisplay = document.createElement('span');
+    loopCountDisplay.id = 'loop-count-display';
+    loopCountDisplay.className = 'topbar-item';
+    loopCountDisplay.style.cssText = [
+      'font-family:var(--font-mono)', 'font-size:0.52rem', 'color:#fa0',
+      'background:rgba(255,170,0,0.1)', 'border:1px solid rgba(255,170,0,0.3)',
+      'border-radius:3px', 'padding:1px 5px', 'display:none',
+    ].join(';');
+    document.getElementById('chain-display')?.insertAdjacentElement('afterend', loopCountDisplay);
+  }
+  const loopN = state._patternLoopCount ?? 0;
+  if (state.isPlaying && loopN > 0) {
+    loopCountDisplay.style.display = '';
+    loopCountDisplay.textContent = `\xd7${loopN}`;
+  } else {
+    loopCountDisplay.style.display = 'none';
   }
 }
 

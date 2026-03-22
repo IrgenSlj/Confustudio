@@ -312,6 +312,24 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
     if (track?.arpEnabled) {
       const arpVis = buildArpVisualizer(state, _TRACK_COLORS, getActiveTrackFn);
       containerEl.append(arpVis);
+
+      // ARP HOLD toggle button
+      const holdBtn = document.createElement('button');
+      holdBtn.className = 'kbd-chord-btn kbd-arp-hold-btn' + (track.arpHold ? ' active' : '');
+      holdBtn.textContent = 'HOLD';
+      holdBtn.title = 'Arp hold: sustain notes after release';
+      holdBtn.style.marginLeft = '6px';
+      holdBtn.addEventListener('click', () => {
+        track.arpHold = !track.arpHold;
+        holdBtn.classList.toggle('active', track.arpHold);
+        if (!track.arpHold) {
+          // Clear latched notes
+          state._arpHeldNotes = [];
+        }
+        _emit?.('track:change', { trackIndex: getActiveTrackFn(), param: 'arpHold', value: track.arpHold });
+      });
+      // Insert after the arp visualizer element
+      containerEl.append(holdBtn);
     }
   }
 }
@@ -495,11 +513,11 @@ export function renderPiano(containerEl, state) {
   velBar.innerHTML = `
     <label class="kbd-vel-label">VEL</label>
     <input type="range" class="kbd-vel-slider" min="0.05" max="1" step="0.01" value="${state.keyboardVelocity ?? 1}">
-    <span class="kbd-vel-val">${Math.round((state.keyboardVelocity ?? 1) * 100)}</span>
+    <span class="kbd-vel-val">${Math.round((state.keyboardVelocity ?? 1) * 127)}</span>
   `;
   velBar.querySelector('input').addEventListener('input', e => {
     state.keyboardVelocity = parseFloat(e.target.value);
-    velBar.querySelector('span').textContent = Math.round(state.keyboardVelocity * 100);
+    velBar.querySelector('span').textContent = Math.round(state.keyboardVelocity * 127);
   });
   pianoContainer.append(velBar);
 
@@ -765,6 +783,17 @@ export function initKeyboard(state, emit, trackColors = []) {
 
         // Restore track after split
         if (_splitPrevTrack != null) state.selectedTrackIndex = _splitPrevTrack;
+
+        // Arp hold: accumulate pressed notes into _arpHeldNotes when active track has arpHold on
+        {
+          const _arpTrack = state.project?.banks?.[state.activeBank]?.patterns?.[state.activePattern]?.kit?.tracks?.[state.selectedTrackIndex];
+          if (_arpTrack?.arpEnabled && _arpTrack?.arpHold) {
+            state._arpHeldNotes = state._arpHeldNotes ?? [];
+            if (!state._arpHeldNotes.includes(midiNote)) {
+              state._arpHeldNotes.push(midiNote);
+            }
+          }
+        }
 
         // Step record: write note to cursor step on any page with note keys active
         if (state.stepRecordMode) {
