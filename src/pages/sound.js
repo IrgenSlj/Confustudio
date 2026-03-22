@@ -108,6 +108,16 @@ function buildArpPreview(arpMode, arpRange, rootMidi, trackColor) {
   return wrap;
 }
 
+const MACHINE_BADGE_COLORS = {
+  tone:   { bg: '#ff7a00', text: '#000' },
+  noise:  { bg: '#ff7a00', text: '#000' },
+  sample: { bg: '#2277ff', text: '#fff' },
+  plaits: { bg: '#22aa44', text: '#fff' },
+  clouds: { bg: '#7744cc', text: '#fff' },
+  rings:  { bg: '#009988', text: '#fff' },
+  midi:   { bg: '#ddcc00', text: '#000' },
+};
+
 const LFO_TARGETS = ['cutoff', 'volume', 'pan', 'pitch'];
 
 const PLAITS_ENGINES = [
@@ -179,7 +189,7 @@ function makeSlider(label, param, min, max, step, value, emit, trackIndex) {
 function drawWaveform(canvas, audioBuffer, sampleStart, sampleEnd,
                       viewStart = 0, viewEnd = 1,
                       loopStart = 0, loopEnd = 1, loopEnabled = false,
-                      bitDepth = 32) {
+                      bitDepth = 32, playbackPos = null) {
   if (!audioBuffer) { canvas.style.display = 'none'; return; }
   canvas.style.display = 'block';
   const ctx2d = canvas.getContext('2d');
@@ -285,6 +295,32 @@ function drawWaveform(canvas, audioBuffer, sampleStart, sampleEnd,
     ctx2d.setLineDash([]);
   }
 
+  // ── Start point marker — orange dashed line + triangle ───────────────────
+  const spX = fracToX(sampleStart ?? 0);
+  if (spX >= 0 && spX <= W) {
+    ctx2d.save();
+    ctx2d.strokeStyle = '#f90';
+    ctx2d.lineWidth = 2;
+    ctx2d.setLineDash([4, 3]);
+    ctx2d.beginPath(); ctx2d.moveTo(spX, 0); ctx2d.lineTo(spX, H); ctx2d.stroke();
+    ctx2d.setLineDash([]);
+    // Triangle indicator at top
+    ctx2d.fillStyle = '#f90';
+    ctx2d.beginPath(); ctx2d.moveTo(spX, 0); ctx2d.lineTo(spX + 8, 0); ctx2d.lineTo(spX, 12); ctx2d.fill();
+    ctx2d.restore();
+  }
+
+  // ── Playback position indicator ───────────────────────────────────────────
+  if (playbackPos != null) {
+    const px = fracToX(playbackPos);
+    ctx2d.save();
+    ctx2d.strokeStyle = '#fff';
+    ctx2d.lineWidth = 1;
+    ctx2d.globalAlpha = 0.7;
+    ctx2d.beginPath(); ctx2d.moveTo(px, 0); ctx2d.lineTo(px, H); ctx2d.stroke();
+    ctx2d.restore();
+  }
+
   // ── LO-FI indicator ───────────────────────────────────────────────────────
   if (bitDepth < 16) {
     ctx2d.font = 'bold 9px monospace';
@@ -300,6 +336,7 @@ function makeSampleLoader(track, ti, emit, machCard) {
   // ── Local view state ──────────────────────────────────────────────────────
   let waveZoom    = 1;   // 1, 2, 4, or 8
   let wavePan     = 0;   // 0–1: how far through the zoomable region we're panned
+  let _samplePlaybackPos = null;  // null or 0–1 fraction for animated preview playhead
 
   // Compute the [viewStart, viewEnd] window from zoom and pan
   function viewWindow() {
@@ -335,6 +372,65 @@ function makeSampleLoader(track, ti, emit, machCard) {
 
   wfWrap.append(wfCanvas, playhead);
 
+  // Forward-declare previewBtn so animateSamplePlayhead can reference it
+  let previewBtn;
+
+  // ── Canvas drag: start point marker ──────────────────────────────────────
+  let _draggingStart = false;
+
+  function canvasFracFromEvent(e) {
+    const rect = wfCanvas.getBoundingClientRect();
+    const xFrac = (e.clientX - rect.left) / rect.width;
+    // Convert canvas x-fraction back to buffer fraction via view window
+    const { viewStart, viewEnd } = viewWindow();
+    return viewStart + xFrac * (viewEnd - viewStart);
+  }
+
+  function isNearStartMarker(e) {
+    if (!track.sampleBuffer) return false;
+    const rect = wfCanvas.getBoundingClientRect();
+    const { viewStart, viewEnd } = viewWindow();
+    const startFrac = track.sampleStart ?? 0;
+    // Hit-test: within 8px of the marker
+    const markerX = ((startFrac - viewStart) / (viewEnd - viewStart)) * rect.width;
+    const pointerX = e.clientX - rect.left;
+    return Math.abs(pointerX - markerX) < 8;
+  }
+
+  wfCanvas.addEventListener('pointerdown', (e) => {
+    if (!track.sampleBuffer) return;
+    if (isNearStartMarker(e)) {
+      _draggingStart = true;
+      wfCanvas.setPointerCapture(e.pointerId);
+      wfCanvas.style.cursor = 'ew-resize';
+      e.preventDefault();
+    }
+  });
+
+  wfCanvas.addEventListener('pointermove', (e) => {
+    if (_draggingStart) {
+      const newFrac = canvasFracFromEvent(e);
+      const clamped = Math.max(0, Math.min(track.sampleEnd ?? 1, newFrac));
+      track.sampleStart = clamped;
+      startSlider.value = clamped;
+      const startHdr = startLbl.querySelector('span');
+      if (startHdr) startHdr.textContent = 'Start ' + clamped.toFixed(3);
+      emit('track:change', { trackIndex: ti, param: 'sampleStart', value: clamped });
+      redraw();
+    } else if (track.sampleBuffer && isNearStartMarker(e)) {
+      wfCanvas.style.cursor = 'ew-resize';
+    } else {
+      wfCanvas.style.cursor = '';
+    }
+  });
+
+  wfCanvas.addEventListener('pointerup', () => {
+    if (_draggingStart) {
+      _draggingStart = false;
+      wfCanvas.style.cursor = '';
+    }
+  });
+
   // Redraw helper — reads current slider values and loop state
   function redraw() {
     const { viewStart, viewEnd } = viewWindow();
@@ -348,8 +444,34 @@ function makeSampleLoader(track, ti, emit, machCard) {
       parseFloat(loopStartSlider.value),
       parseFloat(loopEndSlider.value),
       loopEnabledRef.value,
-      track.bitDepth ?? 32
+      track.bitDepth ?? 32,
+      _samplePlaybackPos
     );
+  }
+
+  // ── Animated preview playhead ─────────────────────────────────────────────
+  // playbackPos stored as a fraction of the full buffer (0–1) for fracToX mapping
+  function animateSamplePlayhead(source, duration) {
+    const ctx = source.context;
+    const startTime = ctx.currentTime;
+    const startFrac = track.sampleStart ?? 0;
+    const endFrac   = track.sampleEnd   ?? 1;
+    function tick() {
+      const elapsed = ctx.currentTime - startTime;
+      const segFrac = Math.min(1, elapsed / duration);
+      // Map segment fraction into full-buffer fraction space
+      _samplePlaybackPos = startFrac + segFrac * (endFrac - startFrac);
+      redraw();
+      if (elapsed < duration && wfCanvas.isConnected) {
+        requestAnimationFrame(tick);
+      } else {
+        _samplePlaybackPos = null;
+        redraw();
+        previewBtn.textContent = 'Preview';
+        previewBtn.classList.remove('active');
+      }
+    }
+    requestAnimationFrame(tick);
   }
 
   // ── Zoom controls ─────────────────────────────────────────────────────────
@@ -500,8 +622,61 @@ function makeSampleLoader(track, ti, emit, machCard) {
   const loopEndSlider   = loopEndLbl.querySelector('input');
   loopHandlesWrap.append(loopStartLbl, loopEndLbl);
 
+  // ── Preview button ────────────────────────────────────────────────────────
+  previewBtn = document.createElement('button');
+  previewBtn.className = 'screen-btn';
+  previewBtn.style.marginTop = '4px';
+  previewBtn.textContent = 'Preview';
+  previewBtn.title = 'Preview sample from start point';
+  let _previewSource = null;
+  previewBtn.addEventListener('click', () => {
+    if (!track.sampleBuffer) {
+      emit('toast', { msg: 'No sample loaded' });
+      return;
+    }
+    // Stop any currently running preview
+    if (_previewSource) {
+      try { _previewSource.stop(); } catch (_) {}
+      _previewSource = null;
+      _samplePlaybackPos = null;
+      redraw();
+      previewBtn.textContent = 'Preview';
+      previewBtn.classList.remove('active');
+      return;
+    }
+    // Get audio context from engine or global
+    const audioCtx = window._confusynthState?.engine?.context
+      ?? window._confusynthState?.audioContext;
+    if (!audioCtx) { emit('toast', { msg: 'No audio context' }); return; }
+
+    const buf = track.sampleBuffer;
+    const startFrac = track.sampleStart ?? 0;
+    const endFrac   = track.sampleEnd   ?? 1;
+    const offsetSec = startFrac * buf.duration;
+    const durationSec = (endFrac - startFrac) * buf.duration;
+
+    const source = audioCtx.createBufferSource();
+    source.buffer = buf;
+    source.connect(audioCtx.destination);
+    source.start(0, offsetSec, durationSec);
+    _previewSource = source;
+
+    previewBtn.textContent = 'Stop';
+    previewBtn.classList.add('active');
+
+    animateSamplePlayhead(source, durationSec);
+
+    source.onended = () => {
+      _previewSource = null;
+      _samplePlaybackPos = null;
+      redraw();
+      previewBtn.textContent = 'Preview';
+      previewBtn.classList.remove('active');
+    };
+  });
+
   // ── Assemble ──────────────────────────────────────────────────────────────
-  machCard.append(sampleInfo, loadBtn, wfWrap, zoomRow, panSliderWrap, seRow, loopRow, loopHandlesWrap);
+  machCard.append(sampleInfo, loadBtn, wfWrap, zoomRow, panSliderWrap, seRow, loopRow, loopHandlesWrap, previewBtn);
 
   // Initial draw after layout — use rAF so canvas has measured width
   requestAnimationFrame(() => {
@@ -557,7 +732,10 @@ export default {
     // Header
     const header = document.createElement('div');
     header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0';
-    header.innerHTML = `<span class="page-title" style="margin:0">Sound — ${track.name}</span>`;
+    const machineType = (track.machine ?? 'tone').toLowerCase();
+    const badgeColors = MACHINE_BADGE_COLORS[machineType] ?? { bg: '#555', text: '#fff' };
+    header.innerHTML = `<span class="page-title" style="margin:0">Sound — ${track.name}</span>
+      <span class="machine-badge" style="background:${badgeColors.bg};color:${badgeColors.text}">${machineType.toUpperCase()}</span>`;
     container.append(header);
 
     const grid = document.createElement('div');
