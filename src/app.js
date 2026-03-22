@@ -45,6 +45,56 @@ function showToast(msg, duration = 1200) {
 }
 
 // ─────────────────────────────────────────────
+// PERFORMANCE OVERLAY (backtick toggle)
+// ─────────────────────────────────────────────
+function togglePerfOverlay() {
+  let overlay = document.getElementById('perf-overlay');
+  if (overlay) { overlay.remove(); return; }
+
+  overlay = document.createElement('div');
+  overlay.id = 'perf-overlay';
+  overlay.style.cssText = [
+    'position:fixed', 'top:8px', 'right:8px', 'z-index:9999',
+    'background:rgba(0,0,0,0.85)', 'border:1px solid rgba(255,255,255,0.1)',
+    'border-radius:6px', 'padding:6px 10px', 'font-family:var(--font-mono)',
+    'font-size:0.52rem', 'color:#aaa', 'min-width:120px',
+    'backdrop-filter:blur(4px)', 'pointer-events:none',
+  ].join(';');
+
+  const lines = ['fps', 'voices', 'bpm', 'lat', 'mem'];
+  const spans = {};
+  lines.forEach(k => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;gap:10px;line-height:1.6';
+    const lbl = document.createElement('span'); lbl.textContent = k.toUpperCase(); lbl.style.color = 'var(--muted)';
+    const val = document.createElement('span'); val.style.color = '#fff'; spans[k] = val;
+    row.append(lbl, val); overlay.append(row);
+  });
+
+  document.body.append(overlay);
+
+  let lastT = performance.now(), frames = 0, fps = 0;
+  function updateOverlay() {
+    if (!overlay.isConnected) return;
+    const now = performance.now();
+    frames++;
+    if (now - lastT >= 500) {
+      fps = Math.round(frames * 1000 / (now - lastT));
+      frames = 0; lastT = now;
+    }
+    spans.fps.textContent = `${fps} fps`;
+    spans.voices.textContent = state._activeVoices ?? 0;
+    spans.bpm.textContent = state.bpm?.toFixed(1);
+    spans.lat.textContent = state.engine?.context?.baseLatency != null
+      ? `${Math.round(state.engine.context.baseLatency * 1000)}ms` : '--';
+    const mem = performance.memory;
+    spans.mem.textContent = mem ? `${Math.round(mem.usedJSHeapSize / 1048576)}M` : '--';
+    requestAnimationFrame(updateOverlay);
+  }
+  updateOverlay();
+}
+
+// ─────────────────────────────────────────────
 // MIDI FILE EXPORT
 // ─────────────────────────────────────────────
 export function exportMidi(state) {
@@ -1498,6 +1548,11 @@ function scheduleLoop() {
       _schedNextTime += secsPerStep + swing;
     }
 
+    // Update active voice count for perf overlay
+    state._activeVoices = state.engine?._voiceQueue
+      ? [...state.engine._voiceQueue.values()].reduce((s, q) => s + q.length, 0)
+      : 0;
+
     renderPlayhead();
     _schedRafId = requestAnimationFrame(tick);
   };
@@ -2289,6 +2344,13 @@ function bindUI() {
   // BPM +/- shortcuts, pattern page shortcuts (Escape, Ctrl+A, Home/End)
   document.addEventListener('keydown', e => {
     if (e.target.matches('input, select, textarea')) return;
+
+    // ` toggles performance overlay
+    if (e.key === '`' && !e.ctrlKey) {
+      e.preventDefault();
+      togglePerfOverlay();
+      return;
+    }
 
     // +/= increment BPM, -/_ decrement BPM (no modifier)
     if (!e.ctrlKey && !e.metaKey && !e.altKey) {
