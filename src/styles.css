@@ -98,26 +98,36 @@ body {
   height: 100vh;
   overflow: hidden;
   position: relative;
-  background-color: #8b5e2a;
+  /* Plywood surface — pale birch veneer, visible lamination layers */
+  background-color: #c4aa74;
   background-image:
-    /* Grain direction — horizontal planks */
+    /* Lamination layer edges — visible every ~52px, the hallmark of plywood */
     repeating-linear-gradient(180deg,
-      transparent 0px, transparent 4px,
-      rgba(0,0,0,0.04) 4px, rgba(0,0,0,0.04) 5px,
-      transparent 5px, transparent 9px,
-      rgba(255,255,255,0.025) 9px, rgba(255,255,255,0.025) 10px),
-    /* Fine grain texture */
-    repeating-linear-gradient(175deg,
-      transparent 0px, transparent 30px,
-      rgba(0,0,0,0.035) 30px, rgba(0,0,0,0.035) 32px,
-      transparent 32px, transparent 68px,
-      rgba(0,0,0,0.02) 68px, rgba(0,0,0,0.02) 70px),
-    /* Warm wood tone variation */
-    radial-gradient(ellipse at 20% 30%, #c08040 0%, transparent 45%),
-    radial-gradient(ellipse at 80% 70%, #7a4e1e 0%, transparent 50%),
-    radial-gradient(ellipse at 55% 15%, #d09050 0%, transparent 35%),
-    radial-gradient(ellipse at 30% 80%, #9a6030 0%, transparent 40%),
-    linear-gradient(170deg, #a06830 0%, #8b5020 50%, #7a4818 100%);
+      rgba(0,0,0,0.055) 0px, rgba(0,0,0,0.055) 1px,
+      rgba(255,255,255,0.04) 1px, rgba(255,255,255,0.04) 2px,
+      transparent 2px, transparent 50px,
+      rgba(0,0,0,0.04) 50px, rgba(0,0,0,0.04) 51px,
+      rgba(255,255,255,0.03) 51px, rgba(255,255,255,0.03) 52px,
+      transparent 52px, transparent 102px),
+    /* Fine horizontal wood grain within each veneer sheet */
+    repeating-linear-gradient(180deg,
+      transparent 0px, transparent 2px,
+      rgba(0,0,0,0.022) 2px, rgba(0,0,0,0.022) 3px,
+      transparent 3px, transparent 6px,
+      rgba(255,255,255,0.018) 6px, rgba(255,255,255,0.018) 7px,
+      transparent 7px, transparent 11px),
+    /* Slight diagonal — wood grain never runs perfectly horizontal */
+    repeating-linear-gradient(178.5deg,
+      transparent 0px, transparent 22px,
+      rgba(0,0,0,0.016) 22px, rgba(0,0,0,0.016) 23px,
+      transparent 23px, transparent 47px,
+      rgba(0,0,0,0.01) 47px, rgba(0,0,0,0.01) 48px),
+    /* Subtle tonal variation — birch plywood has some color shift */
+    radial-gradient(ellipse at 65% 35%, #d4bc88 0%, transparent 55%),
+    radial-gradient(ellipse at 25% 72%, #b89a60 0%, transparent 48%),
+    radial-gradient(ellipse at 80% 80%, #c8ae7a 0%, transparent 40%),
+    /* Base birch plywood tone — pale golden tan */
+    linear-gradient(180deg, #ccb87e 0%, #bfa86c 40%, #c8b278 70%, #c2aa72 100%);
 }
 
 #studio-canvas {
@@ -132,14 +142,15 @@ body {
 .studio-module {
   position: absolute;
   cursor: default;
-  filter: drop-shadow(0 24px 48px rgba(0,0,0,0.65)) drop-shadow(0 4px 8px rgba(0,0,0,0.4));
-  transition: filter 0.2s;
+  /* Hard single-source shadow: light from top-left, casts bottom-right */
+  filter: drop-shadow(10px 18px 0px rgba(0,0,0,0.55));
+  transition: filter 0.15s;
   display: flex;
   flex-direction: column;
 }
 
 .studio-module:hover {
-  filter: drop-shadow(0 28px 56px rgba(0,0,0,0.7)) drop-shadow(0 6px 12px rgba(0,0,0,0.5));
+  filter: drop-shadow(12px 20px 0px rgba(0,0,0,0.62));
 }
 
 .studio-module:active {
@@ -3407,7 +3418,7 @@ button {
   line-height: 1;
   padding: 8px;
   cursor: grab;
-  filter: drop-shadow(0 8px 16px rgba(0,0,0,0.5));
+  filter: drop-shadow(6px 8px 0px rgba(0,0,0,0.45));
   transition: transform 0.1s;
 }
 
