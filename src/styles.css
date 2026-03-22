@@ -98,39 +98,7 @@ body {
   height: 100vh;
   overflow: hidden;
   position: relative;
-  /* Plywood — stained pine, large visible grain + lamination bands */
-  background-color: #4e3c22;
-  background-image:
-    /* Lamination layer edges — prominent bands every 88px, the defining
-       feature of plywood visible at distance */
-    repeating-linear-gradient(180deg,
-      rgba(0,0,0,0.30) 0px,   rgba(0,0,0,0.30) 3px,
-      rgba(255,255,255,0.07) 3px, rgba(255,255,255,0.07) 5px,
-      transparent 5px,        transparent 84px,
-      rgba(0,0,0,0.18) 84px,  rgba(0,0,0,0.18) 86px,
-      rgba(255,255,255,0.04) 86px, rgba(255,255,255,0.04) 88px,
-      transparent 88px,       transparent 176px),
-    /* Coarse wood grain — visible stripes every 18-28px */
-    repeating-linear-gradient(179deg,
-      transparent 0px,          transparent 12px,
-      rgba(0,0,0,0.14) 12px,    rgba(0,0,0,0.14) 14px,
-      transparent 14px,         transparent 22px,
-      rgba(255,255,255,0.05) 22px, rgba(255,255,255,0.05) 23px,
-      transparent 23px,         transparent 32px,
-      rgba(0,0,0,0.10) 32px,    rgba(0,0,0,0.10) 33px,
-      transparent 33px,         transparent 44px),
-    /* Medium grain detail between coarse stripes */
-    repeating-linear-gradient(178deg,
-      transparent 0px,          transparent 5px,
-      rgba(0,0,0,0.07) 5px,     rgba(0,0,0,0.07) 6px,
-      transparent 6px,          transparent 11px),
-    /* Tonal patches — wood never uniform */
-    radial-gradient(ellipse at 30% 25%, #6a5030 0%, transparent 40%),
-    radial-gradient(ellipse at 72% 60%, #3c2c14 0%, transparent 45%),
-    radial-gradient(ellipse at 15% 75%, #5a4222 0%, transparent 35%),
-    radial-gradient(ellipse at 85% 20%, #604828 0%, transparent 38%),
-    /* Base — dark stained pine */
-    linear-gradient(180deg, #52401e 0%, #3e2e10 35%, #4a3818 65%, #402e0e 100%);
+  background-color: #080e07;
 }
 
 #studio-canvas {
@@ -139,6 +107,7 @@ body {
   left: 0;
   transform-origin: 0 0;
   overflow: visible;
+  z-index: 1;
   /* JS will set transform: scale() translate() */
 }
 

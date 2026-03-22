@@ -9,6 +9,7 @@ import { initKeyboard, renderKbdContext, renderPiano, lightPianoKey,
 import { renderKnobs, KNOB_MAPS } from './knobs.js';
 import { initStudio } from '/src/studio.js';
 import { initCables } from '/src/cables.js';
+import { initBackground } from '/src/background.js';
 
 // Page modules
 import patternPage  from './pages/pattern.js';
@@ -2242,13 +2243,18 @@ function bindUI() {
     overdubBtn.className = 'transport-btn' + (state.overdubMode ? ' active' : '');
     overdubBtn.textContent = 'OVR';
     overdubBtn.title = 'Overdub mode: add notes without erasing';
-    overdubBtn.style.fontSize = '0.52rem';
+    overdubBtn.style.cssText = 'font-size:0.44rem;padding:1px 4px';
     overdubBtn.addEventListener('click', () => {
       state.overdubMode = !state.overdubMode;
       overdubBtn.classList.toggle('active', state.overdubMode);
       updateTopbar();
     });
-    el.btnRecord?.insertAdjacentElement('afterend', overdubBtn);
+    const statusPillOvr = document.getElementById('status-pill');
+    if (statusPillOvr) {
+      statusPillOvr.insertAdjacentElement('afterend', overdubBtn);
+    } else {
+      document.querySelector('.topbar-right')?.append(overdubBtn);
+    }
   }
   el.kbdPlay?.addEventListener('click',   () => togglePlay());
   el.kbdStop?.addEventListener('click',   () => stopPlay());
@@ -3045,6 +3051,7 @@ function boot() {
   if (el.masterVolume) el.masterVolume.value = state.masterLevel;
   initMacros();
   initStudio();
+  initBackground();
   initCables();
   setupSwipe();
   setupDoubleTap();
