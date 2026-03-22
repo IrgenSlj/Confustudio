@@ -1908,6 +1908,12 @@ function renderTrackSelector() {
   if (!el_cs) return;
   const pattern = getActivePattern(state);
   el_cs.innerHTML = '';
+
+  const GRP_COLORS = [
+    '#f0c640','#5add71','#67d7ff','#ff8c52',
+    '#c67dff','#ff6eb4','#40e0d0','#f05b52',
+  ];
+
   pattern.kit.tracks.forEach((track, i) => {
     const isActive = i === state.selectedTrackIndex;
     const hasTriggers = track.steps.slice(0, track.trackLength || pattern.length).some(s => s.active);
@@ -2752,11 +2758,12 @@ function bindUI() {
       opt.textContent = label;
       sel.append(opt);
     });
-    const transportBtns = document.querySelector('.transport-buttons');
-    if (el.btnRecord && el.btnRecord.parentNode) {
-      el.btnRecord.parentNode.insertBefore(sel, el.btnRecord.nextSibling);
-    } else if (transportBtns) {
-      transportBtns.append(sel);
+    sel.style.cssText = 'font-size:0.5rem;width:100%;margin-bottom:3px';
+    const bpmEditEl = document.getElementById('bpm-edit');
+    if (bpmEditEl) {
+      bpmEditEl.insertBefore(sel, bpmEditEl.firstChild);
+    } else {
+      document.querySelector('.transport-buttons')?.append(sel);
     }
     return sel;
   })();
@@ -2771,13 +2778,9 @@ function bindUI() {
     b.id = 'btn-export';
     b.className = 't-btn';
     b.textContent = 'Exp';
-    b.title = 'Export 8s audio (WebM)';
-    const transportBtns = document.querySelector('.transport-buttons');
-    if (transportBtns) {
-      transportBtns.append(b);
-    } else if (el.btnStop && el.btnStop.parentNode) {
-      el.btnStop.parentNode.append(b);
-    }
+    b.title = 'Export 8s audio (WebM) [Ctrl+E]';
+    b.style.display = 'none'; // hidden; trigger via Ctrl+E keyboard shortcut
+    document.body.append(b);
     return b;
   })();
   exportBtn.addEventListener('click', () => {
@@ -2793,9 +2796,9 @@ function bindUI() {
     b.id = 'btn-panic';
     b.className = 't-btn t-btn--panic';
     b.textContent = '!';
-    b.title = 'Panic — all notes off';
-    const transportBtns = document.querySelector('.transport-buttons');
-    if (transportBtns) transportBtns.append(b);
+    b.title = 'Panic — all notes off [key 9]';
+    b.style.display = 'none'; // hidden; trigger via keyboard key 9
+    document.body.append(b);
     return b;
   })();
   panicBtn.addEventListener('click', () => {
@@ -2980,7 +2983,8 @@ function initMacros() {
     wrap.appendChild(col);
   });
 
-  leftCol.appendChild(wrap);
+  // Macros removed from left-col to keep it uncluttered
+  // leftCol.appendChild(wrap);
 }
 
 // ─────────────────────────────────────────────
