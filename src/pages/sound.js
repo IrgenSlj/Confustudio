@@ -861,26 +861,115 @@ export default {
     const adsrCard = document.createElement('div');
     adsrCard.className = 'page-card';
     adsrCard.innerHTML = `<h4>Envelope</h4>`;
-    adsrCard.insertAdjacentHTML('beforeend', buildEnvelopeSVG(track.attack, track.decay));
-    const adsrParams = [
-      { label: 'Attack',  param: 'attack',     min: 0.001, max: 2,   step: 0.001 },
-      { label: 'Decay',   param: 'decay',      min: 0.01,  max: 2,   step: 0.01 },
-      { label: 'Gate',    param: 'noteLength', min: 0.01,  max: 1,   step: 0.01 },
-    ];
-    adsrParams.forEach(({ label, param, min, max, step }) =>
-      adsrCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti))
-    );
-    adsrCard.addEventListener('input', () => {
+
+    // Canvas-based ADSR visualisation
+    const adsrCanvas = document.createElement('canvas');
+    adsrCanvas.className = 'adsr-canvas';
+    adsrCanvas.width  = 100;
+    adsrCanvas.height = 40;
+    adsrCanvas.style.cssText = 'display:block;width:100%;height:40px;margin-bottom:6px;background:#0a0a0a;border-radius:4px;border:1px solid var(--border)';
+    adsrCard.append(adsrCanvas);
+
+    function drawADSR(canvas, attack, decay, sustain, release) {
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+      const total = attack + decay + 0.2 + release;
+      const ax = (attack / total) * W;
+      const dx = ax + (decay / total) * W;
+      const sx = dx + (0.2 / total) * W;
+      const rx = W;
+      const sy = H - (sustain * H);
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      ctx.lineTo(ax, 0);
+      ctx.lineTo(dx, sy);
+      ctx.lineTo(sx, sy);
+      ctx.lineTo(rx, H);
+      ctx.strokeStyle = 'var(--accent)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.lineTo(0, H);
+      ctx.fillStyle = 'rgba(100,180,50,0.1)';
+      ctx.fill();
+    }
+
+    // Helper to read current ADSR values from track / live slider inputs
+    function getADSRValues() {
       const inputs = adsrCard.querySelectorAll('input[type="range"]');
-      const a = parseFloat(inputs[0]?.value ?? track.attack);
-      const d = parseFloat(inputs[1]?.value ?? track.decay);
-      const existingSvg = adsrCard.querySelector('svg');
-      if (existingSvg) {
-        const tmp = document.createElement('div');
-        tmp.innerHTML = buildEnvelopeSVG(a, d);
-        existingSvg.replaceWith(tmp.firstElementChild);
-      }
+      return {
+        a: parseFloat(inputs[0]?.value ?? track.attack  ?? 0.01),
+        d: parseFloat(inputs[1]?.value ?? track.decay   ?? 0.1),
+        s: parseFloat(inputs[2]?.value ?? track.sustain ?? 0.5),
+        r: parseFloat(inputs[3]?.value ?? track.release ?? 0.2),
+      };
+    }
+
+    function redrawADSR() {
+      // Sync canvas pixel width to its layout width
+      const layoutW = adsrCanvas.offsetWidth;
+      if (layoutW > 0) adsrCanvas.width = layoutW;
+      const { a, d, s, r } = getADSRValues();
+      drawADSR(adsrCanvas, a, d, s, r);
+    }
+
+    // ADSR shape presets
+    const ADSR_PRESETS = [
+      { label: 'Perc',  a: 0.001, d: 0.1,  s: 0,   r: 0.05 },
+      { label: 'Pad',   a: 0.3,   d: 0.5,  s: 0.8, r: 1.0  },
+      { label: 'Pluck', a: 0.001, d: 0.15, s: 0.3, r: 0.2  },
+      { label: 'Long',  a: 0.1,   d: 0.3,  s: 0.7, r: 0.8  },
+      { label: 'Drone', a: 0.5,   d: 0.1,  s: 1.0, r: 2.0  },
+    ];
+
+    const presetRow = document.createElement('div');
+    presetRow.style.cssText = 'display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px';
+
+    ADSR_PRESETS.forEach(preset => {
+      const btn = document.createElement('button');
+      btn.className = 'ctx-btn';
+      btn.style.cssText = 'font-size:0.52rem;padding:2px 5px';
+      btn.textContent = preset.label;
+      btn.addEventListener('click', () => {
+        // Update track values
+        track.attack  = preset.a;
+        track.decay   = preset.d;
+        track.sustain = preset.s;
+        track.release = preset.r;
+        // Update slider inputs
+        const inputs = adsrCard.querySelectorAll('input[type="range"]');
+        const outputs = adsrCard.querySelectorAll('output');
+        const vals = [preset.a, preset.d, preset.s, preset.r];
+        const params = ['attack', 'decay', 'sustain', 'release'];
+        vals.forEach((v, i) => {
+          if (inputs[i]) {
+            inputs[i].value = v;
+            if (outputs[i]) outputs[i].textContent = v.toFixed(3);
+            emit('track:change', { trackIndex: ti, param: params[i], value: v });
+          }
+        });
+        redrawADSR();
+      });
+      presetRow.append(btn);
     });
+    adsrCard.append(presetRow);
+
+    const adsrParams = [
+      { label: 'Attack',  param: 'attack',  min: 0.001, max: 2,   step: 0.001, def: 0.01 },
+      { label: 'Decay',   param: 'decay',   min: 0.01,  max: 2,   step: 0.01,  def: 0.1  },
+      { label: 'Sustain', param: 'sustain', min: 0,     max: 1,   step: 0.01,  def: 0.5  },
+      { label: 'Release', param: 'release', min: 0.01,  max: 4,   step: 0.01,  def: 0.2  },
+      { label: 'Gate',    param: 'noteLength', min: 0.01, max: 1,  step: 0.01,  def: 0.5  },
+    ];
+    adsrParams.forEach(({ label, param, min, max, step, def }) =>
+      adsrCard.append(makeSlider(label, param, min, max, step, track[param] ?? def, emit, ti))
+    );
+
+    adsrCard.addEventListener('input', () => { redrawADSR(); });
+
+    // Draw after layout is complete
+    requestAnimationFrame(() => { redrawADSR(); });
+
     grid.append(adsrCard);
 
     // ── Filter card ──

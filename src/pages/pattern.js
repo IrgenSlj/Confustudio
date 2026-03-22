@@ -1174,4 +1174,7 @@ export default {
   ],
 
   keyboardContext: 'pattern',
+
+  // Exposed so app.js can call it when handling pattern:randomize / pattern:randomizeAll
+  _getGenreStepWeights: getGenreStepWeights,
 };

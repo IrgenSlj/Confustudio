@@ -646,6 +646,12 @@ function handleStateChange(path, value, pattern) {
     return;
   }
 
+  if (path === 'arrSoloSection') {
+    state.arrSoloSection = (value == null || value === -1) ? null : Number(value);
+    renderPage();
+    return;
+  }
+
   if (setNestedStateValue(path, value)) {
     scheduleSave();
     renderPage();
@@ -901,14 +907,39 @@ function emit(type, payload = {}) {
 
     case 'pattern:randomize': {
       pushHistory(state);
-      const len = pattern.length;
-      pattern.kit.tracks[state.selectedTrackIndex].steps.slice(0, len).forEach(s => {
-        s.active = Math.random() < 0.4;
+      const density = state.randomizeDensity ?? 0.5;
+      const genre   = state.randomizeGenre   ?? 'random';
+      const ti      = payload.trackIndex ?? state.selectedTrackIndex;
+      const trk     = pattern.kit.tracks[ti];
+      const len     = trk.trackLength > 0 ? trk.trackLength : pattern.length;
+      const weights = patternPage._getGenreStepWeights(genre, ti, len);
+      trk.steps.slice(0, len).forEach((s, si) => {
+        const p = density * weights[si];
+        s.active = Math.random() < p;
         s.accent = s.active && Math.random() < 0.25;
       });
       scheduleSave();
       renderPage();
-      showToast('Randomized');
+      showToast(`Rnd T${ti + 1} (${genre})`);
+      break;
+    }
+
+    case 'pattern:randomizeAll': {
+      pushHistory(state);
+      const density = state.randomizeDensity ?? 0.5;
+      const genre   = state.randomizeGenre   ?? 'random';
+      pattern.kit.tracks.forEach((trk, ti) => {
+        const len     = trk.trackLength > 0 ? trk.trackLength : pattern.length;
+        const weights = patternPage._getGenreStepWeights(genre, ti, len);
+        trk.steps.slice(0, len).forEach((s, si) => {
+          const p = density * weights[si];
+          s.active = Math.random() < p;
+          s.accent = s.active && Math.random() < 0.25;
+        });
+      });
+      scheduleSave();
+      renderPage();
+      showToast(`Rnd ALL (${genre} ${Math.round(density * 100)}%)`);
       break;
     }
 
