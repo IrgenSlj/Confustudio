@@ -161,7 +161,36 @@ export default {
       colorStripe.style.cssText = `height:3px;background:${TRACK_COLORS[ti]};border-radius:2px 2px 0 0;margin-bottom:2px`;
       strip.prepend(colorStripe);
 
-      strip.append(nameSpan);
+      // ── Strip header (name + color dot + collapse button) ────────────────
+      const stripHeader = document.createElement('div');
+      stripHeader.className = 'strip-header';
+      stripHeader.style.cssText = 'display:flex;align-items:center;gap:2px;width:100%';
+
+      const colorDot = document.createElement('span');
+      colorDot.style.cssText = `display:inline-block;width:6px;height:6px;border-radius:50%;background:${TRACK_COLORS[ti]};margin-right:4px;vertical-align:middle;flex-shrink:0`;
+      stripHeader.insertBefore(colorDot, stripHeader.firstChild);
+
+      stripHeader.append(nameSpan);
+
+      const collapseBtn = document.createElement('button');
+      collapseBtn.className = 'mix-collapse-btn';
+      collapseBtn.textContent = strip.dataset.collapsed === 'true' ? '▶' : '▼';
+      collapseBtn.title = 'Collapse strip';
+
+      stripHeader.append(collapseBtn);
+      strip.append(stripHeader);
+
+      // ── Strip body (everything below the header, can be collapsed) ───────
+      const stripBody = document.createElement('div');
+      stripBody.className = 'strip-body';
+
+      collapseBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        const isCollapsed = strip.dataset.collapsed === 'true';
+        strip.dataset.collapsed = String(!isCollapsed);
+        collapseBtn.textContent = !isCollapsed ? '▶' : '▼';
+        stripBody.style.display = isCollapsed ? '' : 'none';
+      });
 
       // ── Mini EQ canvas ───────────────────────────────────────────────────
       const eqCanvas = document.createElement('canvas');
@@ -169,7 +198,7 @@ export default {
       eqCanvas.width  = 40;
       eqCanvas.height = 20;
       drawMiniEQ(eqCanvas, track.eqLow ?? 0, track.eqMid ?? 0, track.eqHigh ?? 0);
-      strip.append(eqCanvas);
+      stripBody.append(eqCanvas);
       eqCanvases.push({ canvas: eqCanvas, track });
 
       // ── Pan row — interactive horizontal slider ───────────────────────────
@@ -198,7 +227,7 @@ export default {
       });
 
       panRow.append(panLabel, panSlider, panVal);
-      strip.append(panRow);
+      stripBody.append(panRow);
 
       // ── Stereo width row ─────────────────────────────────────────────────
       const widthRow = document.createElement('div');
@@ -226,7 +255,7 @@ export default {
       widthVal.textContent = (track.stereoWidth ?? 1).toFixed(2);
 
       widthRow.append(widthLabel, widthSlider, widthVal);
-      strip.append(widthRow);
+      stripBody.append(widthRow);
 
       // ── FX Send controls ─────────────────────────────────────────────────
       const sendsDiv = document.createElement('div');
@@ -249,7 +278,18 @@ export default {
         revVal.textContent = Math.round(v * 100) + '%';
         emit('track:change', { trackIndex: ti, param: 'reverbSend', value: v });
       });
-      revRow.append(revLabel, revSlider, revVal);
+      const revMuteBtn = document.createElement('button');
+      revMuteBtn.className = 'mix-send-mute' + (track.sendMuted?.[0] ? ' active' : '');
+      revMuteBtn.textContent = 'M';
+      revMuteBtn.title = 'Mute send to Reverb';
+      revMuteBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        if (!track.sendMuted) track.sendMuted = [false, false];
+        track.sendMuted[0] = !track.sendMuted[0];
+        revMuteBtn.classList.toggle('active', track.sendMuted[0]);
+        emit('track:change', { trackIndex: ti, param: 'sendMuted', value: track.sendMuted });
+      });
+      revRow.append(revLabel, revSlider, revVal, revMuteBtn);
 
       // DLY send
       const dlyRow = document.createElement('div');
@@ -268,10 +308,21 @@ export default {
         dlyVal.textContent = Math.round(v * 100) + '%';
         emit('track:change', { trackIndex: ti, param: 'delaySend', value: v });
       });
-      dlyRow.append(dlyLabel, dlySlider, dlyVal);
+      const dlyMuteBtn = document.createElement('button');
+      dlyMuteBtn.className = 'mix-send-mute' + (track.sendMuted?.[1] ? ' active' : '');
+      dlyMuteBtn.textContent = 'M';
+      dlyMuteBtn.title = 'Mute send to Delay';
+      dlyMuteBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        if (!track.sendMuted) track.sendMuted = [false, false];
+        track.sendMuted[1] = !track.sendMuted[1];
+        dlyMuteBtn.classList.toggle('active', track.sendMuted[1]);
+        emit('track:change', { trackIndex: ti, param: 'sendMuted', value: track.sendMuted });
+      });
+      dlyRow.append(dlyLabel, dlySlider, dlyVal, dlyMuteBtn);
 
       sendsDiv.append(revRow, dlyRow);
-      strip.append(sendsDiv);
+      stripBody.append(sendsDiv);
 
       // ── Input gain row ───────────────────────────────────────────────────
       const gainRow = document.createElement('div');
@@ -298,7 +349,7 @@ export default {
       });
 
       gainRow.append(gainLabel, gainSlider, gainVal);
-      strip.append(gainRow);
+      stripBody.append(gainRow);
 
       // ── Vertical fader ───────────────────────────────────────────────────
       const fader = document.createElement('input');
@@ -325,7 +376,7 @@ export default {
           }
         }
       });
-      strip.append(fader);
+      stripBody.append(fader);
 
       // ── Fader link button (links this strip with the next) ───────────────
       if (ti < tracks.length - 1) {
@@ -348,7 +399,7 @@ export default {
           }
           emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
         });
-        strip.append(linkBtn);
+        stripBody.append(linkBtn);
       }
 
       // ── Level meter bar (animated) ───────────────────────────────────────
@@ -359,14 +410,14 @@ export default {
       const peakLine = document.createElement('div');
       peakLine.className = 'mixer-peak-line';
       meterWrap.append(meterBar, peakLine);
-      strip.append(meterWrap);
+      stripBody.append(meterWrap);
       meterEls.push({ bar: meterBar, peak: peakLine, track });
 
       // ── Volume readout ───────────────────────────────────────────────────
       const vol = document.createElement('span');
       vol.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--accent)';
       vol.textContent = Math.round(track.volume * 100);
-      strip.append(vol);
+      stripBody.append(vol);
 
       // ── CUE button (pre-fader listen) ────────────────────────────────────
       const cueBtn = document.createElement('button');
@@ -380,7 +431,7 @@ export default {
         cueBtn.classList.toggle('active', track.cue);
         emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
       });
-      strip.append(cueBtn);
+      stripBody.append(cueBtn);
 
       // ── Mute / Solo buttons ──────────────────────────────────────────────
       const msRow = document.createElement('div');
@@ -407,7 +458,7 @@ export default {
       });
 
       msRow.append(muteBtn, soloBtn);
-      strip.append(msRow);
+      stripBody.append(msRow);
 
       // ── Sidechain controls ───────────────────────────────────────────────
       const scRow = document.createElement('div');
@@ -472,7 +523,7 @@ export default {
       });
 
       scRow.append(duckLabel, duckSlider, duckVal);
-      strip.append(scRow);
+      stripBody.append(scRow);
 
       // ── Bus selector ─────────────────────────────────────────────────────
       const busRow = document.createElement('div');
@@ -513,16 +564,17 @@ export default {
         });
         busRow.append(btn);
       });
-      strip.append(busRow);
+      stripBody.append(busRow);
 
       // ── Voice count indicator ─────────────────────────────────────────────
       const voiceCount = document.createElement('span');
       voiceCount.className = 'voice-count';
       voiceCount.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);display:block;text-align:center;margin-top:3px;letter-spacing:0.05em';
       voiceCount.textContent = '0V';
-      strip.append(voiceCount);
+      stripBody.append(voiceCount);
       voiceCountEls.push({ el: voiceCount, ti });
 
+      strip.append(stripBody);
       faderGrid.append(strip);
     });
 

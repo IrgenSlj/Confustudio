@@ -2096,6 +2096,11 @@ button {
   min-width: 18px;
   color: var(--screen-text);
 }
+.mix-send-mute { font-size:0.44rem; padding:1px 3px; min-width:14px; }
+.mix-send-mute.active { color:#f44; border-color:#f44; background:rgba(255,68,68,0.1); }
+
+.mix-collapse-btn { font-size:0.44rem; padding:1px 3px; background:transparent; border:none; color:var(--muted); cursor:pointer; margin-left:auto; }
+.mix-collapse-btn:hover { color:var(--fg); }
 
 /* Per-strip mini EQ canvas */
 .mix-eq-mini {
