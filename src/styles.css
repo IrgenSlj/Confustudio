@@ -1285,6 +1285,8 @@ button {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.45; }
 }
+.mtg-vel-rand-btn { color: var(--accent); font-size: 0.7rem; }
+.mtg-vel-rand-btn:hover { background: rgba(255,255,255,0.08); }
 
 /* Record button in step-record mode — teal tint */
 .t-btn.step-record-mode,
@@ -3848,6 +3850,16 @@ button {
   color: var(--screen-text);
   min-width: 24px;
   text-align: right;
+}
+
+/* ── Machine type badge ──────────────────────────────────────────────────── */
+.machine-badge {
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: bold;
+  letter-spacing: 0.05em;
 }
 
 /* ── Keyboard chord mode bar ─────────────────────────────────────────────── */

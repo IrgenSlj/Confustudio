@@ -351,6 +351,22 @@ export default {
       });
       labelWrap.append(recArmBtn);
 
+      // Velocity randomize button per track
+      const velRandBtn = document.createElement('button');
+      velRandBtn.className = 'mtg-rand-btn mtg-vel-rand-btn';
+      velRandBtn.title = 'Randomize step velocities';
+      velRandBtn.textContent = '⚄';
+      velRandBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        const trk = state.project.banks[state.activeBank].patterns[state.activePattern].tracks[ti];
+        trk.steps.forEach(s => {
+          if (s.active) s.velocity = 0.5 + Math.random() * 0.5; // 50-100%
+        });
+        emit('state:change', { param: 'pattern' });
+        render(); // re-render pattern page
+      });
+      labelWrap.append(velRandBtn);
+
       labelWrap.addEventListener('click', () => emit('track:select', { trackIndex: ti }));
       row.append(labelWrap);
 
@@ -485,22 +501,28 @@ export default {
             font-family:var(--font-mono);font-size:0.55rem;min-width:110px`;
 
           // Probability section
-          const probLabel = document.createElement('div');
-          probLabel.style.cssText = 'color:var(--muted);padding:2px 4px;font-size:0.48rem';
-          probLabel.textContent = 'PROBABILITY';
-          menu.append(probLabel);
-
-          [1, 0.75, 0.5, 0.25].forEach(prob => {
-            const item = document.createElement('div');
-            item.className = 'ctx-item' + (Math.abs((step.probability ?? 1) - prob) < 0.01 ? ' active' : '');
-            item.textContent = prob === 1 ? '100% (always)' : `${prob * 100}%`;
-            item.addEventListener('click', () => {
-              step.probability = prob;
-              emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
-              menu.remove();
-            });
-            menu.append(item);
+          const probWrap = document.createElement('div');
+          probWrap.style.cssText = 'padding:2px 4px';
+          const probLabel = document.createElement('label');
+          probLabel.style.cssText = 'font-size:0.48rem;color:var(--muted);display:block';
+          const probValSpan = document.createElement('span');
+          probValSpan.id = 'prob-val';
+          probValSpan.textContent = `${Math.round((step.probability ?? 1) * 100)}%`;
+          probLabel.append('PROB ', probValSpan);
+          const probSlider = document.createElement('input');
+          probSlider.type = 'range';
+          probSlider.min = '0';
+          probSlider.max = '1';
+          probSlider.step = '0.05';
+          probSlider.value = String(step.probability ?? 1);
+          probSlider.style.cssText = 'width:100%;accent-color:var(--accent)';
+          probSlider.addEventListener('input', () => {
+            step.probability = parseFloat(probSlider.value);
+            probValSpan.textContent = `${Math.round(step.probability * 100)}%`;
+            emit('state:change', { param: 'pattern' });
           });
+          probWrap.append(probLabel, probSlider);
+          menu.append(probWrap);
 
           // Divider
           const divider = document.createElement('div');
