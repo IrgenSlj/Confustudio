@@ -362,84 +362,91 @@ export default {
         <span class="page-title" style="margin:0">FX</span>
         <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted)">${track.name}</span>
       </div>
-      <div class="page-grid-2" style="flex:1;min-height:0">
+      <div class="fx-layout" style="flex:1;min-height:0">
 
-        ${cardHTML('COMPRESSOR', `
-          ${compSliderHTML('THRESH',  'threshold', -60,   0,    1,     comp.threshold ?? -18,  'dB',  null)}
-          ${compSliderHTML('KNEE',    'knee',       0,    30,   1,     comp.knee      ?? 6,    'dB',  null)}
-          ${compSliderHTML('RATIO',   'ratio',      1,    20,   0.5,   comp.ratio     ?? 4,    ':1',  v => Number(v).toFixed(1))}
-          ${compSliderHTML('ATTACK',  'attack',     0.001, 0.5, 0.001, comp.attack    ?? 0.003,'ms',  v => (v * 1000).toFixed(1))}
-          ${compSliderHTML('RELEASE', 'release',    0.01,  2,   0.01,  comp.release   ?? 0.25, 'ms',  v => Number(v * 1000).toFixed(0))}
-        `)}
-
-        ${cardHTML('REVERB', `
-          <div class="fx-type-row" data-group="reverb-type">
-            ${REVERB_TYPES.map(t => `
-              <button class="fx-type-btn${(state.reverbType ?? 'room') === t ? ' active' : ''}"
-                      data-reverb-type="${t}">${REVERB_LABELS[t]}</button>
-            `).join('')}
+        <!-- Left column: per-track EQ/filter -->
+        <div class="fx-left">
+          <div class="page-card" data-card="track">
+            <h4>TRACK: ${track.name}</h4>
+            ${eqCanvasSectionHTML(track)}
+            <div style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);text-transform:uppercase;margin:6px 0 4px">Filter</div>
+            <div style="display:flex;gap:4px;margin-bottom:6px">
+              ${FILTER_TYPES.map(ft => `
+                <button class="ctx-btn${(track.filterType || 'lowpass') === ft ? ' active' : ''}"
+                        data-filter-type="${ft}">${FILTER_LABELS[ft]}</button>
+              `).join('')}
+            </div>
+            ${sliderHTML('CUT',  'cutoff',    'track', 80,   18000, 1,    track.cutoff    ?? 3200)}
+            ${sliderHTML('RES',  'resonance', 'track', 0.01, 30,    0.01, track.resonance ?? 1.8)}
+            ${sliderHTML('DRIV', 'drive',     'track', 0,    1,     0.01, track.drive     ?? 0.18)}
+            ${sliderHTML('BITS', 'bitDepth',  'track', 1,    16,    1,    track.bitDepth  ?? 16)}
+            ${sliderHTML('SRR',  'srDiv',     'track', 1,    32,    1,    track.srDiv     ?? 1)}
           </div>
-          ${sliderHTML('ROOM',  'reverbSize',     'global', 0.1,  0.98, 0.01, state.reverbSize     ?? 0.5)}
-          ${sliderHTML('DAMP',  'reverbDamping',  'global', 0,    1,    0.01, state.reverbDamping  ?? 0.5)}
-          ${sliderHTML('MIX',   'reverbMix',      'global', 0,    1,    0.01, state.reverbMix      ?? 0.22)}
-          ${sliderHTML('PRE',   'reverbPreDelay', 'global', 0,    100,  1,    state.reverbPreDelay ?? 0)}
-        `)}
+        </div>
 
-        ${cardHTML('DELAY', `
-          <div class="fx-sync-header">
-            <span class="fx-sync-label">TIME</span>
-            <button class="fx-sync-btn${(state.delaySyncEnabled ?? false) ? ' active' : ''}"
-                    data-delay-sync-toggle>SYNC</button>
+        <!-- Right column: global effects -->
+        <div class="fx-right">
+          <div class="page-card" data-card="compressor">
+            <h4>COMPRESSOR</h4>
+            ${compSliderHTML('THRESH',  'threshold', -60,   0,    1,     comp.threshold ?? -18,  'dB',  null)}
+            ${compSliderHTML('KNEE',    'knee',       0,    30,   1,     comp.knee      ?? 6,    'dB',  null)}
+            ${compSliderHTML('RATIO',   'ratio',      1,    20,   0.5,   comp.ratio     ?? 4,    ':1',  v => Number(v).toFixed(1))}
+            ${compSliderHTML('ATTACK',  'attack',     0.001, 0.5, 0.001, comp.attack    ?? 0.003,'ms',  v => (v * 1000).toFixed(1))}
+            ${compSliderHTML('RELEASE', 'release',    0.01,  2,   0.01,  comp.release   ?? 0.25, 'ms',  v => Number(v * 1000).toFixed(0))}
           </div>
-          <div data-delay-time-row>
-            ${!(state.delaySyncEnabled ?? false) ? `
-              ${sliderHTML('', 'delayTime', 'global', 0.01, 1.4, 0.01, state.delayTime ?? 0.28)}
-            ` : `
-              <div class="fx-type-row fx-sync-divs" data-group="delay-sync-div">
-                ${DELAY_SYNC_DIVS.map(d => `
-                  <button class="fx-type-btn${(state.delaySyncDiv ?? '1/8') === d ? ' active' : ''}"
-                          data-delay-sync-div="${d}">${d}</button>
-                `).join('')}
-              </div>
-            `}
-          </div>
-          ${sliderHTML('FDBK', 'delayFeedback', 'global', 0,    0.95, 0.01, state.delayFeedback ?? 0.38)}
-          ${sliderHTML('MIX',  'delayWet',      'global', 0,    1,    0.01, state.delayWet      ?? 0.3)}
-        `)}
 
-        ${cardHTML('CHORUS', `
-          ${sliderHTML('RATE',  'chorusRate',  'chorus', 0.1, 8,    0.1,  state.chorusRate  ?? 0.5)}
-          ${sliderHTML('DEPTH', 'chorusDepth', 'chorus', 0,   1,    0.01, state.chorusDepth ?? 0.25)}
-          ${sliderHTML('MIX',   'chorusMix',   'chorus', 0,   1,    0.01, state.chorusMix   ?? 0)}
-          ${sliderHTML('WIDTH', 'chorusWidth', 'chorus', 0,   1,    0.01, state.chorusWidth ?? 0.5)}
-        `)}
+          ${cardHTML('REVERB', `
+            <div class="fx-type-row" data-group="reverb-type">
+              ${REVERB_TYPES.map(t => `
+                <button class="fx-type-btn${(state.reverbType ?? 'room') === t ? ' active' : ''}"
+                        data-reverb-type="${t}">${REVERB_LABELS[t]}</button>
+              `).join('')}
+            </div>
+            ${sliderHTML('ROOM',  'reverbSize',     'global', 0.1,  0.98, 0.01, state.reverbSize     ?? 0.5)}
+            ${sliderHTML('DAMP',  'reverbDamping',  'global', 0,    1,    0.01, state.reverbDamping  ?? 0.5)}
+            ${sliderHTML('MIX',   'reverbMix',      'global', 0,    1,    0.01, state.reverbMix      ?? 0.22)}
+            ${sliderHTML('PRE',   'reverbPreDelay', 'global', 0,    100,  1,    state.reverbPreDelay ?? 0)}
+          `)}
 
-        ${cardHTML('MASTER', `
-          ${sliderHTML('DRIVE', 'masterDrive', 'global', 0, 1,    0.01, state.masterDrive ?? 0)}
-          ${sliderHTML('LEVEL', 'masterLevel', 'global', 0, 1,    0.01, state.masterLevel ?? 0.82)}
-          <div style="font-family:var(--font-mono);font-size:0.5rem;color:var(--muted);text-transform:uppercase;margin:6px 0 2px">MASTER EQ</div>
-          <div class="eq-band-row">
-            ${eqBandHTML('Low',  'masterEqLow',  state.masterEqLow  ?? 0, 'masterEQ')}
-            ${eqBandHTML('Mid',  'masterEqMid',  state.masterEqMid  ?? 0, 'masterEQ')}
-            ${eqBandHTML('High', 'masterEqHigh', state.masterEqHigh ?? 0, 'masterEQ')}
-          </div>
-        `)}
+          ${cardHTML('DELAY', `
+            <div class="fx-sync-header">
+              <span class="fx-sync-label">TIME</span>
+              <button class="fx-sync-btn${(state.delaySyncEnabled ?? false) ? ' active' : ''}"
+                      data-delay-sync-toggle>SYNC</button>
+            </div>
+            <div data-delay-time-row>
+              ${!(state.delaySyncEnabled ?? false) ? `
+                ${sliderHTML('', 'delayTime', 'global', 0.01, 1.4, 0.01, state.delayTime ?? 0.28)}
+              ` : `
+                <div class="fx-type-row fx-sync-divs" data-group="delay-sync-div">
+                  ${DELAY_SYNC_DIVS.map(d => `
+                    <button class="fx-type-btn${(state.delaySyncDiv ?? '1/8') === d ? ' active' : ''}"
+                            data-delay-sync-div="${d}">${d}</button>
+                  `).join('')}
+                </div>
+              `}
+            </div>
+            ${sliderHTML('FDBK', 'delayFeedback', 'global', 0,    0.95, 0.01, state.delayFeedback ?? 0.38)}
+            ${sliderHTML('MIX',  'delayWet',      'global', 0,    1,    0.01, state.delayWet      ?? 0.3)}
+          `)}
 
-        <div class="page-card" data-card="track">
-          <h4>TRACK: ${track.name}</h4>
-          ${eqCanvasSectionHTML(track)}
-          <div style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);text-transform:uppercase;margin:6px 0 4px">Filter</div>
-          <div style="display:flex;gap:4px;margin-bottom:6px">
-            ${FILTER_TYPES.map(ft => `
-              <button class="ctx-btn${(track.filterType || 'lowpass') === ft ? ' active' : ''}"
-                      data-filter-type="${ft}">${FILTER_LABELS[ft]}</button>
-            `).join('')}
-          </div>
-          ${sliderHTML('CUT',  'cutoff',    'track', 80,   18000, 1,    track.cutoff    ?? 3200)}
-          ${sliderHTML('RES',  'resonance', 'track', 0.01, 30,    0.01, track.resonance ?? 1.8)}
-          ${sliderHTML('DRIV', 'drive',     'track', 0,    1,     0.01, track.drive     ?? 0.18)}
-          ${sliderHTML('BITS', 'bitDepth',  'track', 1,    16,    1,    track.bitDepth  ?? 16)}
-          ${sliderHTML('SRR',  'srDiv',     'track', 1,    32,    1,    track.srDiv     ?? 1)}
+          ${cardHTML('CHORUS', `
+            ${sliderHTML('RATE',  'chorusRate',  'chorus', 0.1, 8,    0.1,  state.chorusRate  ?? 0.5)}
+            ${sliderHTML('DEPTH', 'chorusDepth', 'chorus', 0,   1,    0.01, state.chorusDepth ?? 0.25)}
+            ${sliderHTML('MIX',   'chorusMix',   'chorus', 0,   1,    0.01, state.chorusMix   ?? 0)}
+            ${sliderHTML('WIDTH', 'chorusWidth', 'chorus', 0,   1,    0.01, state.chorusWidth ?? 0.5)}
+          `)}
+
+          ${cardHTML('MASTER', `
+            ${sliderHTML('DRIVE', 'masterDrive', 'global', 0, 1,    0.01, state.masterDrive ?? 0)}
+            ${sliderHTML('LEVEL', 'masterLevel', 'global', 0, 1,    0.01, state.masterLevel ?? 0.82)}
+            <div style="font-family:var(--font-mono);font-size:0.5rem;color:var(--muted);text-transform:uppercase;margin:6px 0 2px">MASTER EQ</div>
+            <div class="eq-band-row">
+              ${eqBandHTML('Low',  'masterEqLow',  state.masterEqLow  ?? 0, 'masterEQ')}
+              ${eqBandHTML('Mid',  'masterEqMid',  state.masterEqMid  ?? 0, 'masterEQ')}
+              ${eqBandHTML('High', 'masterEqHigh', state.masterEqHigh ?? 0, 'masterEQ')}
+            </div>
+          `)}
         </div>
 
       </div>`;
@@ -610,7 +617,7 @@ export default {
     else container.prepend(stutterRow);
 
     // ── Compressor gain-reduction meter ──────────────────────────────────────
-    const compCard = container.querySelector('.page-card');
+    const compCard = container.querySelector('[data-card="compressor"]');
     if (compCard) {
       const grCanvas = document.createElement('canvas');
       grCanvas.width = 8; grCanvas.height = 60;
@@ -651,8 +658,9 @@ export default {
       );
     }
 
-    // Draw once layout is settled (RAF so CSS has applied dimensions)
-    requestAnimationFrame(redrawEQ);
+    // Draw once layout is settled — double-rAF ensures the canvas has real
+    // layout dimensions before we read getBoundingClientRect inside drawEQCanvas.
+    requestAnimationFrame(() => requestAnimationFrame(redrawEQ));
 
     // Redraw on resize
     const _resizeObs = new ResizeObserver(redrawEQ);
