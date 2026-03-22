@@ -183,11 +183,12 @@ export default {
 
     // Bank selector (A–H)
     const bankRow = document.createElement('div');
-    bankRow.style.cssText = 'display:grid;grid-template-columns:repeat(8,1fr);gap:4px;margin-bottom:8px;flex-shrink:0';
+    bankRow.style.cssText = 'display:flex;gap:2px;flex-shrink:0;margin-bottom:4px';
     BANK_LETTERS.forEach((letter, bi) => {
       const btn = document.createElement('button');
       btn.className = 'bank-btn' + (bi === activeBank ? ' active' : '');
       btn.textContent = letter;
+      btn.style.cssText = 'flex:1;font-family:var(--font-mono);font-size:0.6rem;padding:3px;border-radius:2px;min-width:0';
       btn.addEventListener('click', () => {
         emit('state:change', { path: 'activeBank', value: bi });
         emit('state:change', { path: 'activePattern', value: 0 });
@@ -200,12 +201,12 @@ export default {
     // Pattern grid (4×4 = 16 patterns)
     const patGrid = document.createElement('div');
     patGrid.className = 'banks-grid';
-    patGrid.style.cssText = 'flex:1;min-height:0;overflow-y:auto';
+    patGrid.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:4px;flex:1;overflow-y:auto';
 
     project.banks[activeBank].patterns.forEach((pat, pi) => {
       const btn = document.createElement('button');
       btn.className = 'bank-btn';
-      btn.style.cssText = 'padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:2px';
+      btn.style.cssText = 'padding:4px 2px;display:flex;flex-direction:column;align-items:center;gap:1px;min-height:60px;max-height:80px';
       if (pi === activePattern) {
         btn.style.cssText += ';color:var(--accent);border-color:rgba(240,198,64,0.5);background:rgba(240,198,64,0.07)';
         if (state.chainPatterns) {
@@ -252,7 +253,7 @@ export default {
 
       // Mini step density bars — 8 stacked horizontal bars, one per track
       const density = document.createElement('div');
-      density.style.cssText = 'display:flex;flex-direction:column;gap:1px;margin-top:2px;width:100%;height:24px';
+      density.style.cssText = 'display:flex;flex-direction:column;gap:1px;margin-top:1px;width:100%;height:16px';
 
       const patTracks = pat.kit?.tracks ?? [];
       patTracks.slice(0, 8).forEach((trk, ti) => {
@@ -261,7 +262,7 @@ export default {
         const fillPct = patLen > 0 ? (activeCount / patLen) * 100 : 0;
 
         const barTrack = document.createElement('div');
-        barTrack.style.cssText = 'position:relative;width:100%;height:3px;background:rgba(255,255,255,0.06);border-radius:1px;overflow:hidden';
+        barTrack.style.cssText = 'position:relative;width:100%;height:2px;background:rgba(255,255,255,0.06);border-radius:1px;overflow:hidden';
 
         const fill = document.createElement('div');
         fill.style.cssText = `position:absolute;left:0;top:0;height:100%;width:${fillPct}%;border-radius:1px;background:${activeCount > 0 ? TRACK_COLORS[ti] : 'transparent'};transition:width 0.1s`;

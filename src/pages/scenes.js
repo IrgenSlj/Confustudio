@@ -117,7 +117,7 @@ export default {
 
     scenes.forEach((scene, si) => {
       const sceneCard = document.createElement('div');
-      sceneCard.style.cssText = 'display:flex;flex-direction:column;gap:2px';
+      sceneCard.style.cssText = 'display:flex;flex-direction:column;gap:2px;position:relative';
 
       const btn = document.createElement('button');
       btn.className = 'scene-btn';
@@ -203,7 +203,7 @@ export default {
       captureBtn.className = 'seq-btn';
       captureBtn.textContent = 'CAP';
       captureBtn.title = 'Capture current state into this scene';
-      captureBtn.style.cssText = 'font-size:0.44rem;padding:1px 4px';
+      captureBtn.style.cssText = 'position:absolute;bottom:2px;right:2px;font-size:0.38rem;padding:1px 4px;opacity:0.7;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:2px;z-index:2';
       captureBtn.addEventListener('click', e => {
         e.stopPropagation();
         const tracks = getActivePattern(state).kit.tracks;
@@ -233,7 +233,9 @@ export default {
         setTimeout(() => { sceneCard.style.outline = ''; }, 500);
       });
 
-      sceneCard.append(btn, captureBtn);
+      btn.style.position = 'relative';
+      btn.append(captureBtn);
+      sceneCard.append(btn);
       sceneGrid.append(sceneCard);
     });
     container.append(sceneGrid);
@@ -416,47 +418,83 @@ export default {
     });
     container.append(sceneEditDiv);
 
-    // ── Auto-Morph bar ────────────────────────────────────────────────────────
-    const morphDiv = document.createElement('div');
-    morphDiv.className = 'scene-morph-bar';
-    morphDiv.innerHTML = `
-      <label>Auto-Morph</label>
-      <input type="number" min="1" max="32" value="${state.sceneMorphBars ?? 4}" style="width:40px" title="Bars">
-      <button class="seq-btn ${state.sceneMorphActive ? 'active' : ''}" id="morph-btn">
-        ${state.sceneMorphActive ? '&#9646; Stop' : '&#9654; Morph'}
-      </button>
-    `;
-    const morphBarsInput = morphDiv.querySelector('input');
+    // ── Compact morph/crossfade row ───────────────────────────────────────────
+    const morphXfadeRow = document.createElement('div');
+    morphXfadeRow.style.cssText = 'display:flex;gap:6px;align-items:center;padding:4px 0;border-top:1px solid var(--border);flex-shrink:0';
+
+    // Auto-Morph button + bars input
+    const morphBtn = document.createElement('button');
+    morphBtn.className = 'seq-btn' + (state.sceneMorphActive ? ' active' : '');
+    morphBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;padding:2px 5px;flex-shrink:0';
+    morphBtn.textContent = state.sceneMorphActive ? '\u25A0 Stop' : '\u25BA Morph';
+    morphBtn.addEventListener('click', () => {
+      state.sceneMorphActive = !state.sceneMorphActive;
+      if (state.sceneMorphActive) state.crossfade = 0;
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+    });
+
+    const morphBarsInput = document.createElement('input');
+    morphBarsInput.type = 'number';
+    morphBarsInput.min = 1; morphBarsInput.max = 32;
+    morphBarsInput.value = state.sceneMorphBars ?? 4;
+    morphBarsInput.title = 'Bars';
+    morphBarsInput.style.cssText = 'width:32px;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 3px;font-family:var(--font-mono);font-size:0.48rem;flex-shrink:0';
     morphBarsInput.addEventListener('change', () => {
       state.sceneMorphBars = parseInt(morphBarsInput.value) || 4;
     });
-    morphDiv.querySelector('#morph-btn').addEventListener('click', () => {
-      state.sceneMorphActive = !state.sceneMorphActive;
-      if (state.sceneMorphActive) state.crossfade = 0; // reset to start
-      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
-    });
-    container.append(morphDiv);
 
-    // ── Morph curve selector ──────────────────────────────────────────────────
-    const curveRow = document.createElement('div');
-    curveRow.className = 'scene-morph-curve';
+    // Curve buttons
     const currentCurve = state.morphCurve ?? 'linear';
-    curveRow.innerHTML = '<span class="curve-label">Curve:</span>';
     ['linear', 'ease', 'bounce'].forEach(curve => {
       const btn = document.createElement('button');
       btn.className = 'curve-btn' + (currentCurve === curve ? ' active' : '');
       btn.textContent = curve.charAt(0).toUpperCase() + curve.slice(1);
       btn.dataset.curve = curve;
+      btn.style.cssText = 'font-family:var(--font-mono);font-size:0.44rem;padding:2px 4px;flex-shrink:0';
       btn.addEventListener('click', () => {
         emit('state:change', { path: 'morphCurve', value: curve });
       });
-      curveRow.append(btn);
+      morphXfadeRow.append(btn);
     });
-    container.append(curveRow);
 
-    // ── Task 2: Morph preview mini-bar ────────────────────────────────────────
+    // A↔B xfade slider
+    const xfadeLabel = document.createElement('span');
+    xfadeLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.44rem;color:var(--muted);flex-shrink:0';
+    xfadeLabel.textContent = 'A\u2194B';
+
+    const xfadeSlider = document.createElement('input');
+    xfadeSlider.type = 'range';
+    xfadeSlider.min = '0'; xfadeSlider.max = '1'; xfadeSlider.step = '0.01';
+    xfadeSlider.value = String(state._sceneXfade ?? 0);
+    xfadeSlider.style.cssText = 'flex:1;min-width:0';
+
+    xfadeSlider.addEventListener('input', () => {
+      const t = parseFloat(xfadeSlider.value);
+      state._sceneXfade = t;
+      xfadeLabel.textContent = `A\u2194B ${Math.round(t * 100)}%`;
+      emit('state:change', { param: 'sceneXfade', value: t });
+    });
+
+    // Rec XFade button
+    const xfRecBtn = document.createElement('button');
+    xfRecBtn.className = 'seq-btn' + (state.xfRecording ? ' active' : '');
+    xfRecBtn.textContent = state.xfRecording ? '● REC' : '○ REC';
+    xfRecBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.44rem;padding:2px 4px;flex-shrink:0' + (state.xfRecording ? ';color:var(--live)' : '');
+    xfRecBtn.addEventListener('click', () => {
+      state.xfRecording = !state.xfRecording;
+      if (state.xfRecording) {
+        state.xfadeAutomation = [];
+      }
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+    });
+
+    morphXfadeRow.prepend(morphBtn, morphBarsInput);
+    morphXfadeRow.append(xfadeLabel, xfadeSlider, xfRecBtn);
+    container.append(morphXfadeRow);
+
+    // Morph progress mini-bar
     const morphPreviewBar = document.createElement('div');
-    morphPreviewBar.style.cssText = 'height:3px;background:rgba(255,255,255,0.08);border-radius:2px;margin-top:4px;position:relative;overflow:hidden';
+    morphPreviewBar.style.cssText = 'height:3px;background:rgba(255,255,255,0.08);border-radius:2px;position:relative;overflow:hidden;flex-shrink:0';
     const morphFill = document.createElement('div');
     morphFill.style.cssText = 'position:absolute;left:0;top:0;height:100%;background:var(--accent);border-radius:2px;width:0%;transition:none';
     morphPreviewBar.append(morphFill);
@@ -470,47 +508,10 @@ export default {
     }
     animateMorph();
 
-    // ── Task 2: Manual A/B crossfade slider ──────────────────────────────────
-    const xfadeRow = document.createElement('div');
-    xfadeRow.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 0;border-top:1px solid var(--border);margin-top:4px';
-    const xfadeLabel = document.createElement('span');
-    xfadeLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted);min-width:40px';
-    xfadeLabel.textContent = 'A\u2194B';
-
-    const xfadeSlider = document.createElement('input');
-    xfadeSlider.type = 'range';
-    xfadeSlider.min = '0'; xfadeSlider.max = '1'; xfadeSlider.step = '0.01';
-    xfadeSlider.value = String(state._sceneXfade ?? 0);
-    xfadeSlider.style.flex = '1';
-
-    xfadeSlider.addEventListener('input', () => {
-      const t = parseFloat(xfadeSlider.value);
-      state._sceneXfade = t;
-      xfadeLabel.textContent = `A\u2194B ${Math.round(t * 100)}%`;
-      emit('state:change', { param: 'sceneXfade', value: t });
-    });
-
-    xfadeRow.append(xfadeLabel, xfadeSlider);
-    container.append(xfadeRow);
-
-    // ── Feature 4: Record XFade automation button ─────────────────────────────
-    const xfRecBtn = document.createElement('button');
-    xfRecBtn.className = 'seq-btn' + (state.xfRecording ? ' active' : '');
-    xfRecBtn.textContent = state.xfRecording ? '● Rec XF' : '○ Rec XF';
-    xfRecBtn.style.cssText = 'color:' + (state.xfRecording ? 'var(--live)' : '') + ';margin-top:4px;font-family:var(--font-mono);font-size:0.55rem';
-    xfRecBtn.addEventListener('click', () => {
-      state.xfRecording = !state.xfRecording;
-      if (state.xfRecording) {
-        state.xfadeAutomation = [];
-      }
-      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
-    });
-    container.append(xfRecBtn);
-
     // XFade automation playback indicator
     if (!state.xfRecording && state.xfadeAutomation?.length > 0) {
       const xfPlaybackInfo = document.createElement('div');
-      xfPlaybackInfo.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted);margin-top:2px';
+      xfPlaybackInfo.style.cssText = 'font-family:var(--font-mono);font-size:0.44rem;color:var(--muted)';
       xfPlaybackInfo.textContent = `XF auto: ${state.xfadeAutomation.length} steps`;
       container.append(xfPlaybackInfo);
     }
