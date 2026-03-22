@@ -660,6 +660,55 @@ export default {
       });
 
       busStrip.append(busLabel, busFader, busValSpan);
+
+      // ── 3-band EQ ──────────────────────────────────────────────────────────
+      const eqRow = document.createElement('div');
+      eqRow.style.cssText = 'display:flex;align-items:flex-start;gap:3px;width:100%;margin-top:4px';
+
+      const eqSectionLabel = document.createElement('span');
+      eqSectionLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--bus-color,var(--muted));flex-shrink:0;margin-top:2px';
+      eqSectionLabel.textContent = 'EQ';
+      eqRow.append(eqSectionLabel);
+
+      [
+        { band: 'Low',  suffix: 'EqLow'  },
+        { band: 'Mid',  suffix: 'EqMid'  },
+        { band: 'Hi',   suffix: 'EqHigh' },
+      ].forEach(({ band, suffix }) => {
+        const eqKey = engineKey + suffix;
+        const currentVal = state[eqKey] ?? 0;
+
+        const col = document.createElement('div');
+        col.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:1px;flex:1';
+
+        const bandLabel = document.createElement('span');
+        bandLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--bus-color,var(--muted))';
+        bandLabel.textContent = band;
+
+        const eqSlider = document.createElement('input');
+        eqSlider.type  = 'range';
+        eqSlider.min   = -12;
+        eqSlider.max   = 12;
+        eqSlider.step  = 0.5;
+        eqSlider.value = currentVal;
+        eqSlider.style.cssText = 'width:100%;accent-color:var(--bus-color,' + color + ');height:3px';
+
+        const eqValSpan = document.createElement('span');
+        eqValSpan.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--bus-color,var(--muted));text-align:center';
+        eqValSpan.textContent = (currentVal >= 0 ? '+' : '') + currentVal.toFixed(1) + ' dB';
+
+        eqSlider.addEventListener('input', () => {
+          const v = parseFloat(eqSlider.value);
+          eqValSpan.textContent = (v >= 0 ? '+' : '') + v.toFixed(1) + ' dB';
+          state[eqKey] = v;
+          emit('state:change', { path: eqKey, value: v });
+        });
+
+        col.append(bandLabel, eqSlider, eqValSpan);
+        eqRow.append(col);
+      });
+
+      busStrip.append(eqRow);
       busStripsRow.append(busStrip);
     });
 

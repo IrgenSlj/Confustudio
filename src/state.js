@@ -272,6 +272,8 @@ export function createAppState() {
     masterLevel:   0.82,
     bus1Level:     1.0,
     bus2Level:     1.0,
+    bus1EqLow: 0, bus1EqMid: 0, bus1EqHigh: 0,
+    bus2EqLow: 0, bus2EqMid: 0, bus2EqHigh: 0,
 
     // FX globals
     delayTime:        0.28,
@@ -305,8 +307,10 @@ export function createAppState() {
     tapTimes:          [],
     activeKeyboardKey: null,
     keyboardVelocity:  1.0,
+    velocityCurve:     'linear',
     chordMode:         'off',
     humanizeAmount:    0.2,
+    scaleLock:         false,
 
     // Scenes / crossfader
     crossfader: 0,
