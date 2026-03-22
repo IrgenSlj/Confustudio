@@ -1617,14 +1617,16 @@ button {
     inset 0 1px 0 rgba(255,255,255,0.5),
     inset 0 -1px 0 rgba(0,0,0,0.1);
   cursor: default;
-  transition: transform 50ms, box-shadow 50ms;
+  transition: transform 0.1s ease, filter 0.1s ease, box-shadow 50ms;
   overflow: hidden;
   position: relative;
 }
 
 .qwerty-key:active,
 .qwerty-key.pressed {
-  transform: translateY(3px);
+  transform: translateY(3px) scaleY(0.96);
+  filter: brightness(1.4);
+  transition: transform 0.05s ease, filter 0.05s ease, box-shadow 50ms;
   box-shadow:
     0 1px 0 #7a6a54,
     0 2px 1px rgba(0,0,0,0.4),
@@ -1769,7 +1771,9 @@ button {
 
 /* Pressed — amber flash */
 .qwerty-key.pressed {
-  transform: translateY(3px);
+  transform: translateY(3px) scaleY(0.96);
+  filter: brightness(1.4);
+  transition: transform 0.05s ease, filter 0.05s ease, box-shadow 50ms;
   border-color: #c8a030 !important;
   background: linear-gradient(180deg, #f0d870 0%, #d8c050 70%, #c0a830 100%) !important;
   box-shadow:

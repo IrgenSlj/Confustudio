@@ -223,6 +223,53 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
 
   containerEl.append(kb);
 
+  // ── Velocity histogram ─────────────────────────────────────────────────────
+  // Shows bars for the last 16 played note velocities so players can gauge
+  // their playing dynamics at a glance.
+  if (state) {
+    const velHistogram = document.createElement('div');
+    velHistogram.id = 'vel-histogram';
+    velHistogram.style.cssText = 'display:flex;gap:1px;align-items:flex-end;height:20px;margin-top:2px;padding:0 2px';
+
+    if (!state._velHistory) state._velHistory = [];
+
+    function updateHistogram() {
+      velHistogram.innerHTML = '';
+      const recent = state._velHistory.slice(-16);
+      for (let i = 0; i < 16; i++) {
+        const bar = document.createElement('div');
+        const v = recent[i] ?? 0;
+        bar.style.cssText = `flex:1;background:${v > 0 ? 'var(--accent)' : 'rgba(255,255,255,0.05)'};height:${Math.round(v * 100)}%;border-radius:1px;opacity:0.8`;
+        velHistogram.append(bar);
+      }
+    }
+    updateHistogram();
+
+    // Update when a note is played (note:preview is used by keyboard note keys;
+    // note:on is used by chord memory and arp. Listen to both.)
+    const velHistListener = (payload) => {
+      if (payload?.velocity !== undefined) {
+        state._velHistory.push(payload.velocity);
+        if (state._velHistory.length > 16) state._velHistory.shift();
+        if (velHistogram.isConnected) updateHistogram();
+      }
+    };
+    _on('note:preview', velHistListener);
+    _on('note:on',      velHistListener);
+
+    // Cleanup when histogram element leaves the DOM
+    const obs = new MutationObserver(() => {
+      if (!velHistogram.isConnected) {
+        _off('note:preview', velHistListener);
+        _off('note:on',      velHistListener);
+        obs.disconnect();
+      }
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+
+    containerEl.append(velHistogram);
+  } // end velocity histogram
+
   // Chord mode bar + HOLD button (sound / piano-roll pages)
   if (state && ['sound', 'piano-roll'].includes(page)) {
     const chordBar = document.createElement('div');
@@ -396,6 +443,20 @@ function _updateOctDisplay(el, state) {
 let _emit = null;
 // Track colors reference, set by initKeyboard
 let _TRACK_COLORS = [];
+
+// ─── Internal event listener registry ────────────────────────────────────────
+// Allows intra-module components (e.g. velocity histogram) to subscribe to
+// events that flow through _emit without needing DOM CustomEvents.
+const _listeners = new Map(); // eventType → Set of callbacks
+
+function _on(type, fn) {
+  if (!_listeners.has(type)) _listeners.set(type, new Set());
+  _listeners.get(type).add(fn);
+}
+
+function _off(type, fn) {
+  _listeners.get(type)?.delete(fn);
+}
 
 // ─── Arp pattern visualizer ────────────────────────────────────────────────────
 
@@ -707,7 +768,11 @@ export function initPianoTouch(pianoContainerEl, state, emit) {
 // ─── Global keyboard handler ───────────────────────────────────────────────────
 
 export function initKeyboard(state, emit, trackColors = []) {
-  _emit = emit;
+  // Wrap emit so internal listeners (e.g. velocity histogram) also receive events
+  _emit = (type, payload = {}) => {
+    emit(type, payload);
+    _listeners.get(type)?.forEach(fn => fn(payload));
+  };
   if (trackColors.length) _TRACK_COLORS = trackColors;
 
   // Initialize split keyboard defaults
@@ -806,31 +871,31 @@ export function initKeyboard(state, emit, trackColors = []) {
           state._heldNotes = state._heldNotes ?? new Set();
           if (state._heldNotes.has(midiNote)) {
             state._heldNotes.delete(midiNote);
-            emit('note:off', { note: midiNote });
+            _emit('note:off', { note: midiNote });
             voicing.forEach(chordOffset => {
               const chordNote = midiNote + chordOffset;
               if (chordNote >= 0 && chordNote <= 127) {
                 state._heldNotes.delete(chordNote);
-                emit('note:off', { note: chordNote });
+                _emit('note:off', { note: chordNote });
               }
             });
           } else {
             state._heldNotes.add(midiNote);
-            emit('note:preview', { note: midiNote, velocity });
+            _emit('note:preview', { note: midiNote, velocity });
             voicing.forEach(chordOffset => {
               const chordNote = midiNote + chordOffset;
               if (chordNote >= 0 && chordNote <= 127) {
                 state._heldNotes.add(chordNote);
-                emit('note:preview', { note: chordNote, velocity });
+                _emit('note:preview', { note: chordNote, velocity });
               }
             });
           }
         } else {
-          emit('note:preview', { note: midiNote, velocity });
+          _emit('note:preview', { note: midiNote, velocity });
           voicing.forEach(chordOffset => {
             const chordNote = midiNote + chordOffset;
             if (chordNote >= 0 && chordNote <= 127)
-              emit('note:preview', { note: chordNote, velocity });
+              _emit('note:preview', { note: chordNote, velocity });
           });
         }
 
@@ -862,8 +927,8 @@ export function initKeyboard(state, emit, trackColors = []) {
       if (offset != null) {
         const midiNote = 60 + (state.octaveShift ?? 0) * 12 + offset;
         const velocity = state.keyboardVelocity ?? 1;
-        emit('note:preview', { note: midiNote, velocity });
-        emit('step:record',  { note: midiNote, velocity });
+        _emit('note:preview', { note: midiNote, velocity });
+        _emit('step:record',  { note: midiNote, velocity });
         return;
       }
     }
