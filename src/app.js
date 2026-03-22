@@ -825,6 +825,7 @@ function emit(type, payload = {}) {
         if (payload.param === 'sidechainAmount' && t.isSidechainSource && state.engine) {
           state.engine.setSidechainAmount(payload.value);
         }
+        // legato is read per-trigger from track.legato — no engine call needed
         scheduleSave();
       }
       break;
@@ -1283,6 +1284,11 @@ function scheduleLoop() {
         const trackSwing = track.swingOverride ?? state.swing ?? 0;
         const trackSwingOffset = (_trackStepIdx[ti] % 2 !== 0 ? 1 : -1) * trackSwing * secsPerStep;
         const microOffset = (step.microTime ?? 0) * secsPerStep + trackSwingOffset;
+        const humanize = state.humanizeAmount ?? 0;
+        const humanizeOffset = humanize > 0
+          ? (Math.random() * 2 - 1) * humanize * secsPerStep * 0.5
+          : 0;
+        const totalOffset = microOffset + humanizeOffset;
 
         // Track last-played note for live display on sound page
         state._lastNotes = state._lastNotes ?? {};
@@ -1314,7 +1320,7 @@ function scheduleLoop() {
             state._arpIdx[ti] = (state._arpIdx[ti] + 1) % arpNotes.length;
           }
           state._lastNotes[ti] = noteToPlay;
-          state.engine.triggerTrack(track, _schedNextTime + microOffset, secsPerStep, {
+          state.engine.triggerTrack(track, _schedNextTime + totalOffset, secsPerStep, {
             accent:      step.accent,
             note:        step.note,
             velocity:    step.velocity ?? 1,
@@ -1322,7 +1328,7 @@ function scheduleLoop() {
             paramLocks: { gate: step.gate ?? 0.5, ...sceneOverride, ...step.paramLocks, note: noteToPlay },
           });
         } else {
-          state.engine.triggerTrack(track, _schedNextTime + microOffset, secsPerStep, {
+          state.engine.triggerTrack(track, _schedNextTime + totalOffset, secsPerStep, {
             accent:      step.accent,
             note:        step.note,
             velocity:    step.velocity ?? 1,
