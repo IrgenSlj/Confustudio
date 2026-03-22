@@ -5,6 +5,18 @@
 // Z-M = sequencer steps 10-16     (pattern) / black piano notes (sound, roll)
 // Space = play / pause
 
+// ─── Velocity curve transform ─────────────────────────────────────────────────
+
+function applyVelocityCurve(rawVel, curve) {
+  switch (curve) {
+    case 'log':   return Math.pow(rawVel, 0.5);   // boost soft hits
+    case 'exp':   return Math.pow(rawVel, 2.0);   // only loud hits register
+    case 'fixed': return 0.8;                      // always same velocity
+    case 'soft':  return rawVel * 0.5 + 0.1;      // low range
+    default:      return rawVel;                   // linear
+  }
+}
+
 // ─── Note offsets ─────────────────────────────────────────────────────────────
 // A row = white notes starting C4
 // Z row = black notes (sharps) starting C#4
@@ -678,7 +690,8 @@ export function initPianoTouch(pianoContainerEl, state, emit) {
   function _triggerNote(keyEl, touch) {
     const midi = _midiFromEl(keyEl);
     if (midi == null) return;
-    const velocity = _getVelocityFromTouch(touch, keyEl);
+    const rawVel = _getVelocityFromTouch(touch, keyEl);
+    const velocity = applyVelocityCurve(rawVel, state.velocityCurve ?? 'linear');
     const voicing = CHORD_VOICINGS[state.chordMode ?? 'off'] ?? [];
     const trackOverride = _resolveTrack(midi);
 
@@ -855,7 +868,7 @@ export function initKeyboard(state, emit, trackColors = []) {
       const offset = NOTE_KEY_OFFSETS[e.code];
       if (offset != null) {
         const midiNote = 60 + (state.octaveShift ?? 0) * 12 + offset;
-        const velocity = state.keyboardVelocity ?? 1;
+        const velocity = applyVelocityCurve(state.keyboardVelocity ?? 1, state.velocityCurve ?? 'linear');
         const voicing = CHORD_VOICINGS[state.chordMode ?? 'off'] ?? [];
 
         // Split keyboard: temporarily redirect to appropriate track
@@ -926,7 +939,7 @@ export function initKeyboard(state, emit, trackColors = []) {
       const offset = NOTE_KEY_OFFSETS[e.code];
       if (offset != null) {
         const midiNote = 60 + (state.octaveShift ?? 0) * 12 + offset;
-        const velocity = state.keyboardVelocity ?? 1;
+        const velocity = applyVelocityCurve(state.keyboardVelocity ?? 1, state.velocityCurve ?? 'linear');
         _emit('note:preview', { note: midiNote, velocity });
         _emit('step:record',  { note: midiNote, velocity });
         return;
