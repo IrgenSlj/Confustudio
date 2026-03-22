@@ -4220,3 +4220,13 @@ input[type=range] {
 @media (max-width: 768px) {
   .mobile-zoom { transform: scale(1.3); }
 }
+
+/* Stutter button */
+#stutter-btn.active {
+  color: #f44; border-color: #f44; background: rgba(255,68,68,0.12);
+  animation: stutter-pulse 0.1s steps(2) infinite;
+}
+@keyframes stutter-pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.6; }
+}

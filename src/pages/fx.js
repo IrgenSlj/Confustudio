@@ -558,6 +558,57 @@ export default {
 
     container.prepend(presetBar);
 
+    // ── Stutter row ───────────────────────────────────────────────────────────
+    const stutterRow = document.createElement('div');
+    stutterRow.style.cssText = 'display:flex;gap:4px;align-items:center;margin-bottom:8px';
+
+    const stutterLabel = document.createElement('span');
+    stutterLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted)';
+    stutterLabel.textContent = 'STUTTER:';
+
+    const stutterBtn = document.createElement('button');
+    stutterBtn.id = 'stutter-btn';
+    stutterBtn.className = 'seq-btn' + (state.stutterActive ? ' active' : '');
+    stutterBtn.textContent = state.stutterActive ? '■ STOP' : '▶ GO';
+    stutterBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem';
+
+    const stutterRateSelect = document.createElement('select');
+    stutterRateSelect.style.cssText = 'font-size:0.48rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px';
+
+    [
+      { label: '1/32', value: 0.0625 },
+      { label: '1/16', value: 0.125 },
+      { label: '1/8',  value: 0.25 },
+      { label: '1/4',  value: 0.5 },
+    ].forEach(({label, value}) => {
+      const opt = document.createElement('option');
+      opt.value = String(value); opt.textContent = label;
+      if (Math.abs(value - (state.stutterRate ?? 0.125)) < 0.001) opt.selected = true;
+      stutterRateSelect.append(opt);
+    });
+
+    stutterRateSelect.addEventListener('change', () => {
+      state.stutterRate = parseFloat(stutterRateSelect.value);
+      const eng = window._confusynthEngine ?? state.engine;
+      if (eng?.setStutterRate) eng.setStutterRate(state.stutterRate);
+    });
+
+    stutterBtn.addEventListener('click', () => {
+      state.stutterActive = !state.stutterActive;
+      stutterBtn.classList.toggle('active', state.stutterActive);
+      stutterBtn.textContent = state.stutterActive ? '■ STOP' : '▶ GO';
+      const eng = window._confusynthEngine ?? state.engine;
+      if (state.stutterActive) eng?.startStutter?.(state.stutterRate ?? 0.125);
+      else eng?.stopStutter?.();
+    });
+
+    stutterRow.append(stutterLabel, stutterBtn, stutterRateSelect);
+
+    // Insert at top of fx page after preset bar
+    const firstCard = container.querySelector('.page-card');
+    if (firstCard) firstCard.insertAdjacentElement('beforebegin', stutterRow);
+    else container.prepend(stutterRow);
+
     // ── Compressor gain-reduction meter ──────────────────────────────────────
     const compCard = container.querySelector('.page-card');
     if (compCard) {

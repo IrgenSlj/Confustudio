@@ -1264,6 +1264,43 @@ export class AudioEngine {
       }
     }
   }
+
+  startStutter(rate = 0.125) {
+    if (this._stutterActive) return;
+    this._stutterActive = true;
+    this._stutterRate = rate;
+
+    // Use a short delay node to create a feedback loop
+    if (!this._stutterDelay) {
+      this._stutterDelay = this.context.createDelay(0.5);
+      this._stutterFeedback = this.context.createGain();
+      this._stutterGate = this.context.createGain();
+      this._stutterFeedback.gain.value = 0.95;
+      this._stutterGate.gain.value = 0;
+
+      this.master.connect(this._stutterDelay);
+      this._stutterDelay.connect(this._stutterFeedback);
+      this._stutterFeedback.connect(this._stutterDelay);
+      this._stutterDelay.connect(this._stutterGate);
+      this._stutterGate.connect(this.masterCompressor);
+    }
+
+    this._stutterDelay.delayTime.value = rate;
+    this._stutterGate.gain.setTargetAtTime(1, this.context.currentTime, 0.005);
+  }
+
+  stopStutter() {
+    if (!this._stutterActive) return;
+    this._stutterActive = false;
+    if (this._stutterGate) {
+      this._stutterGate.gain.setTargetAtTime(0, this.context.currentTime, 0.02);
+    }
+  }
+
+  setStutterRate(rate) {
+    this._stutterRate = rate;
+    if (this._stutterDelay) this._stutterDelay.delayTime.setTargetAtTime(rate, this.context.currentTime, 0.01);
+  }
 }
 
 // ——————————————————————————————————————————————
