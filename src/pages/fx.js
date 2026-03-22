@@ -352,6 +352,7 @@ function eqCanvasSectionHTML(track) {
 
 export default {
   render(container, state, emit) {
+    const module = this;
     const track = getActiveTrack(state);
 
     const comp = state.compressor ?? {};
@@ -378,9 +379,10 @@ export default {
                       data-reverb-type="${t}">${REVERB_LABELS[t]}</button>
             `).join('')}
           </div>
-          ${sliderHTML('ROOM', 'reverbSize',    'global', 0.1,  0.98, 0.01, state.reverbSize    ?? 0.5)}
-          ${sliderHTML('DAMP', 'reverbDamping', 'global', 0,    1,    0.01, state.reverbDamping ?? 0.5)}
-          ${sliderHTML('MIX',  'reverbMix',     'global', 0,    1,    0.01, state.reverbMix     ?? 0.22)}
+          ${sliderHTML('ROOM',  'reverbSize',     'global', 0.1,  0.98, 0.01, state.reverbSize     ?? 0.5)}
+          ${sliderHTML('DAMP',  'reverbDamping',  'global', 0,    1,    0.01, state.reverbDamping  ?? 0.5)}
+          ${sliderHTML('MIX',   'reverbMix',      'global', 0,    1,    0.01, state.reverbMix      ?? 0.22)}
+          ${sliderHTML('PRE',   'reverbPreDelay', 'global', 0,    100,  1,    state.reverbPreDelay ?? 0)}
         `)}
 
         ${cardHTML('DELAY', `
@@ -409,6 +411,7 @@ export default {
           ${sliderHTML('RATE',  'chorusRate',  'chorus', 0.1, 8,    0.1,  state.chorusRate  ?? 0.5)}
           ${sliderHTML('DEPTH', 'chorusDepth', 'chorus', 0,   1,    0.01, state.chorusDepth ?? 0.25)}
           ${sliderHTML('MIX',   'chorusMix',   'chorus', 0,   1,    0.01, state.chorusMix   ?? 0)}
+          ${sliderHTML('WIDTH', 'chorusWidth', 'chorus', 0,   1,    0.01, state.chorusWidth ?? 0.5)}
         `)}
 
         ${cardHTML('MASTER', `
@@ -440,6 +443,146 @@ export default {
         </div>
 
       </div>`;
+
+    // ── FX Preset bar ─────────────────────────────────────────────────────────
+    const presetBar = document.createElement('div');
+    presetBar.style.cssText = 'display:flex;gap:4px;align-items:center;margin-bottom:8px;flex-shrink:0;flex-wrap:wrap';
+
+    const BUILTIN_PRESETS = [
+      { name: 'Clean', values: { eqLow: 0, eqMid: 0, eqHigh: 0, reverbMix: 0, delayWet: 0, chorusMix: 0 }, comp: { threshold: -18 } },
+      { name: 'Warm',  values: { eqLow: 3, eqMid: -1, eqHigh: -2, reverbMix: 0.1 }, comp: { threshold: -20 } },
+      { name: 'Space', values: { reverbMix: 0.4, reverbSize: 0.8, delayWet: 0.2, chorusMix: 0.15, chorusDepth: 0.5 }, comp: {} },
+      { name: 'Punch', values: { eqLow: 2 }, comp: { threshold: -24, ratio: 8, attack: 0.001, release: 0.1 } },
+      { name: 'Lo-Fi', values: { eqHigh: -6, reverbMix: 0.05 }, track: { bitDepth: 8, srDiv: 4 } },
+    ];
+
+    const presetLabel = document.createElement('span');
+    presetLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted)';
+    presetLabel.textContent = 'PRESET:';
+    presetBar.append(presetLabel);
+
+    BUILTIN_PRESETS.forEach(preset => {
+      const btn = document.createElement('button');
+      btn.className = 'seq-btn';
+      btn.textContent = preset.name;
+      btn.title = `Apply ${preset.name} FX preset`;
+      btn.addEventListener('click', () => {
+        const t = getActiveTrack(state);
+        // Apply global state values
+        if (preset.values) {
+          Object.entries(preset.values).forEach(([param, value]) => {
+            state[param] = value;
+            _applyGlobal(param, value, state);
+          });
+        }
+        // Apply compressor values
+        if (preset.comp && Object.keys(preset.comp).length > 0) {
+          state.compressor = state.compressor ?? {};
+          Object.assign(state.compressor, preset.comp);
+          const eng = window._confusynthEngine ?? state.engine;
+          if (eng?.setCompressor) eng.setCompressor(preset.comp);
+        }
+        // Apply per-track values
+        if (preset.track) {
+          Object.entries(preset.track).forEach(([param, value]) => {
+            t[param] = value;
+            emit('track:change', { trackIndex: state.selectedTrackIndex, param, value });
+          });
+        }
+        // Apply global-state values that are also emitted as track changes
+        if (preset.values) {
+          Object.entries(preset.values).forEach(([param, value]) => {
+            emit('track:change', { trackIndex: state.selectedTrackIndex, param, value });
+          });
+        }
+        saveState(state);
+        module.render(container, state, emit);
+      });
+      presetBar.append(btn);
+    });
+
+    // Render any saved custom presets
+    if (state.customFxPresets?.length) {
+      state.customFxPresets.forEach((preset, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'seq-btn';
+        btn.textContent = preset.name;
+        btn.title = `Apply custom preset: ${preset.name}`;
+        btn.addEventListener('click', () => {
+          const t = getActiveTrack(state);
+          if (preset.values) {
+            Object.entries(preset.values).forEach(([param, value]) => {
+              if (['bitDepth', 'srDiv', 'eqLow', 'eqMid', 'eqHigh'].includes(param)) {
+                t[param] = value;
+                emit('track:change', { trackIndex: state.selectedTrackIndex, param, value });
+              } else {
+                state[param] = value;
+                _applyGlobal(param, value, state);
+              }
+            });
+          }
+          saveState(state);
+          module.render(container, state, emit);
+        });
+        presetBar.append(btn);
+      });
+    }
+
+    // Save current FX as custom preset
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'seq-btn';
+    saveBtn.textContent = '+ SAVE';
+    saveBtn.title = 'Save current FX as custom preset';
+    saveBtn.addEventListener('click', () => {
+      const name = prompt('Preset name:');
+      if (!name) return;
+      if (!state.customFxPresets) state.customFxPresets = [];
+      const t = getActiveTrack(state);
+      state.customFxPresets.push({
+        name,
+        values: {
+          eqLow:     t.eqLow     ?? 0,
+          eqMid:     t.eqMid     ?? 0,
+          eqHigh:    t.eqHigh    ?? 0,
+          reverbMix: state.reverbMix  ?? 0.22,
+          delayWet:  state.delayWet   ?? 0.3,
+          chorusMix: state.chorusMix  ?? 0,
+          bitDepth:  t.bitDepth  ?? 16,
+          srDiv:     t.srDiv     ?? 1,
+        },
+      });
+      saveState(state);
+      module.render(container, state, emit);
+    });
+    presetBar.append(saveBtn);
+
+    container.prepend(presetBar);
+
+    // ── Compressor gain-reduction meter ──────────────────────────────────────
+    const compCard = container.querySelector('.page-card');
+    if (compCard) {
+      const grCanvas = document.createElement('canvas');
+      grCanvas.width = 8; grCanvas.height = 60;
+      grCanvas.style.cssText = 'position:absolute;right:4px;top:24px;border-radius:2px;background:#111';
+      compCard.style.position = 'relative';
+      compCard.append(grCanvas);
+
+      let grRaf;
+      function drawGR() {
+        const reduction = state.engine?.masterCompressor?.reduction ?? 0;
+        const ctx2d = grCanvas.getContext('2d');
+        ctx2d.clearRect(0, 0, 8, 60);
+        const h = Math.min(60, (Math.abs(reduction) / 20) * 60);
+        if (h > 0) {
+          const g = ctx2d.createLinearGradient(0, 60 - h, 0, 60);
+          g.addColorStop(0, '#f44'); g.addColorStop(1, '#4f4');
+          ctx2d.fillStyle = g;
+          ctx2d.fillRect(0, 60 - h, 8, h);
+        }
+        if (container.isConnected) grRaf = requestAnimationFrame(drawGR);
+      }
+      drawGR();
+    }
 
     // ── EQ canvas setup ──────────────────────────────────────────────────────
     const eqCanvas = container.querySelector('[data-eq-canvas]');
@@ -521,6 +664,7 @@ export default {
         if (param === 'chorusRate'  && eng?.setChorusRate)  eng.setChorusRate(v);
         if (param === 'chorusDepth' && eng?.setChorusDepth) eng.setChorusDepth(v);
         if (param === 'chorusMix'   && eng?.setChorusMix)   eng.setChorusMix(v);
+        if (param === 'chorusWidth' && eng?.setChorusWidth) eng.setChorusWidth(v);
         saveState(state);
         return;
       }
@@ -674,12 +818,13 @@ function _syncEQSliderDisplays(container, track) {
 function _applyGlobal(param, v, state) {
   const eng = state.engine;
   if (!eng) return;
-  if (param === 'reverbSize'    && eng.setReverbRoomSize) eng.setReverbRoomSize(v);
-  if (param === 'reverbDamping' && eng.setReverbDamping)  eng.setReverbDamping(v);
-  if (param === 'delayTime'     && eng.setDelayTime)      eng.setDelayTime(v);
-  if (param === 'delayFeedback' && eng.setDelayFeedback)  eng.setDelayFeedback(v);
-  if (param === 'delayWet'      && eng.setDelayMix)       eng.setDelayMix(v);
-  if (param === 'masterLevel'   && eng.setMasterLevel)    eng.setMasterLevel(v);
-  if (param === 'reverbMix'     && eng.setReverbMix)      eng.setReverbMix(v);
-  if (param === 'masterDrive'   && eng.setMasterDrive)    eng.setMasterDrive(v);
+  if (param === 'reverbSize'     && eng.setReverbRoomSize)  eng.setReverbRoomSize(v);
+  if (param === 'reverbDamping'  && eng.setReverbDamping)   eng.setReverbDamping(v);
+  if (param === 'reverbPreDelay' && eng.setReverbPreDelay)  eng.setReverbPreDelay(v);
+  if (param === 'delayTime'      && eng.setDelayTime)       eng.setDelayTime(v);
+  if (param === 'delayFeedback'  && eng.setDelayFeedback)   eng.setDelayFeedback(v);
+  if (param === 'delayWet'       && eng.setDelayMix)        eng.setDelayMix(v);
+  if (param === 'masterLevel'    && eng.setMasterLevel)     eng.setMasterLevel(v);
+  if (param === 'reverbMix'      && eng.setReverbMix)       eng.setReverbMix(v);
+  if (param === 'masterDrive'    && eng.setMasterDrive)     eng.setMasterDrive(v);
 }
