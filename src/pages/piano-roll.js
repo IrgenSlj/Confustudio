@@ -5,6 +5,18 @@ import { TRACK_COLORS } from '../state.js';
 const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const BLACK_PCS  = new Set([1, 3, 6, 8, 10]); // pitch-class indices for black keys
 
+const SCALE_INTERVALS = {
+  major:      [0,2,4,5,7,9,11],
+  minor:      [0,2,3,5,7,8,10],
+  pentatonic: [0,2,4,7,9],
+  dorian:     [0,2,3,5,7,9,10],
+  mixolydian: [0,2,4,5,7,9,10],
+};
+function isNoteInScale(midi, root, scale) {
+  const intervals = SCALE_INTERVALS[scale] ?? SCALE_INTERVALS.major;
+  return intervals.includes((midi - root + 120) % 12);
+}
+
 const SCALES = [
   { name: 'Chromatic', intervals: null },
   { name: 'Major',     intervals: [0,2,4,5,7,9,11] },
@@ -176,6 +188,36 @@ export default {
     });
     toolbar.append(quantizeBtn);
 
+    // Note length selector
+    const noteLenLabel = document.createElement('span');
+    noteLenLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted)';
+    noteLenLabel.textContent = 'LEN:';
+    toolbar.append(noteLenLabel);
+
+    [{ label:'1/4', val:0.25 }, { label:'1/8', val:0.125 }, { label:'1/16', val:0.0625 }, { label:'1/32', val:0.03125 }].forEach(({label, val}) => {
+      const btn = document.createElement('button');
+      btn.className = 'pr-toolbar-btn' + ((state.prNoteLen ?? 0.0625) === val ? ' active' : '');
+      btn.textContent = label;
+      btn.addEventListener('click', () => {
+        state.prNoteLen = val;
+        toolbar.querySelectorAll('.pr-toolbar-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+      toolbar.append(btn);
+    });
+
+    // Scale highlight toggle
+    const scaleToggle = document.createElement('button');
+    scaleToggle.className = 'pr-toolbar-btn' + (state.prShowScale ? ' active' : '');
+    scaleToggle.textContent = 'SCL';
+    scaleToggle.title = 'Highlight scale notes';
+    scaleToggle.addEventListener('click', () => {
+      state.prShowScale = !state.prShowScale;
+      scaleToggle.classList.toggle('active', state.prShowScale);
+      emit('state:change', { path: 'rollScroll', value: state.rollScroll });
+    });
+    toolbar.append(scaleToggle);
+
     container.append(toolbar);
 
     // Piano roll view
@@ -263,6 +305,8 @@ export default {
       // Grid row
       const row = document.createElement('div');
       row.className = 'roll-row' + (isBlack ? ' black-row' : '') + (isMuted ? ' roll-row-muted' : '');
+      const inScale = state.prShowScale && isNoteInScale(midi, state.rootNote ?? 0, state.scale ?? 'major');
+      row.style.background = inScale ? 'rgba(255,255,255,0.04)' : '';
 
       for (let si = 0; si < steps; si++) {
         const cell = document.createElement('div');
@@ -447,45 +491,65 @@ export default {
     // Velocity lane
     const velLane = document.createElement('div');
     velLane.className = 'roll-vel-lane';
-    velLane.style.cssText = 'display:flex;height:32px;flex-shrink:0;border-top:1px solid #2a2a2a;overflow-x:hidden;position:relative;';
+    velLane.style.cssText = 'display:flex;height:40px;flex-shrink:0;border-top:1px solid #2a2a2a;overflow-x:hidden;position:relative;cursor:crosshair;';
 
-    track.steps.slice(0, patLen).forEach((step, si) => {
-      const bar = document.createElement('div');
-      bar.className = 'vel-bar';
-      const vel = step.velocity ?? 1;
-      bar.style.cssText = `
-        width: ${cellW}px; min-width: ${cellW}px; flex-shrink: 0;
-        height: ${Math.round(vel * 100)}%; align-self: flex-end;
-        background: ${step.active ? 'var(--track-color, var(--accent))' : '#333'};
-        cursor: ns-resize; border-right: 1px solid #1a1a1a;
-        box-sizing: border-box;
-      `;
+    function renderVelocityLane() {
+      velLane.innerHTML = '';
+      track.steps.slice(0, patLen).forEach((step, si) => {
+        const bar = document.createElement('div');
+        bar.className = 'vel-bar';
+        const vel = step.velocity ?? 1;
+        const velInt = Math.round(vel * 127);
+        const heightPct = Math.round(vel * 100);
+        bar.style.cssText = `
+          width: ${cellW}px; min-width: ${cellW}px; flex-shrink: 0;
+          height: ${heightPct}%; align-self: flex-end;
+          background: ${step.active ? 'var(--track-color, var(--accent))' : '#333'};
+          border-right: 1px solid #1a1a1a;
+          box-sizing: border-box; position: relative; overflow: hidden;
+        `;
+        // Numeric overlay on tall bars (height >= 60% and cellW >= 18)
+        if (step.active && heightPct >= 60 && cellW >= 18) {
+          const label = document.createElement('span');
+          label.style.cssText = `
+            position:absolute; bottom:1px; left:0; right:0;
+            text-align:center; font-family:var(--font-mono);
+            font-size:0.36rem; color:rgba(0,0,0,0.7); pointer-events:none; line-height:1;
+          `;
+          label.textContent = velInt;
+          bar.append(label);
+        }
+        velLane.append(bar);
+      });
+    }
 
-      if (step.active) {
-        let dragStartY, dragStartVel;
-        bar.addEventListener('pointerdown', e => {
-          e.preventDefault();
-          bar.setPointerCapture(e.pointerId);
-          dragStartY = e.clientY;
-          dragStartVel = step.velocity ?? 1;
+    renderVelocityLane();
 
-          function onMove(emv) {
-            const v = Math.max(0.05, Math.min(1, dragStartVel + (dragStartY - emv.clientY) / 40));
-            step.velocity = v;
-            bar.style.height = Math.round(v * 100) + '%';
-          }
-
-          function onUp() {
-            bar.removeEventListener('pointermove', onMove);
-            emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
-          }
-
-          bar.addEventListener('pointermove', onMove);
-          bar.addEventListener('pointerup', onUp, { once: true });
-        });
+    // Pencil/drag tool: click and drag to set velocities
+    velLane.addEventListener('mousedown', e => {
+      const rect = velLane.getBoundingClientRect();
+      function setVelAtPos(clientX, clientY) {
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+        const laneH = rect.height;
+        const newVel = Math.max(1, Math.min(127, Math.round((1 - y / laneH) * 127)));
+        const stepW = rect.width / (pattern.length ?? 16);
+        const si = Math.floor(x / stepW);
+        const step = track.steps[si];
+        if (step && step.active) {
+          step.velocity = newVel / 127;
+          emit('state:change', { param: 'velocity' });
+          renderVelocityLane();
+        }
       }
-
-      velLane.append(bar);
+      setVelAtPos(e.clientX, e.clientY);
+      const onMove = me => setVelAtPos(me.clientX, me.clientY);
+      const onUp = () => {
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+      };
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
     });
 
     container.append(velLane);
