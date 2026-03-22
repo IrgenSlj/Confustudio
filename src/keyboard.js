@@ -162,6 +162,13 @@ export const CHORD_VOICINGS = {
   min7: [3, 7, 10],
 };
 
+// ─── Note name helper ─────────────────────────────────────────────────────────
+
+function noteToName(midi) {
+  const NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  return NAMES[midi % 12] + Math.floor(midi / 12 - 1);
+}
+
 // ─── Graphical keyboard renderer ──────────────────────────────────────────────
 
 // 1 key-unit ≈ key-width + gap. Used to calculate row stagger padding.
@@ -331,6 +338,52 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
       // Insert after the arp visualizer element
       containerEl.append(holdBtn);
     }
+
+    // ── Chord memory slots ──────────────────────────────────────────────────
+    const chordMemSection = document.createElement('div');
+    chordMemSection.style.cssText = 'display:flex;align-items:center;gap:4px;margin-top:4px;';
+
+    const chordMemLabel = document.createElement('span');
+    chordMemLabel.style.cssText = 'font-size:0.6rem;color:var(--muted,#888);font-family:var(--font-mono);margin-right:2px;white-space:nowrap;';
+    chordMemLabel.textContent = 'CHORD MEM';
+    chordMemSection.append(chordMemLabel);
+
+    if (!state.chordMemory) state.chordMemory = [null, null, null, null];
+    for (let ci = 0; ci < 4; ci++) {
+      const mem = state.chordMemory[ci];
+      const slotBtn = document.createElement('button');
+      slotBtn.className = 'kbd-chord-btn';
+      slotBtn.textContent = mem ? `C${ci+1}:${mem.map(n => noteToName(n)).join(',')}` : `C${ci+1}`;
+      slotBtn.title = mem ? `Play chord: ${mem.join(',')}` : `Hold to store current chord in slot ${ci+1}`;
+      slotBtn.style.minWidth = '48px';
+      if (mem) slotBtn.style.borderColor = 'var(--accent)';
+      let pressTimer;
+      slotBtn.addEventListener('mousedown', () => {
+        pressTimer = setTimeout(() => {
+          // Long press: store current active notes
+          const notes = [...(state._arpNotes ?? state._heldNotes ?? [])].map(n => Number(n));
+          if (notes.length) {
+            state.chordMemory[ci] = notes;
+            slotBtn.textContent = `C${ci+1}:${notes.map(n => noteToName(n)).join(',')}`;
+            slotBtn.style.borderColor = 'var(--accent)';
+            slotBtn.title = `Play chord: ${notes.join(',')}`;
+          }
+        }, 500);
+      });
+      slotBtn.addEventListener('mouseup', () => clearTimeout(pressTimer));
+      slotBtn.addEventListener('mouseleave', () => clearTimeout(pressTimer));
+      slotBtn.addEventListener('click', () => {
+        clearTimeout(pressTimer);
+        const stored = state.chordMemory[ci];
+        if (stored) {
+          const trackIndex = state.selectedTrackIndex ?? 0;
+          stored.forEach(note => _emit?.('note:on', { note, velocity: 0.8, trackIndex }));
+          setTimeout(() => stored.forEach(note => _emit?.('note:off', { note, trackIndex })), 300);
+        }
+      });
+      chordMemSection.append(slotBtn);
+    }
+    containerEl.append(chordMemSection);
   }
 }
 
