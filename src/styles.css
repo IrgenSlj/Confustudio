@@ -4113,6 +4113,35 @@ button {
   border-color: var(--accent);
 }
 
+/* ── Keyboard octave indicator ───────────────────────────────────────────── */
+.kbd-oct-indicator {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.kbd-oct-btn {
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  padding: 1px 5px;
+  background: #1a1a1a;
+  color: var(--muted);
+  border: 1px solid #333;
+  border-radius: 3px;
+  cursor: pointer;
+  line-height: 1.4;
+}
+.kbd-oct-btn:hover { color: var(--fg); border-color: #555; }
+.kbd-oct-display {
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  color: var(--screen-text);
+  min-width: 36px;
+  text-align: center;
+  padding: 1px 3px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 2px;
+}
+
 /* ============================================================
    SCENE MORPH BAR
    ============================================================ */

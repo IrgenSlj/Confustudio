@@ -350,11 +350,7 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
 
     containerEl.append(chordBar);
 
-    // ── Octave indicator + TOUCH toggle row ──────────────────────────────────
-    const infoBar = document.createElement('div');
-    infoBar.className = 'kbd-info-bar';
-
-    // Octave indicator
+    // ── Octave indicator ──────────────────────────────────────────────────────
     const octWrap = document.createElement('div');
     octWrap.className = 'kbd-oct-indicator';
 
@@ -383,7 +379,6 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
     });
 
     octWrap.append(octMinus, octDisplay, octPlus);
-    infoBar.append(octWrap);
 
     // TOUCH velocity toggle
     const touchBtn = document.createElement('button');
@@ -394,13 +389,10 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
       state.touchVelocity = !state.touchVelocity;
       touchBtn.classList.toggle('active', state.touchVelocity);
     });
-    infoBar.append(touchBtn);
 
-    // ── Combined bottom row: OCT / TOUCH / ARP HOLD / CHORD MEM — single flex row ──
+    // ── Single bottom row: OCT / TOUCH / ARP HOLD / CHORD MEM ────────────────
     const bottomRow = document.createElement('div');
     bottomRow.style.cssText = 'display:flex;align-items:center;gap:4px;flex-wrap:wrap;';
-
-    // Move octave wrap + TOUCH into bottom row
     bottomRow.append(octWrap, touchBtn);
 
     // ── Arp pattern visualizer (only when arp is on) ─────────────────────────
@@ -426,10 +418,9 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
       bottomRow.append(holdBtn);
     }
 
-    containerEl.append(infoBar);
     containerEl.append(bottomRow);
 
-    // ── Chord memory slots ──────────────────────────────────────────────────
+    // ── Chord memory slots — appended into bottomRow for single-line layout ─
     const chordMemSection = document.createElement('div');
     chordMemSection.style.cssText = 'display:flex;align-items:center;gap:4px;';
 
@@ -473,7 +464,7 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
       });
       chordMemSection.append(slotBtn);
     }
-    containerEl.append(chordMemSection);
+    bottomRow.append(chordMemSection);
   }
 }
 
