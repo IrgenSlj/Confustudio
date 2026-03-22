@@ -138,6 +138,23 @@ export default {
         ${pattern.length} steps &bull; ${state.bpm ?? 120} BPM
       </span>
     `;
+    // ── Global pattern step count quick-select ────────────────────────────────
+    const globalStepSel = document.createElement('select');
+    globalStepSel.style.cssText = 'font-size:0.5rem;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 4px;font-family:var(--font-mono)';
+    globalStepSel.title = 'Global pattern step count';
+    [8, 12, 16, 24, 32, 48, 64].forEach(n => {
+      const opt = document.createElement('option');
+      opt.value = String(n);
+      opt.textContent = `${n}st`;
+      if (n === (pattern.length ?? 16)) opt.selected = true;
+      globalStepSel.append(opt);
+    });
+    globalStepSel.addEventListener('change', e => {
+      const n = parseInt(e.target.value);
+      emit('state:change', { path: 'length', value: n });
+    });
+    header.append(globalStepSel);
+
     container.append(header);
 
     // ── Follow action selector ────────────────────────────────────────────────
@@ -295,12 +312,14 @@ export default {
 
     // Render each of the 8 tracks as a row
     pattern.kit.tracks.forEach((trk, ti) => {
-      const isSelected = ti === selTi;
-      const trackLen   = trk.trackLength > 0 ? trk.trackLength : pattern.length;
+      const isSelected   = ti === selTi;
+      const trackLen     = trk.trackLength > 0 ? trk.trackLength : pattern.length;
+      const trkStepCount = trk.stepCount ?? pattern.length;
 
       const row = document.createElement('div');
       row.className = 'mtg-row' + (isSelected ? ' active' : '') + (trk.mute ? ' muted' : '');
       row.style.setProperty('--track-color', TRACK_COLORS[ti]);
+      if (trkStepCount > 16) row.style.overflowX = 'auto';
 
       // Track label
       const labelWrap = document.createElement('div');
@@ -376,6 +395,27 @@ export default {
       });
       labelWrap.append(velRandBtn);
 
+      // Per-track step count selector (polyrhythm)
+      const stepCountSel = document.createElement('select');
+      stepCountSel.style.cssText = 'font-size:0.44rem;background:var(--surface);color:var(--muted);border:1px solid rgba(255,255,255,0.1);border-radius:2px;padding:0 2px;width:32px';
+      stepCountSel.title = 'Track step count (polyrhythm)';
+      [8, 12, 16, 24, 32].forEach(n => {
+        const opt = document.createElement('option');
+        opt.value = String(n);
+        opt.textContent = String(n);
+        if (n === (trk.stepCount ?? pattern.length ?? 16)) opt.selected = true;
+        stepCountSel.append(opt);
+      });
+      stepCountSel.addEventListener('change', e => {
+        e.stopPropagation();
+        const n = parseInt(e.target.value);
+        trk.stepCount = n === (pattern.length ?? 16) ? null : n;
+        emit('track:change', { trackIndex: ti, param: 'stepCount', value: trk.stepCount });
+        // Trigger a re-render by emitting a no-op length change (same value, causes renderPage)
+        emit('state:change', { path: 'length', value: pattern.length });
+      });
+      labelWrap.append(stepCountSel);
+
       labelWrap.style.cursor = 'pointer';
       labelWrap.title = 'Click to select track; click label text to expand/collapse step details';
       labelWrap.addEventListener('click', () => emit('track:select', { trackIndex: ti }));
@@ -399,8 +439,8 @@ export default {
 
       row.append(labelWrap);
 
-      // Step buttons
-      trk.steps.slice(0, pattern.length).forEach((step, si) => {
+      // Step buttons — use per-track stepCount if set, otherwise fall back to global pattern.length
+      trk.steps.slice(0, trkStepCount).forEach((step, si) => {
         const btn = document.createElement('button');
         btn.className = 'step-btn step-sm';
         if (step.active)                          btn.classList.add('active');
@@ -791,7 +831,7 @@ export default {
       });
       row.append(handle);
 
-      const activeCount = trk.steps.slice(0, pattern.length).filter(s => s.active).length;
+      const activeCount = trk.steps.slice(0, trkStepCount).filter(s => s.active).length;
       const countBadge = document.createElement('span');
       countBadge.className = 'mtg-count';
       countBadge.textContent = activeCount > 0 ? String(activeCount) : '';
@@ -807,7 +847,7 @@ export default {
         const velRow = document.createElement('div');
         // Offset to align with step buttons (label wrap is approx 56px wide)
         velRow.style.cssText = 'display:flex;gap:1px;height:12px;margin-top:1px;padding-left:56px;padding-right:2px';
-        trk.steps.slice(0, pattern.length).forEach(s => {
+        trk.steps.slice(0, trkStepCount).forEach(s => {
           const bar = document.createElement('div');
           bar.style.cssText = `flex:1;background:${s.active ? 'var(--accent)' : 'rgba(255,255,255,0.04)'};height:${s.active ? Math.round((s.velocity ?? 1) * 100) : 0}%;align-self:flex-end;border-radius:1px`;
           velRow.append(bar);

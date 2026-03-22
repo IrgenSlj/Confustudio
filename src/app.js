@@ -1494,7 +1494,7 @@ function scheduleLoop() {
 
       // Advance all per-track step counters individually
       pattern.kit.tracks.forEach((track, ti) => {
-        const trackLen = (track.trackLength > 0) ? track.trackLength : pattern.length;
+        const trackLen = track.stepCount ?? ((track.trackLength > 0) ? track.trackLength : pattern.length);
         _trackStepIdx[ti] = (_trackStepIdx[ti] + 1) % trackLen;
       });
 

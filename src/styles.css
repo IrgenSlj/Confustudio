@@ -1064,6 +1064,9 @@ button {
   letter-spacing: 0.06em;
 }
 
+.mtg-grid { overflow-x: auto; }
+.mtg-steps { min-width: max-content; }
+
 /* Compact step buttons for multi-track view */
 .step-sm {
   min-height: 0 !important;
