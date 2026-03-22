@@ -637,6 +637,29 @@ function handleStateChange(path, value, pattern) {
     return;
   }
 
+  if (path === 'sceneXfade') {
+    // Manual A/B crossfade: interpolate between scene A and scene B and apply to tracks
+    state._sceneXfade = value;
+    const t = Math.max(0, Math.min(1, value));
+    const sA = state.scenes[state.sceneA];
+    const sB = state.scenes[state.sceneB];
+    if (sA && sB) {
+      const tracks = getActivePattern(state).kit.tracks;
+      const XFADE_PARAMS = ['cutoff', 'decay', 'delaySend', 'pitch', 'volume'];
+      tracks.forEach((track, ti) => {
+        const tA = (sA.tracks && sA.tracks[ti]) || {};
+        const tB = (sB.tracks && sB.tracks[ti]) || {};
+        XFADE_PARAMS.forEach(param => {
+          const a = tA[param] ?? track[param] ?? 0;
+          const b = tB[param] ?? track[param] ?? 0;
+          track[param] = a + (b - a) * t;
+        });
+      });
+    }
+    renderPage();
+    return;
+  }
+
   if (path === 'scale') {
     state.scale = Math.max(0, Math.min(6, Number(value)));
     scheduleSave();
@@ -861,7 +884,7 @@ function emit(type, payload = {}) {
 
     // ── State changes ──
     case 'state:change':
-      handleStateChange(payload.path, payload.value, pattern);
+      handleStateChange(payload.path ?? payload.param, payload.value, pattern);
       break;
 
     // ── Track changes ──

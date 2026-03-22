@@ -116,6 +116,9 @@ export default {
     sceneGrid.style.cssText = 'margin-bottom:8px;flex-shrink:0';
 
     scenes.forEach((scene, si) => {
+      const sceneCard = document.createElement('div');
+      sceneCard.style.cssText = 'display:flex;flex-direction:column;gap:2px';
+
       const btn = document.createElement('button');
       btn.className = 'scene-btn';
       const letter = String.fromCharCode(65 + si);
@@ -195,7 +198,43 @@ export default {
         this.render(container, { ...state, sceneA: si }, emit);
       });
 
-      sceneGrid.append(btn);
+      // ── CAPTURE button: save current live track params into this scene slot ──
+      const captureBtn = document.createElement('button');
+      captureBtn.className = 'seq-btn';
+      captureBtn.textContent = 'CAP';
+      captureBtn.title = 'Capture current state into this scene';
+      captureBtn.style.cssText = 'font-size:0.44rem;padding:1px 4px';
+      captureBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        const tracks = getActivePattern(state).kit.tracks;
+        // Write into state.scenes[si].tracks (used by interpolateScenes)
+        tracks.forEach((track, ti) => {
+          if (scenes[si] && scenes[si].tracks) {
+            scenes[si].tracks[ti] = {
+              cutoff: track.cutoff, decay: track.decay, delaySend: track.delaySend,
+              pitch: track.pitch, volume: track.volume,
+            };
+          }
+        });
+        // Also write extended params into state.project.scenes[si]
+        const CAPTURE_PARAMS = ['volume', 'pan', 'cutoff', 'resonance', 'attack', 'decay',
+                                'sustain', 'release', 'reverbSend', 'delaySend', 'pitch'];
+        if (!state.project.scenes[si]) state.project.scenes[si] = {};
+        state.project.scenes[si].tracks = tracks.map(track => {
+          const captured = {};
+          CAPTURE_PARAMS.forEach(p => { if (track[p] !== undefined) captured[p] = track[p]; });
+          return captured;
+        });
+        state.project.scenes[si].bpm = state.bpm;
+        state.project.scenes[si].swing = state.swing;
+        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+        // Flash the card
+        sceneCard.style.outline = '2px solid var(--accent)';
+        setTimeout(() => { sceneCard.style.outline = ''; }, 500);
+      });
+
+      sceneCard.append(btn, captureBtn);
+      sceneGrid.append(sceneCard);
     });
     container.append(sceneGrid);
 
@@ -430,6 +469,29 @@ export default {
       if (container.isConnected) requestAnimationFrame(animateMorph);
     }
     animateMorph();
+
+    // ── Task 2: Manual A/B crossfade slider ──────────────────────────────────
+    const xfadeRow = document.createElement('div');
+    xfadeRow.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 0;border-top:1px solid var(--border);margin-top:4px';
+    const xfadeLabel = document.createElement('span');
+    xfadeLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted);min-width:40px';
+    xfadeLabel.textContent = 'A\u2194B';
+
+    const xfadeSlider = document.createElement('input');
+    xfadeSlider.type = 'range';
+    xfadeSlider.min = '0'; xfadeSlider.max = '1'; xfadeSlider.step = '0.01';
+    xfadeSlider.value = String(state._sceneXfade ?? 0);
+    xfadeSlider.style.flex = '1';
+
+    xfadeSlider.addEventListener('input', () => {
+      const t = parseFloat(xfadeSlider.value);
+      state._sceneXfade = t;
+      xfadeLabel.textContent = `A\u2194B ${Math.round(t * 100)}%`;
+      emit('state:change', { param: 'sceneXfade', value: t });
+    });
+
+    xfadeRow.append(xfadeLabel, xfadeSlider);
+    container.append(xfadeRow);
 
     // ── Feature 4: Record XFade automation button ─────────────────────────────
     const xfRecBtn = document.createElement('button');
