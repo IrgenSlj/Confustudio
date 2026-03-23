@@ -1485,6 +1485,10 @@ async function ensureAudio() {
     state.engine.setSidechainSource(_scIdx);
     state.engine.setSidechainAmount(_scTrack.sidechainAmount ?? 0);
   }
+  // Restore cue bus state
+  const _activPat = state.project.banks[state.activeBank].patterns[state.activePattern];
+  const hasCue = _activPat.kit.tracks.some(t => t.cue);
+  if (hasCue && state.engine?.setCueGain) state.engine.setCueGain(1);
   if (el.masterVolume) el.masterVolume.value = state.masterLevel;
   el.btnAudio.classList.add('active');
   drawOscilloscope(el.oscilloscope, state.engine, _oscAnimRef, state);

@@ -427,11 +427,15 @@ export default {
       cueBtn.className = 'fader-cue' + (track.cue ? ' active' : '');
       cueBtn.textContent = 'CUE';
       cueBtn.title = 'Pre-fader listen';
-      // track.cue = true routes audio to cue bus (stored only; audio routing TODO)
       cueBtn.addEventListener('click', e => {
         e.stopPropagation();
         track.cue = !track.cue;
         cueBtn.classList.toggle('active', track.cue);
+        // Count how many tracks have cue active
+        const cuedCount = tracks.filter(t => t.cue).length;
+        if (state.engine?.setCueGain) {
+          state.engine.setCueGain(cuedCount > 0 ? 1 : 0);
+        }
         emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
       });
       stripBody.append(cueBtn);

@@ -1547,9 +1547,16 @@ export default {
       <span class="humanize-label" style="font-family:var(--font-mono);font-size:0.48rem;color:var(--muted);min-width:40px">±${Math.round(humanizeAmtInit * 100)}%</span>
     `;
     const humanizeLabel = humanizeDiv.querySelector('.humanize-label');
+    function humanizeDesc(v) {
+      if (v === 0) return 'off';
+      if (v <= 0.1) return 'subtle';
+      if (v <= 0.3) return 'medium';
+      return 'heavy';
+    }
+    humanizeLabel.textContent = `±${Math.round(humanizeAmtInit * 100)}% ${humanizeDesc(humanizeAmtInit)}`;
     humanizeDiv.querySelector('input').addEventListener('input', e => {
       state.humanizeAmount = parseFloat(e.target.value);
-      humanizeLabel.textContent = `±${Math.round(state.humanizeAmount * 100)}%`;
+      humanizeLabel.textContent = `±${Math.round(state.humanizeAmount * 100)}% ${humanizeDesc(state.humanizeAmount)}`;
     });
     humanizeDiv.querySelector('button').addEventListener('click', () => {
       const amt = state.humanizeAmount ?? 0.2;
@@ -1559,7 +1566,7 @@ export default {
         s.microTime = (Math.random() - 0.5) * amt;
         s.velocity = Math.max(0.3, Math.min(1, (s.velocity ?? 1) + (Math.random() - 0.5) * 0.3));
       });
-      humanizeLabel.textContent = `±${Math.round(amt * 100)}%`;
+      humanizeLabel.textContent = `±${Math.round(amt * 100)}% ${humanizeDesc(amt)}`;
       emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
     });
     actionsDiv.append(humanizeDiv);
