@@ -371,16 +371,24 @@ button {
 .signal-meter .seg.lit.orange { background: #f0a030; box-shadow: 0 0 4px #f0a030; }
 .signal-meter .seg.lit.red    { background: #f04040; box-shadow: 0 0 4px #f04040; }
 
+/* SIG + VOL side-by-side row */
+.sig-vol-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
 /* Master fader */
 .fader-section {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  flex: 1;
-  min-height: 0;
-  max-height: 120px;
-  width: 100%;
+  flex: none;
+  width: auto;
 }
 
 .fader-master {
@@ -1733,11 +1741,11 @@ button {
   gap: 3px;
 }
 
-.qrow-num   .qwerty-key { height: 28px; }
-.qrow-fn    .qwerty-key { height: 32px; }
-.qrow-home  .qwerty-key { height: 38px; }
-.qrow-bot   .qwerty-key { height: 38px; }
-.qrow-space .qwerty-key { height: 26px; }
+.qrow-num   .qwerty-key { height: 22px; }
+.qrow-fn    .qwerty-key { height: 24px; }
+.qrow-home  .qwerty-key { height: 28px; }
+.qrow-bot   .qwerty-key { height: 28px; }
+.qrow-space .qwerty-key { height: 20px; }
 
 .qwerty-key {
   display: flex;
@@ -1798,7 +1806,7 @@ button {
 }
 
 /* Number row — synth function keys, darker with amber hints */
-.qrow-num .qwerty-key { height: 30px; }
+.qrow-num .qwerty-key { height: 22px; }
 .qrow-num .qwerty-key {
   background: linear-gradient(180deg, #2a2520 0%, #1e1a14 70%, #141008 100%);
   color: #c8a060;
@@ -1993,7 +2001,7 @@ button {
   display: flex;
   align-items: flex-end;
   gap: 2px;
-  height: 80px;
+  height: 110px;
   padding: 0 2px;
   position: relative;
 }

@@ -33,20 +33,23 @@
               <!-- hidden knob container — keeps JS happy -->
               <div id="left-knobs" style="display:none"></div>
 
-              <!-- Signal meter: 16 vertical LED segments -->
-              <div class="meter-section">
-                <div class="meter-label">SIG</div>
-                <div class="signal-meter" id="signal-meter">
-                  <!-- 16 spans, JS will light them -->
-                  <!-- seg-16 = top/loudest, seg-1 = bottom/quietest -->
+              <!-- SIG meter + VOL fader side by side -->
+              <div class="sig-vol-row">
+                <!-- Signal meter: 16 vertical LED segments -->
+                <div class="meter-section">
+                  <div class="meter-label">SIG</div>
+                  <div class="signal-meter" id="signal-meter">
+                    <!-- 16 spans, JS will light them -->
+                    <!-- seg-16 = top/loudest, seg-1 = bottom/quietest -->
+                  </div>
                 </div>
-              </div>
 
-              <!-- Master volume fader (vertical) -->
-              <div class="fader-section">
-                <div class="meter-label">VOL</div>
-                <input type="range" id="master-volume" class="fader-master"
-                  orient="vertical" min="0" max="1" step="0.01" value="0.82" />
+                <!-- Master volume fader (vertical) -->
+                <div class="fader-section">
+                  <div class="meter-label">VOL</div>
+                  <input type="range" id="master-volume" class="fader-master"
+                    orient="vertical" min="0" max="1" step="0.01" value="0.82" />
+                </div>
               </div>
 
               <!-- Transport buttons -->

@@ -1047,6 +1047,7 @@ export default {
     });
 
     wrapper.append(multiGrid);
+    container.append(wrapper);
 
     // ── Playhead rAF highlight ────────────────────────────────────────────────
     // Each frame: stamp the current-step column with .step-playing across all rows.
@@ -1094,7 +1095,7 @@ export default {
     trackLenDiv.style.cssText = 'display:flex;align-items:center;gap:4px';
     trackLenDiv.innerHTML = `
       <label style="font-family:var(--font-mono);font-size:0.6rem;color:var(--muted)">T.LEN</label>
-      <input type="number" min="0" max="64" value="${track.trackLength || 0}"
+      <input type="number" min="0" max="64" value="${track?.trackLength || 0}"
         style="width:46px;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:2px 4px;font-family:var(--font-mono);font-size:0.6rem"
         title="0 = follow pattern length">
     `;
@@ -1108,7 +1109,7 @@ export default {
     // ── Probability mode indicator ────────────────────────────────────────────
     const probIndicator = document.createElement('span');
     probIndicator.className = 'prob-mode-indicator';
-    const trackHasProb = track.steps.some(s => (s.prob ?? s.probability ?? 1) < 1);
+    const trackHasProb = track?.steps?.some(s => (s.prob ?? s.probability ?? 1) < 1) ?? false;
     if (trackHasProb) probIndicator.classList.add('active');
     probIndicator.textContent = 'P%';
     probIndicator.title = trackHasProb
@@ -1118,7 +1119,7 @@ export default {
 
     const euclidDiv = document.createElement('div');
     euclidDiv.className = 'seq-euclid';
-    const euclidStepDefault = track.trackLength || pattern.length;
+    const euclidStepDefault = track?.trackLength || pattern.length;
     const euclidOffsetDefault = state.euclidOffset ?? 0;
 
     // ── Euclid canvas visualizer ───────────────────────────────────────────
@@ -1618,7 +1619,6 @@ export default {
 
     toolbar.append(euclidDiv, actionsDiv);
     wrapper.append(toolbar);
-    container.append(wrapper);
   },
 
   knobMap: [
