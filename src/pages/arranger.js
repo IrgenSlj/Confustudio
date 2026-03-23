@@ -202,8 +202,35 @@ export default {
 
       // Bar count display
       const barsLabel = document.createElement('span');
-      barsLabel.style.cssText  = 'font-family:var(--font-mono);font-size:0.62rem;color:var(--screen-text);min-width:28px;text-align:right';
+      barsLabel.style.cssText  = 'font-family:var(--font-mono);font-size:0.62rem;color:var(--screen-text);min-width:28px;text-align:right;cursor:text';
       barsLabel.textContent    = `${section.bars ?? 1}B`;
+      barsLabel.title = 'Double-click to edit bar count';
+
+      // Inline edit on double-click
+      barsLabel.addEventListener('dblclick', e => {
+        e.stopPropagation();
+        const barsInput = document.createElement('input');
+        barsInput.type = 'number';
+        barsInput.min = '1';
+        barsInput.max = '64';
+        barsInput.value = String(section.bars ?? 1);
+        barsInput.style.cssText = 'font-family:var(--font-mono);font-size:0.62rem;color:var(--screen-text);width:36px;background:#222;border:1px solid var(--accent);border-radius:2px;padding:0 2px;text-align:right';
+        const commit = () => {
+          const newBars = Math.max(1, Math.min(64, parseInt(barsInput.value) || 1));
+          section.bars = newBars;
+          barsLabel.textContent = `${newBars}B`;
+          barsInput.replaceWith(barsLabel);
+          emit('state:change', { path: `arranger[${idx}].bars`, value: newBars });
+        };
+        barsInput.addEventListener('blur', commit);
+        barsInput.addEventListener('keydown', ev => {
+          if (ev.key === 'Enter') { ev.preventDefault(); barsInput.blur(); }
+          if (ev.key === 'Escape') { barsInput.replaceWith(barsLabel); }
+        });
+        barsLabel.replaceWith(barsInput);
+        barsInput.focus();
+        barsInput.select();
+      });
 
       // Bar count +/-
       const minusBtn = document.createElement('button');
@@ -211,6 +238,7 @@ export default {
       minusBtn.textContent  = '−';
       minusBtn.addEventListener('click', () => {
         const newBars = Math.max(1, (section.bars ?? 1) - 1);
+        section.bars = newBars;
         emit('state:change', { path: `arranger[${idx}].bars`, value: newBars });
         barsLabel.textContent = `${newBars}B`;
       });
@@ -220,6 +248,7 @@ export default {
       plusBtn.textContent  = '+';
       plusBtn.addEventListener('click', () => {
         const newBars = Math.min(64, (section.bars ?? 1) + 1);
+        section.bars = newBars;
         emit('state:change', { path: `arranger[${idx}].bars`, value: newBars });
         barsLabel.textContent = `${newBars}B`;
       });
@@ -428,6 +457,8 @@ export default {
     // ── Visual timeline ────────────────────────────────────────────────────
     const totalBarsAll = arranger.reduce((s, sec) => s + (sec.bars ?? 1), 0) || 1;
 
+    const SCENE_COLORS = ['#f0c640','#5add71','#67d7ff','#ff8c52','#c67dff','#ff6eb4','#40e0d0','#f05b52'];
+
     const timelineWrap = document.createElement('div');
     timelineWrap.style.cssText = 'position:relative;flex-shrink:0;margin-bottom:8px';
 
@@ -442,25 +473,29 @@ export default {
     arranger.forEach((section, idx) => {
       const block = document.createElement('div');
       const widthPct = ((section.bars ?? 1) / totalBarsAll * 100).toFixed(1);
-      const color = TRACK_COLORS[(section.sceneIdx ?? 0) % TRACK_COLORS.length];
-      const isActive = idx === arrangementCursor;
+      const color = SCENE_COLORS[idx % SCENE_COLORS.length];
+      const isCursor = idx === arrangementCursor;
+      const isPlayingBlock = idx === activeSectionIdx;
       const inLoop = arrLoop && idx >= arrLoopStart && idx <= arrLoopEnd;
+      // Brightest when actively playing, bright when cursor, dim otherwise
+      const alphaBg = isPlayingBlock ? 'ff' : isCursor ? 'cc' : '44';
+      const alphaBorder = isPlayingBlock ? 'ff' : isCursor ? 'cc' : '88';
       block.style.cssText = `
         flex: 0 0 ${widthPct}%;
         min-width: 18px;
-        background: ${color}${isActive ? 'ff' : '44'};
-        border: 1px solid ${color}${isActive ? 'ff' : '88'};
+        background: ${color}${alphaBg};
+        border: 1px solid ${color}${alphaBorder};
         ${inLoop ? `outline: 1px solid rgba(90,221,113,0.5); outline-offset:-1px;` : ''}
         border-radius: 3px;
         display:flex; align-items:center; justify-content:center;
         font-family:var(--font-mono); font-size:0.5rem;
-        color:${isActive ? '#000' : color};
+        color:${isPlayingBlock || isCursor ? '#000' : color};
         font-weight:600;
         cursor:pointer;
         overflow:hidden; white-space:nowrap;
         transition: all 0.1s;
       `;
-      block.title = `${String.fromCharCode(65 + (section.sceneIdx ?? 0))} — ${section.bars}B${section.bpmOverride ? ` BPM:${section.bpmOverride}` : ''}`;
+      block.title = `${section.name ?? `Section ${idx+1}`} — ${section.bars ?? 1}B${section.bpmOverride ? ` BPM:${section.bpmOverride}` : ''}`;
       block.textContent = `${String.fromCharCode(65 + (section.sceneIdx ?? 0))}`;
       block.addEventListener('click', () => {
         emit('state:change', { path: 'arrangementCursor', value: idx });
