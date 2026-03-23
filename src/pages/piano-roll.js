@@ -100,7 +100,10 @@ export default {
     // Build a set of active (midi, stepIndex) pairs from step notes
     const activeSet = new Set();
     track.steps.slice(0, steps).forEach((step, si) => {
-      if (step.active) activeSet.add(`${step.note}_${si}`);
+      if (step.active) {
+        const note = step.paramLocks?.note ?? step.note;
+        activeSet.add(`${note}_${si}`);
+      }
     });
 
     // Ensure rollSelected is initialised on state
@@ -268,6 +271,10 @@ export default {
     let dragStartVel  = 1;
     let dragging      = false;
 
+    // Drag-to-draw state
+    state._rollDragging  = false;
+    state._rollDrawNote  = null;
+
     function onWindowPointerMove(e) {
       if (!dragCell) return;
       const dy = dragStartY - e.clientY;
@@ -287,6 +294,11 @@ export default {
         dragCell  = null;
         dragStep  = null;
         dragging  = false;
+      }
+      // End draw-drag
+      if (state._rollDragging) {
+        state._rollDragging = false;
+        state._rollDrawNote = null;
       }
       window.removeEventListener('pointermove', onWindowPointerMove);
       window.removeEventListener('pointerup', onWindowPointerUp);
@@ -331,7 +343,7 @@ export default {
           cell.classList.add('active');
           const step = track.steps[si];
           const vel = step?.velocity ?? 1;
-          cell.style.opacity = String(0.3 + vel * 0.7);
+          cell.style.opacity = String(0.5 + vel * 0.5);
           cell.style.cursor = 'ns-resize';
           const gate = step?.gate ?? 0.5;
           cell.title = `${name} vel:${Math.round(vel * 127)} gate:${Math.round(gate * 100)}% (${gateToName(gate)})`;
@@ -450,6 +462,44 @@ export default {
             cell.style.cursor = 'ns-resize';
             activeSet.add(key);
           }
+        });
+
+        // Drag-to-draw: start draw-drag on pointerdown in draw mode
+        cell.addEventListener('pointerdown', (e) => {
+          if (!state.prDrawMode) return;
+          state._rollDragging = true;
+          state._rollDrawNote = midi;
+          window.addEventListener('pointerup', onWindowPointerUp, { once: true });
+        });
+
+        // Drag-to-draw: activate cells as pointer moves across the grid
+        cell.addEventListener('pointermove', (e) => {
+          if (!state.prDrawMode || !state._rollDragging) return;
+          // Only draw on cells in the same row (note) as the drag started
+          if (midi !== state._rollDrawNote) return;
+          const key = `${midi}_${si}`;
+          if (!activeSet.has(key)) {
+            const step = track.steps[si];
+            if (!step.active) {
+              emit('step:toggle', { stepIndex: si, shiftKey: false });
+            }
+            emit('step:plock', { stepIndex: si, param: 'note', value: midi });
+            cell.classList.add('active');
+            cell.style.cursor = 'ns-resize';
+            activeSet.add(key);
+          }
+        });
+
+        // Right-click to delete an active note
+        cell.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          if (!activeSet.has(`${midi}_${si}`)) return;
+          const step = track.steps[si];
+          step.active = false;
+          if (step.paramLocks) delete step.paramLocks.note;
+          activeSet.delete(`${midi}_${si}`);
+          emit('track:change', { param: 'steps', value: track.steps });
+          emit('state:change', { path: 'rollScroll', value: state.rollScroll });
         });
 
         row.append(cell);
