@@ -562,6 +562,7 @@ export default {
       trk.steps.slice(0, trkStepCount).forEach((step, si) => {
         const btn = document.createElement('button');
         btn.className = 'step-btn step-sm';
+        btn.style.position = 'relative';
         if (step.active)                          btn.classList.add('active');
         if (step.accent)                          btn.classList.add('accent');
         if (Object.keys(step.paramLocks).length)  btn.classList.add('plock');
@@ -583,8 +584,18 @@ export default {
           `;
           btn.append(microBar);
         }
+        // Micro-timing arrow indicator
+        if (Math.abs(step.microTime ?? 0) > 0.05) {
+          const microArrow = document.createElement('span');
+          microArrow.style.cssText = 'font-size:0.28rem;position:absolute;top:1px;right:2px;opacity:0.6;pointer-events:none';
+          microArrow.textContent = (step.microTime ?? 0) < 0 ? '◂' : '▸';
+          btn.append(microArrow);
+        }
         const vel = step.velocity ?? 1;
-        if (vel < 1) btn.style.opacity = String(0.45 + vel * 0.55);
+        // Active steps: use velocity-based opacity (0.4 + vel * 0.6); inactive: no opacity change
+        if (step.active) {
+          btn.style.opacity = String(0.4 + vel * 0.6);
+        }
         btn.textContent  = (si % 4 === 0) ? String(si + 1) : '';
         btn.dataset.prob = String(step.probability);
         btn.dataset.step = si;
@@ -594,19 +605,23 @@ export default {
           btn.classList.add('has-prob');
           btn.style.setProperty('--prob', step.probability);
         }
-        // Velocity indicator
+        // Velocity indicator (small number shown when velocity is noticeably below max)
         if (step.active && vel < 0.95) {
           const velSpan = document.createElement('span');
           velSpan.className = 'step-vel';
           velSpan.textContent = String(Math.round(vel * 100));
           btn.append(velSpan);
         }
-        // Note lock label
-        if (step.paramLocks?.note != null) {
-          const noteSpan = document.createElement('span');
-          noteSpan.className = 'step-note-label';
-          noteSpan.textContent = midiToNoteName(step.paramLocks.note);
-          btn.append(noteSpan);
+        // Note label — show when param-locked note exists OR step has non-default pitch
+        {
+          const noteMidi = step.paramLocks?.note ?? (step.note !== 60 && step.note != null ? step.note : null);
+          if (noteMidi != null && step.active) {
+            const noteSpan = document.createElement('span');
+            noteSpan.className = 'step-note-label';
+            noteSpan.style.cssText = 'font-size:0.32rem;position:absolute;bottom:1px;left:0;right:0;text-align:center;opacity:0.7;pointer-events:none;color:rgba(0,0,0,0.9);font-family:monospace';
+            noteSpan.textContent = midiToNoteName(noteMidi);
+            btn.append(noteSpan);
+          }
         }
         // Gate length bar — shown only when gate deviates significantly from default (0.5)
         if (step.active) {
@@ -752,9 +767,9 @@ export default {
 
           const menu = document.createElement('div');
           menu.className = 'step-ctx-menu';
-          menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:500;
-            background:#1a1e14;border:1px solid #3a4a2a;border-radius:4px;padding:4px;
-            font-family:var(--font-mono);font-size:0.55rem;min-width:110px`;
+          menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:999;
+            background:#1a1e14;border:1px solid var(--accent);border-radius:4px;padding:4px;
+            font-family:var(--font-mono);font-size:0.55rem;min-width:130px`;
 
           // Probability section
           const probWrap = document.createElement('div');
@@ -803,9 +818,60 @@ export default {
             menu.append(item);
           });
 
+          // ── Action items ─────────────────────────────────────────────────
+          const divider2 = document.createElement('div');
+          divider2.style.cssText = 'border-top:1px solid #2a3a2a;margin:3px 0';
+          menu.append(divider2);
+
+          const makeActionItem = (label, fn) => {
+            const item = document.createElement('div');
+            item.className = 'ctx-item';
+            item.textContent = label;
+            item.addEventListener('click', () => { fn(); menu.remove(); });
+            menu.append(item);
+          };
+
+          makeActionItem('Set velocity…', () => {
+            const raw = prompt(`Velocity for step ${si + 1} (0–127):`, String(Math.round((step.velocity ?? 1) * 127)));
+            if (raw === null) return;
+            const v = Math.max(0, Math.min(127, parseInt(raw, 10)));
+            if (!isNaN(v)) {
+              step.velocity = v / 127;
+              emit('state:change', { param: 'pattern' });
+            }
+          });
+
+          makeActionItem('Set gate…', () => {
+            const raw = prompt(`Gate for step ${si + 1} (0–100%):`, String(Math.round((step.gate ?? 0.5) * 100)));
+            if (raw === null) return;
+            const v = Math.max(0, Math.min(100, parseInt(raw, 10)));
+            if (!isNaN(v)) {
+              step.gate = v / 100;
+              emit('state:change', { param: 'pattern' });
+            }
+          });
+
+          makeActionItem('Set microtime…', () => {
+            const raw = prompt(`Micro-time for step ${si + 1} (-50 to +50):`, String(Math.round((step.microTime ?? 0) * 100)));
+            if (raw === null) return;
+            const v = Math.max(-50, Math.min(50, parseInt(raw, 10)));
+            if (!isNaN(v)) {
+              step.microTime = v / 100;
+              emit('state:change', { param: 'pattern' });
+            }
+          });
+
+          makeActionItem('Clear param locks', () => {
+            step.paramLocks = {};
+            emit('state:change', { param: 'pattern' });
+          });
+
           document.body.append(menu);
-          // Close on outside click
-          setTimeout(() => document.addEventListener('click', () => menu.remove(), { once: true }), 0);
+          // Close on outside click or Escape
+          const closeMenu = () => menu.remove();
+          const onKeyDown = (ev) => { if (ev.key === 'Escape') { closeMenu(); document.removeEventListener('keydown', onKeyDown); } };
+          document.addEventListener('keydown', onKeyDown);
+          setTimeout(() => document.addEventListener('click', () => { closeMenu(); document.removeEventListener('keydown', onKeyDown); }, { once: true }), 0);
         });
 
         // ── Velocity drag + long-press p-lock ─────────────────────────────────
@@ -884,7 +950,7 @@ export default {
           if (!velDragging) return;
           const newVel = Math.max(0.05, Math.min(1, velStartVal + (velStartY - e.clientY) / 60));
           step.velocity = newVel;
-          btn.style.opacity = String(0.45 + newVel * 0.55);
+          btn.style.opacity = String(0.4 + newVel * 0.6);
           let velSpan = btn.querySelector('.step-vel');
           if (velSpan) {
             velSpan.textContent = Math.round(newVel * 100);
