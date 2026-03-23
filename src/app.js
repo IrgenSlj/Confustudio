@@ -2,14 +2,14 @@
 import { createAppState, getActivePattern, getActiveTrack, getActiveStep,
          applyParamLock, setScene, interpolateScenes,
          saveState, loadState, PROB_LEVELS, TRACK_COUNT, STORAGE_KEY,
-         TRACK_COLORS } from './state.js';
-import { AudioEngine, drawOscilloscope, initMidi, midiOutputs } from './engine.js';
+         TRACK_COLORS, RECORDER_SLOT_COUNT } from './state.js';
+import { AudioEngine, drawOscilloscope, initMidi, midiOutputs, getMidiOutputById } from './engine.js';
 import { initKeyboard, renderKbdContext, renderPiano, lightPianoKey,
          pressKey, PAGE_KEYS } from './keyboard.js';
 import { renderKnobs, KNOB_MAPS } from './knobs.js';
-import { initStudio } from '/src/studio.js';
-import { initCables } from '/src/cables.js';
-import { initBackground } from '/src/background.js';
+import { initStudio } from './studio.js';
+import { initCables } from './cables.js';
+import { initBackground } from './background.js';
 
 // Page modules
 import patternPage  from './pages/pattern.js';
@@ -43,6 +43,16 @@ function showToast(msg, duration = 1200) {
   toast.style.opacity = '1';
   clearTimeout(toast._t);
   toast._t = setTimeout(() => { toast.style.opacity = '0'; }, duration);
+}
+
+function resetRecorderSlotMeta(slotIndex) {
+  return {
+    name: `Slot ${slotIndex + 1}`,
+    source: null,
+    trackIndex: null,
+    durationSec: 0,
+    createdAt: null,
+  };
 }
 
 // ─────────────────────────────────────────────
@@ -354,6 +364,148 @@ function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function getRecorderDurationMs(bars = state.recorderBarCount ?? 4) {
+  const bpm = Math.max(40, Number(state.bpm) || 120);
+  const safeBars = Math.max(1, Math.min(32, Number(bars) || 4));
+  return Math.round((240000 / bpm) * safeBars);
+}
+
+async function captureRecorderSlot(slotIndex, options = {}) {
+  await ensureAudio();
+  if (!state.engine?.master || !state.audioContext || state._recorderCaptureActive) return false;
+
+  const bars = options.bars ?? state.recorderBarCount ?? 4;
+  const durationMs = getRecorderDurationMs(bars);
+  const mediaDest = state.audioContext.createMediaStreamDestination();
+  const mimeType = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+  ].find((type) => window.MediaRecorder?.isTypeSupported?.(type)) || '';
+
+  state.engine.master.connect(mediaDest);
+  const recorder = new MediaRecorder(mediaDest.stream, mimeType ? { mimeType } : undefined);
+  const chunks = [];
+  state._recorderCaptureActive = { slotIndex, startedAt: Date.now(), durationMs };
+
+  return new Promise((resolve) => {
+    recorder.ondataavailable = (event) => {
+      if (event.data?.size) chunks.push(event.data);
+    };
+    recorder.onerror = () => {
+      state._recorderCaptureActive = null;
+      try { state.engine.master.disconnect(mediaDest); } catch (_) {}
+      showToast('Capture failed');
+      resolve(false);
+    };
+    recorder.onstop = async () => {
+      state._recorderCaptureActive = null;
+      try { state.engine.master.disconnect(mediaDest); } catch (_) {}
+      const blob = new Blob(chunks, { type: mimeType || 'audio/webm' });
+      if (!blob.size) {
+        showToast('Capture empty');
+        resolve(false);
+        return;
+      }
+      try {
+        const arrayBuffer = await blob.arrayBuffer();
+        const decoded = await state.audioContext.decodeAudioData(arrayBuffer.slice(0));
+        state.recorderBuffers[slotIndex] = decoded;
+        state.recorderSlotsMeta[slotIndex] = {
+          ...state.recorderSlotsMeta[slotIndex],
+          source: options.source ?? 'master',
+          trackIndex: options.trackIndex ?? null,
+          durationSec: decoded.duration,
+          createdAt: Date.now(),
+          bars,
+        };
+        scheduleSave();
+        renderPage();
+        showToast(`Captured slot ${slotIndex + 1}`);
+        resolve(true);
+      } catch (error) {
+        console.warn('Recorder decode failed:', error);
+        showToast('Capture decode failed');
+        resolve(false);
+      }
+    };
+
+    recorder.start();
+    showToast(`Capturing ${bars} bars…`, Math.max(1400, durationMs));
+    setTimeout(() => {
+      if (recorder.state !== 'inactive') recorder.stop();
+    }, durationMs);
+  });
+}
+
+function loadRecorderSlotToTrack(slotIndex, trackIndex = state.selectedTrackIndex) {
+  const buffer = state.recorderBuffers?.[slotIndex];
+  const track = getActivePattern(state).kit.tracks[trackIndex];
+  if (!buffer || !track) return false;
+  track.machine = 'sample';
+  track.sampleBuffer = buffer;
+  track.sampleStart = 0;
+  track.sampleEnd = 1;
+  track.loopStart = 0;
+  track.loopEnd = 1;
+  track.loopEnabled = false;
+  scheduleSave();
+  renderPage();
+  showToast(`Loaded slot ${slotIndex + 1} → T${trackIndex + 1}`);
+  return true;
+}
+
+function exportRecorderSlot(slotIndex) {
+  const buffer = state.recorderBuffers?.[slotIndex];
+  if (!buffer) return false;
+  const channels = [];
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+    channels.push(buffer.getChannelData(ch));
+  }
+  const wav = encodeWav(channels, buffer.sampleRate);
+  const blob = new Blob([wav], { type: 'audio/wav' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `confusynth-slot-${slotIndex + 1}.wav`;
+  a.click();
+  URL.revokeObjectURL(url);
+  return true;
+}
+
+function encodeWav(channelData, sampleRate) {
+  const channels = channelData.length;
+  const frameCount = channelData[0]?.length ?? 0;
+  const bytesPerSample = 2;
+  const blockAlign = channels * bytesPerSample;
+  const buffer = new ArrayBuffer(44 + frameCount * blockAlign);
+  const view = new DataView(buffer);
+  const writeString = (offset, text) => {
+    for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i));
+  };
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + frameCount * blockAlign, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, channels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 16, true);
+  writeString(36, 'data');
+  view.setUint32(40, frameCount * blockAlign, true);
+  let offset = 44;
+  for (let i = 0; i < frameCount; i++) {
+    for (let ch = 0; ch < channels; ch++) {
+      const sample = Math.max(-1, Math.min(1, channelData[ch][i] ?? 0));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      offset += 2;
+    }
+  }
+  return buffer;
+}
+
 function moveArrangerSection(index, delta) {
   const nextIndex = index + delta;
   if (
@@ -441,6 +593,87 @@ function handleAction(path, value, pattern) {
       if (typeof value === 'number') state.selectedTrackIndex = value;
       el.sampleFile?.click();
       return true;
+
+    case 'action_renderPage':
+      renderPage();
+      return true;
+
+    case 'action_captureRecorderSlot': {
+      if (state._recorderBusy) return true;
+      ensureAudio();
+      if (!state.engine) {
+        showToast('Init audio first');
+        return true;
+      }
+      const slotIndex = Math.max(0, Math.min(RECORDER_SLOT_COUNT - 1, Number(value?.slot ?? state.selectedRecorderSlot ?? 0)));
+      const bars = Math.max(1, Math.min(16, Number(value?.bars ?? 2)));
+      const durationSec = (60 / Math.max(1, state.bpm || 120)) * 4 * bars;
+      state._recorderBusy = true;
+      state.selectedRecorderSlot = slotIndex;
+      renderPage();
+      showToast(`Capturing ${bars} bars…`, Math.max(1500, durationSec * 1000));
+      captureMasterBuffer(state.engine, durationSec)
+        .then((buffer) => {
+          if (!Array.isArray(state.recorderBuffers)) {
+            state.recorderBuffers = Array.from({ length: RECORDER_SLOT_COUNT }, () => null);
+          }
+          if (!Array.isArray(state.recorderSlotsMeta)) {
+            state.recorderSlotsMeta = Array.from({ length: RECORDER_SLOT_COUNT }, (_, i) => resetRecorderSlotMeta(i));
+          }
+          state.recorderBuffers[slotIndex] = buffer;
+          state.recorderSlotsMeta[slotIndex] = {
+            ...resetRecorderSlotMeta(slotIndex),
+            name: `Take ${slotIndex + 1}`,
+            source: 'master',
+            trackIndex: state.selectedTrackIndex,
+            durationSec,
+            createdAt: Date.now(),
+          };
+          scheduleSave();
+          renderPage();
+          showToast(`Captured slot ${slotIndex + 1}`);
+        })
+        .catch((err) => {
+          console.warn('Recorder capture failed:', err);
+          showToast('Capture failed');
+        })
+        .finally(() => {
+          state._recorderBusy = false;
+          renderPage();
+        });
+      return true;
+    }
+
+    case 'action_assignRecorderSlot': {
+      const slotIndex = Math.max(0, Math.min(RECORDER_SLOT_COUNT - 1, Number(value?.slot ?? state.selectedRecorderSlot ?? 0)));
+      const buffer = state.recorderBuffers?.[slotIndex];
+      if (!buffer) {
+        showToast('Empty recorder slot');
+        return true;
+      }
+      const targetIndex = Math.max(0, Math.min(TRACK_COUNT - 1, Number(value?.trackIndex ?? state.selectedTrackIndex ?? 0)));
+      const targetTrack = state.project.banks[state.activeBank].patterns[state.activePattern].kit.tracks[targetIndex];
+      targetTrack.sampleBuffer = buffer;
+      targetTrack.machine = 'sample';
+      targetTrack.sampleStart = 0;
+      targetTrack.sampleEnd = 1;
+      targetTrack.loopStart = 0;
+      targetTrack.loopEnd = 1;
+      targetTrack.loopEnabled = false;
+      scheduleSave();
+      renderAll();
+      showToast(`Loaded slot ${slotIndex + 1} to T${targetIndex + 1}`);
+      return true;
+    }
+
+    case 'action_clearRecorderSlot': {
+      const slotIndex = Math.max(0, Math.min(RECORDER_SLOT_COUNT - 1, Number(value?.slot ?? state.selectedRecorderSlot ?? 0)));
+      if (Array.isArray(state.recorderBuffers)) state.recorderBuffers[slotIndex] = null;
+      if (Array.isArray(state.recorderSlotsMeta)) state.recorderSlotsMeta[slotIndex] = resetRecorderSlotMeta(slotIndex);
+      scheduleSave();
+      renderPage();
+      return true;
+    }
 
     case 'action_arrAdd':
       state.arranger.push({
@@ -728,6 +961,7 @@ function handleStateChange(path, value, pattern) {
 
   state[path] = value;
   scheduleSave();
+  renderPage();
 }
 
 // ─────────────────────────────────────────────
@@ -831,6 +1065,29 @@ function emit(type, payload = {}) {
     // ── Audio init ──
     case 'audio:init':
       ensureAudio();
+      break;
+
+    case 'recorder:capture':
+      captureRecorderSlot(
+        payload.slotIndex ?? state.selectedRecorderSlot ?? 0,
+        {
+          bars: payload.bars ?? state.recorderBarCount ?? 4,
+          source: payload.source ?? 'master',
+          trackIndex: payload.trackIndex ?? state.selectedTrackIndex,
+        }
+      );
+      break;
+
+    case 'recorder:load':
+      if (!loadRecorderSlotToTrack(payload.slotIndex ?? state.selectedRecorderSlot ?? 0, payload.trackIndex ?? state.selectedTrackIndex)) {
+        showToast('No captured slot');
+      }
+      break;
+
+    case 'recorder:export':
+      if (!exportRecorderSlot(payload.slotIndex ?? state.selectedRecorderSlot ?? 0)) {
+        showToast('No captured slot');
+      }
       break;
 
     // ── Steps ──
@@ -1248,6 +1505,10 @@ async function ensureAudio() {
   initSignalMeter();
   startMeterAnimation();
   await initMidi();
+  state.midiOutputs = [...midiOutputs];
+  if (state.midiOutputId) {
+    state.engine.setMidiOutput(getMidiOutputById(state.midiOutputId));
+  }
 
   // MIDI CC input routing
   if (typeof state.engine.setupMidiInput === 'function') {
@@ -1266,6 +1527,8 @@ async function ensureAudio() {
       const param = map[cc];
       if (!param) return;
       emit('knob:change', { param, value });
+    }).catch(err => {
+      console.warn('MIDI CC input setup failed:', err);
     });
   }
 
@@ -1729,6 +1992,9 @@ async function togglePlay() {
     _schedNextTime = state.audioContext.currentTime + 0.05;
     _schedStepIdx  = 0;
     _trackStepIdx  = Array(8).fill(0);
+    if (state.midiClockOut && state.engine?.startMidiClock) {
+      state.engine.startMidiClock(state.bpm ?? 120);
+    }
     updateTransportUI();
     scheduleLoop();
   }
@@ -1745,6 +2011,9 @@ function stopPlay() {
   state._pressedKeys.clear();
   if (_schedRafId) { cancelAnimationFrame(_schedRafId); _schedRafId = null; }
   state.engine?.stopAllNotes();
+  if (state.midiClockOut && state.engine?.stopMidiClock) {
+    state.engine.stopMidiClock();
+  }
   // Restore any randomized fill steps when stopping
   if (state._preFillSnapshot) {
     state._fillActive = false;
@@ -2312,6 +2581,70 @@ async function exportAudio(engine) {
   };
   rec.start();
   setTimeout(() => rec.stop(), 8000); // 8 second capture
+}
+
+function captureMasterBuffer(engine, durationSec) {
+  return new Promise((resolve, reject) => {
+    const ctx = engine?.context;
+    if (!ctx) {
+      reject(new Error('Audio engine not initialized'));
+      return;
+    }
+
+    const channelCount = 2;
+    const processor = ctx.createScriptProcessor(4096, channelCount, channelCount);
+    const sink = ctx.createGain();
+    sink.gain.value = 0;
+    const leftChunks = [];
+    const rightChunks = [];
+    let totalFrames = 0;
+    const targetFrames = Math.max(1, Math.ceil(durationSec * ctx.sampleRate));
+    let stopped = false;
+
+    function finish() {
+      if (stopped) return;
+      stopped = true;
+      try { engine.master.disconnect(processor); } catch (_) {}
+      processor.disconnect();
+      sink.disconnect();
+
+      const left = new Float32Array(totalFrames);
+      const right = new Float32Array(totalFrames);
+      let offset = 0;
+      leftChunks.forEach((chunk, idx) => {
+        left.set(chunk, offset);
+        right.set(rightChunks[idx], offset);
+        offset += chunk.length;
+      });
+
+      const buffer = ctx.createBuffer(channelCount, totalFrames, ctx.sampleRate);
+      buffer.copyToChannel(left, 0);
+      buffer.copyToChannel(right, 1);
+      resolve(buffer);
+    }
+
+    processor.onaudioprocess = (event) => {
+      if (stopped) return;
+      const inputL = event.inputBuffer.getChannelData(0);
+      const inputR = event.inputBuffer.numberOfChannels > 1
+        ? event.inputBuffer.getChannelData(1)
+        : inputL;
+      const remaining = targetFrames - totalFrames;
+      if (remaining <= 0) {
+        finish();
+        return;
+      }
+      const frameCount = Math.min(remaining, inputL.length);
+      leftChunks.push(new Float32Array(inputL.slice(0, frameCount)));
+      rightChunks.push(new Float32Array(inputR.slice(0, frameCount)));
+      totalFrames += frameCount;
+      if (totalFrames >= targetFrames) finish();
+    };
+
+    engine.master.connect(processor);
+    processor.connect(sink);
+    sink.connect(ctx.destination);
+  });
 }
 
 // ─────────────────────────────────────────────

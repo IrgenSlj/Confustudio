@@ -10,6 +10,49 @@ export default {
     container.innerHTML = '';
 
     const { scenes, crossfader, sceneA, sceneB, selectedTrackIndex } = state;
+    const activePattern = getActivePattern(state);
+
+    function rerenderScenes() {
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+    }
+
+    function cloneScenePayload(sceneIdx) {
+      const scene = state.project.scenes[sceneIdx] ?? {};
+      return JSON.parse(JSON.stringify({
+        ...scene,
+        tracks: scene.tracks ?? [],
+      }));
+    }
+
+    function copyScene(sourceIdx, targetIdx) {
+      state.project.scenes[targetIdx] = cloneScenePayload(sourceIdx);
+      state.scenes[targetIdx] = state.project.scenes[targetIdx];
+      rerenderScenes();
+    }
+
+    function clearScene(sceneIdx) {
+      const fallback = scenes[sceneIdx];
+      state.project.scenes[sceneIdx] = {
+        name: fallback?.name || `Scene ${String.fromCharCode(65 + sceneIdx)}`,
+        tracks: Array.from({ length: activePattern.kit.tracks.length }, () => ({})),
+        noInterp: [],
+      };
+      state.scenes[sceneIdx] = state.project.scenes[sceneIdx];
+      rerenderScenes();
+    }
+
+    function applySceneToLive(sceneIdx, mode = 'track') {
+      const sourceScene = state.project.scenes[sceneIdx];
+      if (!sourceScene?.tracks) return;
+      if (mode === 'all') {
+        activePattern.kit.tracks.forEach((track, ti) => {
+          Object.assign(track, sourceScene.tracks[ti] ?? {});
+        });
+      } else {
+        Object.assign(getActiveTrack(state), sourceScene.tracks[selectedTrackIndex] ?? {});
+      }
+      rerenderScenes();
+    }
 
     const header = document.createElement('div');
     header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0';
@@ -125,6 +168,17 @@ export default {
       const displayName = scene.name || `Scene ${letter}`;
       btn.innerHTML = `<strong>${letter}</strong><span>${displayName}</span>`;
       btn.title = `Scene slot ${si + 1} (${letter})`;
+      const capturedCount = (state.project.scenes[si]?.tracks ?? []).filter(trackData =>
+        trackData && Object.keys(trackData).length > 0
+      ).length;
+      const noInterpCount = state.project.scenes[si]?.noInterp?.length ?? 0;
+      const meta = document.createElement('div');
+      meta.style.cssText = 'display:flex;gap:4px;justify-content:center;margin-top:2px;font-family:var(--font-mono);font-size:0.42rem;color:var(--muted)';
+      meta.innerHTML = `
+        <span>${capturedCount}/8</span>
+        ${state.project.scenes[si]?.bpm ? `<span>${Math.round(state.project.scenes[si].bpm)}BPM</span>` : ''}
+        ${noInterpCount ? `<span>${noInterpCount} snap</span>` : ''}
+      `;
 
       if (si === sceneA) btn.style.borderColor = 'rgba(240,198,64,0.7)';
       if (si === sceneB) btn.style.borderColor = 'rgba(90,221,113,0.7)';
@@ -235,7 +289,7 @@ export default {
 
       btn.style.position = 'relative';
       btn.append(captureBtn);
-      sceneCard.append(btn);
+      sceneCard.append(btn, meta);
       sceneGrid.append(sceneCard);
     });
     container.append(sceneGrid);
@@ -275,7 +329,37 @@ export default {
       flashSceneSlot(sceneB);
     });
 
-    snapCard.append(snapBtn, snapBBtn);
+    const sceneToolGrid = document.createElement('div');
+    sceneToolGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:4px';
+
+    const makeSceneTool = (label, onClick, title = label) => {
+      const btn = document.createElement('button');
+      btn.className = 'seq-btn';
+      btn.textContent = label;
+      btn.title = title;
+      btn.addEventListener('click', onClick);
+      return btn;
+    };
+
+    sceneToolGrid.append(
+      makeSceneTool('A → B', () => copyScene(sceneA, sceneB), 'Copy Scene A into Scene B'),
+      makeSceneTool('B → A', () => copyScene(sceneB, sceneA), 'Copy Scene B into Scene A'),
+      makeSceneTool('Apply A', () => applySceneToLive(sceneA, 'track'), 'Apply Scene A to selected track'),
+      makeSceneTool('Apply B', () => applySceneToLive(sceneB, 'track'), 'Apply Scene B to selected track'),
+      makeSceneTool('Apply All A', () => applySceneToLive(sceneA, 'all'), 'Apply Scene A to all tracks'),
+      makeSceneTool('Swap', () => {
+        const temp = cloneScenePayload(sceneA);
+        state.project.scenes[sceneA] = cloneScenePayload(sceneB);
+        state.project.scenes[sceneB] = temp;
+        state.scenes[sceneA] = state.project.scenes[sceneA];
+        state.scenes[sceneB] = state.project.scenes[sceneB];
+        rerenderScenes();
+      }, 'Swap the full contents of Scenes A and B'),
+      makeSceneTool('Clear A', () => clearScene(sceneA), 'Clear the captured data in Scene A'),
+      makeSceneTool('Clear B', () => clearScene(sceneB), 'Clear the captured data in Scene B'),
+    );
+
+    snapCard.append(snapBtn, snapBBtn, sceneToolGrid);
     bottomRow.append(snapCard);
 
     // Interpolated values display
@@ -429,7 +513,7 @@ export default {
     morphBtn.textContent = state.sceneMorphActive ? '\u25A0 Stop' : '\u25BA Morph';
     morphBtn.addEventListener('click', () => {
       state.sceneMorphActive = !state.sceneMorphActive;
-      if (state.sceneMorphActive) state.crossfade = 0;
+      if (state.sceneMorphActive) state.crossfader = 0;
       emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
     });
 

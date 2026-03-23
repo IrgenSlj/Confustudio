@@ -29,6 +29,11 @@ export async function initMidi() {
   }
 }
 
+export function getMidiOutputById(id) {
+  if (!id) return null;
+  return midiOutputs.find((output) => (output.id || output.name) === id) || null;
+}
+
 // ——————————————————————————————————————————————
 // AUDIO ENGINE
 // ——————————————————————————————————————————————
@@ -535,6 +540,11 @@ export class AudioEngine {
 
   sendMidiStop() {
     if (this.midiOutput) this.midiOutput.send([0xfc]);
+  }
+
+  setMidiOutput(output) {
+    this.midiOutput = output || null;
+    return this.midiOutput;
   }
 
   // ——————————————————————————————————————————————
@@ -1165,12 +1175,17 @@ export class AudioEngine {
       });
     };
 
-    return navigator.requestMIDIAccess({ sysex: false }).then((midiAccess) => {
-      this._midiAccess = midiAccess;
-      attachInputs(midiAccess);
-      midiAccess.onstatechange = () => attachInputs(midiAccess);
-      return midiAccess;
-    });
+    return navigator.requestMIDIAccess({ sysex: false })
+      .then((midiAccess) => {
+        this._midiAccess = midiAccess;
+        attachInputs(midiAccess);
+        midiAccess.onstatechange = () => attachInputs(midiAccess);
+        return midiAccess;
+      })
+      .catch((err) => {
+        console.warn("WebMIDI input unavailable:", err);
+        return null;
+      });
   }
 
   // Remove all MIDI input message handlers attached by setupMidiInput.

@@ -98,7 +98,12 @@ body {
   height: 100vh;
   overflow: hidden;
   position: relative;
-  background-color: #080e07;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(90,221,113,0.12), transparent 34%),
+    radial-gradient(circle at 20% 15%, rgba(240,198,64,0.08), transparent 24%),
+    linear-gradient(180deg, #090f08 0%, #050805 100%);
+  touch-action: none;
+  overscroll-behavior: none;
 }
 
 #studio-canvas {
@@ -108,6 +113,7 @@ body {
   transform-origin: 0 0;
   overflow: visible;
   z-index: 1;
+  will-change: transform;
   /* JS will set transform: scale() translate() */
 }
 
@@ -136,12 +142,19 @@ body {
   display: flex;
   gap: 6px;
   z-index: 1000;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 14px;
+  background: rgba(5, 8, 5, 0.58);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 18px 40px rgba(0,0,0,0.45);
+  backdrop-filter: blur(12px);
 }
 
 #studio-controls button {
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid rgba(255,255,255,0.2);
   background: rgba(0,0,0,0.55);
   color: rgba(255,255,255,0.8);
@@ -161,6 +174,31 @@ body {
   font-size: 0.7rem !important;
   font-family: var(--font-mono) !important;
   letter-spacing: 0.05em !important;
+}
+
+#studio-wrap.is-panning {
+  cursor: grabbing;
+}
+
+.module-loading-shell {
+  width: 860px;
+  height: 860px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--chassis-text);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(240,198,64,0.12), transparent 40%),
+    linear-gradient(180deg, var(--chassis-light), var(--chassis-bg));
+  border-radius: 8px;
+  box-shadow:
+    0 20px 60px rgba(0,0,0,0.7),
+    0 2px 0 rgba(255,255,255,0.06) inset,
+    0 -2px 0 rgba(0,0,0,0.3) inset;
 }
 
 button,
@@ -348,8 +386,6 @@ button {
 .fader-master {
   writing-mode: vertical-lr;
   direction: rtl;
-  appearance: slider-vertical;
-  -webkit-appearance: slider-vertical;
   width: 20px;
   height: 80px;
   max-height: 80px;
@@ -524,8 +560,6 @@ button {
 .macro-slider {
   writing-mode: vertical-lr;
   direction: rtl;
-  appearance: slider-vertical;
-  -webkit-appearance: slider-vertical;
   width: 20px;
   height: 56px;
   cursor: pointer;
@@ -3338,8 +3372,6 @@ button {
 .djm-fader {
   writing-mode: vertical-lr;
   direction: rtl;
-  appearance: slider-vertical;
-  -webkit-appearance: slider-vertical;
   width: 20px;
   height: 120px;
   accent-color: #fff;
@@ -3404,18 +3436,37 @@ button {
 
 #module-picker {
   position: absolute;
-  bottom: 50px;
+  bottom: 58px;
   right: 0;
-  background: rgba(20,20,20,0.95);
+  background: rgba(9,12,9,0.96);
   border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 8px;
-  padding: 10px;
-  min-width: 160px;
-  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  padding: 12px;
+  min-width: 224px;
+  backdrop-filter: blur(12px);
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  gap: 8px;
+  box-shadow: 0 18px 42px rgba(0,0,0,0.55);
+  z-index: 1002;
+}
+
+.module-picker .mp-hint {
+  font-size: 0.5rem;
+  line-height: 1.35;
+  color: rgba(255,255,255,0.42);
+  font-family: var(--font-mono);
+}
+
+.module-picker .mp-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.module-picker button[data-module="synth"] {
+  grid-column: 1 / -1;
+  font-weight: 600;
 }
 
 .mp-title {
@@ -3430,21 +3481,42 @@ button {
 }
 
 #module-picker button {
-  padding: 6px 10px;
-  border-radius: 5px;
+  padding: 8px 10px;
+  border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.08);
   background: rgba(255,255,255,0.05);
   color: rgba(255,255,255,0.8);
-  font-size: 0.62rem;
+  font-size: 0.58rem;
   font-family: var(--font-mono);
   cursor: pointer;
   text-align: left;
-  transition: background 0.08s;
+  transition: background 0.08s, transform 0.08s, border-color 0.08s;
+  min-height: 32px;
 }
 
 #module-picker button:hover {
   background: rgba(255,255,255,0.12);
   color: #fff;
+  border-color: rgba(255,255,255,0.18);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 1100px) {
+  #studio-controls {
+    right: 12px;
+    bottom: 12px;
+    gap: 4px;
+    padding: 5px 6px;
+  }
+
+  #studio-controls button {
+    width: 40px;
+    height: 40px;
+  }
+
+  #add-module {
+    padding: 0 12px !important;
+  }
 }
 
 /* ============================================================

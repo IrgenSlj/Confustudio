@@ -121,6 +121,18 @@ const PLOCK_PARAMS = [
   { label: 'Vol',    param: 'volume', min: 0,    max: 1,    step: 0.01 },
 ];
 
+const STEP_CONDITIONS = [
+  { value: 'always',   label: 'Always' },
+  { value: '1st',      label: '1st loop' },
+  { value: 'not1st',   label: 'Skip 1st' },
+  { value: 'every2',   label: 'Every 2' },
+  { value: 'every3',   label: 'Every 3' },
+  { value: 'every4',   label: 'Every 4' },
+  { value: 'random',   label: 'Random' },
+  { value: 'fill',     label: 'Fill only' },
+  { value: 'not_fill', label: 'Not Fill' },
+];
+
 export default {
   render(container, state, emit) {
     container.innerHTML = '';
@@ -129,6 +141,15 @@ export default {
     const pattern = state.project.banks[state.activeBank].patterns[state.activePattern];
     const selTi   = state.selectedTrackIndex;
     const track   = pattern.kit.tracks[selTi];
+    const rerenderPattern = () =>
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+
+    function cloneStepData(step) {
+      return {
+        ...step,
+        paramLocks: { ...(step.paramLocks ?? {}) },
+      };
+    }
 
     // ── Header ────────────────────────────────────────────────────────────────
     const header = document.createElement('div');
@@ -269,6 +290,65 @@ export default {
       });
       panel.append(retrigRow);
 
+      const noteRow = document.createElement('div');
+      noteRow.className = 'plock-row';
+      const noteVal = step.paramLocks.note ?? step.note ?? track.note ?? 60;
+      noteRow.innerHTML = `
+        <label>Note</label>
+        <input type="range" min="24" max="96" step="1" value="${noteVal}">
+        <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--screen-text);min-width:44px;text-align:right">
+          ${midiToNoteName(noteVal)}
+        </span>
+      `;
+      const noteInput = noteRow.querySelector('input');
+      const noteSpan  = noteRow.querySelector('span');
+      noteInput.addEventListener('input', () => {
+        const v = parseInt(noteInput.value, 10);
+        noteSpan.textContent = midiToNoteName(v);
+        emit('step:plock', { stepIndex, param: 'note', value: v });
+      });
+      panel.append(noteRow);
+
+      const probRow = document.createElement('div');
+      probRow.className = 'plock-row';
+      const probVal = step.probability ?? 1;
+      probRow.innerHTML = `
+        <label>Prob</label>
+        <input type="range" min="0.05" max="1" step="0.05" value="${probVal}">
+        <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--screen-text);min-width:44px;text-align:right">
+          ${Math.round(probVal * 100)}%
+        </span>
+      `;
+      const probInput = probRow.querySelector('input');
+      const probSpan  = probRow.querySelector('span');
+      probInput.addEventListener('input', () => {
+        const v = parseFloat(probInput.value);
+        track.steps[stepIndex].probability = v;
+        probSpan.textContent = Math.round(v * 100) + '%';
+        rerenderPattern();
+      });
+      panel.append(probRow);
+
+      const condRow = document.createElement('div');
+      condRow.className = 'plock-row';
+      const condLabel = document.createElement('label');
+      condLabel.textContent = 'Trig';
+      const condSelect = document.createElement('select');
+      condSelect.style.cssText = 'flex:1;background:#161a13;color:var(--screen-text);border:1px solid rgba(255,255,255,0.12);border-radius:4px;padding:3px 4px;font-family:var(--font-mono);font-size:0.56rem';
+      STEP_CONDITIONS.forEach(({ value, label }) => {
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = label;
+        if ((step.trigCondition ?? 'always') === value) opt.selected = true;
+        condSelect.append(opt);
+      });
+      condSelect.addEventListener('change', () => {
+        track.steps[stepIndex].trigCondition = condSelect.value;
+        rerenderPattern();
+      });
+      condRow.append(condLabel, condSelect);
+      panel.append(condRow);
+
       PLOCK_PARAMS.forEach(({ label, param, min, max, step: s }) => {
         const current = step.paramLocks[param] ?? track[param] ?? min;
         const row = document.createElement('div');
@@ -289,6 +369,44 @@ export default {
         });
         panel.append(row);
       });
+
+      const actionRow = document.createElement('div');
+      actionRow.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px';
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'seq-btn';
+      copyBtn.textContent = 'Copy';
+      copyBtn.addEventListener('click', () => {
+        state._stepClipboard = cloneStepData(track.steps[stepIndex]);
+        emit('toast', { msg: `Copied step ${stepIndex + 1}` });
+      });
+      const pasteBtn = document.createElement('button');
+      pasteBtn.className = 'seq-btn';
+      pasteBtn.textContent = 'Paste';
+      pasteBtn.disabled = !state._stepClipboard;
+      pasteBtn.style.opacity = state._stepClipboard ? '1' : '0.45';
+      pasteBtn.addEventListener('click', () => {
+        if (!state._stepClipboard) return;
+        Object.assign(track.steps[stepIndex], cloneStepData(state._stepClipboard));
+        rerenderPattern();
+      });
+      const clearBtn = document.createElement('button');
+      clearBtn.className = 'seq-btn';
+      clearBtn.textContent = 'Clear Locks';
+      clearBtn.addEventListener('click', () => {
+        track.steps[stepIndex].paramLocks = {};
+        delete track.steps[stepIndex].paramLocks.note;
+        rerenderPattern();
+      });
+      const selectBtn = document.createElement('button');
+      selectBtn.className = 'seq-btn';
+      selectBtn.textContent = 'Select';
+      selectBtn.addEventListener('click', () => {
+        if (!state._selectedSteps) state._selectedSteps = new Set();
+        state._selectedSteps.add(stepIndex);
+        rerenderPattern();
+      });
+      actionRow.append(copyBtn, pasteBtn, clearBtn, selectBtn);
+      panel.append(actionRow);
 
       const closeBtn = document.createElement('button');
       closeBtn.className = 'seq-btn';
@@ -387,12 +505,12 @@ export default {
       velRandBtn.textContent = '⚄';
       velRandBtn.addEventListener('click', e => {
         e.stopPropagation();
-        const trk = state.project.banks[state.activeBank].patterns[state.activePattern].tracks[ti];
-        trk.steps.forEach(s => {
+        const activePattern = state.project.banks[state.activeBank].patterns[state.activePattern];
+        const currentTrack = activePattern.kit.tracks[ti];
+        currentTrack.steps.forEach(s => {
           if (s.active) s.velocity = 0.5 + Math.random() * 0.5; // 50-100%
         });
         emit('state:change', { param: 'pattern' });
-        render(); // re-render pattern page
       });
       labelWrap.append(velRandBtn);
 
@@ -673,18 +791,7 @@ export default {
           trigLabel.textContent = 'TRIG CONDITION';
           menu.append(trigLabel);
 
-          const CONDITIONS = [
-            { value: 'always',  label: 'always' },
-            { value: '1st',     label: '1st (1st loop only)' },
-            { value: 'not1st',  label: 'not1st (skip 1st)' },
-            { value: 'every2',  label: 'every2 (÷2)' },
-            { value: 'every3',  label: 'every3 (÷3)' },
-            { value: 'every4',  label: 'every4 (÷4)' },
-            { value: 'random',  label: 'random' },
-            { value: 'fill',    label: 'fill' },
-            { value: 'not_fill',label: 'not_fill' },
-          ];
-          CONDITIONS.forEach(({ value: cond, label }) => {
+          STEP_CONDITIONS.forEach(({ value: cond, label }) => {
             const item = document.createElement('div');
             item.className = 'ctx-item' + ((step.trigCondition ?? 'always') === cond ? ' active' : '');
             item.textContent = label;
@@ -1252,6 +1359,86 @@ export default {
         emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
       });
       actionsDiv.append(clearSelBtn);
+
+      const selTools = document.createElement('div');
+      selTools.style.cssText = 'display:flex;align-items:center;gap:4px;flex-wrap:wrap';
+
+      const withSelectedSteps = (fn) => {
+        const indices = [...(state._selectedSteps ?? [])].sort((a, b) => a - b);
+        if (!indices.length) return;
+        indices.forEach((si) => {
+          const step = track.steps[si];
+          if (step) fn(step, si);
+        });
+        rerenderPattern();
+      };
+
+      const copySelBtn = document.createElement('button');
+      copySelBtn.className = 'seq-btn';
+      copySelBtn.textContent = 'Copy Sel';
+      copySelBtn.addEventListener('click', () => {
+        state._stepClipboardMulti = [...(state._selectedSteps ?? [])]
+          .sort((a, b) => a - b)
+          .map((si) => cloneStepData(track.steps[si]));
+        emit('toast', { msg: `Copied ${state._stepClipboardMulti.length} steps` });
+      });
+
+      const pasteSelBtn = document.createElement('button');
+      pasteSelBtn.className = 'seq-btn';
+      pasteSelBtn.textContent = 'Paste Sel';
+      pasteSelBtn.disabled = !Array.isArray(state._stepClipboardMulti) || state._stepClipboardMulti.length === 0;
+      pasteSelBtn.style.opacity = pasteSelBtn.disabled ? '0.45' : '1';
+      pasteSelBtn.addEventListener('click', () => {
+        if (!Array.isArray(state._stepClipboardMulti) || state._stepClipboardMulti.length === 0) return;
+        const indices = [...(state._selectedSteps ?? [])].sort((a, b) => a - b);
+        indices.forEach((si, idx) => {
+          const source = state._stepClipboardMulti[idx % state._stepClipboardMulti.length];
+          if (track.steps[si] && source) Object.assign(track.steps[si], cloneStepData(source));
+        });
+        rerenderPattern();
+      });
+
+      const clearLocksBtn = document.createElement('button');
+      clearLocksBtn.className = 'seq-btn';
+      clearLocksBtn.textContent = 'Clr Locks';
+      clearLocksBtn.addEventListener('click', () => {
+        withSelectedSteps((step) => { step.paramLocks = {}; });
+      });
+
+      const probSel = document.createElement('select');
+      probSel.className = 'seq-btn';
+      probSel.style.cssText = 'padding:2px 4px;font-family:var(--font-mono);font-size:0.52rem';
+      [100, 90, 75, 50, 25, 10].forEach((pct) => {
+        const opt = document.createElement('option');
+        opt.value = String(pct / 100);
+        opt.textContent = `P${pct}`;
+        probSel.append(opt);
+      });
+      probSel.addEventListener('change', () => {
+        const value = parseFloat(probSel.value);
+        withSelectedSteps((step) => { step.probability = value; });
+      });
+
+      const velNudgeBtn = document.createElement('button');
+      velNudgeBtn.className = 'seq-btn';
+      velNudgeBtn.textContent = 'Vel +';
+      velNudgeBtn.addEventListener('click', () => {
+        withSelectedSteps((step) => {
+          step.velocity = Math.min(1, (step.velocity ?? 1) + 0.1);
+        });
+      });
+
+      const velDropBtn = document.createElement('button');
+      velDropBtn.className = 'seq-btn';
+      velDropBtn.textContent = 'Vel -';
+      velDropBtn.addEventListener('click', () => {
+        withSelectedSteps((step) => {
+          step.velocity = Math.max(0.05, (step.velocity ?? 1) - 0.1);
+        });
+      });
+
+      selTools.append(copySelBtn, pasteSelBtn, clearLocksBtn, probSel, velNudgeBtn, velDropBtn);
+      actionsDiv.append(selTools);
     }
 
     // Quantize grid select + button
@@ -1323,11 +1510,9 @@ export default {
       btn.title = `Activate every ${n} steps`;
       btn.addEventListener('click', () => {
         const bank = state.activeBank, pat = state.activePattern, ti = state.selectedTrackIndex;
-        const trk = state.project.banks[bank].patterns[pat].tracks[ti];
-        emit('state:change', { path: 'action_pushHistory', value: true });
-        trk.steps.forEach((s, i) => { s.active = (i % n === 0); });
+        const currentTrack = state.project.banks[bank].patterns[pat].kit.tracks[ti];
+        currentTrack.steps.forEach((s, i) => { s.active = (i % n === 0); });
         emit('state:change', { param: 'pattern' });
-        render();
       });
       fillRow.append(btn);
     });

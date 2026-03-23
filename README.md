@@ -198,7 +198,7 @@ What is implemented:
 - COOP/COEP headers — SharedArrayBuffer enabled for AudioWorklet.
 - Assistant bridge: OpenAI, Anthropic, MCP stub.
 - Installable PWA shell.
-- Electron desktop packaging (`npm install && npm run electron`).
+- Electron desktop packaging (`npm install && npm run electron`). The shell entrypoint now lives in `confu/`.
 
 ## Recommended Next Build Steps
 

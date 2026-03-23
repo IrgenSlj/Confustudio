@@ -1,6 +1,6 @@
 // src/pages/settings.js — MIDI, clock, audio, storage, sync, version
 
-import { saveState, getActivePattern } from '../state.js';
+import { saveState, getActivePattern, RECORDER_SLOT_COUNT } from '../state.js';
 
 const VERSION = 'v3.0.0';
 
@@ -41,7 +41,11 @@ export default {
             <label>Output</label>
             <select data-action="midiOutput">
               <option value="">— none —</option>
-              ${midiOutputs.map(o => `<option value="${o.id || o.name}"${state.engine?.midiOutput === o ? ' selected' : ''}>${o.name || o.id}</option>`).join('')}
+              ${midiOutputs.map(o => {
+                const outputId = o.id || o.name;
+                const selected = state.midiOutputId === outputId || state.engine?.midiOutput === o;
+                return `<option value="${outputId}"${selected ? ' selected' : ''}>${o.name || o.id}</option>`;
+              }).join('')}
             </select>
           </div>
           <div class="settings-row">
@@ -106,6 +110,42 @@ export default {
             <button class="ctx-btn${state.metronome ? ' active' : ''}" data-action="metronome">
               ${state.metronome ? 'On' : 'Off'}
             </button>
+          </div>
+          <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+            <div style="font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);margin-bottom:6px">RECORDER SLOTS</div>
+            <div class="settings-row">
+              <label>Slot</label>
+              <div style="display:flex;gap:4px;flex-wrap:wrap">
+                ${(state.recorderSlotsMeta ?? []).map((slot, idx) => `
+                  <button class="ctx-btn${(state.selectedRecorderSlot ?? 0) === idx ? ' active' : ''}" data-action="selectRecorderSlot" data-value="${idx}">
+                    ${idx + 1}
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+            <div class="settings-row">
+              <label>Bars</label>
+              <select data-action="recorderBars">
+                ${[2, 4, 8, 16].map(bars => `<option value="${bars}"${(state.recorderBarCount ?? 4) === bars ? ' selected' : ''}>${bars} bars</option>`).join('')}
+              </select>
+            </div>
+            <div class="settings-row" style="align-items:flex-start">
+              <label>Selected</label>
+              <div style="display:flex;flex-direction:column;gap:4px;font-family:var(--font-mono);font-size:0.54rem;color:var(--screen-text)">
+                <span>${state.recorderSlotsMeta?.[state.selectedRecorderSlot ?? 0]?.name ?? 'Slot'}</span>
+                <span style="color:var(--muted)">
+                  ${state.recorderSlotsMeta?.[state.selectedRecorderSlot ?? 0]?.durationSec
+                    ? `${state.recorderSlotsMeta[state.selectedRecorderSlot ?? 0].durationSec.toFixed(2)}s · ${(state.recorderSlotsMeta[state.selectedRecorderSlot ?? 0].source ?? 'master').toUpperCase()}`
+                    : 'Empty'}
+                </span>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px">
+              <button class="screen-btn" data-action="captureRecorder">Capture Master</button>
+              <button class="screen-btn" data-action="loadRecorder">Load To Track</button>
+              <button class="screen-btn" data-action="exportRecorder">Export Slot</button>
+              <button class="screen-btn" data-action="clearRecorder">Clear Slot</button>
+            </div>
           </div>
         </div>
 
@@ -341,6 +381,42 @@ export default {
 
       if (action === 'initAudio') {
         emit('state:change', { path: 'action_initAudio', value: true });
+      }
+
+      if (action === 'selectRecorderSlot') {
+        state.selectedRecorderSlot = Math.max(0, parseInt(btn.dataset.value, 10) || 0);
+        saveState(state);
+        emit('state:change', { path: 'action_renderPage', value: true });
+      }
+
+      if (action === 'captureRecorder') {
+        emit('recorder:capture', {
+          slotIndex: state.selectedRecorderSlot ?? 0,
+          bars: state.recorderBarCount ?? 4,
+          source: 'master',
+        });
+      }
+
+      if (action === 'loadRecorder') {
+        emit('recorder:load', { slotIndex: state.selectedRecorderSlot ?? 0 });
+      }
+
+      if (action === 'exportRecorder') {
+        emit('recorder:export', { slotIndex: state.selectedRecorderSlot ?? 0 });
+      }
+
+      if (action === 'clearRecorder') {
+        const slotIndex = state.selectedRecorderSlot ?? 0;
+        state.recorderBuffers[slotIndex] = null;
+        state.recorderSlotsMeta[slotIndex] = {
+          ...state.recorderSlotsMeta[slotIndex],
+          source: null,
+          trackIndex: null,
+          durationSec: 0,
+          createdAt: null,
+        };
+        saveState(state);
+        emit('state:change', { path: 'action_renderPage', value: true });
       }
 
       if (action === 'clearStorage') {
@@ -650,6 +726,85 @@ export default {
     }
     renderBackups();
     container.append(backupSection);
+
+    const recorderSection = document.createElement('div');
+    recorderSection.className = 'settings-section';
+    recorderSection.dataset.settingsTab = 'AUDIO';
+    recorderSection.style.cssText = 'flex-shrink:0;border-top:1px solid var(--border);padding-top:8px;margin-top:8px';
+    recorderSection.innerHTML = '<div class="settings-label">RECORDER BUFFERS</div>';
+
+    const recorderIntro = document.createElement('div');
+    recorderIntro.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);margin-bottom:6px;line-height:1.5';
+    recorderIntro.textContent = 'Capture the master bus into reusable sample buffers, then load a take directly into the selected track.';
+    recorderSection.append(recorderIntro);
+
+    for (let slotIndex = 0; slotIndex < RECORDER_SLOT_COUNT; slotIndex++) {
+      const meta = state.recorderSlotsMeta?.[slotIndex] ?? {
+        name: `Slot ${slotIndex + 1}`,
+        source: null,
+        trackIndex: null,
+        durationSec: 0,
+        createdAt: null,
+      };
+      const hasBuffer = !!state.recorderBuffers?.[slotIndex];
+      const row = document.createElement('div');
+      row.style.cssText = `display:grid;grid-template-columns:auto 1fr auto auto auto auto;gap:6px;align-items:center;margin-bottom:6px;padding:6px 8px;border-radius:6px;border:1px solid ${slotIndex === (state.selectedRecorderSlot ?? 0) ? 'rgba(240,198,64,0.45)' : 'rgba(255,255,255,0.08)'};background:${slotIndex === (state.selectedRecorderSlot ?? 0) ? 'rgba(240,198,64,0.06)' : 'rgba(255,255,255,0.02)'}`;
+
+      const selectBtn = document.createElement('button');
+      selectBtn.className = 'ctx-btn' + (slotIndex === (state.selectedRecorderSlot ?? 0) ? ' active' : '');
+      selectBtn.textContent = `S${slotIndex + 1}`;
+      selectBtn.addEventListener('click', () => {
+        state.selectedRecorderSlot = slotIndex;
+        saveState(state);
+        emit('state:change', { param: 'settingsTab' });
+      });
+
+      const info = document.createElement('div');
+      const sourceLabel = meta.source ? `${meta.source.toUpperCase()} ${meta.durationSec ? `· ${meta.durationSec.toFixed(1)}s` : ''}` : 'Empty';
+      const dateLabel = meta.createdAt ? new Date(meta.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+      info.innerHTML = `
+        <div style="font-family:var(--font-mono);font-size:0.56rem;color:${hasBuffer ? 'var(--screen-text)' : 'var(--muted)'}">${meta.name}</div>
+        <div style="font-family:var(--font-mono);font-size:0.48rem;color:var(--muted)">${sourceLabel} · ${dateLabel}</div>
+      `;
+
+      const cap2Btn = document.createElement('button');
+      cap2Btn.className = 'seq-btn';
+      cap2Btn.textContent = '2 Bars';
+      cap2Btn.disabled = !!state._recorderBusy;
+      cap2Btn.addEventListener('click', () => {
+        emit('state:change', { path: 'action_captureRecorderSlot', value: { slot: slotIndex, bars: 2 } });
+      });
+
+      const cap4Btn = document.createElement('button');
+      cap4Btn.className = 'seq-btn';
+      cap4Btn.textContent = '4 Bars';
+      cap4Btn.disabled = !!state._recorderBusy;
+      cap4Btn.addEventListener('click', () => {
+        emit('state:change', { path: 'action_captureRecorderSlot', value: { slot: slotIndex, bars: 4 } });
+      });
+
+      const loadBtn = document.createElement('button');
+      loadBtn.className = 'seq-btn' + (hasBuffer ? '' : ' disabled');
+      loadBtn.textContent = `Load T${(state.selectedTrackIndex ?? 0) + 1}`;
+      loadBtn.disabled = !hasBuffer;
+      loadBtn.addEventListener('click', () => {
+        emit('state:change', { path: 'action_assignRecorderSlot', value: { slot: slotIndex, trackIndex: state.selectedTrackIndex } });
+      });
+
+      const clearSlotBtn = document.createElement('button');
+      clearSlotBtn.className = 'ctx-btn';
+      clearSlotBtn.textContent = '×';
+      clearSlotBtn.disabled = !hasBuffer;
+      clearSlotBtn.title = 'Clear recorder slot';
+      clearSlotBtn.addEventListener('click', () => {
+        emit('state:change', { path: 'action_clearRecorderSlot', value: { slot: slotIndex } });
+      });
+
+      row.append(selectBtn, info, cap2Btn, cap4Btn, loadBtn, clearSlotBtn);
+      recorderSection.append(row);
+    }
+
+    container.append(recorderSection);
 
     // ── Oscilloscope Mode Selector ────────────────────────────────────────────
     const oscSection = document.createElement('div');
@@ -1209,7 +1364,18 @@ export default {
       if (action === 'midiOutput') {
         const id = el.value;
         const out = midiOutputs.find(o => (o.id || o.name) === id) || null;
-        if (state.engine) state.engine.midiOutput = out;
+        state.midiOutputId = out ? (out.id || out.name) : null;
+        state.midiOutputName = out?.name || null;
+        if (state.engine?.setMidiOutput) state.engine.setMidiOutput(out);
+        else if (state.engine) state.engine.midiOutput = out;
+        if (state.midiClockOut && state.isPlaying && state.engine?.startMidiClock) {
+          state.engine.startMidiClock(state.bpm ?? 120);
+        }
+        saveState(state);
+      }
+
+      if (action === 'recorderBars') {
+        state.recorderBarCount = Math.max(1, Math.min(32, parseInt(el.value, 10) || 4));
         saveState(state);
       }
     });

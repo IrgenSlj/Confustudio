@@ -264,10 +264,8 @@ export default {
       sceneName.value = section.name || (scenes[section.sceneIdx] && scenes[section.sceneIdx].name) || '—';
       sceneName.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);flex:1;background:transparent;border:none;outline:none;padding:0;min-width:0';
       sceneName.addEventListener('change', () => {
-        state.arranger.sections
-          ? (state.arranger.sections[idx].name = sceneName.value)
-          : (arranger[idx].name = sceneName.value);
-        emit('state:change', { path: 'arranger', value: state.arranger ?? arranger });
+        arranger[idx].name = sceneName.value;
+        emit('state:change', { path: 'arranger', value: arranger });
       });
       sceneName.addEventListener('focus', () => { sceneName.style.color = 'var(--screen-text)'; sceneName.select(); });
       sceneName.addEventListener('blur',  () => { sceneName.style.color = 'var(--muted)'; });
@@ -672,12 +670,42 @@ export default {
       a.click();
     });
 
+    const templateWrap = document.createElement('div');
+    templateWrap.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;align-items:center';
+    const templateLabel = document.createElement('span');
+    templateLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted)';
+    templateLabel.textContent = 'Templates';
+    templateWrap.append(templateLabel);
+
+    const templates = [
+      { name: 'Song', sections: [['Intro', 2], ['Verse', 4], ['Chorus', 4], ['Verse', 4], ['Bridge', 2], ['Chorus', 4], ['Outro', 2]] },
+      { name: 'Live', sections: [['Scene A', 8], ['Scene B', 8], ['Scene C', 8], ['Break', 4], ['Final', 8]] },
+      { name: 'Loop Set', sections: [['Main', 8], ['Lift', 4], ['Drop', 8], ['Break', 4]] },
+    ];
+    templates.forEach((template) => {
+      const btn = document.createElement('button');
+      btn.className = 'seq-btn';
+      btn.textContent = template.name;
+      btn.addEventListener('click', () => {
+        state.arranger = template.sections.map(([name, bars], idx) => ({
+          name,
+          bars,
+          sceneIdx: idx % scenes.length,
+          repeat: 1,
+          muted: false,
+        }));
+        state.arrangementCursor = 0;
+        emit('state:change', { path: 'arranger', value: state.arranger });
+      });
+      templateWrap.append(btn);
+    });
+
     const totalBars = arranger.reduce((s, sec) => s + (sec.bars ?? 1), 0);
     const info = document.createElement('span');
     info.style.cssText = 'font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);margin-left:auto';
     info.textContent = `${arranger.length} sections · ${totalBars} bars`;
 
-    toolbar.append(sceneSelect, addBtn, exportBtn, info);
+    toolbar.append(sceneSelect, addBtn, exportBtn, templateWrap, info);
     container.append(toolbar);
   },
 

@@ -9,6 +9,7 @@ export const TRACK_COUNT   = 8;
 export const BANK_COUNT    = 8;
 export const PATTERN_COUNT = 16;
 export const PROB_LEVELS   = [1, 0.75, 0.5, 0.25];
+export const RECORDER_SLOT_COUNT = 4;
 
 export const TRACK_COLORS = [
   '#f0c640', // amber  — T1
@@ -34,6 +35,16 @@ export function createStep(stepIndex, trackIndex) {
     paramLocks:    {},
     microTime:     0,         // -0.5 to +0.5, fraction of one step duration
     gate:          0.5,       // 0.05–1.0, fraction of step duration for note gate
+  };
+}
+
+function createRecorderSlotMeta(index) {
+  return {
+    name: `Slot ${index + 1}`,
+    source: null,
+    trackIndex: null,
+    durationSec: 0,
+    createdAt: null,
   };
 }
 
@@ -226,6 +237,36 @@ function createScene(sceneIndex) {
   };
 }
 
+function ensureSceneShape(scene, sceneIndex = 0) {
+  const letter = String.fromCharCode(65 + sceneIndex);
+  const base = createScene(sceneIndex);
+  const next = scene && typeof scene === "object" ? { ...base, ...scene } : base;
+  next.name = next.name || `Scene ${letter}`;
+  next.noInterp = Array.isArray(next.noInterp) ? [...next.noInterp] : [];
+  next.tracks = Array.from({ length: TRACK_COUNT }, (_, trackIndex) => ({
+    ...base.tracks[trackIndex],
+    ...(scene?.tracks?.[trackIndex] ?? {})
+  }));
+  return next;
+}
+
+function normalizeScenes(state) {
+  const candidateScenes = Array.isArray(state?.project?.scenes) && state.project.scenes.length
+    ? state.project.scenes
+    : Array.isArray(state?.scenes) && state.scenes.length
+      ? state.scenes
+      : [];
+  const scenes = Array.from({ length: 8 }, (_, index) =>
+    ensureSceneShape(candidateScenes[index], index)
+  );
+  if (!state.project || typeof state.project !== "object") {
+    state.project = createProject();
+  }
+  state.project.scenes = scenes;
+  state.scenes = scenes;
+  return state;
+}
+
 // ─── Factory: Project ─────────────────────────────────────────────────────────
 
 export function createProject() {
@@ -235,13 +276,14 @@ export function createProject() {
     description: "",
     createdAt:   Date.now(),
     banks:       Array.from({ length: BANK_COUNT }, (_, bi) => createBank(bi)),
+    scenes:      Array.from({ length: 8 }, (_, i) => createScene(i)),
   };
 }
 
 // ─── Factory: full appState ───────────────────────────────────────────────────
 
 export function createAppState() {
-  return {
+  return normalizeScenes({
     // Audio (runtime only)
     audioContext: null,
     engine:       null,
@@ -302,6 +344,12 @@ export function createAppState() {
     audioBufferSize:  512,
     maxVoicesGlobal:  16,
     oscMode:          'wave',
+    midiOutputId:     null,
+    midiOutputName:   null,
+    recorderSlotsMeta: Array.from({ length: RECORDER_SLOT_COUNT }, (_, i) => createRecorderSlotMeta(i)),
+    recorderBuffers:   Array.from({ length: RECORDER_SLOT_COUNT }, () => null),
+    selectedRecorderSlot: 0,
+    recorderBarCount:  4,
 
     // Pattern editing
     octaveShift:       0,
@@ -359,7 +407,7 @@ export function createAppState() {
 
     // Project
     project: createProject(),
-  };
+  });
 }
 
 // ─── Accessors ────────────────────────────────────────────────────────────────
@@ -441,6 +489,9 @@ function stripRuntime(state) {
     ...state,
     audioContext: null,
     engine:       null,
+    recorderBuffers: Array.isArray(state.recorderBuffers)
+      ? state.recorderBuffers.map(() => null)
+      : Array.from({ length: RECORDER_SLOT_COUNT }, () => null),
     project: {
       ...state.project,
       banks: state.project.banks.map(bank => ({
@@ -505,7 +556,7 @@ export function loadState() {
       }
       // Merge into a fresh appState so any new fields are present
       const fresh = createAppState();
-      return deepMerge(fresh, parsed);
+      return normalizeScenes(deepMerge(fresh, parsed));
     }
   } catch (err) {
     console.warn("[CONFUsynth] loadState v3 failed:", err);
@@ -525,7 +576,7 @@ export function loadState() {
           Object.assign(target[i], lt, { sampleBuffer: null });
         });
       }
-      return state;
+      return normalizeScenes(state);
     }
   } catch (err) {
     console.warn("[CONFUsynth] loadState v2 legacy import failed:", err);

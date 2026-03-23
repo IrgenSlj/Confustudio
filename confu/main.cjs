@@ -12,6 +12,15 @@ let serverProcess = null;
 
 function startServer() {
   return new Promise((resolve, reject) => {
+    let resolved = false;
+    let portAlreadyInUse = false;
+
+    const resolveOnce = () => {
+      if (resolved) return;
+      resolved = true;
+      resolve();
+    };
+
     serverProcess = spawn('node', ['server.mjs'], {
       cwd: rootDir,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -21,12 +30,17 @@ function startServer() {
       const output = data.toString();
       process.stdout.write(`[server] ${output}`);
       if (output.includes('Confusynth listening')) {
-        resolve();
+        resolveOnce();
       }
     });
 
     serverProcess.stderr.on('data', (data) => {
-      process.stderr.write(`[server:err] ${data.toString()}`);
+      const output = data.toString();
+      process.stderr.write(`[server:err] ${output}`);
+      if (output.includes('EADDRINUSE')) {
+        portAlreadyInUse = true;
+        resolveOnce();
+      }
     });
 
     serverProcess.on('error', (err) => {
@@ -35,6 +49,14 @@ function startServer() {
     });
 
     serverProcess.on('exit', (code, signal) => {
+      if (code === 0) {
+        resolveOnce();
+        return;
+      }
+      if (portAlreadyInUse) {
+        resolveOnce();
+        return;
+      }
       if (code !== 0 && code !== null) {
         console.error(`[server] Server process exited unexpectedly (code ${code}, signal ${signal})`);
       }
@@ -53,9 +75,11 @@ function createWindow() {
   const isMac = process.platform === 'darwin';
 
   mainWindow = new BrowserWindow({
-    width: 960,
-    height: 960,
-    resizable: false,
+    width: 1360,
+    height: 900,
+    minWidth: 1100,
+    minHeight: 760,
+    resizable: true,
     backgroundColor: '#0a0a0a',
     titleBarStyle: isMac ? 'hiddenInset' : undefined,
     frame: !isMac,
@@ -83,7 +107,7 @@ app.whenReady().then(async () => {
     await startServer();
     createWindow();
   } catch (err) {
-    console.error('[electron] Could not start server, aborting:', err);
+    console.error('[confu] Could not start server, aborting:', err);
     app.quit();
   }
 });

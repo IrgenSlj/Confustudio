@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "electron/main.cjs",
+  "main": "confu/main.cjs",
   "description": "CONFUsynth — original hybrid sampler, sequencer, and synthesizer for browser, desktop, and plugin targets.",
   "scripts": {
     "start": "node server.mjs",
@@ -12,6 +12,7 @@
     "electron:dev": "ELECTRON_IS_DEV=1 electron ."
   },
   "devDependencies": {
-    "electron": "^35.0.0"
+    "electron": "^35.0.0",
+    "playwright": "^1.58.2"
   }
 }
