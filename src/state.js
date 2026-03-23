@@ -361,6 +361,9 @@ export function createAppState() {
     chordMode:         'off',
     humanizeAmount:    0.2,
     scaleLock:         false,
+    splitKeyboard:     false,
+    splitTrackLeft:    0,
+    splitTrackRight:   1,
 
     // Scenes / crossfader
     crossfader: 0,
@@ -545,12 +548,19 @@ export function loadState() {
     if (raw) {
       const parsed = JSON.parse(raw);
       // Restore sampleBuffer = null on all tracks (was stripped on save)
+      // Also forward-fill any new track fields added after this save was made
       if (parsed.project && parsed.project.banks) {
         for (const bank of parsed.project.banks) {
           for (const pat of bank.patterns) {
-            for (const track of pat.kit.tracks) {
+            pat.kit.tracks.forEach((track, ti) => {
               track.sampleBuffer = null;
-            }
+              const defaults = createTrack(ti);
+              // Apply any missing fields from the current track schema
+              for (const key of Object.keys(defaults)) {
+                if (key === 'steps' || key === 'sampleBuffer') continue;
+                if (track[key] === undefined) track[key] = defaults[key];
+              }
+            });
           }
         }
       }

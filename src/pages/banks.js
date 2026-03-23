@@ -303,7 +303,7 @@ export default {
       // Active step count badge
       const lengthBadge = document.createElement('span');
       lengthBadge.style.cssText = 'position:absolute;top:2px;left:2px;font-family:var(--font-mono);font-size:0.44rem;color:var(--muted);opacity:0.7';
-      const activeSteps = pat.tracks?.reduce((sum, t) => sum + (t.steps?.filter(s => s.active).length ?? 0), 0) ?? 0;
+      const activeSteps = pat.kit.tracks?.reduce((sum, t) => sum + (t.steps?.filter(s => s.active).length ?? 0), 0) ?? 0;
       lengthBadge.textContent = activeSteps > 0 ? `${activeSteps}` : '';
       btn.append(lengthBadge);
 
@@ -318,7 +318,7 @@ export default {
       clearBtn.addEventListener('click', e => {
         e.stopPropagation();
         if (!confirm(`Clear all steps in pattern ${pi+1}?`)) return;
-        pat.tracks?.forEach(t => t.steps?.forEach(s => { s.active = false; }));
+        pat.kit.tracks?.forEach(t => t.steps?.forEach(s => { s.active = false; }));
         emit('state:change', { param: 'pattern' });
         this.render(container, state, emit);
       });
