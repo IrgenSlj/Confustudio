@@ -332,6 +332,26 @@ export class AudioEngine {
   // Reverb type — maps named presets to roomSize + damping combinations
   // ——————————————————————————————————————————————
 
+  // Full preset: roomSize + damping + pre-delay + wet mix + spring LFO
+  setReverbPreset(type) {
+    const presets = {
+      room:      { roomSize: 0.50, damping: 0.7, preDelay: 0,     wet: 0.22 },
+      hall:      { roomSize: 0.84, damping: 0.3, preDelay: 0.02,  wet: 0.28 },
+      plate:     { roomSize: 0.76, damping: 0.2, preDelay: 0.005, wet: 0.25 },
+      spring:    { roomSize: 0.40, damping: 0.9, preDelay: 0,     wet: 0.30 },
+      cathedral: { roomSize: 0.95, damping: 0.1, preDelay: 0.04,  wet: 0.32 },
+    };
+    const p = presets[type] ?? presets.room;
+    this.setReverbRoomSize(p.roomSize);
+    this.setReverbDamping(p.damping);
+    if (this.reverbPreDelay != null) {
+      this.reverbPreDelay.delayTime.setTargetAtTime(p.preDelay, this.context.currentTime, 0.01);
+    }
+    this.reverbWet.gain.setTargetAtTime(p.wet, this.context.currentTime, 0.05);
+    // Apply spring LFO (shared logic)
+    this._applySpringLFO(type);
+  }
+
   setReverbType(type) {
     // Each preset encodes: roomSize (comb feedback 0–0.98), damping (0–1)
     const PRESETS = {
@@ -344,8 +364,11 @@ export class AudioEngine {
     const preset = PRESETS[type] ?? PRESETS.room;
     this.setReverbRoomSize(preset.roomSize);
     this.setReverbDamping(preset.damping);
+    this._applySpringLFO(type);
+  }
 
-    // Spring: modulate allpass delay times with a fast LFO for flutter character.
+  // Spring: modulate allpass delay times with a fast LFO for flutter character.
+  _applySpringLFO(type) {
     // Stop any previously running spring LFO first.
     if (this._springLFO) {
       try { this._springLFO.stop(); } catch (_) {}

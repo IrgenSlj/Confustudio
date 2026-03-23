@@ -1473,6 +1473,9 @@ async function ensureAudio() {
   state.engine.setBpm(state.bpm ?? 120);
   state.engine.initWorklets(); // async — loads cs-resampler worklet in background
   state.engine.setMasterLevel(state.masterLevel);
+  if (state.reverbType && state.engine?.setReverbPreset) {
+    state.engine.setReverbPreset(state.reverbType);
+  }
 
   // Restore sidechain state from saved track data
   const _activPattern = state.project.banks[state.activeBank].patterns[state.activePattern];

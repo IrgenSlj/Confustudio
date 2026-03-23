@@ -7,6 +7,18 @@ const FILTER_LABELS = { lowpass: 'LP', bandpass: 'BP', highpass: 'HP' };
 
 const REVERB_TYPES = ['room', 'hall', 'plate', 'spring', 'cathedral'];
 const REVERB_LABELS = { room: 'Room', hall: 'Hall', plate: 'Plate', spring: 'Spring', cathedral: 'Cathedral' };
+const REVERB_PRESETS = {
+  room:      { roomSize: 0.50, damping: 0.7, preDelay: 0,     wet: 0.22 },
+  hall:      { roomSize: 0.84, damping: 0.3, preDelay: 0.02,  wet: 0.28 },
+  plate:     { roomSize: 0.76, damping: 0.2, preDelay: 0.005, wet: 0.25 },
+  spring:    { roomSize: 0.40, damping: 0.9, preDelay: 0,     wet: 0.30 },
+  cathedral: { roomSize: 0.95, damping: 0.1, preDelay: 0.04,  wet: 0.32 },
+};
+function _reverbPresetInfo(type) {
+  const p = REVERB_PRESETS[type] ?? REVERB_PRESETS.room;
+  const pre = p.preDelay > 0 ? ` pre:${Math.round(p.preDelay * 1000)}ms` : '';
+  return `size:${p.roomSize.toFixed(2)} damp:${p.damping.toFixed(1)}${pre}`;
+}
 
 const DELAY_SYNC_DIVS = ['1/32', '1/16', '1/8', '1/4', '1/2', '1/1'];
 
@@ -402,6 +414,7 @@ export default {
                         data-reverb-type="${t}">${REVERB_LABELS[t]}</button>
               `).join('')}
             </div>
+            <div class="fx-preset-info" data-reverb-preset-info style="font-size:0.68rem;opacity:0.55;margin:-2px 0 4px;letter-spacing:0.03em;">${_reverbPresetInfo(state.reverbType ?? 'room')}</div>
             ${sliderHTML('ROOM',  'reverbSize',     'global', 0.1,  0.98, 0.01, state.reverbSize     ?? 0.5)}
             ${sliderHTML('DAMP',  'reverbDamping',  'global', 0,    1,    0.01, state.reverbDamping  ?? 0.5)}
             ${sliderHTML('MIX',   'reverbMix',      'global', 0,    1,    0.01, state.reverbMix      ?? 0.22)}
@@ -785,7 +798,11 @@ export default {
           b.classList.toggle('active', b.dataset.reverbType === rt)
         );
         const eng = window._confusynthEngine ?? state.engine;
-        if (eng?.setReverbType) eng.setReverbType(rt);
+        if (eng?.setReverbPreset) eng.setReverbPreset(rt);
+        else if (eng?.setReverbType) eng.setReverbType(rt);
+        // Update preset info label
+        const infoEl = container.querySelector('[data-reverb-preset-info]');
+        if (infoEl) infoEl.textContent = _reverbPresetInfo(rt);
         emit('state:change', { param: 'reverbType', value: rt });
         saveState(state);
         return;
