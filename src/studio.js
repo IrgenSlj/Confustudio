@@ -61,10 +61,14 @@ export function initStudio() {
     return { left, top, right, bottom, width: right - left, height: bottom - top };
   }
 
+  let _saveViewTimer = null;
   function saveView() {
-    try {
-      localStorage.setItem(STUDIO_VIEW_KEY, JSON.stringify({ scale, panX, panY }));
-    } catch (_) {}
+    clearTimeout(_saveViewTimer);
+    _saveViewTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(STUDIO_VIEW_KEY, JSON.stringify({ scale, panX, panY }));
+      } catch (_) {}
+    }, 200);
   }
 
   function saveLayout() {
@@ -325,7 +329,8 @@ export function initStudio() {
   let spaceDown = false;
 
   document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && e.target === document.body) spaceDown = true;
+    const tag = e.target.tagName;
+    if (e.code === 'Space' && tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') spaceDown = true;
   });
   document.addEventListener('keyup', (e) => {
     if (e.code === 'Space') spaceDown = false;
