@@ -246,8 +246,7 @@ export default {
       widthSlider.min = 0; widthSlider.max = 2; widthSlider.step = 0.05;
       widthSlider.value = track.stereoWidth ?? 1;
       widthSlider.style.cssText = 'flex:1;accent-color:var(--track-color,var(--accent));height:3px';
-      // stereoWidth controls how wide the stereo image is (0=mono,1=normal,2=wide)
-      // TODO: wire to engine.js triggerTrack panner/channelSplitter for actual M-S processing
+      // stereoWidth: 0=mono, 1=normal, 2=wide — M-S processed in engine.js triggerTrack
       widthSlider.addEventListener('input', () => {
         const v = parseFloat(widthSlider.value);
         widthVal.textContent = v.toFixed(2);

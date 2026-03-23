@@ -205,6 +205,11 @@ export class AudioEngine {
     this.masterSaturator.connect(this.masterEQLow);
     this.analyser.connect(context.destination);
 
+    // CUE output — pre-fader listen bus, sums to master
+    this.cueOutput = context.createGain();
+    this.cueOutput.gain.value = 1;
+    this.cueOutput.connect(this.master);
+
     // Shared noise buffer — pre-created once, looped per trigger (not per-note allocation)
     this._noiseBuffer = this.createNoiseBuffer(2);
   }
@@ -377,6 +382,10 @@ export class AudioEngine {
 
   setMasterLevel(v) {
     this.master.gain.setTargetAtTime(Math.max(0, Math.min(1, v)), this.context.currentTime, 0.01);
+  }
+
+  setCueGain(v) {
+    this.cueOutput.gain.setTargetAtTime(Math.max(0, Math.min(2, v)), this.context.currentTime, 0.01);
   }
 
   // Set the global maximum voice ceiling (absolute cap across all per-track maxVoices)
@@ -661,8 +670,10 @@ export class AudioEngine {
     // Crossfader comes from the track's stored crossfader value or falls back to 0.5
     const crossfader = typeof params.crossfader === "number" ? params.crossfader : 0.5;
 
-    const cutoff = this.interpolateScene(params.sceneA.cutoff, params.sceneB.cutoff, crossfader);
-    const decayTime = this.interpolateScene(params.sceneA.decay, params.sceneB.decay, crossfader);
+    const sceneA = params.sceneA ?? { cutoff: 3200, decay: 0.28, delaySend: 0.24 };
+    const sceneB = params.sceneB ?? { cutoff: 6400, decay: 0.8,  delaySend: 0.45 };
+    const cutoff = this.interpolateScene(sceneA.cutoff, sceneB.cutoff, crossfader);
+    const decayTime = this.interpolateScene(sceneA.decay, sceneB.decay, crossfader);
     // Per-step gate (0.05–1.0) scales how long the note sustains before release
     const stepGate = Math.max(0.05, Math.min(1, params.gate ?? 0.5));
     const gate = Math.max(stepDuration * params.noteLength * stepGate, params.attack + 0.01);
@@ -789,20 +800,37 @@ export class AudioEngine {
 
     eqTail.connect(panner);
 
-    // Stereo width: width < 0.1 collapses to mono via channel merger
+    // Stereo width via M-S processing: 0=mono, 1=normal (bypass), 2=wide
     const stereoWidth = params.stereoWidth ?? 1;
-    if (stereoWidth < 0.1) {
+    if (Math.abs(stereoWidth - 1) < 0.02) {
+      // Normal width — bypass
+      panner.connect(filter);
+    } else {
+      const w = Math.max(0, Math.min(2, stereoWidth));
       const splitter = this.context.createChannelSplitter(2);
       const merger   = this.context.createChannelMerger(2);
       panner.connect(splitter);
-      // Sum both channels into L and R equally — produces mono
-      splitter.connect(merger, 0, 0);
-      splitter.connect(merger, 0, 1);
-      splitter.connect(merger, 1, 0);
-      splitter.connect(merger, 1, 1);
+
+      if (w < 0.02) {
+        // Mono: sum both channels into both outputs
+        splitter.connect(merger, 0, 0);
+        splitter.connect(merger, 0, 1);
+        splitter.connect(merger, 1, 0);
+        splitter.connect(merger, 1, 1);
+      } else {
+        // M-S: L' = L*(1+w)/2 + R*(1-w)/2,  R' = L*(1-w)/2 + R*(1+w)/2
+        const llGain = this.context.createGain(); llGain.gain.value = (1 + w) / 2;
+        const lrGain = this.context.createGain(); lrGain.gain.value = (1 - w) / 2;
+        const rlGain = this.context.createGain(); rlGain.gain.value = (1 - w) / 2;
+        const rrGain = this.context.createGain(); rrGain.gain.value = (1 + w) / 2;
+        // L source (splitter output 0) feeds both L and R output channels
+        splitter.connect(llGain, 0, 0); llGain.connect(merger, 0, 0); // L->L main
+        splitter.connect(lrGain, 0, 0); lrGain.connect(merger, 0, 1); // L->R cross
+        // R source (splitter output 1) feeds both L and R output channels
+        splitter.connect(rlGain, 1, 0); rlGain.connect(merger, 0, 0); // R->L cross
+        splitter.connect(rrGain, 1, 0); rrGain.connect(merger, 0, 1); // R->R main
+      }
       merger.connect(filter);
-    } else {
-      panner.connect(filter);
     }
 
     // Determine output bus for this track's dry signal and sends.
@@ -813,9 +841,17 @@ export class AudioEngine {
     filter.connect(saturator);
     saturator.connect(busTarget);
 
+    // CUE pre-fader listen — tap from output (before volume envelope reaches saturator)
+    if (params.cue) {
+      const cueSend = this.context.createGain();
+      cueSend.gain.value = 1;
+      output.connect(cueSend);
+      cueSend.connect(this.cueOutput);
+    }
+
     const delaySendGain = this.interpolateScene(
-      params.sceneA.delaySend,
-      params.sceneB.delaySend,
+      sceneA.delaySend,
+      sceneB.delaySend,
       crossfader
     );
     const delaySend = this.context.createGain();
