@@ -40,7 +40,7 @@ export default {
     clearBtn.addEventListener('click', () => {
       if (!confirm('Clear arranger? All sections will be lost.')) return;
       state.arranger.length = 0;
-      state.arranger.push({ sceneIdx: 0, bars: 4, name: 'Section 1', repeat: 1, muted: false });
+      state.arranger.push({ sceneIdx: 0, bars: 4, name: 'Section 1', repeat: 1, muted: false, followAction: 'next' });
       state.arrangementCursor = 0;
       state._arrSection = 0;
       state._arrSectionBars = 0;
@@ -218,7 +218,7 @@ export default {
             emit('state:change', { path: 'scale', value: state.scale });
           }),
           menuItem('Insert Before', '↑+', () => {
-            const newSec = { sceneIdx: section.sceneIdx ?? 0, bars: section.bars ?? 4, name: `Section ${state.arranger.length + 1}`, repeat: 1, muted: false };
+            const newSec = { sceneIdx: section.sceneIdx ?? 0, bars: section.bars ?? 4, name: `Section ${state.arranger.length + 1}`, repeat: 1, muted: false, followAction: 'next' };
             state.arranger.splice(idx, 0, newSec);
             emit('state:change', { path: 'scale', value: state.scale });
           }),
@@ -433,6 +433,28 @@ export default {
         emit('state:change', { path: 'arranger', value: state.arranger });
       });
 
+      // ── Follow action selector ────────────────────────────────────────────
+      if (section.followAction == null) section.followAction = 'next';
+      const followSelect = document.createElement('select');
+      followSelect.title = 'Follow action: what happens after this section finishes';
+      followSelect.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 2px;cursor:pointer;max-width:70px';
+      [
+        { value: 'next', label: '→ Next' },
+        { value: 'loop', label: '↻ Loop' },
+        { value: 'stop', label: '■ Stop' },
+        { value: 'jump', label: '↩ Jump' },
+      ].forEach(({ value, label }) => {
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = label;
+        if (value === (section.followAction ?? 'next')) opt.selected = true;
+        followSelect.append(opt);
+      });
+      followSelect.addEventListener('change', () => {
+        section.followAction = followSelect.value;
+        emit('state:change', { path: 'arranger', value: state.arranger });
+      });
+
       // ── Section mute button ───────────────────────────────────────────────
       if (section.muted == null) section.muted = false;
       const muteBtn = document.createElement('button');
@@ -513,7 +535,7 @@ export default {
         pointer-events:none;transition:width 0.1s linear;
       `;
 
-      row.append(colorSwatch, sceneLabel, barsLabel, minusBtn, plusBtn, repeatLabel, repeatInput, bpmLabel, bpmInput, tsSelect, sceneName, mutesRow, muteBtn, soloBtn, dupBtn, upBtn, dnBtn, delBtn, progressBar);
+      row.append(colorSwatch, sceneLabel, barsLabel, minusBtn, plusBtn, repeatLabel, repeatInput, followSelect, bpmLabel, bpmInput, tsSelect, sceneName, mutesRow, muteBtn, soloBtn, dupBtn, upBtn, dnBtn, delBtn, progressBar);
       list.append(row);
     });
 

@@ -1356,6 +1356,7 @@ function emit(type, payload = {}) {
         name: secName,
         repeat: 1,
         muted: false,
+        followAction: 'next',
       });
       state.arrangementCursor = state.arranger.length - 1;
       renderPage();
@@ -1381,6 +1382,7 @@ function emit(type, payload = {}) {
       }
       state._arrSection = seekSectionIdx;
       state._arrSectionBars = barsIntoSection;
+      state._arrSectionRepeatCount = 0;
       state.arrangementCursor = seekSectionIdx;
       // Switch to the scene/pattern for this section
       const seekSection = state.arranger[seekSectionIdx];
@@ -1875,14 +1877,40 @@ function scheduleLoop() {
 
           if (section && state._arrSectionBars >= loopsNeeded) {
             state._arrSectionBars = 0;
-            const nextIdx = currentArrIdx + 1;
-            const isLast = nextIdx >= state.arranger.length;
-            if (isLast && state.arrLoop) {
-              // Loop: wrap back to start
-              state._arrSection = 0;
-            } else if (!isLast) {
-              state._arrSection = nextIdx;
+            const followAction = section.followAction ?? 'next';
+            const repeatCount  = state._arrSectionRepeatCount ?? 0;
+            const repeatNeeded = Math.max(1, section.repeat ?? 1);
+
+            if (repeatCount < repeatNeeded - 1) {
+              // Section has more repeats to play — stay on current section
+              state._arrSectionRepeatCount = repeatCount + 1;
+            } else {
+              // All repeats done — reset counter and follow the action
+              state._arrSectionRepeatCount = 0;
+              switch (followAction) {
+                case 'loop':
+                  // Stay on current section
+                  break;
+                case 'stop':
+                  emit('transport:stop');
+                  break;
+                case 'jump':
+                  state._arrSection = 0;
+                  break;
+                case 'next':
+                default: {
+                  const nextIdx = currentArrIdx + 1;
+                  const isLast  = nextIdx >= state.arranger.length;
+                  if (isLast && state.arrLoop) {
+                    state._arrSection = 0;
+                  } else if (!isLast) {
+                    state._arrSection = nextIdx;
+                  }
+                  break;
+                }
+              }
             }
+
             // Apply bpmOverride from the now-current section
             const nowSection = state.arranger[state._arrSection ?? 0];
             if (nowSection != null) {
@@ -2024,6 +2052,7 @@ function stopPlay() {
   _schedStepIdx = 0;
   state._patternLoopCount = 0;
   state._sceneChainBarCount = 0;
+  state._arrSectionRepeatCount = 0;
   state._playingNotes.clear();
   state._pressedKeys.clear();
   if (_schedRafId) { cancelAnimationFrame(_schedRafId); _schedRafId = null; }

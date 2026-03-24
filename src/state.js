@@ -382,7 +382,7 @@ export function createAppState() {
     morphCurve:       'linear', // 'linear' | 'ease' | 'bounce'
 
     // Arranger
-    arranger: [],   // [{sceneIdx, bars, bpmOverride, timeSignature, name}]
+    arranger: [],   // [{sceneIdx, bars, bpmOverride, timeSignature, name, followAction, repeat, muted}]
     arrLoop:      false,
     arrLoopStart: 0,
     arrLoopEnd:   0,
