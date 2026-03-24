@@ -332,7 +332,7 @@ function drawWaveform(canvas, audioBuffer, sampleStart, sampleEnd,
   }
 }
 
-function makeSampleLoader(track, ti, emit, machCard) {
+function makeSampleLoader(track, ti, emit, machCard, state) {
   // ── Local view state ──────────────────────────────────────────────────────
   let waveZoom    = 1;   // 1, 2, 4, or 8
   let wavePan     = 0;   // 0–1: how far through the zoomable region we're panned
@@ -570,6 +570,95 @@ function makeSampleLoader(track, ti, emit, machCard) {
   const endSlider   = endLbl.querySelector('input');
   seRow.append(startLbl, endLbl);
 
+  // ── Audio tools: Normalize / Reverse / Slice ───────────────────────────────
+  const audioToolsRow = document.createElement('div');
+  audioToolsRow.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px';
+
+  // Normalize button
+  const normalizeBtn = document.createElement('button');
+  normalizeBtn.className = 'screen-btn';
+  normalizeBtn.textContent = 'Normalize';
+  normalizeBtn.title = 'Scale all samples so peak amplitude = 1.0';
+  normalizeBtn.addEventListener('click', () => {
+    const src = track.sampleBuffer;
+    if (!src) return;
+    const ctx = new OfflineAudioContext(src.numberOfChannels, src.length, src.sampleRate);
+    const dst = ctx.createBuffer(src.numberOfChannels, src.length, src.sampleRate);
+    let peak = 0;
+    for (let ch = 0; ch < src.numberOfChannels; ch++) {
+      const data = src.getChannelData(ch);
+      for (let i = 0; i < data.length; i++) {
+        const abs = Math.abs(data[i]);
+        if (abs > peak) peak = abs;
+      }
+    }
+    if (peak === 0) return;
+    for (let ch = 0; ch < src.numberOfChannels; ch++) {
+      const srcData = src.getChannelData(ch);
+      const dstData = dst.getChannelData(ch);
+      for (let i = 0; i < srcData.length; i++) dstData[i] = srcData[i] / peak;
+    }
+    track.sampleBuffer = dst;
+    emit('track:change', { trackIndex: ti, param: 'sampleBuffer', value: dst });
+  });
+
+  // Reverse button
+  const reverseBtn = document.createElement('button');
+  reverseBtn.className = 'screen-btn';
+  reverseBtn.textContent = 'Reverse';
+  reverseBtn.title = 'Reverse the sample audio in place';
+  reverseBtn.addEventListener('click', () => {
+    const src = track.sampleBuffer;
+    if (!src) return;
+    const ctx = new OfflineAudioContext(src.numberOfChannels, src.length, src.sampleRate);
+    const dst = ctx.createBuffer(src.numberOfChannels, src.length, src.sampleRate);
+    for (let ch = 0; ch < src.numberOfChannels; ch++) {
+      const copy = src.getChannelData(ch).slice().reverse();
+      dst.copyToChannel(copy, ch);
+    }
+    track.sampleBuffer = dst;
+    emit('track:change', { trackIndex: ti, param: 'sampleBuffer', value: dst });
+  });
+
+  // Slice controls
+  const sliceSelect = document.createElement('select');
+  sliceSelect.className = 'screen-btn';
+  sliceSelect.title = 'Number of equal slices';
+  [2, 4, 8].forEach(n => {
+    const opt = document.createElement('option');
+    opt.value = n;
+    opt.textContent = n + ' slices';
+    sliceSelect.append(opt);
+  });
+  sliceSelect.value = '4';
+
+  const sliceBtn = document.createElement('button');
+  sliceBtn.className = 'screen-btn';
+  sliceBtn.textContent = 'Slice';
+  sliceBtn.title = 'Divide buffer into equal slices; each slice fires on its step';
+  sliceBtn.addEventListener('click', () => {
+    const src = track.sampleBuffer;
+    if (!src) return;
+    const n = parseInt(sliceSelect.value, 10);
+    const sliceLen = Math.floor(src.length / n);
+    const slices = [];
+    for (let s = 0; s < n; s++) {
+      const ctx = new OfflineAudioContext(src.numberOfChannels, sliceLen, src.sampleRate);
+      const buf = ctx.createBuffer(src.numberOfChannels, sliceLen, src.sampleRate);
+      for (let ch = 0; ch < src.numberOfChannels; ch++) {
+        const srcData = src.getChannelData(ch).subarray(s * sliceLen, s * sliceLen + sliceLen);
+        buf.copyToChannel(srcData, ch);
+      }
+      slices.push(buf);
+    }
+    track.sampleSlices = slices;
+    track.sampleStart = 0;
+    track.sampleEnd = 1;
+    emit('state:change', { path: 'tracks', value: state.tracks });
+  });
+
+  audioToolsRow.append(normalizeBtn, reverseBtn, sliceSelect, sliceBtn);
+
   // ── Loop controls ─────────────────────────────────────────────────────────
   // loopEnabledRef is a mutable box so redraw() can read it without closure issues
   const loopEnabledRef = { value: track.loopEnabled ?? false };
@@ -682,7 +771,7 @@ function makeSampleLoader(track, ti, emit, machCard) {
   });
 
   // ── Assemble ──────────────────────────────────────────────────────────────
-  machCard.append(sampleInfo, loadBtn, wfWrap, zoomRow, panSliderWrap, seRow, loopRow, loopHandlesWrap, previewBtn);
+  machCard.append(sampleInfo, loadBtn, wfWrap, zoomRow, panSliderWrap, seRow, audioToolsRow, loopRow, loopHandlesWrap, previewBtn);
 
   // Initial draw after layout — use rAF so canvas has measured width
   requestAnimationFrame(() => {
@@ -982,7 +1071,7 @@ export default {
       const sampleCard = document.createElement('div');
       sampleCard.className = 'page-card';
       sampleCard.innerHTML = '<h4>Sample</h4>';
-      makeSampleLoader(track, ti, emit, sampleCard);
+      makeSampleLoader(track, ti, emit, sampleCard, state);
       const browseBtn = document.createElement('button');
       browseBtn.className = 'screen-btn';
       browseBtn.style.marginTop = '4px';
