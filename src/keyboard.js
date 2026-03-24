@@ -275,7 +275,7 @@ function detectChord(notes) {
 // ─── Graphical keyboard renderer ──────────────────────────────────────────────
 
 // 1 key-unit ≈ key-width + gap. Used to calculate row stagger padding.
-const KEY_UNIT = 46; // px  (key ~43px + 3px gap)
+const KEY_UNIT = 45; // px  (key ~43px + 2px gap)
 
 export function renderKbdContext(containerEl, page, activeKeys = new Set(), state = null, getActiveTrackFn = null) {
   // Cancel any running arp rAF before wiping innerHTML
@@ -313,7 +313,7 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
 
       keyEl.className = `qwerty-key role-${role}`;
       keyEl.style.flexGrow = w;
-      keyEl.style.flexBasis = `${w * (KEY_UNIT - 3)}px`;
+      keyEl.style.flexBasis = '0';
       keyEl.dataset.code = code;
 
       if (activeKeys.has(code)) keyEl.classList.add('pressed');

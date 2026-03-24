@@ -15,7 +15,8 @@
   /* Screen */
   --screen-bg:      #111810;
   --screen-text:    #e8f4e0;
-  --muted:          #6a8060;
+  --muted:          #8aa880;
+  --fg:             #e8f4e0;
   --border:         rgba(255,255,255,0.07);
 
   /* Accents */
@@ -1135,7 +1136,7 @@ button {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   min-height: 0;
   overflow-y: auto;
 }
@@ -1143,8 +1144,8 @@ button {
 .mtg-row {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px 0;
+  gap: 1px;
+  padding: 1px 0;
   border-radius: 4px;
   border-left: 3px solid var(--track-color, #555);
   background: rgba(0,0,0,0.12);
@@ -1223,11 +1224,11 @@ button {
 
 .step-btn {
   aspect-ratio: 1;
-  width: 28px;
-  height: 28px;
-  min-width: 24px;
-  min-height: 24px;
-  border-radius: 5px;
+  width: 22px;
+  height: 22px;
+  min-width: 18px;
+  min-height: 18px;
+  border-radius: 4px;
   border: 1px solid rgba(255,255,255,0.06);
   background:
     linear-gradient(160deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.01) 40%, rgba(0,0,0,0.3) 100%),
@@ -1677,7 +1678,7 @@ button {
   padding: 4px 8px 6px;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: 4px;
   flex-shrink: 0;
 }
@@ -1738,6 +1739,7 @@ button {
 .kbd-context {
   padding: 0;
   flex-shrink: 0;
+  width: 100%;
 }
 
 /* ============================================================
@@ -1757,14 +1759,16 @@ button {
 
 .qwerty-row {
   display: flex;
-  gap: 3px;
+  gap: 2px;
+  width: 100%;
+  justify-content: stretch;
 }
 
-.qrow-num   .qwerty-key { height: 22px; }
-.qrow-fn    .qwerty-key { height: 24px; }
-.qrow-home  .qwerty-key { height: 28px; }
-.qrow-bot   .qwerty-key { height: 28px; }
-.qrow-space .qwerty-key { height: 20px; }
+.qrow-num   .qwerty-key { height: 28px; }
+.qrow-fn    .qwerty-key { height: 32px; }
+.qrow-home  .qwerty-key { height: 38px; }
+.qrow-bot   .qwerty-key { height: 38px; }
+.qrow-space .qwerty-key { height: 32px; }
 
 .qwerty-key {
   display: flex;
@@ -1772,6 +1776,7 @@ button {
   align-items: center;
   justify-content: flex-end;
   padding-bottom: 4px;
+  flex: 1;
   min-width: 0;
   background: linear-gradient(175deg, #e8e4d8 0%, #d4cfc0 40%, #c0b8a8 100%);
   color: #2a2420;
@@ -1825,7 +1830,7 @@ button {
 }
 
 /* Number row — synth function keys, darker with amber hints */
-.qrow-num .qwerty-key { height: 22px; }
+.qrow-num .qwerty-key { height: 28px; }
 .qrow-num .qwerty-key {
   background: linear-gradient(180deg, #2a2520 0%, #1e1a14 70%, #141008 100%);
   color: #c8a060;
