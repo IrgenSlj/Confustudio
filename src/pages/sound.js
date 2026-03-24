@@ -349,7 +349,13 @@ function makeSampleLoader(track, ti, emit, machCard) {
   // ── Info + load button ────────────────────────────────────────────────────
   const sampleInfo = document.createElement('div');
   sampleInfo.style.cssText = 'margin-top:8px;font-family:var(--font-mono);font-size:0.62rem;color:var(--muted)';
-  sampleInfo.textContent = track.sampleBuffer ? 'Sample loaded' : 'No sample loaded';
+  if (track.sampleBuffer) {
+    const durSec = (track.sampleBuffer.length / track.sampleBuffer.sampleRate).toFixed(2);
+    const chStr  = track.sampleBuffer.numberOfChannels === 1 ? 'MONO' : 'STEREO';
+    sampleInfo.textContent = `${durSec}s · ${chStr} · ${track.sampleBuffer.sampleRate}Hz`;
+  } else {
+    sampleInfo.textContent = 'No sample loaded';
+  }
 
   const loadBtn = document.createElement('button');
   loadBtn.className = 'screen-btn';
@@ -726,6 +732,7 @@ export default {
     // Cancel any running live-note watcher from a previous render
     container._cleanupNoteWatch?.();
     container.innerHTML = '';
+    container.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:6px 8px;gap:4px';
     const ti    = state.selectedTrackIndex;
     const track = state.project.banks[state.activeBank].patterns[state.activePattern].kit.tracks[ti];
 
@@ -983,6 +990,80 @@ export default {
       browseBtn.addEventListener('click', () => openSampleBrowser(state, emit, ti));
       sampleCard.append(browseBtn);
       sampleGrid.append(sampleCard);
+    }
+
+    // ── Recorder slots card (SAMPLE tab) ──
+    {
+      const recCard = document.createElement('div');
+      recCard.className = 'page-card';
+      recCard.innerHTML = '<h4>Recorder Slots</h4>';
+
+      const slots = state.recorderBuffers ?? [];
+      const metas = state.recorderSlotsMeta ?? [];
+
+      if (slots.every(b => !b)) {
+        const emptyNote = document.createElement('div');
+        emptyNote.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--muted);padding:6px 0';
+        emptyNote.textContent = 'No recordings yet. Use Settings → Recorder to capture audio.';
+        recCard.append(emptyNote);
+      } else {
+        slots.forEach((buf, si) => {
+          const meta = metas[si] ?? {};
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05)';
+
+          const slotLabel = document.createElement('span');
+          slotLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);min-width:14px';
+          slotLabel.textContent = String(si + 1);
+
+          const slotInfo = document.createElement('span');
+          slotInfo.style.cssText = 'font-family:var(--font-mono);font-size:0.58rem;color:var(--screen-text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+          if (buf) {
+            const dur = (buf.duration ?? (buf.length / buf.sampleRate)).toFixed(2);
+            const ch  = buf.numberOfChannels === 1 ? 'MONO' : 'STEREO';
+            slotInfo.textContent = `${meta.name ?? `Slot ${si + 1}`} · ${dur}s · ${ch}`;
+          } else {
+            slotInfo.textContent = 'Empty';
+            slotInfo.style.color = 'var(--muted)';
+            slotInfo.style.opacity = '0.5';
+          }
+
+          const previewBtn = document.createElement('button');
+          previewBtn.className = 'seq-btn';
+          previewBtn.style.cssText = 'font-size:0.52rem;padding:2px 6px;opacity:' + (buf ? '1' : '0.3');
+          previewBtn.textContent = '▶';
+          previewBtn.title = 'Preview recorder slot';
+          previewBtn.disabled = !buf;
+          previewBtn.addEventListener('click', () => {
+            const buffer = buf ?? state.recorderBuffers?.[si];
+            if (!buffer || !state.engine?.context) return;
+            const src = state.engine.context.createBufferSource();
+            src.buffer = buffer;
+            src.connect(state.engine.context.destination);
+            src.start();
+          });
+
+          const loadSlotBtn = document.createElement('button');
+          loadSlotBtn.className = 'screen-btn';
+          loadSlotBtn.style.cssText = 'font-size:0.52rem;padding:2px 7px;opacity:' + (buf ? '1' : '0.3');
+          loadSlotBtn.textContent = '⬆ Load';
+          loadSlotBtn.title = 'Load this recorder slot into track sample';
+          loadSlotBtn.disabled = !buf;
+          loadSlotBtn.addEventListener('click', () => {
+            const buffer = buf ?? state.recorderBuffers?.[si];
+            if (!buffer) return;
+            track.sampleBuffer = buffer;
+            track.machine = 'sample';
+            emit('track:change', { trackIndex: state.selectedTrackIndex, param: 'machine', value: 'sample' });
+            emit('state:change', { path: 'tracks', value: state.tracks });
+          });
+
+          row.append(slotLabel, slotInfo, previewBtn, loadSlotBtn);
+          recCard.append(row);
+        });
+      }
+
+      sampleGrid.append(recCard);
     }
 
     // ── Plaits card ──

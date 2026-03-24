@@ -17,6 +17,7 @@ export function initStudio() {
   let panY = 0;
   let hasRestoredView = false;
   let hasRestoredLayout = false;
+  let _userHasPanned = false;
 
   function getWrapSize() {
     return {
@@ -104,6 +105,7 @@ export function initStudio() {
       scale = fitScale;
       panX = (wrapW - bounds.width * scale) / 2 - bounds.left * scale;
       panY = Math.max(18, (wrapH - bounds.height * scale) / 2 - bounds.top * scale);
+      if (force) _userHasPanned = false;
       applyTransform();
     }
   }
@@ -156,13 +158,21 @@ export function initStudio() {
     const maxY = FIT_PADDING - bounds.top * scale;
 
     if (scaledWidth + FIT_PADDING * 2 <= wrapW) {
-      panX = (wrapW - scaledWidth) / 2 - bounds.left * scale;
+      if (!_userHasPanned) {
+        panX = (wrapW - scaledWidth) / 2 - bounds.left * scale;
+      } else {
+        panX = Math.min(maxX, Math.max(minX, panX));
+      }
     } else {
       panX = Math.min(maxX, Math.max(minX, panX));
     }
 
     if (scaledHeight + FIT_PADDING * 2 <= wrapH) {
-      panY = Math.max(18, (wrapH - scaledHeight) / 2 - bounds.top * scale);
+      if (!_userHasPanned) {
+        panY = Math.max(18, (wrapH - scaledHeight) / 2 - bounds.top * scale);
+      } else {
+        panY = Math.min(maxY, Math.max(minY, panY));
+      }
     } else {
       panY = Math.min(maxY, Math.max(minY, panY));
     }
@@ -270,9 +280,46 @@ export function initStudio() {
     saveLayout();
   }
 
-  restoreLayout();
+  function _spawnDefaultMixer() {
+    const { width: wrapW } = getWrapSize();
+    const existingModule = canvas.querySelector('#module-0');
+    const modRight = existingModule ? (parsePx(existingModule.style.left) + DEFAULT_MODULE_W + 80) : 100;
+    const modTop = existingModule ? parsePx(existingModule.style.top) : 50;
+
+    const mod = document.createElement('div');
+    mod.className = 'studio-module';
+    mod.dataset.moduleType = 'djmixer';
+    mod.id = 'module-djm-default';
+    mod.style.left = `${modRight}px`;
+    mod.style.top = `${modTop}px`;
+    mod.innerHTML = '<div class="module-loading-shell" style="width:320px;height:420px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Mixer…</div>';
+    canvas.appendChild(mod);
+    saveLayout();
+
+    import('/src/modules/djmixer.js').then((m) => {
+      const ctx = window._confusynthEngine?.context ?? null;
+      mod.innerHTML = '';
+      mod.appendChild(m.createDJMixer(ctx));
+      // After mixer loads, draw the cable
+      requestAnimationFrame(() => {
+        const audioOutPort = document.querySelector('#module-0 .port[data-port="audio-out"]');
+        const ch1Port = mod.querySelector('.djm-port[data-port="ch1-in"]');
+        if (audioOutPort && ch1Port) {
+          document.dispatchEvent(new CustomEvent('cable:autoconnect', {
+            detail: { fromEl: audioOutPort, toEl: ch1Port }
+          }));
+        }
+      });
+    });
+  }
+
+  const hasLayout = restoreLayout();
   requestAnimationFrame(() => requestAnimationFrame(() => {
     fitToWindow({ force: true });
+    if (!hasLayout) {
+      // First run: spawn DJ mixer to the right of the synth
+      _spawnDefaultMixer();
+    }
   }));
 
   document.getElementById('zoom-in')?.addEventListener('click', () => {
@@ -312,6 +359,7 @@ export function initStudio() {
     );
     if (onScrollable && !e.shiftKey) return;
     e.preventDefault();
+    _userHasPanned = true;
     panX -= e.deltaX;
     panY -= e.deltaY;
     clampViewport();
@@ -337,6 +385,7 @@ export function initStudio() {
     if (e.button === 1 || (spaceDown && onBackground) || (e.button === 0 && onBackground && e.altKey)) {
       e.preventDefault();
       panning = true;
+      _userHasPanned = true;
       panStartX = e.clientX;
       panStartY = e.clientY;
       panStartPanX = panX;
@@ -413,6 +462,7 @@ export function initStudio() {
     const onBackground = e.target === wrap || e.target === canvas;
     if (e.touches.length === 1 && onBackground) {
       touchMode = 'pan';
+      _userHasPanned = true;
       touchMidX = e.touches[0].clientX;
       touchMidY = e.touches[0].clientY;
     }

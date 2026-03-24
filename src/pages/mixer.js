@@ -31,6 +31,7 @@ function drawMiniEQ(canvas, low, mid, high) {
 export default {
   render(container, state, emit) {
     container.innerHTML = '';
+    container.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:6px 8px;gap:4px';
 
     const pattern = state.project.banks[state.activeBank].patterns[state.activePattern];
     const tracks  = pattern.kit.tracks;

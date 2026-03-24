@@ -8,6 +8,7 @@ const PARAM_LABELS = ['Cut', 'Dec', 'Dly', 'Pit', 'Vol'];
 export default {
   render(container, state, emit) {
     container.innerHTML = '';
+    container.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:6px 8px;gap:4px';
 
     const { scenes, crossfader, sceneA, sceneB, selectedTrackIndex } = state;
     const activePattern = getActivePattern(state);

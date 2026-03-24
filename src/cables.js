@@ -332,4 +332,10 @@ export function initCables() {
   });
   observer.observe(document.body, { childList: true, subtree: true });
   document.querySelectorAll('.port, .djm-port').forEach(attachPort);
+
+  // Auto-connect handler (used for pre-wired first-run setup)
+  document.addEventListener('cable:autoconnect', (e) => {
+    const { fromEl, toEl } = e.detail;
+    if (fromEl && toEl) addCable(fromEl, toEl);
+  });
 }

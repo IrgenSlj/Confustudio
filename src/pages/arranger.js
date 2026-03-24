@@ -7,6 +7,7 @@ const TIME_SIGNATURES = ['4/4', '3/4', '6/8', '5/4', '7/8'];
 export default {
   render(container, state, emit) {
     container.innerHTML = '';
+    container.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:6px 8px;gap:4px';
 
     const { arranger, arrangementMode, arrangementCursor, scenes, isPlaying } = state;
     const activeSectionIdx = (arrangementMode && isPlaying) ? (state._arrSection ?? 0) : -1;
@@ -178,6 +179,68 @@ export default {
         const [moved] = sections.splice(fromIdx, 1);
         sections.splice(idx, 0, moved);
         emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      });
+
+      // ── Right-click context menu ────────────────────────────────────────
+      row.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Remove any existing context menu
+        document.querySelectorAll('.arr-ctx-menu').forEach(m => m.remove());
+
+        const menu = document.createElement('div');
+        menu.className = 'arr-ctx-menu';
+        menu.style.cssText = [
+          'position:fixed', 'z-index:9999',
+          'background:#1e1e1e', 'border:1px solid var(--border)',
+          'border-radius:5px', 'padding:4px 0',
+          'font-family:var(--font-mono)', 'font-size:0.62rem',
+          'box-shadow:0 4px 16px rgba(0,0,0,0.6)',
+          'min-width:144px',
+        ].join(';');
+        menu.style.left = `${e.clientX}px`;
+        menu.style.top  = `${e.clientY}px`;
+
+        const menuItem = (label, icon, action) => {
+          const item = document.createElement('div');
+          item.style.cssText = 'padding:6px 14px;cursor:pointer;color:var(--screen-text);display:flex;align-items:center;gap:8px';
+          item.innerHTML = `<span style="opacity:0.65">${icon}</span>${label}`;
+          item.addEventListener('mouseenter', () => { item.style.background = 'rgba(255,255,255,0.06)'; });
+          item.addEventListener('mouseleave', () => { item.style.background = ''; });
+          item.addEventListener('click', () => { menu.remove(); action(); });
+          return item;
+        };
+
+        menu.append(
+          menuItem('Duplicate', '⧉', () => {
+            const clone = JSON.parse(JSON.stringify(section));
+            state.arranger.splice(idx + 1, 0, clone);
+            emit('state:change', { path: 'scale', value: state.scale });
+          }),
+          menuItem('Insert Before', '↑+', () => {
+            const newSec = { sceneIdx: section.sceneIdx ?? 0, bars: section.bars ?? 4, name: `Section ${state.arranger.length + 1}`, repeat: 1, muted: false };
+            state.arranger.splice(idx, 0, newSec);
+            emit('state:change', { path: 'scale', value: state.scale });
+          }),
+          menuItem('Delete', '✕', () => {
+            emit('state:change', { path: 'action_arrRemove', value: idx });
+          })
+        );
+
+        document.body.append(menu);
+
+        // Ensure menu stays within viewport
+        requestAnimationFrame(() => {
+          const mr = menu.getBoundingClientRect();
+          if (mr.right > window.innerWidth)  menu.style.left = `${e.clientX - mr.width}px`;
+          if (mr.bottom > window.innerHeight) menu.style.top  = `${e.clientY - mr.height}px`;
+        });
+
+        // Auto-close on outside click
+        const closeMenu = ev => {
+          if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('click', closeMenu, true); }
+        };
+        setTimeout(() => document.addEventListener('click', closeMenu, true), 0);
       });
 
       // ── Section rename on double-click ─────────────────────────────────

@@ -905,7 +905,7 @@ function handleStateChange(path, value, pattern) {
     state.scale = Math.max(0, Math.min(6, Number(value)));
     scheduleSave();
     renderPage();
-    renderPiano(el.kbdPiano, state);
+    if (el.kbdPiano) renderPiano(el.kbdPiano, state);
     return;
   }
 
@@ -1043,20 +1043,20 @@ function emit(type, payload = {}) {
         state.engine.previewNote(track, payload.note, payload.velocity ?? 1);
         state._playingNotes.add(payload.note);
         state._pressedKeys.add(payload.note);  // track MIDI note for live recording
-        lightPianoKey(el.kbdPiano, payload.note, true);
+        if (el.kbdPiano) lightPianoKey(el.kbdPiano, payload.note, true);
       }
       break;
 
     case 'note:off':
       state._playingNotes.delete(payload.note);
       state._pressedKeys.delete(payload.note);  // remove MIDI note from live recording set
-      lightPianoKey(el.kbdPiano, payload.note, false);
+      if (el.kbdPiano) lightPianoKey(el.kbdPiano, payload.note, false);
       break;
 
     case 'keyboard:velocityChange': {
       // Update velocity display in the piano panel without full re-render
-      const velSlider = el.kbdPiano.querySelector('.kbd-vel-slider');
-      const velVal    = el.kbdPiano.querySelector('.kbd-vel-val');
+      const velSlider = el.kbdPiano?.querySelector('.kbd-vel-slider');
+      const velVal    = el.kbdPiano?.querySelector('.kbd-vel-val');
       if (velSlider) velSlider.value = payload.velocity;
       if (velVal)    velVal.textContent = Math.round(payload.velocity * 100);
       break;
@@ -2081,7 +2081,7 @@ function renderAll() {
   renderTrackStrip();
   renderTrackSelector();
   renderKbdContext(el.kbdContext, state.currentPage, state._pressedKeys, state, () => getActiveTrack(state));
-  renderPiano(el.kbdPiano, state);
+  if (el.kbdPiano) renderPiano(el.kbdPiano, state);
   updateTransportUI();
 }
 
@@ -2092,6 +2092,17 @@ function renderPage() {
   el.pageContent._cleanup?.();
   el.pageContent._cleanup = null;
   page.render(el.pageContent, state, emit);
+  // Keep topbar page label in sync regardless of what triggered re-render
+  const pageLabel = document.getElementById('topbar-page-label');
+  if (pageLabel) {
+    const PAGE_LABELS = {
+      'pattern': 'PATTERN', 'piano-roll': 'PIANO ROLL', 'sound': 'SOUND',
+      'mixer': 'MIXER', 'fx': 'FX', 'scenes': 'SCENES',
+      'banks': 'BANKS', 'arranger': 'ARR', 'settings': 'SETTINGS',
+    };
+    pageLabel.textContent = PAGE_LABELS[state.currentPage] ?? '';
+  }
+  renderPageTabs();
 }
 
 function renderPageTabs() {

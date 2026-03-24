@@ -21,6 +21,7 @@ function computePatternDiff(patA, patB) {
 export default {
   render(container, state, emit) {
     container.innerHTML = '';
+    container.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:6px 8px;gap:4px';
 
     const { project, activeBank, activePattern, copyBuffer, patternCompareA, patternCompareB } = state;
     const hasPatternCopy = copyBuffer?.type === 'pattern';

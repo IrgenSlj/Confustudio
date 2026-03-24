@@ -15,6 +15,7 @@ export default {
   render(container, state, emit) {
     // Stop any running perf monitor rAF before wiping container
     container._cleanupPerf?.();
+    container.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:6px 8px;gap:4px';
 
     const midiOutputs = state.engine?.midiOutputs || state.midiOutputs || [];
     const sampleRate  = state.audioContext?.sampleRate ?? '—';

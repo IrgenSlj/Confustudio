@@ -369,6 +369,7 @@ export default {
 
     const comp = state.compressor ?? {};
 
+    container.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:6px 8px;gap:4px';
     container.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0">
         <span class="page-title" style="margin:0">FX</span>
