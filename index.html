@@ -22,7 +22,7 @@
             <span class="port" data-port="midi-in">MIDI In</span>
             <span class="port" data-port="midi-out">MIDI Out</span>
             <span class="port" data-port="usb">USB</span>
-            <button id="btn-duplicate" class="chassis-dup-btn" title="Duplicate this synth">⧉</button>
+            <button id="btn-duplicate" class="chassis-dup-btn" title="Duplicate this synth module">⧉</button>
           </div>
 
           <!-- MAIN GRID: left-col | screen | right-col -->
@@ -48,18 +48,18 @@
                 <div class="fader-section">
                   <div class="meter-label">VOL</div>
                   <input type="range" id="master-volume" class="fader-master"
-                    orient="vertical" min="0" max="1" step="0.01" value="0.82" />
+                    orient="vertical" min="0" max="1" step="0.01" value="0.82" title="Master volume" />
                 </div>
               </div>
 
               <!-- Transport buttons -->
               <div class="transport-buttons">
-                <button id="btn-audio"  class="t-btn t-btn--audio">AUDIO</button>
-                <button id="btn-play"   class="t-btn t-btn--play">&#9654;</button>
-                <button id="btn-stop"   class="t-btn t-btn--stop">&#9632;</button>
-                <button id="btn-record" class="t-btn t-btn--record">&#9679;</button>
-                <button id="btn-fill"   class="t-btn t-btn--fill">Fill</button>
-                <button id="btn-tap"    class="t-btn">Tap</button>
+                <button id="btn-audio"  class="t-btn t-btn--audio" title="Initialize audio engine (click first!)">AUDIO</button>
+                <button id="btn-play"   class="t-btn t-btn--play" title="Play / Pause (Space)">&#9654;</button>
+                <button id="btn-stop"   class="t-btn t-btn--stop" title="Stop and reset playhead">&#9632;</button>
+                <button id="btn-record" class="t-btn t-btn--record" title="Record to master output">&#9679;</button>
+                <button id="btn-fill"   class="t-btn t-btn--fill" title="Fill mode: play all steps">Fill</button>
+                <button id="btn-tap"    class="t-btn" title="Tap tempo">Tap</button>
               </div>
 
               <!-- BPM edit (moved here from screen-below) -->
@@ -145,12 +145,12 @@
     </div>
     <!-- Studio controls: zoom + add module -->
     <div id="studio-controls">
-      <button id="zoom-in" title="Zoom in">＋</button>
-      <button id="zoom-out" title="Zoom out">－</button>
-      <button id="zoom-reset" title="Reset zoom">⊡</button>
+      <button id="zoom-in" title="Zoom in (Ctrl+scroll)">＋</button>
+      <button id="zoom-out" title="Zoom out (Ctrl+scroll)">－</button>
+      <button id="zoom-reset" title="Fit view to screen">⊡</button>
       <span id="zoom-level" style="font-family:monospace;font-size:0.6rem;color:rgba(255,255,255,0.5);padding:0 6px;line-height:36px">100%</span>
       <button id="fit-all" title="Fit all modules in view">⊞ Fit</button>
-      <button id="add-module" title="Add module">＋ Module</button>
+      <button id="add-module" title="Add a new module (synth or mixer)">＋ Module</button>
     </div>
   </div>
   <script type="module" src="/src/app.js"></script>

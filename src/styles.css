@@ -710,6 +710,7 @@ button {
 .topbar-item {
   white-space: nowrap;
   flex-shrink: 0;
+  color: var(--fg);
 }
 
 .topbar-chain {
@@ -1035,14 +1036,15 @@ button {
 .track-ch-num {
   font-size: 0.58rem;
   font-family: var(--font-mono);
-  color: var(--chassis-text);
+  color: var(--fg);
+  font-weight: 600;
   letter-spacing: 0.04em;
   line-height: 1;
 }
 
 .track-ch-machine {
   font-size: 0.48rem;
-  color: var(--chassis-metal);
+  color: var(--chassis-text);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -1181,7 +1183,7 @@ button {
   font-size: 0.58rem;
   color: var(--track-color, var(--chassis-text));
   line-height: 1;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .mtg-machine {

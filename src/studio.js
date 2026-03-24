@@ -323,10 +323,12 @@ export function initStudio() {
   }));
 
   document.getElementById('zoom-in')?.addEventListener('click', () => {
+    _userHasPanned = true;
     const { width, height } = getWrapSize();
     zoomBy(1.2, width / 2, height / 2);
   });
   document.getElementById('zoom-out')?.addEventListener('click', () => {
+    _userHasPanned = true;
     const { width, height } = getWrapSize();
     zoomBy(1 / 1.2, width / 2, height / 2);
   });
