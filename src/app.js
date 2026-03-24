@@ -2200,6 +2200,7 @@ function renderTrackSelector() {
 
     const row = document.createElement('div');
     row.className = 'track-ch' + (isActive ? ' active track-selected' : '') + (track.mute ? ' muted' : '');
+    row.style.height = '36px';
     row.style.borderLeft = '3px solid ' + TRACK_COLORS[i];
     row.style.setProperty('--track-color', TRACK_COLORS[i]);
     row.style.position = 'relative';
@@ -2277,7 +2278,7 @@ function renderTrackSelector() {
     btn.style.cssText = [
       'display:flex', 'align-items:center', 'gap:3px',
       'padding:4px 5px',
-      'min-height:36px',
+      'height:36px',
       `border:1px solid ${grp.muted ? 'rgba(255,255,255,0.1)' : GRP_COLORS[gi] + '60'}`,
       `background:${grp.muted ? 'rgba(0,0,0,0.3)' : GRP_COLORS[gi] + '18'}`,
       'border-radius:3px', 'cursor:pointer',
@@ -2352,15 +2353,22 @@ function renderTrackSelector() {
 }
 
 function renderPlayhead() {
-  if (state.isRecording && state.isPlaying) {
+  if (state.stepRecordMode) {
+    el.statusPill.textContent = 'STEP-REC';
+    el.statusPill.className = 'topbar-item topbar-status recording';
+    el.statusPill.style.color = 'var(--record)';
+  } else if (state.isRecording && state.isPlaying) {
     el.statusPill.textContent = '● REC';
     el.statusPill.className = 'topbar-item topbar-status recording';
+    el.statusPill.style.color = '';
   } else if (state.isPlaying) {
     el.statusPill.textContent = '▶ PLAY';
     el.statusPill.className = 'topbar-item topbar-status playing';
+    el.statusPill.style.color = '';
   } else {
     el.statusPill.textContent = 'IDLE';
     el.statusPill.className = 'topbar-item topbar-status';
+    el.statusPill.style.color = '';
   }
 
   // Update step buttons — data-step attr means all track rows show playhead

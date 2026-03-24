@@ -334,6 +334,10 @@ export function initStudio() {
     hasRestoredView = false;
     fitToWindow({ force: true });
   });
+  document.getElementById('fit-all')?.addEventListener('click', () => {
+    _userHasPanned = false;
+    fitToWindow({ force: true });
+  });
   document.getElementById('add-module')?.addEventListener('click', showModulePicker);
 
   canvas.addEventListener('click', (e) => {
