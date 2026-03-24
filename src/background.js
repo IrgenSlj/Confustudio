@@ -47,19 +47,23 @@ export function initBackground() {
     if (bass > 0.55) beatPulse = Math.min(1, beatPulse + 0.4);
     beatPulse = Math.max(0, beatPulse - 0.025);
 
-    phase += 0.003 + mid * 0.008;
+    phase += hasAudio ? (0.003 + mid * 0.008) : 0.004;
 
     // === Draw ===
 
-    // Dark base — near-black with subtle green tint (studio monitor feel)
-    ctx.fillStyle = '#080e07';
-    ctx.fillRect(0, 0, W, H);
+    // Clear canvas — let CSS gradient show through when no audio
+    ctx.clearRect(0, 0, W, H);
+    if (hasAudio) {
+      // Subtle dark overlay only when playing
+      ctx.fillStyle = 'rgba(8,14,7,0.7)';
+      ctx.fillRect(0, 0, W, H);
+    }
 
     // Three undulating wave bands
     const waves = [
-      { yBase: H * 0.72, amp: 45 + bass * 90, freq: 0.0025, spd: 1.0, alpha: 0.055 + bass * 0.07,  hue: 130 },
-      { yBase: H * 0.55, amp: 30 + mid  * 60, freq: 0.0042, spd: 1.6, alpha: 0.04  + mid  * 0.05,  hue: 145 },
-      { yBase: H * 0.38, amp: 18 + high * 40, freq: 0.008,  spd: 2.4, alpha: 0.03  + high * 0.04,  hue: 160 },
+      { yBase: H * 0.72, amp: 45 + bass * 90, freq: 0.0025, spd: 1.0, alpha: 0.08 + bass * 0.10,  hue: 130 },
+      { yBase: H * 0.55, amp: 30 + mid  * 60, freq: 0.0042, spd: 1.6, alpha: 0.06 + mid  * 0.07,  hue: 145 },
+      { yBase: H * 0.38, amp: 18 + high * 40, freq: 0.008,  spd: 2.4, alpha: 0.04 + high * 0.05,  hue: 160 },
     ];
 
     waves.forEach(({ yBase, amp, freq, spd, alpha, hue }) => {

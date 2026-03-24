@@ -911,6 +911,23 @@ button {
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.05),
     inset 0 0 24px rgba(103,215,255,0.08);
+  cursor: zoom-in;
+  pointer-events: auto;
+  transition: all 0.2s ease;
+}
+
+.oscilloscope-strip.osc-expanded {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 500;
+  border-radius: 0;
+  opacity: 1;
+  background: rgba(0,0,0,0.92);
+  cursor: zoom-out;
+  pointer-events: auto;
 }
 
 /* ============================================================
@@ -1000,7 +1017,7 @@ button {
   border: 1px solid rgba(0,0,0,0.2);
   border-left: 3px solid transparent;
   transition: background 80ms, border-color 80ms;
-  min-height: 40px;
+  min-height: 36px;
   position: relative;
   overflow: hidden;
 }
@@ -1659,6 +1676,7 @@ button {
   padding: 4px 8px 6px;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 4px;
   flex-shrink: 0;
 }
@@ -2004,6 +2022,32 @@ button {
   height: 110px;
   padding: 0 2px;
   position: relative;
+}
+
+.kbd-help-strip {
+  height: 18px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  background: rgba(0,0,0,0.2);
+}
+
+#kbd-help-text {
+  font-family: var(--font-mono);
+  font-size: 0.48rem;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+#kbd-help-text.visible {
+  opacity: 1;
 }
 
 /* kbd-collapse-bar: see earlier definition */

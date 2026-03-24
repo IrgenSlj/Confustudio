@@ -561,6 +561,21 @@ export function loadState() {
                 if (track[key] === undefined) track[key] = defaults[key];
               }
             });
+            // Forward-fill step-level fields from createStep() defaults
+            pat.kit.tracks.forEach((track, ti) => {
+              if (!Array.isArray(track.steps)) return;
+              const stepDefaults = createStep(0, ti);
+              track.steps.forEach((step, si) => {
+                if (!step || typeof step !== 'object') return;
+                for (const key of Object.keys(stepDefaults)) {
+                  if (step[key] === undefined) step[key] = stepDefaults[key];
+                }
+                // Ensure paramLocks is always a plain object
+                if (!step.paramLocks || typeof step.paramLocks !== 'object' || Array.isArray(step.paramLocks)) {
+                  step.paramLocks = {};
+                }
+              });
+            });
           }
         }
       }

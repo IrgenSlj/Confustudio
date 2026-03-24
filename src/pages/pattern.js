@@ -292,7 +292,7 @@ export default {
 
       const noteRow = document.createElement('div');
       noteRow.className = 'plock-row';
-      const noteVal = step.paramLocks.note ?? step.note ?? track.note ?? 60;
+      const noteVal = (step.paramLocks ?? {}).note ?? step.note ?? track.note ?? 60;
       noteRow.innerHTML = `
         <label>Note</label>
         <input type="range" min="24" max="96" step="1" value="${noteVal}">
@@ -350,7 +350,7 @@ export default {
       panel.append(condRow);
 
       PLOCK_PARAMS.forEach(({ label, param, min, max, step: s }) => {
-        const current = step.paramLocks[param] ?? track[param] ?? min;
+        const current = (step.paramLocks ?? {})[param] ?? track[param] ?? min;
         const row = document.createElement('div');
         row.className = 'plock-row';
         row.innerHTML = `
@@ -565,7 +565,7 @@ export default {
         btn.style.position = 'relative';
         if (step.active)                          btn.classList.add('active');
         if (step.accent)                          btn.classList.add('accent');
-        if (Object.keys(step.paramLocks).length)  btn.classList.add('plock');
+        if (Object.keys(step.paramLocks ?? {}).length)  btn.classList.add('plock');
         if (si === state.currentStep)             btn.classList.add('playhead');
         if (state.stepRecordMode && si === (state._stepRecordCursor ?? 0) && ti === selTi)
                                                   btn.classList.add('step-record-cursor');

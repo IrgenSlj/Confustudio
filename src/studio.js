@@ -272,11 +272,7 @@ export function initStudio() {
 
   restoreLayout();
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    if (!restoreView()) {
-      fitToWindow({ force: true });
-    } else {
-      clampViewport();
-    }
+    fitToWindow({ force: true });
   }));
 
   document.getElementById('zoom-in')?.addEventListener('click', () => {

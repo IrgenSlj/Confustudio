@@ -1495,7 +1495,6 @@ async function ensureAudio() {
 
   // Oscilloscope click-to-cycle visualizer mode
   if (el.oscilloscope) {
-    el.oscilloscope.style.cursor = 'pointer';
     el.oscilloscope.title = state.oscMode ?? 'wave';
     el.oscilloscope.addEventListener('click', () => {
       const modes = ['wave', 'spectrum', 'lissajous'];
@@ -1503,6 +1502,17 @@ async function ensureAudio() {
       state.oscMode = modes[(modes.indexOf(cur) + 1) % modes.length];
       el.oscilloscope.title = state.oscMode;
       showToast(state.oscMode);
+    });
+  }
+
+  // Oscilloscope hover expand
+  const oscEl = document.getElementById('oscilloscope');
+  if (oscEl) {
+    oscEl.addEventListener('mouseenter', () => {
+      oscEl.classList.add('osc-expanded');
+    });
+    oscEl.addEventListener('mouseleave', () => {
+      oscEl.classList.remove('osc-expanded');
     });
   }
 
@@ -2255,7 +2265,8 @@ function renderTrackSelector() {
     const btn = document.createElement('button');
     btn.style.cssText = [
       'display:flex', 'align-items:center', 'gap:3px',
-      'padding:2px 4px',
+      'padding:4px 5px',
+      'min-height:36px',
       `border:1px solid ${grp.muted ? 'rgba(255,255,255,0.1)' : GRP_COLORS[gi] + '60'}`,
       `background:${grp.muted ? 'rgba(0,0,0,0.3)' : GRP_COLORS[gi] + '18'}`,
       'border-radius:3px', 'cursor:pointer',
@@ -3488,6 +3499,26 @@ function boot() {
   initCables();
   setupSwipe();
   setupDoubleTap();
+}
+
+// Global tooltip/help system — shows title attribute in kbd-help-strip
+const helpEl = document.getElementById('kbd-help-text');
+if (helpEl) {
+  document.addEventListener('mouseover', (e) => {
+    const target = e.target.closest('[title]');
+    const text = target?.title || '';
+    if (text && text.length > 2) {
+      helpEl.textContent = text;
+      helpEl.classList.add('visible');
+    }
+  });
+  document.addEventListener('mouseout', (e) => {
+    // Only clear if leaving element with title (not entering child)
+    const target = e.target.closest('[title]');
+    if (target && !target.contains(e.relatedTarget)) {
+      helpEl.classList.remove('visible');
+    }
+  });
 }
 
 boot();
