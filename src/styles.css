@@ -1908,7 +1908,7 @@ button {
   background: linear-gradient(180deg, #c8c4b4 0%, #b8b0a0 100%);
   border-color: #988878;
 }
-.qwerty-key.role-idle .qkey-cap { color: rgba(58,50,40,0.4); }
+.qwerty-key.role-idle .qkey-cap { color: rgba(58,50,40,0.7); }
 
 .qwerty-key.role-page {
   background: linear-gradient(180deg, #c8c8d8 0%, #b0b0c8 70%, #9898b8 100%);

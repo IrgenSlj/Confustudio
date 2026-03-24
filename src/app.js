@@ -2217,6 +2217,7 @@ function renderTrackSelector() {
   if (!el_cs) return;
   const pattern = getActivePattern(state);
   el_cs.innerHTML = '';
+  el_cs.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:4px;align-content:start';
 
   const GRP_COLORS = [
     '#f0c640','#5add71','#67d7ff','#ff8c52',
@@ -2330,7 +2331,47 @@ function renderTrackSelector() {
     countLbl.style.cssText = 'font-size:0.38rem;opacity:0.6';
     countLbl.textContent = trackCount > 0 ? `${trackCount}t` : '';
 
-    btn.append(dot, nameLbl, countLbl);
+    const mBtn = document.createElement('button');
+    mBtn.textContent = 'M';
+    mBtn.style.cssText = 'width:16px;height:16px;border-radius:2px;border:1px solid rgba(0,0,0,0.3);background:rgba(0,0,0,0.25);color:var(--chassis-metal);font-size:0.38rem;font-family:var(--font-mono);font-weight:700;cursor:pointer;display:grid;place-items:center;padding:0;flex-shrink:0';
+    mBtn.title = 'Mute group';
+    if (grp.muted) { mBtn.style.background = 'rgba(240,91,82,0.25)'; mBtn.style.borderColor = 'rgba(240,91,82,0.5)'; mBtn.style.color = 'var(--record)'; }
+
+    const sBtn = document.createElement('button');
+    sBtn.textContent = 'S';
+    sBtn.style.cssText = 'width:16px;height:16px;border-radius:2px;border:1px solid rgba(0,0,0,0.3);background:rgba(0,0,0,0.25);color:var(--chassis-metal);font-size:0.38rem;font-family:var(--font-mono);font-weight:700;cursor:pointer;display:grid;place-items:center;padding:0;flex-shrink:0';
+    sBtn.title = 'Solo group';
+
+    mBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      grp.muted = !grp.muted;
+      pattern.kit.tracks.forEach((t, ti) => {
+        if (t.groupIndex === gi) {
+          t.mute = grp.muted;
+          emit('track:change', { trackIndex: ti, param: 'mute', value: grp.muted });
+        }
+      });
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      renderTrackSelector();
+    });
+
+    sBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      // Solo this group: mute all other groups and their tracks, unmute this group and its tracks
+      (state.groups ?? []).forEach((g, gj) => {
+        g.muted = (gj !== gi);
+        pattern.kit.tracks.forEach((t, ti) => {
+          if (t.groupIndex === gj) {
+            t.mute = g.muted;
+            emit('track:change', { trackIndex: ti, param: 'mute', value: g.muted });
+          }
+        });
+      });
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      renderTrackSelector();
+    });
+
+    btn.append(dot, nameLbl, countLbl, mBtn, sBtn);
 
     // Click = mute-toggle all tracks in this group
     btn.addEventListener('click', e => {
@@ -2371,6 +2412,7 @@ function renderTrackSelector() {
   });
 
   grpSection.append(grpGrid);
+  grpSection.style.gridColumn = '1 / -1';
 
   // Group assignment hint
   const hint = document.createElement('div');
