@@ -1780,6 +1780,7 @@ function scheduleLoop() {
             note:        step.note,
             velocity:    step.velocity ?? 1,
             trackIndex:  ti,
+            groupIndex:  track.groupIndex ?? null,
             paramLocks: { gate: step.gate ?? 0.5, ...sceneOverride, ...step.paramLocks, note: noteToPlay },
           });
           // MIDI output routing (arp path)
@@ -1798,6 +1799,7 @@ function scheduleLoop() {
             note:        step.note,
             velocity:    step.velocity ?? 1,
             trackIndex:  ti,
+            groupIndex:  track.groupIndex ?? null,
             paramLocks: { gate: step.gate ?? 0.5, ...sceneOverride, ...step.paramLocks },
           });
           // MIDI output routing (non-arp path)
