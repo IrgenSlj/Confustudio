@@ -64,6 +64,31 @@ export class AudioEngine {
     this.bus1.connect(this.sidechainGain);
     this.bus2.connect(this.sidechainGain);
 
+    // 8 group audio buses — tracks with groupIndex route through these
+    this.groupBuses = Array.from({ length: 8 }, () => {
+      const gain = context.createGain();
+      gain.gain.value = 1;
+      gain.connect(this.sidechainGain);
+      return gain;
+    });
+    this.groupPans = Array.from({ length: 8 }, (_, i) => {
+      const pan = context.createStereoPanner();
+      pan.pan.value = 0;
+      pan.connect(this.groupBuses[i]);
+      return pan;
+    });
+    // Group compressors (off by default — ratio=1 = bypass)
+    this.groupCompressors = Array.from({ length: 8 }, (_, i) => {
+      const comp = context.createDynamicsCompressor();
+      comp.threshold.value = -20;
+      comp.knee.value = 6;
+      comp.ratio.value = 1; // bypass
+      comp.attack.value = 0.003;
+      comp.release.value = 0.25;
+      comp.connect(this.groupPans[i]);
+      return comp;
+    });
+
     // Master dynamics compressor — inserted between masterGain and masterSaturator
     this.masterCompressor = context.createDynamicsCompressor();
     this.masterCompressor.threshold.value = -18;
@@ -857,9 +882,14 @@ export class AudioEngine {
     }
 
     // Determine output bus for this track's dry signal and sends.
-    // All three buses route through sidechainGain so ducking applies to track audio.
-    const busTarget = params.outputBus === 'bus1' ? this.bus1 :
-                      params.outputBus === 'bus2' ? this.bus2 : this.sidechainGain;
+    // Group-assigned tracks route through their group compressor/pan/gain chain.
+    // All buses ultimately route through sidechainGain so ducking applies to all audio.
+    const gi = params.groupIndex;
+    const busTarget = (gi != null && this.groupCompressors[gi])
+      ? this.groupCompressors[gi]
+      : params.outputBus === 'bus1' ? this.bus1
+      : params.outputBus === 'bus2' ? this.bus2
+      : this.sidechainGain;
 
     filter.connect(saturator);
     saturator.connect(busTarget);
@@ -1316,6 +1346,17 @@ export class AudioEngine {
   // Release time in milliseconds — how long to recover from full duck back to 1.
   setSidechainRelease(ms) {
     this._sidechainRelease = Math.max(10, ms);
+  }
+
+  // Group bus controls — gi = 0..7
+  setGroupVolume(gi, val) {
+    if (this.groupBuses[gi]) this.groupBuses[gi].gain.value = Math.max(0, val);
+  }
+  setGroupPan(gi, val) {
+    if (this.groupPans[gi]) this.groupPans[gi].pan.value = Math.max(-1, Math.min(1, val));
+  }
+  setGroupMute(gi, muted) {
+    if (this.groupBuses[gi]) this.groupBuses[gi].gain.value = muted ? 0 : 1;
   }
 
   // Send a MIDI Program Change on the given 1-based channel.

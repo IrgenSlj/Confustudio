@@ -2305,6 +2305,39 @@ function renderTrackSelector() {
   grpLabel.textContent = 'GROUPS';
   grpSection.append(grpLabel);
 
+  const presetRow = document.createElement('div');
+  presetRow.style.cssText = 'display:flex;gap:3px;flex-wrap:wrap;margin-bottom:4px';
+
+  const ROUTING_PRESETS = {
+    'EDM':     ['Kick','Snr','Hat','Bass','Lead','Pad','FX','Vox'],
+    'Band':    ['Drum','Bass','Gtr','Keys','Vox','Horn','Aux','FX'],
+    'DJ':      ['DckA','DckB','Smpl','FX','—','—','—','—'],
+    'Podcast': ['Mic1','Mic2','Musc','SFX','Amb','—','—','—'],
+  };
+
+  Object.entries(ROUTING_PRESETS).forEach(([name, labels]) => {
+    const btn = document.createElement('button');
+    btn.textContent = name;
+    btn.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;padding:2px 5px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:3px;color:var(--chassis-text);cursor:pointer;flex-shrink:0';
+    btn.title = `Apply ${name} routing preset — renames groups and distributes tracks evenly`;
+    btn.addEventListener('click', () => {
+      // Rename groups
+      (state.groups ?? []).forEach((g, gi) => {
+        g.name = (labels[gi] ?? '—').toUpperCase().substring(0, 4);
+      });
+      // Distribute 8 tracks evenly across 8 groups (T1→G1, T2→G2, etc.)
+      const pattern = state.project.banks[state.activeBank].patterns[state.activePattern];
+      pattern.kit.tracks.forEach((t, ti) => {
+        t.groupIndex = ti < 8 ? ti : null;
+      });
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      renderTrackSelector();
+    });
+    presetRow.append(btn);
+  });
+
+  grpSection.append(presetRow);
+
   const grpGrid = document.createElement('div');
   grpGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:3px';
 

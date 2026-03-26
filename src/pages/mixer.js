@@ -219,6 +219,7 @@ export default {
       panSlider.min = -1; panSlider.max = 1; panSlider.step = 0.05;
       panSlider.value = track.pan;
       panSlider.style.cssText = 'flex:1;accent-color:var(--track-color,var(--accent));height:3px';
+      panSlider.title = 'Pan position (L=-1, C=0, R=1)';
       panSlider.addEventListener('input', () =>
         emit('track:change', { trackIndex: ti, param: 'pan', value: parseFloat(panSlider.value) })
       );

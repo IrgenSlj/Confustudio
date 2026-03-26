@@ -155,11 +155,13 @@ body {
 #studio-controls button {
   width: 36px;
   height: 36px;
+  padding: 0 10px;
   border-radius: 10px;
   border: 1px solid rgba(255,255,255,0.2);
   background: rgba(0,0,0,0.55);
   color: rgba(255,255,255,0.8);
-  font-size: 1.1rem;
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
   cursor: pointer;
   backdrop-filter: blur(4px);
   transition: background 0.1s;
