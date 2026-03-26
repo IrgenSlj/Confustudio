@@ -222,8 +222,10 @@ export function initCables() {
         // Disconnect engine from destination, connect to DJ mixer input
         try {
           engine.master.disconnect(engine.context.destination);
-        } catch(e) {}
-        engine.master.connect(targetInput);
+          engine.master.connect(targetInput);
+        } catch(e) {
+          console.warn('[cables] audio routing failed:', e.message);
+        }
         // DJ mixer already connects to destination via masterGain
         cable._audioRouted = true;
         cable._engine = engine;

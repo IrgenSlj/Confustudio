@@ -261,7 +261,7 @@ export function initStudio() {
       }
     } else if (type === 'djmixer') {
       mod.innerHTML = '<div class="module-loading-shell">Loading Mixer</div>';
-      import('/src/modules/djmixer.js').then((m) => {
+      import('./modules/djmixer.js').then((m) => {
         const ctx = window._confusynthEngine?.context ?? null;
         mod.innerHTML = '';
         mod.appendChild(m.createDJMixer(ctx));
@@ -296,7 +296,7 @@ export function initStudio() {
     canvas.appendChild(mod);
     saveLayout();
 
-    import('/src/modules/djmixer.js').then((m) => {
+    import('./modules/djmixer.js').then((m) => {
       const ctx = window._confusynthEngine?.context ?? null;
       mod.innerHTML = '';
       mod.appendChild(m.createDJMixer(ctx));

@@ -1646,6 +1646,10 @@ function startMeterAnimation() {
   if (_meterRaf || !el.signalMeter) return;
   const dataArr = new Uint8Array(32);
   function tick() {
+    if (!el.signalMeter?.isConnected) {
+      _meterRaf = null;
+      return;
+    }
     _meterRaf = requestAnimationFrame(tick);
     const analyser = state.engine?.analyser;
     if (!analyser) return;
@@ -1730,8 +1734,8 @@ function scheduleLoop() {
         const sceneOverride = sceneParams[ti] || {};
 
         // Micro-timing offset: fraction of one step duration, range -0.5 to +0.5
-        // Per-track swing: if track has swingOverride, use it; else fall back to global state.swing
-        const trackSwing = track.swingOverride ?? state.swing ?? 0;
+        // Per-track swing: if track has swing override, use it; else fall back to global state.swing
+        const trackSwing = track.swing ?? state.swing ?? 0;
         const trackSwingOffset = (_trackStepIdx[ti] % 2 !== 0 ? 1 : -1) * trackSwing * secsPerStep;
         const microOffset = (step.microTime ?? 0) * secsPerStep + trackSwingOffset;
         const humanize = state.humanizeAmount ?? 0;
@@ -1995,6 +1999,7 @@ function scheduleLoop() {
     }
 
     renderPlayhead();
+    _schedRafId = null;
     _schedRafId = requestAnimationFrame(tick);
   };
   _schedRafId = requestAnimationFrame(tick);
