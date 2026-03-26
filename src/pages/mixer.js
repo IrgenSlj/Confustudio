@@ -720,6 +720,124 @@ export default {
     busSection.append(busStripsRow);
     container.append(busSection);
 
+    // ── Group bus fader strips ───────────────────────────────────────────────
+    const groupSection = document.createElement('div');
+    groupSection.style.cssText = 'flex-shrink:0;margin-top:6px';
+
+    // Collapsible header
+    const groupHeaderRow = document.createElement('div');
+    groupHeaderRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:4px;cursor:pointer;user-select:none';
+
+    const groupSectionLabel = document.createElement('div');
+    groupSectionLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.55rem;color:var(--muted);letter-spacing:0.08em;flex:1';
+    groupSectionLabel.textContent = 'GROUPS';
+
+    const groupCollapseBtn = document.createElement('button');
+    groupCollapseBtn.className = 'mix-collapse-btn';
+    groupCollapseBtn.textContent = '▼';
+    groupCollapseBtn.title = 'Collapse groups';
+
+    groupHeaderRow.append(groupSectionLabel, groupCollapseBtn);
+    groupSection.append(groupHeaderRow);
+
+    const groupStripsRow = document.createElement('div');
+    groupStripsRow.style.cssText = 'display:flex;gap:4px;overflow-x:auto;padding-bottom:4px';
+
+    groupCollapseBtn.addEventListener('click', () => {
+      const isCollapsed = groupStripsRow.style.display === 'none';
+      groupStripsRow.style.display = isCollapsed ? '' : 'none';
+      groupCollapseBtn.textContent = isCollapsed ? '▼' : '▶';
+    });
+
+    const GROUP_COLORS = [
+      '#f0c640', '#5add71', '#67d7ff', '#ff8c52',
+      '#c67dff', '#ff6eb4', '#40e0d0', '#f05b52',
+    ];
+
+    (state.groups ?? []).forEach((group, gi) => {
+      const color = GROUP_COLORS[gi];
+
+      const gStrip = document.createElement('div');
+      gStrip.style.cssText = `display:flex;flex-direction:column;align-items:center;gap:3px;min-width:48px;padding:4px 3px;border-radius:4px;border-left:3px solid ${color};background:rgba(0,0,0,0.25);font-family:var(--font-mono)`;
+
+      // Color stripe at top
+      const gColorStripe = document.createElement('div');
+      gColorStripe.style.cssText = `height:2px;width:100%;background:${color};border-radius:2px 2px 0 0;margin-bottom:1px`;
+      gStrip.prepend(gColorStripe);
+
+      // Group name label
+      const gLabel = document.createElement('span');
+      gLabel.style.cssText = `font-size:0.5rem;color:${color};font-weight:bold;text-align:center;letter-spacing:0.04em`;
+      gLabel.textContent = group.name ?? `G${gi + 1}`;
+
+      // Pan slider
+      const gPanRow = document.createElement('div');
+      gPanRow.style.cssText = 'display:flex;align-items:center;gap:2px;width:100%';
+      const gPanLabel = document.createElement('span');
+      gPanLabel.style.cssText = 'font-size:0.4rem;color:var(--muted)';
+      gPanLabel.textContent = 'P';
+      const gPanSlider = document.createElement('input');
+      gPanSlider.type = 'range';
+      gPanSlider.min = -1; gPanSlider.max = 1; gPanSlider.step = 0.05;
+      gPanSlider.value = group.pan ?? 0;
+      gPanSlider.style.cssText = `flex:1;height:3px;accent-color:${color}`;
+      const gPanVal = document.createElement('span');
+      gPanVal.style.cssText = 'font-size:0.4rem;color:var(--muted);min-width:18px;text-align:right';
+      const panNum = group.pan ?? 0;
+      gPanVal.textContent = panNum === 0 ? 'C' : panNum > 0 ? `R${Math.round(panNum * 100)}` : `L${Math.round(-panNum * 100)}`;
+      gPanSlider.addEventListener('input', () => {
+        const v = parseFloat(gPanSlider.value);
+        gPanVal.textContent = v === 0 ? 'C' : v > 0 ? `R${Math.round(v * 100)}` : `L${Math.round(-v * 100)}`;
+        group.pan = v;
+        if (state.engine) state.engine.setGroupPan(gi, v);
+        emit('state:change', { path: `groups.${gi}.pan`, value: v });
+      });
+      gPanRow.append(gPanLabel, gPanSlider, gPanVal);
+
+      // Vertical volume fader (0–1.5)
+      const gFader = document.createElement('input');
+      gFader.type = 'range';
+      gFader.setAttribute('orient', 'vertical');
+      gFader.min = 0; gFader.max = 1.5; gFader.step = 0.01;
+      gFader.value = group.volume ?? 1;
+      gFader.style.cssText = `writing-mode:vertical-lr;direction:rtl;height:60px;width:20px;accent-color:${color};flex-shrink:0`;
+      gFader.addEventListener('input', () => {
+        const v = parseFloat(gFader.value);
+        gVolVal.textContent = Math.round(v * 100);
+        group.volume = v;
+        if (state.engine) state.engine.setGroupVolume(gi, v);
+        emit('state:change', { path: `groups.${gi}.volume`, value: v });
+      });
+
+      // Volume readout
+      const gVolVal = document.createElement('span');
+      gVolVal.style.cssText = 'font-size:0.5rem;color:var(--accent);text-align:center';
+      gVolVal.textContent = Math.round((group.volume ?? 1) * 100);
+
+      // Mute button
+      const gMuteBtn = document.createElement('button');
+      gMuteBtn.className = 'fader-mute' + (group.muted ? ' active' : '');
+      gMuteBtn.textContent = 'M';
+      gMuteBtn.style.cssText = 'width:100%;font-size:0.44rem;padding:1px 0';
+      gMuteBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        group.muted = !group.muted;
+        gMuteBtn.classList.toggle('active', group.muted);
+        if (state.engine) {
+          // Mute overrides volume to 0; unmute restores saved volume
+          state.engine.setGroupMute(gi, group.muted);
+          if (!group.muted) state.engine.setGroupVolume(gi, group.volume ?? 1);
+        }
+        emit('state:change', { path: `groups.${gi}.muted`, value: group.muted });
+      });
+
+      gStrip.append(gLabel, gPanRow, gFader, gVolVal, gMuteBtn);
+      groupStripsRow.append(gStrip);
+    });
+
+    groupSection.append(groupStripsRow);
+    container.append(groupSection);
+
     // Shared interval: shift peak history for all sparklines every 100 ms
     const _sparkInterval = setInterval(() => {
       if (!faderGrid.isConnected) { clearInterval(_sparkInterval); return; }

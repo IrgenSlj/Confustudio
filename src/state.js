@@ -392,9 +392,11 @@ export function createAppState() {
 
     // Track groups (G1-G8): mute/solo all tracks in a group together
     groups: Array.from({ length: 8 }, (_, i) => ({
-      name: `G${i + 1}`,
-      muted: false,
-      solo:  false,
+      name:   `G${i + 1}`,
+      muted:  false,
+      solo:   false,
+      volume: 1,
+      pan:    0,
     })),
 
     // Global macro controls (4 mappable sliders)
@@ -578,6 +580,17 @@ export function loadState() {
             });
           }
         }
+      }
+      // Forward-fill group fields added after an older save was made
+      if (Array.isArray(parsed.groups)) {
+        parsed.groups = parsed.groups.map((g, i) => ({
+          name:   `G${i + 1}`,
+          muted:  false,
+          solo:   false,
+          volume: 1,
+          pan:    0,
+          ...g,
+        }));
       }
       // Merge into a fresh appState so any new fields are present
       const fresh = createAppState();
