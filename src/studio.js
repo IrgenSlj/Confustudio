@@ -6,7 +6,7 @@ export function initStudio() {
 
   const STUDIO_LAYOUT_KEY = 'confusynth-studio-layout';
   const STUDIO_VIEW_KEY = 'confusynth-studio-view';
-  const MIN_SCALE = 0.5;
+  const MIN_SCALE = 0.25;
   const MAX_SCALE = 2.25;
   const FIT_PADDING = 40;
   const DEFAULT_MODULE_W = 860;
@@ -18,6 +18,7 @@ export function initStudio() {
   let hasRestoredView = false;
   let hasRestoredLayout = false;
   let _userHasPanned = false;
+  let _autoZoom = true; // when true, viewport auto-fits on resize and new module spawn
 
   function getWrapSize() {
     return {
@@ -67,7 +68,7 @@ export function initStudio() {
     clearTimeout(_saveViewTimer);
     _saveViewTimer = setTimeout(() => {
       try {
-        localStorage.setItem(STUDIO_VIEW_KEY, JSON.stringify({ scale, panX, panY }));
+        localStorage.setItem(STUDIO_VIEW_KEY, JSON.stringify({ scale, panX, panY, autoZoom: _autoZoom }));
       } catch (_) {}
     }, 200);
   }
@@ -119,8 +120,17 @@ export function initStudio() {
       scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, Number(saved.scale) || 1));
       panX = Number(saved.panX) || 0;
       panY = Number(saved.panY) || 0;
+      if (saved.autoZoom !== undefined) _autoZoom = saved.autoZoom;
       hasRestoredView = true;
       applyTransform();
+      const autoZoomBtn = document.getElementById('auto-zoom');
+      if (autoZoomBtn) {
+        autoZoomBtn.textContent = _autoZoom ? '⊡ Auto' : '⊟ Manual';
+        autoZoomBtn.title = _autoZoom
+          ? 'Auto-fit is ON — viewport fits on resize (click to disable)'
+          : 'Auto-fit is OFF — manual zoom only (click to enable)';
+        autoZoomBtn.style.color = _autoZoom ? '' : 'rgba(255,255,255,0.35)';
+      }
       return true;
     } catch (_) {
       return false;
@@ -158,7 +168,7 @@ export function initStudio() {
     const maxY = FIT_PADDING - bounds.top * scale;
 
     if (scaledWidth + FIT_PADDING * 2 <= wrapW) {
-      if (!_userHasPanned) {
+      if (!_userHasPanned && _autoZoom) {
         panX = (wrapW - scaledWidth) / 2 - bounds.left * scale;
       } else {
         panX = Math.min(maxX, Math.max(minX, panX));
@@ -168,7 +178,7 @@ export function initStudio() {
     }
 
     if (scaledHeight + FIT_PADDING * 2 <= wrapH) {
-      if (!_userHasPanned) {
+      if (!_userHasPanned && _autoZoom) {
         panY = Math.max(18, (wrapH - scaledHeight) / 2 - bounds.top * scale);
       } else {
         panY = Math.min(maxY, Math.max(minY, panY));
@@ -339,6 +349,19 @@ export function initStudio() {
   document.getElementById('fit-all')?.addEventListener('click', () => {
     _userHasPanned = false;
     fitToWindow({ force: true });
+  });
+  const autoZoomBtn = document.getElementById('auto-zoom');
+  autoZoomBtn?.addEventListener('click', () => {
+    _autoZoom = !_autoZoom;
+    autoZoomBtn.textContent = _autoZoom ? '⊡ Auto' : '⊟ Manual';
+    autoZoomBtn.title = _autoZoom
+      ? 'Auto-fit is ON — viewport fits on resize (click to disable)'
+      : 'Auto-fit is OFF — manual zoom only (click to enable)';
+    autoZoomBtn.style.color = _autoZoom ? '' : 'rgba(255,255,255,0.35)';
+    if (_autoZoom) {
+      _userHasPanned = false;
+      fitToWindow({ force: true });
+    }
   });
   document.getElementById('add-module')?.addEventListener('click', showModulePicker);
 
@@ -517,10 +540,11 @@ export function initStudio() {
   }, { passive: true });
 
   window.addEventListener('resize', () => {
-    if (!hasRestoredLayout) {
-      fitToWindow({ force: true });
-      return;
+    if (_autoZoom) {
+      _userHasPanned = false;
+      fitToWindow();
+    } else {
+      clampViewport();
     }
-    clampViewport();
   });
 }
