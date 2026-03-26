@@ -154,11 +154,14 @@ export default {
     // ── Header ────────────────────────────────────────────────────────────────
     const header = document.createElement('div');
     header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-shrink:0';
+    const trackLen = track.trackLength > 0 ? track.trackLength : pattern.length;
+    const activeSteps = track.steps.slice(0, trackLen).filter(s => s.active).length;
     header.innerHTML = `
       <span class="page-title" style="margin:0">${pattern.name}</span>
       <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted)">
         ${pattern.length} steps &bull; ${state.bpm ?? 120} BPM
       </span>
+      <span style="font-family:var(--font-mono);font-size:0.52rem;color:var(--accent);opacity:0.8">${activeSteps}/${trackLen} ON</span>
     `;
     // ── Global pattern step count quick-select ────────────────────────────────
     const globalStepSel = document.createElement('select');
@@ -1276,26 +1279,47 @@ export default {
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'seq-actions';
     const hasStepCopy = state.copyBuffer?.type === 'steps';
-    ['Copy', 'Paste', 'Clear'].forEach(label => {
-      const btn = document.createElement('button');
-      btn.className = 'seq-btn';
-      btn.textContent = label;
-      if (label === 'Paste' && !hasStepCopy) {
-        btn.disabled = true;
-        btn.style.opacity = '0.4';
-      }
-      btn.addEventListener('click', () =>
-        emit('state:change', { path: `action_${label.toLowerCase()}`, value: true })
-      );
-      actionsDiv.append(btn);
+    const copyBtn2 = document.createElement('button');
+    copyBtn2.className = 'seq-btn';
+    copyBtn2.textContent = 'Copy';
+    copyBtn2.title = 'Copy current track steps (C)';
+    copyBtn2.addEventListener('click', () => {
+      emit('state:change', { path: 'action_copy', value: true });
+      copyBtn2.style.background = 'rgba(90,221,113,0.3)';
+      setTimeout(() => { copyBtn2.style.background = ''; }, 400);
     });
+    actionsDiv.append(copyBtn2);
+
+    const pasteBtn2 = document.createElement('button');
+    pasteBtn2.className = 'seq-btn';
+    pasteBtn2.textContent = 'Paste';
+    pasteBtn2.title = 'Paste steps to current track (V)';
+    if (!hasStepCopy) {
+      pasteBtn2.disabled = true;
+      pasteBtn2.style.opacity = '0.4';
+    }
+    pasteBtn2.addEventListener('click', () => {
+      emit('state:change', { path: 'action_paste', value: true });
+      pasteBtn2.style.background = 'rgba(90,221,113,0.3)';
+      setTimeout(() => { pasteBtn2.style.background = ''; }, 400);
+    });
+    actionsDiv.append(pasteBtn2);
+
+    const clearBtn2 = document.createElement('button');
+    clearBtn2.className = 'seq-btn';
+    clearBtn2.textContent = 'Clear';
+    clearBtn2.title = 'Clear all steps on current track';
+    clearBtn2.addEventListener('click', () =>
+      emit('state:change', { path: 'action_clear', value: true })
+    );
+    actionsDiv.append(clearBtn2);
 
     // ── Lock button ───────────────────────────────────────────────────────────
     const lockBtn = document.createElement('button');
     lockBtn.className = 'seq-btn' + (state.patternLocked ? ' active' : '');
     lockBtn.textContent = state.patternLocked ? '🔒' : '🔓';
     lockBtn.style.cssText = 'font-size:0.7rem;padding:2px 5px';
-    lockBtn.title = 'Lock pattern (prevent accidental edits)';
+    lockBtn.title = 'Lock/unlock pattern for morph source';
     lockBtn.addEventListener('click', () => {
       state.patternLocked = !state.patternLocked;
       emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
@@ -1305,6 +1329,7 @@ export default {
     const fillBtn = document.createElement('button');
     fillBtn.className = 'seq-btn' + (state._fillActive ? ' active' : '');
     fillBtn.textContent = 'Fill';
+    fillBtn.title = 'Fill pattern with active track steps (hold for options)';
     fillBtn.style.color = state._fillActive ? 'var(--live)' : '';
     fillBtn.addEventListener('click', () =>
       emit('state:change', { path: 'action_fill', value: true })
@@ -1315,7 +1340,7 @@ export default {
     const randFillBtn = document.createElement('button');
     randFillBtn.className = 'seq-btn';
     randFillBtn.textContent = 'Rnd Fill';
-    randFillBtn.title = 'Randomize all tracks (50% per step) during fill — restores on fill off';
+    randFillBtn.title = 'Randomize step velocities';
     randFillBtn.style.cssText = state._fillActive
       ? 'color:var(--live);border-color:rgba(90,221,113,0.5)'
       : 'opacity:0.45';
@@ -1342,7 +1367,7 @@ export default {
     const morphBtn = document.createElement('button');
     morphBtn.className = 'seq-btn';
     morphBtn.textContent = 'Morph';
-    morphBtn.title = 'Morph toward pattern B';
+    morphBtn.title = 'Morph between two stored patterns';
     morphBtn.addEventListener('click', () => {
       const targetPat = state.patternCompareB;
       if (!targetPat) { alert('Set Pattern B first (Banks page)'); return; }
@@ -1402,7 +1427,7 @@ export default {
     const rndAllBtn = document.createElement('button');
     rndAllBtn.className = 'seq-btn';
     rndAllBtn.textContent = 'RND ALL';
-    rndAllBtn.title = 'Randomize all 8 tracks with current density + genre';
+    rndAllBtn.title = 'Randomize all tracks with current density';
     rndAllBtn.addEventListener('click', () => {
       emit('pattern:randomizeAll', {});
     });
