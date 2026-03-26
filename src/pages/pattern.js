@@ -180,6 +180,21 @@ export default {
     });
     header.append(globalStepSel);
 
+    // ── Pattern length quick-select (clear step-count labels) ─────────────────
+    const stepCountSel = document.createElement('select');
+    stepCountSel.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px;cursor:pointer';
+    stepCountSel.title = 'Set number of steps in pattern';
+    [8, 16, 24, 32, 48, 64].forEach(n => {
+      const opt = document.createElement('option');
+      opt.value = String(n); opt.textContent = `${n} steps`;
+      if (n === pattern.length) opt.selected = true;
+      stepCountSel.append(opt);
+    });
+    stepCountSel.addEventListener('change', () => {
+      emit('state:change', { path: 'patternLength', value: parseInt(stepCountSel.value) });
+    });
+    header.append(stepCountSel);
+
     container.append(header);
 
     // ── Follow action selector ────────────────────────────────────────────────
@@ -595,18 +610,20 @@ export default {
           btn.append(microArrow);
         }
         const vel = step.velocity ?? 1;
-        // Active steps: use velocity-based opacity (0.4 + vel * 0.6); inactive: no opacity change
+        const prob = step.probability ?? 1;
+        // Active steps: opacity blends velocity; prob < 1 reduces further
         if (step.active) {
           btn.style.opacity = String(0.4 + vel * 0.6);
         }
         btn.textContent  = (si % 4 === 0) ? String(si + 1) : '';
-        btn.dataset.prob = String(step.probability);
+        btn.dataset.prob = String(prob);
         btn.dataset.step = si;
         btn.dataset.track = ti;
-        btn.title = `Step ${si+1} | vel:${Math.round(vel*100)}% | prob:${Math.round((step.probability??1)*100)}%`;
-        if (step.probability < 1.0) {
+        btn.title = `Step ${si+1}: ${step.active ? 'ON' : 'OFF'}${prob < 1 ? ' · prob '+Math.round(prob*100)+'%' : ''}${step.accent ? ' · accent' : ''}`;
+        if (prob < 1) {
           btn.classList.add('has-prob');
-          btn.style.setProperty('--prob', step.probability);
+          btn.style.setProperty('--prob', prob);
+          btn.style.opacity = String(0.4 + prob * 0.6);
         }
         // Velocity indicator (small number shown when velocity is noticeably below max)
         if (step.active && vel < 0.95) {
@@ -625,6 +642,13 @@ export default {
             noteSpan.textContent = midiToNoteName(noteMidi);
             btn.append(noteSpan);
           }
+        }
+        // Trig condition badge on active steps (3-char, top-right, amber)
+        if (step.trigCondition && step.trigCondition !== 'always' && step.active) {
+          const condBadge = document.createElement('span');
+          condBadge.style.cssText = 'position:absolute;top:1px;right:1px;font-size:0.32rem;font-family:var(--font-mono);color:rgba(255,200,100,0.9);line-height:1;pointer-events:none';
+          condBadge.textContent = step.trigCondition.substring(0, 3).toUpperCase();
+          btn.append(condBadge);
         }
         // Gate length bar — shown only when gate deviates significantly from default (0.5)
         if (step.active) {
@@ -1176,8 +1200,8 @@ export default {
     }
 
     // Build current-track active array for overlay
-    const trackLen = track.trackLength > 0 ? track.trackLength : pattern.length;
-    const currentActiveSteps = track.steps.slice(0, trackLen).map(s => s.active);
+    const euclidTrackLen = track.trackLength > 0 ? track.trackLength : pattern.length;
+    const currentActiveSteps = track.steps.slice(0, euclidTrackLen).map(s => s.active);
 
     // Initial draw
     drawEuclidCircle(

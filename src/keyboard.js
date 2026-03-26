@@ -311,7 +311,9 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
       const role = roleInfo?.role || 'idle';
       const hint = roleInfo?.hint || '';
 
-      keyEl.className = `qwerty-key role-${role}`;
+      // Step-record mode: step keys get a record-red tint instead of green
+      const roleClass = (role === 'step' && state?.stepRecordMode) ? 'role-step-rec' : `role-${role}`;
+      keyEl.className = `qwerty-key ${roleClass}`;
       keyEl.style.flexGrow = w;
       keyEl.style.flexBasis = '0';
       keyEl.dataset.code = code;

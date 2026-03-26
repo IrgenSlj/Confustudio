@@ -1941,6 +1941,14 @@ button {
 .qwerty-key.role-step .qkey-cap  { color: rgba(30,100,40,0.8); }
 .qwerty-key.role-step .qkey-hint { color: var(--live); }
 
+.qwerty-key.role-step-rec {
+  background: linear-gradient(175deg, #604040 0%, #502020 50%, #3a1010 100%);
+  border-color: #804040;
+  box-shadow: 0 4px 0 #200808, 0 5px 6px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.1);
+}
+.qwerty-key.role-step-rec .qkey-cap { color: rgba(220,80,80,0.8); }
+.qwerty-key.role-step-rec .qkey-hint { color: #ff8080; }
+
 .qwerty-key.role-note {
   background: linear-gradient(175deg, #d8e8d4 0%, #c0d8bc 50%, #a8c8a4 100%);
   border-color: #507050;
