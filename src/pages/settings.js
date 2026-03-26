@@ -216,6 +216,32 @@ export default {
     // ── MIDI Output Routing section ──────────────────────────────────────────
     const midiSection = container.querySelector('.settings-section');
     if (midiSection) {
+      // ── MIDI Reconnect button ───────────────────────────────────────────────
+      const midiReconnectBtn = document.createElement('button');
+      midiReconnectBtn.className = 'screen-btn';
+      midiReconnectBtn.textContent = '↺ Reconnect MIDI devices';
+      midiReconnectBtn.title = 'Re-scan for MIDI devices if a device was plugged in after app load';
+      midiReconnectBtn.style.cssText = 'margin-top:8px;width:100%';
+
+      midiReconnectBtn.addEventListener('click', async () => {
+        midiReconnectBtn.textContent = '…Scanning';
+        midiReconnectBtn.disabled = true;
+        try {
+          const access = await navigator.requestMIDIAccess({ sysex: false });
+          // Trigger re-render of MIDI section by emitting state change
+          emit('state:change', { path: 'midiInput', value: state.midiInput });
+          midiReconnectBtn.textContent = '✓ Devices refreshed';
+        } catch (e) {
+          midiReconnectBtn.textContent = '⚠ MIDI access denied';
+        }
+        setTimeout(() => {
+          midiReconnectBtn.disabled = false;
+          midiReconnectBtn.textContent = '↺ Reconnect MIDI devices';
+        }, 2000);
+      });
+
+      midiSection.append(midiReconnectBtn);
+
       const midiRoutingSection = document.createElement('div');
       midiRoutingSection.style.cssText = 'margin-top:10px;border-top:1px solid var(--border);padding-top:8px';
       const midiRoutingTitle = document.createElement('div');
@@ -1348,6 +1374,68 @@ export default {
     const lastSave = state._lastSaveTime ? new Date(state._lastSaveTime).toLocaleTimeString() : 'Never';
     saveStatusDiv.textContent = `Auto-save: ${lastSave}`;
     container.append(saveStatusDiv);
+
+    // ── Export Mix (WAV download) ─────────────────────────────────────────────
+    const exportCard = document.createElement('div');
+    exportCard.className = 'page-card';
+    exportCard.dataset.settingsTab = 'AUDIO';
+    exportCard.innerHTML = '<h4>Export</h4>';
+
+    const exportBtn = document.createElement('button');
+    exportBtn.className = 'screen-btn';
+    exportBtn.textContent = '⬇ Export master as WAV';
+    exportBtn.title = 'Download the last recorded master output as a WAV file';
+
+    exportBtn.addEventListener('click', () => {
+      // Find the first non-empty recorder buffer
+      const slots = state.recorderBuffers ?? [];
+      const buf = slots.find(b => b);
+      if (!buf) {
+        exportBtn.textContent = '⚠ No recording yet';
+        setTimeout(() => { exportBtn.textContent = '⬇ Export master as WAV'; }, 2000);
+        return;
+      }
+      // Encode to WAV
+      const numCh = buf.numberOfChannels;
+      const sampleRate = buf.sampleRate;
+      const length = buf.length;
+      const wavLength = 44 + length * numCh * 2;
+      const arrayBuf = new ArrayBuffer(wavLength);
+      const view = new DataView(arrayBuf);
+      // WAV header
+      const writeStr = (off, str) => { for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i)); };
+      writeStr(0, 'RIFF');
+      view.setUint32(4, wavLength - 8, true);
+      writeStr(8, 'WAVE');
+      writeStr(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true); // PCM
+      view.setUint16(22, numCh, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * numCh * 2, true);
+      view.setUint16(32, numCh * 2, true);
+      view.setUint16(34, 16, true);
+      writeStr(36, 'data');
+      view.setUint32(40, length * numCh * 2, true);
+      let offset = 44;
+      for (let i = 0; i < length; i++) {
+        for (let ch = 0; ch < numCh; ch++) {
+          const sample = Math.max(-1, Math.min(1, buf.getChannelData(ch)[i]));
+          view.setInt16(offset, sample < 0 ? sample * 32768 : sample * 32767, true);
+          offset += 2;
+        }
+      }
+      const blob = new Blob([arrayBuf], { type: 'audio/wav' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `confusynth_${Date.now()}.wav`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    exportCard.append(exportBtn);
+    container.append(exportCard);
 
     container.addEventListener('change', e => {
       const el = e.target;
