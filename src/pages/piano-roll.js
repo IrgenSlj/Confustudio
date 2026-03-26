@@ -57,7 +57,7 @@ const ZOOM_WIDTHS = [12, 18, 24, 32, 48];
 export default {
   render(container, state, emit) {
     container.innerHTML = '';
-    container.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow:hidden';
+    container.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow:hidden;padding:0';
 
     const pattern = state.project.banks[state.activeBank].patterns[state.activePattern];
     const track   = pattern.kit.tracks[state.selectedTrackIndex];
@@ -108,6 +108,10 @@ export default {
 
     // Ensure rollSelected is initialised on state
     if (!state.rollSelected) state.rollSelected = new Set();
+
+    // Loop region defaults
+    if (state.rollLoopStart == null) state.rollLoopStart = 0;
+    if (state.rollLoopEnd   == null) state.rollLoopEnd   = 16;
 
     // Header
     const header = document.createElement('div');
@@ -233,7 +237,7 @@ export default {
     // Left: note labels
     const keysCol = document.createElement('div');
     keysCol.className = 'roll-keys';
-    keysCol.style.cssText = 'flex-shrink:0;width:36px;';
+    keysCol.style.cssText = 'flex-shrink:0;width:28px;max-width:28px;';
 
     // Right: scroll container + inner grid view
     const scrollContainer = document.createElement('div');
@@ -246,8 +250,11 @@ export default {
     gridCol.className = 'roll-grid';
 
     // Beat marker header row
+    const beatHeaderWrap = document.createElement('div');
+    beatHeaderWrap.style.cssText = 'position:relative;margin-bottom:2px;flex-shrink:0';
+
     const beatHeader = document.createElement('div');
-    beatHeader.style.cssText = 'display:flex;padding-left:0;margin-bottom:2px;flex-shrink:0';
+    beatHeader.style.cssText = 'display:flex;padding-left:0';
     for (let si = 0; si < steps; si++) {
       const cell = document.createElement('div');
       cell.style.cssText = `
@@ -259,7 +266,52 @@ export default {
       cell.textContent = si % 4 === 0 ? String(si + 1) : '';
       beatHeader.append(cell);
     }
-    gridView.append(beatHeader);
+    beatHeaderWrap.append(beatHeader);
+
+    // Loop region overlay: semi-transparent green between loop start and end
+    const loopStart = Math.max(0, Math.min(steps - 1, state.rollLoopStart));
+    const loopEnd   = Math.max(loopStart + 1, Math.min(steps, state.rollLoopEnd));
+    const loopRegion = document.createElement('div');
+    loopRegion.style.cssText = `
+      position:absolute; top:0; bottom:0; pointer-events:none;
+      left:${loopStart * cellW}px; width:${(loopEnd - loopStart) * cellW}px;
+      background:rgba(0,200,80,0.12); border-left:2px solid #00c850; border-right:2px solid #ff8c00;
+    `;
+    beatHeaderWrap.append(loopRegion);
+
+    // Loop start marker (green vertical line + triangle)
+    const loopStartMarker = document.createElement('div');
+    loopStartMarker.style.cssText = `
+      position:absolute; top:0; bottom:0; left:${loopStart * cellW}px;
+      width:2px; background:#00c850; pointer-events:none; z-index:2;
+    `;
+    const loopStartTriangle = document.createElement('div');
+    loopStartTriangle.style.cssText = `
+      position:absolute; top:0; left:0;
+      width:0; height:0;
+      border-top:6px solid #00c850;
+      border-right:6px solid transparent;
+    `;
+    loopStartMarker.append(loopStartTriangle);
+    beatHeaderWrap.append(loopStartMarker);
+
+    // Loop end marker (orange vertical line + triangle)
+    const loopEndMarker = document.createElement('div');
+    loopEndMarker.style.cssText = `
+      position:absolute; top:0; bottom:0; left:${loopEnd * cellW}px;
+      width:2px; background:#ff8c00; pointer-events:none; z-index:2;
+    `;
+    const loopEndTriangle = document.createElement('div');
+    loopEndTriangle.style.cssText = `
+      position:absolute; top:0; right:0;
+      width:0; height:0;
+      border-top:6px solid #ff8c00;
+      border-left:6px solid transparent;
+    `;
+    loopEndMarker.append(loopEndTriangle);
+    beatHeaderWrap.append(loopEndMarker);
+
+    gridView.append(beatHeaderWrap);
 
     // Flat array of all grid cells for playhead animation
     const allCells = [];
@@ -312,6 +364,15 @@ export default {
       const isRoot = name.startsWith('C') && !name.includes('#');
       key.className = 'roll-key' + (isBlack ? ' black-key' : '') + (isRoot ? ' roll-key-root' : '');
       key.textContent = name;
+      // Style: C notes in accent/white, black-key note names dimmed
+      if (isRoot) {
+        key.style.color = 'var(--accent, #f0c640)';
+        key.style.fontWeight = 'bold';
+      } else if (isBlack) {
+        key.style.color = '#555';
+      }
+      key.style.textAlign = 'right';
+      key.style.maxWidth = '28px';
       keysCol.append(key);
 
       // Grid row

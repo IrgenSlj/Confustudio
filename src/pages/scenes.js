@@ -195,7 +195,53 @@ export default {
       }
 
       // ── Feature 1: Scene preview on hover ──────────────────────────────────
+      // Build param diff tooltip helper
+      const DIFF_PARAMS = ['cutoff', 'decay', 'delaySend', 'pitch', 'volume', 'pan', 'resonance', 'reverbSend'];
+      const DIFF_LABELS = { cutoff:'Cut', decay:'Dec', delaySend:'Dly', pitch:'Pit', volume:'Vol', pan:'Pan', resonance:'Res', reverbSend:'Rev' };
+      function buildDiffTooltip(sceneIdx) {
+        const previewScene = state.project.scenes[sceneIdx];
+        if (!previewScene?.tracks) return null;
+        const sceneTrackData = previewScene.tracks[state.selectedTrackIndex] ?? {};
+        const liveTrack = getActiveTrack(state);
+        const diffs = [];
+        for (const p of DIFF_PARAMS) {
+          const sceneVal = sceneTrackData[p];
+          if (sceneVal === undefined) continue;
+          const liveVal = liveTrack[p] ?? 0;
+          if (Math.abs(sceneVal - liveVal) > 1e-6) {
+            diffs.push({ param: p, scene: sceneVal, live: liveVal });
+          }
+          if (diffs.length >= 5) break;
+        }
+        if (diffs.length === 0) return null;
+        const tip = document.createElement('div');
+        tip.style.cssText = [
+          'position:absolute', 'z-index:100', 'left:50%', 'top:calc(100% + 4px)',
+          'transform:translateX(-50%)', 'min-width:110px', 'max-width:160px',
+          'background:#1a1a1a', 'border:1px solid rgba(255,255,255,0.15)',
+          'border-radius:4px', 'padding:5px 7px', 'pointer-events:none',
+          'font-family:var(--font-mono)', 'font-size:0.46rem', 'color:var(--screen-text)',
+          'box-shadow:0 4px 12px rgba(0,0,0,0.6)',
+        ].join(';');
+        diffs.forEach(({ param, scene, live }) => {
+          const row = document.createElement('div');
+          row.style.cssText = 'display:flex;justify-content:space-between;gap:6px;margin-bottom:2px';
+          const delta = scene - live;
+          const arrow = delta > 0 ? '\u2191' : '\u2193';
+          const color = delta > 0 ? '#5add71' : '#f0a050';
+          row.innerHTML = `
+            <span style="color:var(--muted);text-transform:uppercase">${DIFF_LABELS[param] ?? param}</span>
+            <span style="color:var(--muted)">${typeof live === 'number' ? live.toFixed(2) : live}</span>
+            <span style="color:${color}">${arrow}${typeof scene === 'number' ? scene.toFixed(2) : scene}</span>
+          `;
+          tip.append(row);
+        });
+        return tip;
+      }
+
+      let _diffTip = null;
       btn.addEventListener('mouseenter', () => {
+        // Live preview
         const previewScene = state.project.scenes[si];
         if (!previewScene?.tracks) return;
         const trackData = previewScene.tracks[state.selectedTrackIndex];
@@ -203,6 +249,12 @@ export default {
         const track = getActiveTrack(state);
         state._scenePreview = { scene: si, prev: { ...track } };
         Object.assign(track, trackData);
+        // Diff tooltip
+        _diffTip = buildDiffTooltip(si);
+        if (_diffTip) {
+          sceneCard.style.position = 'relative';
+          sceneCard.append(_diffTip);
+        }
       });
 
       btn.addEventListener('mouseleave', () => {
@@ -210,6 +262,10 @@ export default {
           const track = getActiveTrack(state);
           Object.assign(track, state._scenePreview.prev);
           state._scenePreview = null;
+        }
+        if (_diffTip) {
+          _diffTip.remove();
+          _diffTip = null;
         }
       });
 
