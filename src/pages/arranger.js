@@ -726,7 +726,9 @@ export default {
     container.append(list);
 
     // ── rAF loop: highlight currently playing section + progress bar ───────
+    if (container._hlRaf) cancelAnimationFrame(container._hlRaf);
     function highlightSection() {
+      if (!container.isConnected) { container._hlRaf = null; return; }
       const idx = state._arrSection ?? -1;
       const currentSection = state.arranger[idx];
       container.querySelectorAll('.arr-row').forEach((row) => {
@@ -744,9 +746,9 @@ export default {
           }
         }
       });
-      if (container.isConnected) requestAnimationFrame(highlightSection);
+      container._hlRaf = requestAnimationFrame(highlightSection);
     }
-    requestAnimationFrame(highlightSection);
+    container._hlRaf = requestAnimationFrame(highlightSection);
 
     // ── Add section toolbar ────────────────────────────────────────────────
     const toolbar = document.createElement('div');

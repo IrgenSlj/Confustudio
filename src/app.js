@@ -1646,6 +1646,10 @@ function startMeterAnimation() {
   if (_meterRaf || !el.signalMeter) return;
   const dataArr = new Uint8Array(32);
   function tick() {
+    if (!el.signalMeter?.isConnected) {
+      _meterRaf = null;
+      return;
+    }
     _meterRaf = requestAnimationFrame(tick);
     const analyser = state.engine?.analyser;
     if (!analyser) return;
@@ -1995,6 +1999,7 @@ function scheduleLoop() {
     }
 
     renderPlayhead();
+    _schedRafId = null;
     _schedRafId = requestAnimationFrame(tick);
   };
   _schedRafId = requestAnimationFrame(tick);
