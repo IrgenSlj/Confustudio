@@ -2,6 +2,197 @@
 
 const BANK_LETTERS = ['A','B','C','D','E','F','G','H'];
 
+// ─── Pattern Chain State ───────────────────────────────────────────────────────
+function getChain() {
+  if (!window._patternChain) {
+    window._patternChain = {
+      steps: [],      // [{bank:0-7, pattern:0-15, repeats:1-8, mute:false}]
+      active: false,  // chain mode overrides normal pattern selection
+      currentStep: 0, // which chain step is currently playing
+      loop: true,     // loop at end vs stop
+      _stepCount: 0,  // internal tick counter
+    };
+  }
+  return window._patternChain;
+}
+
+// ─── MIDI SMF Encoder ─────────────────────────────────────────────────────────
+function varLen(n) {
+  const bytes = [];
+  bytes.push(n & 0x7f);
+  n >>= 7;
+  while (n > 0) { bytes.unshift((n & 0x7f) | 0x80); n >>= 7; }
+  return bytes;
+}
+
+function encodeMIDI(state, bankIdx, patIdx) {
+  const PPQ = 480;
+  const STEP_TICKS = PPQ / 4; // 16th note = 120 ticks at 480 PPQ
+  const BPM = state.bpm ?? 120;
+  const tempoMicros = Math.round(60_000_000 / BPM);
+
+  const events = [];
+  // Tempo event at tick 0
+  events.push({ tick: 0, data: [0xff, 0x51, 0x03,
+    (tempoMicros >> 16) & 0xff, (tempoMicros >> 8) & 0xff, tempoMicros & 0xff] });
+
+  const pattern = state.project?.banks?.[bankIdx]?.patterns?.[patIdx];
+  if (!pattern) return new Uint8Array(0);
+
+  const tracks = pattern.kit?.tracks ?? [];
+  tracks.forEach((track, ti) => {
+    const ch = ti % 16;
+    const stepLen = (track.trackLength > 0 ? track.trackLength : null) ?? pattern.length ?? 16;
+    (track.steps ?? []).slice(0, stepLen).forEach((step, si) => {
+      if (!step.active) return;
+      const onTick  = si * STEP_TICKS;
+      const offTick = onTick + Math.round(STEP_TICKS * (step.gate ?? 0.5));
+      const vel     = step.velocity === 0 ? 63 : step.velocity === 1 ? 95 : 127;
+      const note    = step.note ?? track.pitch ?? 60;
+      events.push({ tick: onTick,  data: [0x90 | ch, note & 0x7f, vel] });
+      events.push({ tick: offTick, data: [0x80 | ch, note & 0x7f, 0]  });
+    });
+  });
+
+  // Sort by tick, then note-offs before note-ons at same tick
+  events.sort((a, b) => {
+    if (a.tick !== b.tick) return a.tick - b.tick;
+    const aOff = (a.data[0] & 0xf0) === 0x80 ? 0 : 1;
+    const bOff = (b.data[0] & 0xf0) === 0x80 ? 0 : 1;
+    return aOff - bOff;
+  });
+
+  let prevTick = 0;
+  const trackBytes = [];
+  events.forEach(ev => {
+    const delta = ev.tick - prevTick;
+    prevTick = ev.tick;
+    varLen(delta).forEach(b => trackBytes.push(b));
+    ev.data.forEach(b => trackBytes.push(b));
+  });
+  // End of track
+  [0x00, 0xff, 0x2f, 0x00].forEach(b => trackBytes.push(b));
+
+  const header = [
+    0x4d, 0x54, 0x68, 0x64, // MThd
+    0x00, 0x00, 0x00, 0x06, // length 6
+    0x00, 0x00,             // format 0
+    0x00, 0x01,             // 1 track
+    (PPQ >> 8) & 0xff, PPQ & 0xff,
+  ];
+  const trackLen = trackBytes.length;
+  const trackHeader = [
+    0x4d, 0x54, 0x72, 0x6b, // MTrk
+    (trackLen >> 24) & 0xff, (trackLen >> 16) & 0xff,
+    (trackLen >>  8) & 0xff,  trackLen & 0xff,
+  ];
+  return new Uint8Array([...header, ...trackHeader, ...trackBytes]);
+}
+
+// ─── MIDI SMF Decoder ─────────────────────────────────────────────────────────
+function decodeMIDI(arrayBuffer) {
+  const view = new DataView(arrayBuffer);
+  let pos = 0;
+
+  function readUint32() { const v = view.getUint32(pos); pos += 4; return v; }
+  function readUint16() { const v = view.getUint16(pos); pos += 2; return v; }
+  function readUint8()  { return view.getUint8(pos++); }
+  function readVarLen() {
+    let value = 0, b;
+    do { b = readUint8(); value = (value << 7) | (b & 0x7f); } while (b & 0x80);
+    return value;
+  }
+
+  // Header
+  if (readUint32() !== 0x4d546864) return null; // 'MThd'
+  readUint32(); // header length (always 6)
+  const format = readUint16();
+  const numTracks = readUint16();
+  const ppq = readUint16();
+
+  const channelNotes = {}; // channel -> [{tick, note, velocity, duration}]
+
+  for (let t = 0; t < numTracks; t++) {
+    if (pos + 8 > arrayBuffer.byteLength) break;
+    const chunkId = readUint32();
+    const chunkLen = readUint32();
+    if (chunkId !== 0x4d54726b) { pos += chunkLen; continue; } // 'MTrk'
+
+    const chunkEnd = pos + chunkLen;
+    let tick = 0;
+    let runningStatus = 0;
+    const noteOnTick = {}; // `${ch}-${note}` -> tick
+
+    while (pos < chunkEnd) {
+      const delta = readVarLen();
+      tick += delta;
+      let statusByte = view.getUint8(pos);
+
+      if (statusByte & 0x80) {
+        runningStatus = statusByte;
+        pos++;
+      } else {
+        statusByte = runningStatus;
+      }
+
+      const type = statusByte & 0xf0;
+      const ch   = statusByte & 0x0f;
+
+      if (type === 0xff) {
+        // Meta event
+        const metaType = readUint8();
+        const metaLen  = readVarLen();
+        pos += metaLen;
+      } else if (type === 0xf0 || type === 0xf7) {
+        // SysEx
+        const sysLen = readVarLen();
+        pos += sysLen;
+      } else if (type === 0x90) {
+        const note = readUint8();
+        const vel  = readUint8();
+        if (vel > 0) {
+          noteOnTick[`${ch}-${note}`] = { tick, vel };
+        } else {
+          // note-on with vel=0 treated as note-off
+          const on = noteOnTick[`${ch}-${note}`];
+          if (on) {
+            if (!channelNotes[ch]) channelNotes[ch] = [];
+            channelNotes[ch].push({ tick: on.tick, note, velocity: on.vel, duration: tick - on.tick });
+            delete noteOnTick[`${ch}-${note}`];
+          }
+        }
+      } else if (type === 0x80) {
+        const note = readUint8();
+        readUint8(); // off velocity
+        const on = noteOnTick[`${ch}-${note}`];
+        if (on) {
+          if (!channelNotes[ch]) channelNotes[ch] = [];
+          channelNotes[ch].push({ tick: on.tick, note, velocity: on.vel, duration: tick - on.tick });
+          delete noteOnTick[`${ch}-${note}`];
+        }
+      } else if (type === 0xa0 || type === 0xb0 || type === 0xe0) {
+        pos += 2;
+      } else if (type === 0xc0 || type === 0xd0) {
+        pos += 1;
+      } else {
+        pos++; // unknown, skip byte
+      }
+    }
+    pos = chunkEnd;
+  }
+
+  const STEP_TICKS = ppq / 4; // 16th note ticks
+  const tracks = Object.entries(channelNotes).map(([ch, notes]) => ({
+    channel: parseInt(ch),
+    notes: notes.map(n => ({
+      ...n,
+      stepIndex: Math.round(n.tick / STEP_TICKS),
+    })),
+  }));
+
+  return { format, ppq, tracks };
+}
+
 const TRACK_COLORS = ['#f0c640','#5add71','#67d7ff','#ff8c52','#c67dff','#ff6eb4','#40e0d0','#f05b52'];
 
 function computePatternDiff(patA, patB) {
@@ -147,41 +338,218 @@ export default {
     abBar.append(markABtn, markBBtn, swapBtn, diffBtn);
     container.append(abBar);
 
-    // Chain toggle bar
-    const chainBar = document.createElement('div');
-    chainBar.className = 'ab-compare-bar';
+    // ── Chain Editor Panel ──────────────────────────────────────────────────
+    const chain = getChain();
 
-    const chainLabel = document.createElement('label');
-    chainLabel.textContent = 'CHAIN';
-    chainBar.append(chainLabel);
+    // Tab switcher: BANKS view vs CHAIN view
+    const tabRow = document.createElement('div');
+    tabRow.style.cssText = 'display:flex;gap:3px;flex-shrink:0;margin-bottom:4px';
 
-    const chainBtn = document.createElement('button');
-    chainBtn.className = 'ab-btn' + (state.chainPatterns ? ' has-a' : '');
-    chainBtn.textContent = state.chainPatterns ? '⛓ ON' : '⛓ OFF';
-    chainBtn.addEventListener('click', () => {
-      state.chainPatterns = !state.chainPatterns;
-      state._patternLoopCount = 0;
-      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+    const tabBanks = document.createElement('button');
+    tabBanks.className = 'ab-btn' + (!state._chainEditorOpen ? ' has-a' : '');
+    tabBanks.textContent = 'BANKS';
+    tabBanks.style.cssText = 'flex:1;font-family:var(--font-mono);font-size:0.52rem';
+
+    const tabChain = document.createElement('button');
+    tabChain.className = 'ab-btn' + (state._chainEditorOpen ? ' has-a' : '');
+    tabChain.textContent = 'CHAIN';
+    tabChain.style.cssText = 'flex:1;font-family:var(--font-mono);font-size:0.52rem';
+
+    tabRow.append(tabBanks, tabChain);
+    container.append(tabRow);
+
+    // Sections shown/hidden by tab
+    const bankSection = document.createElement('div');
+    bankSection.style.cssText = `display:${state._chainEditorOpen ? 'none' : 'flex'};flex-direction:column;gap:4px`;
+
+    const chainSection = document.createElement('div');
+    chainSection.style.cssText = `display:${state._chainEditorOpen ? 'flex' : 'none'};flex-direction:column;gap:4px;flex:1;overflow:hidden`;
+
+    tabBanks.addEventListener('click', () => {
+      state._chainEditorOpen = false;
+      bankSection.style.display = 'flex';
+      chainSection.style.display = 'none';
+      tabBanks.classList.add('has-a');
+      tabChain.classList.remove('has-a');
+    });
+    tabChain.addEventListener('click', () => {
+      state._chainEditorOpen = true;
+      bankSection.style.display = 'none';
+      chainSection.style.display = 'flex';
+      tabBanks.classList.remove('has-a');
+      tabChain.classList.add('has-a');
     });
 
-    const chainLenLabel = document.createElement('label');
-    chainLenLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.5rem;color:var(--muted)';
-    chainLenLabel.textContent = 'Loops:';
+    // ── Chain Editor Contents ──────────────────────────────────────────────
+    // Controls row: ACTIVE, LOOP, Add Step
+    const chainCtrlRow = document.createElement('div');
+    chainCtrlRow.style.cssText = 'display:flex;gap:4px;align-items:center;flex-shrink:0';
 
-    const chainLenInput = document.createElement('input');
-    chainLenInput.type = 'number';
-    chainLenInput.min = '1';
-    chainLenInput.max = '16';
-    chainLenInput.value = state.chainLength ?? 1;
-    chainLenInput.style.cssText = 'width:36px;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 3px;font-family:var(--font-mono);font-size:0.5rem';
-    chainLenInput.addEventListener('change', () => {
-      state.chainLength = parseInt(chainLenInput.value) || 1;
-      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+    const chainActiveBtn = document.createElement('button');
+    chainActiveBtn.className = 'ab-btn' + (chain.active ? ' has-a' : '');
+    chainActiveBtn.textContent = chain.active ? 'ACTIVE' : 'INACTIVE';
+    chainActiveBtn.title = 'Enable chain mode (overrides normal pattern selection)';
+    chainActiveBtn.addEventListener('click', () => {
+      chain.active = !chain.active;
+      chain._stepCount = 0;
+      chain.currentStep = 0;
+      chainActiveBtn.textContent = chain.active ? 'ACTIVE' : 'INACTIVE';
+      chainActiveBtn.className = 'ab-btn' + (chain.active ? ' has-a' : '');
     });
 
-    chainBar.append(chainBtn, chainLenLabel, chainLenInput);
-    container.append(chainBar);
+    const chainLoopBtn = document.createElement('button');
+    chainLoopBtn.className = 'ab-btn' + (chain.loop ? ' has-a' : '');
+    chainLoopBtn.textContent = chain.loop ? 'LOOP' : 'ONCE';
+    chainLoopBtn.title = 'Loop chain vs play once';
+    chainLoopBtn.addEventListener('click', () => {
+      chain.loop = !chain.loop;
+      chainLoopBtn.textContent = chain.loop ? 'LOOP' : 'ONCE';
+      chainLoopBtn.className = 'ab-btn' + (chain.loop ? ' has-a' : '');
+    });
 
+    const addStepBtn = document.createElement('button');
+    addStepBtn.className = 'seq-btn';
+    addStepBtn.textContent = '+ Add Step';
+    addStepBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.5rem;margin-left:auto';
+    addStepBtn.addEventListener('click', () => {
+      chain.steps.push({ bank: activeBank, pattern: activePattern, repeats: 1, mute: false });
+      renderChainList();
+    });
+
+    chainCtrlRow.append(chainActiveBtn, chainLoopBtn, addStepBtn);
+    chainSection.append(chainCtrlRow);
+
+    // Chain step list
+    const chainListEl = document.createElement('div');
+    chainListEl.style.cssText = 'display:flex;flex-direction:column;gap:3px;overflow-y:auto;flex:1;min-height:80px;max-height:220px';
+    chainSection.append(chainListEl);
+
+    function renderChainList() {
+      chainListEl.innerHTML = '';
+      if (chain.steps.length === 0) {
+        const empty = document.createElement('div');
+        empty.style.cssText = 'color:var(--muted);font-family:var(--font-mono);font-size:0.5rem;padding:8px;text-align:center';
+        empty.textContent = 'No steps. Click "+ Add Step" to begin.';
+        chainListEl.append(empty);
+        return;
+      }
+      chain.steps.forEach((step, idx) => {
+        const row = document.createElement('div');
+        const isCurrent = chain.active && idx === chain.currentStep;
+        row.style.cssText = `display:flex;align-items:center;gap:3px;padding:3px 4px;border-radius:3px;border:1px solid ${isCurrent ? 'rgba(240,198,64,0.5)' : '#2a2a2a'};background:${isCurrent ? 'rgba(240,198,64,0.07)' : '#111'};${step.mute ? 'opacity:0.45' : ''}`;
+
+        const posLabel = document.createElement('span');
+        posLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted);min-width:14px';
+        posLabel.textContent = String(idx + 1).padStart(2, '0');
+        row.append(posLabel);
+
+        const bankSel = document.createElement('select');
+        bankSel.style.cssText = 'background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 2px;font-family:var(--font-mono);font-size:0.5rem;width:40px';
+        BANK_LETTERS.forEach((l, bi) => {
+          const opt = document.createElement('option');
+          opt.value = bi; opt.textContent = l;
+          if (bi === step.bank) opt.selected = true;
+          bankSel.append(opt);
+        });
+        bankSel.addEventListener('change', () => { step.bank = parseInt(bankSel.value); });
+        row.append(bankSel);
+
+        const patSel = document.createElement('select');
+        patSel.style.cssText = bankSel.style.cssText + ';width:42px';
+        for (let i = 0; i < 16; i++) {
+          const opt = document.createElement('option');
+          opt.value = i; opt.textContent = String(i + 1).padStart(2, '0');
+          if (i === step.pattern) opt.selected = true;
+          patSel.append(opt);
+        }
+        patSel.addEventListener('change', () => { step.pattern = parseInt(patSel.value); });
+        row.append(patSel);
+
+        // Repeat counter
+        const repLabel = document.createElement('span');
+        repLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.46rem;color:var(--muted)';
+        repLabel.textContent = '\u00d7';
+        const repMinus = document.createElement('button');
+        repMinus.className = 'seq-btn';
+        repMinus.textContent = '-';
+        repMinus.style.cssText = 'font-size:0.6rem;padding:0 4px;line-height:1.2';
+        const repVal = document.createElement('span');
+        repVal.style.cssText = 'font-family:var(--font-mono);font-size:0.5rem;min-width:10px;text-align:center;color:var(--screen-text)';
+        repVal.textContent = step.repeats;
+        const repPlus = document.createElement('button');
+        repPlus.className = 'seq-btn';
+        repPlus.textContent = '+';
+        repPlus.style.cssText = repMinus.style.cssText;
+        repMinus.addEventListener('click', () => {
+          step.repeats = Math.max(1, step.repeats - 1);
+          repVal.textContent = step.repeats;
+        });
+        repPlus.addEventListener('click', () => {
+          step.repeats = Math.min(8, step.repeats + 1);
+          repVal.textContent = step.repeats;
+        });
+        row.append(repLabel, repMinus, repVal, repPlus);
+
+        // Mute toggle
+        const muteBtn = document.createElement('button');
+        muteBtn.className = 'seq-btn' + (step.mute ? ' active' : '');
+        muteBtn.textContent = 'M';
+        muteBtn.title = 'Mute this step (pattern advances but plays silently)';
+        muteBtn.style.cssText = 'font-size:0.5rem;padding:1px 5px';
+        muteBtn.addEventListener('click', () => {
+          step.mute = !step.mute;
+          renderChainList();
+        });
+        row.append(muteBtn);
+
+        // Move up / down
+        const upBtn = document.createElement('button');
+        upBtn.className = 'seq-btn';
+        upBtn.textContent = '\u25b2';
+        upBtn.title = 'Move up';
+        upBtn.style.cssText = 'font-size:0.5rem;padding:1px 4px';
+        upBtn.disabled = idx === 0;
+        upBtn.addEventListener('click', () => {
+          if (idx === 0) return;
+          [chain.steps[idx - 1], chain.steps[idx]] = [chain.steps[idx], chain.steps[idx - 1]];
+          renderChainList();
+        });
+
+        const downBtn = document.createElement('button');
+        downBtn.className = 'seq-btn';
+        downBtn.textContent = '\u25bc';
+        downBtn.title = 'Move down';
+        downBtn.style.cssText = upBtn.style.cssText;
+        downBtn.disabled = idx === chain.steps.length - 1;
+        downBtn.addEventListener('click', () => {
+          if (idx >= chain.steps.length - 1) return;
+          [chain.steps[idx], chain.steps[idx + 1]] = [chain.steps[idx + 1], chain.steps[idx]];
+          renderChainList();
+        });
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'seq-btn';
+        delBtn.textContent = '\u00d7';
+        delBtn.title = 'Remove step';
+        delBtn.style.cssText = 'font-size:0.6rem;padding:0 5px;color:#f05b52';
+        delBtn.addEventListener('click', () => {
+          chain.steps.splice(idx, 1);
+          if (chain.currentStep >= chain.steps.length) chain.currentStep = 0;
+          renderChainList();
+        });
+
+        row.append(upBtn, downBtn, delBtn);
+        chainListEl.append(row);
+      });
+    }
+    renderChainList();
+
+    // Expose re-render so the clock handler can call it
+    window._renderChainList = renderChainList;
+
+    container.append(chainSection);
+
+    // ── Bank/Pattern Section (hidden when chain tab is active) ─────────────
     // Bank selector (A–H)
     const bankRow = document.createElement('div');
     bankRow.style.cssText = 'display:flex;gap:2px;flex-shrink:0;margin-bottom:4px';
@@ -197,7 +565,7 @@ export default {
       });
       bankRow.append(btn);
     });
-    container.append(bankRow);
+    bankSection.append(bankRow);
 
     // Pattern grid (4×4 = 16 patterns)
     const patGrid = document.createElement('div');
@@ -407,7 +775,7 @@ export default {
 
       patGrid.append(btn);
     });
-    container.append(patGrid);
+    bankSection.append(patGrid);
 
     // Actions
     const actions = document.createElement('div');
@@ -430,7 +798,7 @@ export default {
     );
 
     actions.append(copyBtn, pasteBtn);
-    container.append(actions);
+    bankSection.append(actions);
 
     // Copy to Bank... section
     const copyToDiv = document.createElement('div');
@@ -471,7 +839,7 @@ export default {
     });
 
     copyToDiv.append(copyToLbl, bankSelect, patSelect, copyToBtn);
-    container.append(copyToDiv);
+    bankSection.append(copyToDiv);
 
     // Pattern info panel
     const infoPanel = document.createElement('div');
@@ -540,8 +908,77 @@ export default {
       document.body.removeChild(fileInput);
     });
 
-    infoPanel.append(exportBtn, importBtn);
-    container.append(infoPanel);
+    // MIDI Export button
+    const midiExportBtn = document.createElement('button');
+    midiExportBtn.className = 'seq-btn';
+    midiExportBtn.textContent = 'MIDI';
+    midiExportBtn.title = 'Export pattern as MIDI file (.mid)';
+    midiExportBtn.style.cssText = 'font-size:0.5rem;padding:2px 6px';
+    midiExportBtn.addEventListener('click', () => {
+      const midi = encodeMIDI(state, activeBank, activePattern);
+      if (!midi.length) { emit('toast', { msg: 'Nothing to export' }); return; }
+      const bankName = BANK_LETTERS[activeBank];
+      const filename = `confusynth_${bankName}${String(activePattern + 1).padStart(2, '0')}.mid`;
+      const blob = new Blob([midi], { type: 'audio/midi' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+      emit('toast', { msg: `Exported ${filename}` });
+    });
+
+    // MIDI Import button
+    const midiImportBtn = document.createElement('button');
+    midiImportBtn.className = 'seq-btn';
+    midiImportBtn.textContent = 'MIDI In';
+    midiImportBtn.title = 'Import MIDI file into current pattern';
+    midiImportBtn.style.cssText = 'font-size:0.5rem;padding:2px 6px';
+    midiImportBtn.addEventListener('click', () => {
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = '.mid,.midi';
+      fileInput.style.display = 'none';
+      fileInput.addEventListener('change', () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+          const decoded = decodeMIDI(ev.target.result);
+          if (!decoded) { emit('toast', { msg: 'MIDI import failed: invalid file' }); return; }
+          const targetPat = state.project.banks[activeBank].patterns[activePattern];
+          const patTracks = targetPat.kit?.tracks ?? [];
+          let notesImported = 0;
+          decoded.tracks.forEach(midiTrack => {
+            const ch = midiTrack.channel;
+            const trackObj = patTracks[ch % patTracks.length];
+            if (!trackObj) return;
+            const patLen = (trackObj.trackLength > 0 ? trackObj.trackLength : null) ?? targetPat.length ?? 16;
+            // Clear existing steps in range
+            trackObj.steps?.slice(0, patLen).forEach(s => { s.active = false; });
+            midiTrack.notes.forEach(n => {
+              const si = n.stepIndex;
+              if (si >= 0 && si < patLen && trackObj.steps[si]) {
+                trackObj.steps[si].active = true;
+                trackObj.steps[si].note = n.note;
+                trackObj.steps[si].velocity = n.velocity >= 110 ? 2 : n.velocity >= 80 ? 1 : 0;
+                notesImported++;
+              }
+            });
+          });
+          emit('state:change', { path: 'scale', value: state.scale });
+          emit('toast', { msg: `MIDI imported: ${notesImported} notes` });
+        };
+        reader.readAsArrayBuffer(file);
+      });
+      document.body.appendChild(fileInput);
+      fileInput.click();
+      document.body.removeChild(fileInput);
+    });
+
+    infoPanel.append(exportBtn, importBtn, midiExportBtn, midiImportBtn);
+    bankSection.append(infoPanel);
+
+    container.append(bankSection);
   },
 
   knobMap: [

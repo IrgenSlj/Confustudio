@@ -1991,6 +1991,40 @@ function scheduleLoop() {
           }
         }
 
+        // _patternChain editor: advance through user-defined chain steps on each pattern loop
+        if (window._patternChain?.active && window._patternChain.steps.length > 0) {
+          const pc = window._patternChain;
+          const curStep = pc.steps[pc.currentStep];
+          if (curStep) {
+            pc._loopCount = (pc._loopCount ?? 0) + 1;
+            if (pc._loopCount >= (curStep.repeats ?? 1)) {
+              pc._loopCount = 0;
+              const nextIdx = pc.currentStep + 1;
+              if (nextIdx >= pc.steps.length) {
+                if (pc.loop) {
+                  pc.currentStep = 0;
+                } else {
+                  pc.active = false;
+                  pc.currentStep = 0;
+                }
+              } else {
+                pc.currentStep = nextIdx;
+              }
+              if (pc.active) {
+                const next = pc.steps[pc.currentStep];
+                if (next && !next.mute) {
+                  state.activeBank    = next.bank;
+                  state.activePattern = next.pattern;
+                }
+              }
+              // Refresh the chain list UI if it's visible
+              if (typeof window._renderChainList === 'function') {
+                window._renderChainList();
+              }
+            }
+          }
+        }
+
         // Scene chain: auto-advance to the next scene slot after sceneChainBars bars
         if (state.sceneChainEnabled) {
           state._sceneChainBarCount = (state._sceneChainBarCount ?? 0) + 1;
