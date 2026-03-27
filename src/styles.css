@@ -1847,9 +1847,9 @@ button {
 .kbd-collapse-btn:hover { opacity: 1; color: var(--fg); }
 
 .kbd-panel {
-  background: var(--chassis-dark);
-  border-top: 2px solid rgba(0,0,0,0.5);
-  padding: 4px 8px 6px;
+  background: rgba(0,0,0,0.3);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding: 4px 6px 6px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -2038,25 +2038,32 @@ button {
 .qwerty-key.role-track-sel .qkey-hint { color: #b090f0; }
 
 .qrow-space .qwerty-key {
-  background: linear-gradient(180deg, #3a5040 0%, #2a4030 70%, #1a3020 100%);
-  border-color: #4a6050;
-  border-bottom-color: #1a2a1a;
+  background: linear-gradient(180deg, rgba(90,221,113,0.18) 0%, rgba(60,160,80,0.15) 70%, rgba(30,100,50,0.18) 100%);
+  border-color: rgba(90,221,113,0.3);
+  border-bottom: 3px solid rgba(30,100,50,0.5);
   box-shadow:
-    0 3px 0 #0a1a0a,
-    0 4px 4px rgba(0,0,0,0.6),
-    inset 0 1px 0 rgba(255,255,255,0.12);
-  color: #80d880;
+    0 3px 0 rgba(20,80,40,0.7),
+    0 4px 6px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.1),
+    0 0 6px rgba(90,221,113,0.08);
+  color: var(--live);
   font-family: var(--font-mono);
-  font-size: 0.52rem;
+  font-size: 0.55rem;
+  font-weight: 700;
   letter-spacing: 0.3em;
   justify-content: center;
   align-items: center;
   padding: 0;
 }
 
+.qrow-space .qwerty-key:hover {
+  background: linear-gradient(180deg, rgba(90,221,113,0.25) 0%, rgba(60,160,80,0.22) 100%);
+  filter: brightness(1.1);
+}
+
 .qkey-cap {
   font-family: var(--font-mono);
-  font-size: 0.58rem;
+  font-size: 0.62rem;
   font-weight: 700;
   color: #3a3228;
   line-height: 1;
@@ -2067,11 +2074,11 @@ button {
 
 .qkey-hint {
   font-family: var(--font-mono);
-  font-size: 0.40rem;
+  font-size: 0.42rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   line-height: 1;
-  opacity: 0.85;
+  opacity: 0.9;
   text-transform: uppercase;
   margin-bottom: 1px;
   color: transparent;
@@ -2081,6 +2088,15 @@ button {
   max-width: 100%;
   transition: color 0.07s;
 }
+
+/* Sub-label shown below the key letter on keys with page shortcuts */
+.qwerty-key .key-sub {
+  font-size: 0.42rem;
+  color: rgba(255,255,255,0.3);
+  font-weight: 400;
+  line-height: 1;
+}
+.qwerty-key.pressed .key-sub { color: var(--live); opacity: 0.7; }
 
 /* Role colours */
 
@@ -2206,6 +2222,19 @@ button {
   cursor: default;
 }
 
+/* Space bar pressed: green flash to reinforce play/stop feedback */
+.qrow-space .qwerty-key.pressed,
+.qrow-space .qwerty-key:active {
+  background: rgba(90,221,113,0.35) !important;
+  border-color: var(--live) !important;
+  box-shadow:
+    0 1px 0 rgba(20,80,40,0.8),
+    0 0 10px rgba(90,221,113,0.4),
+    inset 0 2px 4px rgba(0,0,0,0.2) !important;
+  color: var(--live) !important;
+  filter: brightness(1.3) !important;
+}
+
 /* ============================================================
    VISUAL PIANO — 3D physical piano keys
    ============================================================ */
@@ -2220,10 +2249,10 @@ button {
 }
 
 .kbd-help-strip {
-  height: 16px;
+  min-height: 18px;
   display: flex;
   align-items: center;
-  padding: 0 8px;
+  padding: 3px 8px;
   flex-shrink: 0;
   border-top: 1px solid rgba(255,255,255,0.05);
   background: rgba(0,0,0,0.2);
@@ -2231,21 +2260,94 @@ button {
 
 #kbd-help-text {
   font-family: var(--font-mono);
-  font-size: 0.48rem;
-  color: var(--muted);
-  letter-spacing: 0.05em;
+  font-size: 0.55rem;
+  color: rgba(255,255,255,0.28);
+  font-style: italic;
+  letter-spacing: 0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity 0.2s, color 0.2s;
 }
 
 #kbd-help-text.visible {
   opacity: 1;
 }
 
+.kbd-help-strip:hover #kbd-help-text {
+  color: rgba(255,255,255,0.5);
+}
+
 /* kbd-collapse-bar: see earlier definition */
+
+/* ── Keyboard shortcut reference grid (non-QWERTY pages) ── */
+
+.kbd-shortcut-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 6px 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.kbd-shortcut-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.58rem;
+}
+
+.kbd-key-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 3px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.7);
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  font-weight: 700;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.4);
+  white-space: nowrap;
+}
+
+.kbd-shortcut-action {
+  color: rgba(255,255,255,0.4);
+}
+
+/* ── Piano roll scale buttons ── */
+
+.roll-scale-btns {
+  display: flex;
+  gap: 3px;
+  padding: 3px 6px;
+  background: rgba(0,0,0,0.3);
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.roll-scale-btn {
+  padding: 3px 7px;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  border-radius: 3px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+}
+
+.roll-scale-btn.active {
+  background: rgba(90,221,113,0.2);
+  color: var(--live);
+  border-color: var(--live);
+}
 
 .piano-wrapper {
   display: flex;

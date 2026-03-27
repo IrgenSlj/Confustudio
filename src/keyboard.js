@@ -272,6 +272,101 @@ function detectChord(notes) {
   return null;
 }
 
+// ─── Page-level shortcut reference data ───────────────────────────────────────
+
+const PAGE_SHORTCUTS = {
+  'scenes': [
+    { key: 'A–H',       action: 'Launch Scene' },
+    { key: 'Shift+A–H', action: 'Capture Scene' },
+    { key: '←→',        action: 'Prev/Next Scene' },
+    { key: 'X',         action: 'Crossfade A↔B' },
+    { key: 'Space',     action: 'Play/Stop' },
+  ],
+  'banks': [
+    { key: '1–8',   action: 'Select Pattern' },
+    { key: 'A–H',   action: 'Select Bank' },
+    { key: 'C',     action: 'Copy Pattern' },
+    { key: 'P',     action: 'Paste Pattern' },
+    { key: 'Space', action: 'Play/Stop' },
+  ],
+  'arranger': [
+    { key: 'Space', action: 'Play/Stop' },
+    { key: '←→',   action: 'Move Section' },
+    { key: 'Del',   action: 'Delete Section' },
+    { key: 'D',     action: 'Duplicate Section' },
+    { key: 'L',     action: 'Toggle Loop' },
+  ],
+  'mixer': [
+    { key: '1–8',   action: 'Select Track' },
+    { key: 'M',     action: 'Mute Track' },
+    { key: 'S',     action: 'Solo Track' },
+    { key: '↑↓',   action: 'Adjust Volume' },
+    { key: 'Space', action: 'Play/Stop' },
+  ],
+  'modmatrix': [
+    { key: 'N',     action: 'New Route' },
+    { key: 'Del',   action: 'Delete Route' },
+    { key: '1–4',   action: 'Select Macro' },
+    { key: 'Space', action: 'Play/Stop' },
+  ],
+  'fx': [
+    { key: 'B',     action: 'Bypass All FX' },
+    { key: '1–5',   action: 'FX Preset' },
+    { key: 'R',     action: 'Toggle Reverb' },
+    { key: 'D',     action: 'Toggle Delay' },
+    { key: 'Space', action: 'Play/Stop' },
+  ],
+  'settings': [
+    { key: 'Ctrl+S', action: 'Save Project' },
+    { key: 'Ctrl+Z', action: 'Undo' },
+    { key: 'Ctrl+E', action: 'Export MIDI' },
+    { key: 'F1',     action: 'Help' },
+  ],
+};
+
+// Pages that use a shortcut grid instead of the QWERTY layout
+const SHORTCUT_GRID_PAGES = new Set(Object.keys(PAGE_SHORTCUTS));
+
+// ─── Page-level help strip hints ──────────────────────────────────────────────
+
+const PAGE_HINTS = {
+  'pattern':    'Click step to toggle • Right-click step for options • Drag euclid knob for rhythm',
+  'piano-roll': 'Click to add note • Drag to move • Ctrl+scroll to zoom • Right-click to delete',
+  'sound':      'Click waveform to change • Drag sliders • Double-click value to type',
+  'mixer':      'Drag faders • M to mute • S to solo • R/D knobs for reverb/delay send',
+  'fx':         'Click EQ dots to drag • Select reverb preset • Bypass All FX toggle',
+  'pad':        'Tap pad to trigger • Y position = velocity • Hold for sustain',
+  'modmatrix':  'Add Route to connect sources to destinations • Drag amount slider',
+  'scenes':     'CAP to capture • Click to launch • Drag crossfader A↔B',
+  'banks':      'Click pattern to load • Right-click to copy/paste',
+  'arranger':   'Add sections • Click block to select • Right-click for options',
+  'settings':   'Configure audio, MIDI and project settings',
+};
+
+export function updateHelpStrip(page) {
+  const el = document.getElementById('kbd-help-text');
+  if (el && PAGE_HINTS[page]) {
+    el.textContent = PAGE_HINTS[page];
+    el.classList.add('visible');
+  }
+}
+
+// ─── Shortcut grid renderer ────────────────────────────────────────────────────
+
+function renderShortcutGrid(shortcuts, container) {
+  const grid = document.createElement('div');
+  grid.className = 'kbd-shortcut-grid';
+  shortcuts.forEach(({ key, action }) => {
+    const item = document.createElement('div');
+    item.className = 'kbd-shortcut-item';
+    item.innerHTML =
+      `<kbd class="kbd-key-badge">${key}</kbd>` +
+      `<span class="kbd-shortcut-action">${action}</span>`;
+    grid.appendChild(item);
+  });
+  container.appendChild(grid);
+}
+
 // ─── Graphical keyboard renderer ──────────────────────────────────────────────
 
 // 1 key-unit ≈ key-width + gap. Used to calculate row stagger padding.
@@ -287,6 +382,13 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
   // Compact context root — column layout so keyboard stays full-width,
   // but with tighter padding/gap
   containerEl.style.cssText = 'display:flex;flex-direction:column;gap:2px;padding:3px 6px 0;min-height:0;flex-shrink:0';
+
+  // For pages that don't use the QWERTY keyboard directly, render a shortcut
+  // reference grid instead of the blank/confusing key layout.
+  if (SHORTCUT_GRID_PAGES.has(page)) {
+    renderShortcutGrid(PAGE_SHORTCUTS[page], containerEl);
+    return;
+  }
 
   const roles = KEY_ROLES[page] || {};
   const kb = document.createElement('div');

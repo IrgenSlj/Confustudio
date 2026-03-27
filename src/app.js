@@ -5,7 +5,7 @@ import { createAppState, getActivePattern, getActiveTrack, getActiveStep,
          TRACK_COLORS, RECORDER_SLOT_COUNT } from './state.js';
 import { AudioEngine, drawOscilloscope, initMidi, midiOutputs, getMidiOutputById } from './engine.js';
 import { initKeyboard, renderKbdContext, renderPiano, lightPianoKey,
-         pressKey, PAGE_KEYS } from './keyboard.js';
+         pressKey, PAGE_KEYS, updateHelpStrip } from './keyboard.js';
 import { renderKnobs, KNOB_MAPS } from './knobs.js';
 import { initStudio } from './studio.js';
 import { initCables } from './cables.js';
@@ -2242,6 +2242,7 @@ function renderPage() {
     pageLabel.textContent = PAGE_LABELS[state.currentPage] ?? '';
   }
   renderPageTabs();
+  updateHelpStrip(state.currentPage);
 }
 
 function renderPageTabs() {
@@ -3841,7 +3842,8 @@ function boot() {
   setupDoubleTap();
 }
 
-// Global tooltip/help system — shows title attribute in kbd-help-strip
+// Global tooltip/help system — shows title attribute in kbd-help-strip on hover,
+// then restores the page-level contextual hint when hover ends.
 const helpEl = document.getElementById('kbd-help-text');
 if (helpEl) {
   document.addEventListener('mouseover', (e) => {
@@ -3853,10 +3855,11 @@ if (helpEl) {
     }
   });
   document.addEventListener('mouseout', (e) => {
-    // Only clear if leaving element with title (not entering child)
+    // Only restore if leaving element with title (not entering child)
     const target = e.target.closest('[title]');
     if (target && !target.contains(e.relatedTarget)) {
-      helpEl.classList.remove('visible');
+      // Restore the current page contextual hint instead of going blank
+      updateHelpStrip(state.currentPage);
     }
   });
 }
