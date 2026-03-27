@@ -392,116 +392,175 @@ export default {
 
     const comp = state.compressor ?? {};
 
-    container.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:6px 8px;gap:4px';
-    container.innerHTML = `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0">
-        <span class="page-title" style="margin:0">FX</span>
-        <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted)">${track.name}</span>
+    container.style.cssText = 'display:flex;flex-direction:column;height:100%;min-height:0;overflow:hidden;';
+    container.innerHTML = '';
+
+    // ── Header bar ────────────────────────────────────────────────────────────
+    const headerBar = document.createElement('div');
+    headerBar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 10px 4px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.06)';
+    headerBar.innerHTML = `
+      <span class="page-title" style="margin:0">FX</span>
+      <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted)">${track.name}</span>
+    `;
+    container.appendChild(headerBar);
+
+    // ── Scrollable content area ───────────────────────────────────────────────
+    const scrollArea = document.createElement('div');
+    scrollArea.style.cssText = 'flex:1;min-height:0;overflow-y:auto;padding:8px 10px;';
+
+    // ── Two-column layout ─────────────────────────────────────────────────────
+    const cols = document.createElement('div');
+    cols.style.cssText = 'display:flex;gap:8px;min-height:0;';
+
+    const leftCol = document.createElement('div');
+    leftCol.style.cssText = 'flex:0 0 55%;min-width:0;';
+
+    const rightCol = document.createElement('div');
+    rightCol.style.cssText = 'flex:1;min-width:0;';
+
+    // ── Left column: TRACK EQ + Filter + Performance ──────────────────────────
+    leftCol.innerHTML = `
+      <div class="page-card" data-card="track">
+        <h4>TRACK: ${track.name}</h4>
+        ${eqCanvasSectionHTML(track)}
+        <div style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);text-transform:uppercase;margin:6px 0 4px">Filter</div>
+        <div style="display:flex;gap:4px;margin-bottom:6px">
+          ${FILTER_TYPES.map(ft => `
+            <button class="ctx-btn${(track.filterType || 'lowpass') === ft ? ' active' : ''}"
+                    data-filter-type="${ft}">${FILTER_LABELS[ft]}</button>
+          `).join('')}
+        </div>
+        ${sliderHTML('CUT',  'cutoff',    'track', 80,   18000, 1,    track.cutoff    ?? 3200)}
+        ${sliderHTML('RES',  'resonance', 'track', 0.01, 30,    0.01, track.resonance ?? 1.8)}
+        ${sliderHTML('DRIV', 'drive',     'track', 0,    1,     0.01, track.drive     ?? 0.18)}
+        ${sliderHTML('BITS', 'bitDepth',  'track', 1,    16,    1,    track.bitDepth  ?? 16)}
+        ${sliderHTML('SRR',  'srDiv',     'track', 1,    32,    1,    track.srDiv     ?? 1)}
       </div>
-      <div class="fx-layout" style="flex:1;min-height:0">
+    `;
 
-        <!-- Left column: per-track EQ/filter -->
-        <div class="fx-left">
-          <div class="page-card" data-card="track">
-            <h4>TRACK: ${track.name}</h4>
-            ${eqCanvasSectionHTML(track)}
-            <div style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);text-transform:uppercase;margin:6px 0 4px">Filter</div>
-            <div style="display:flex;gap:4px;margin-bottom:6px">
-              ${FILTER_TYPES.map(ft => `
-                <button class="ctx-btn${(track.filterType || 'lowpass') === ft ? ' active' : ''}"
-                        data-filter-type="${ft}">${FILTER_LABELS[ft]}</button>
+    // Performance (Stutter) section in left column
+    const perfCard = document.createElement('div');
+    perfCard.className = 'page-card';
+    perfCard.style.marginTop = '6px';
+    perfCard.innerHTML = `<h4>PERFORMANCE</h4>`;
+
+    const stutterRow = document.createElement('div');
+    stutterRow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:4px';
+
+    const stutterLabel = document.createElement('span');
+    stutterLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted)';
+    stutterLabel.textContent = 'STUTTER';
+
+    const stutterBtn = document.createElement('button');
+    stutterBtn.id = 'stutter-btn';
+    stutterBtn.className = 'seq-btn' + (state.stutterActive ? ' active' : '');
+    stutterBtn.textContent = state.stutterActive ? '■ STOP' : '▶ GO';
+    stutterBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem';
+
+    const stutterRateSelect = document.createElement('select');
+    stutterRateSelect.style.cssText = 'font-size:0.5rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:2px 5px';
+
+    [
+      { label: '1/32', value: 0.0625 },
+      { label: '1/16', value: 0.125 },
+      { label: '1/8',  value: 0.25 },
+      { label: '1/4',  value: 0.5 },
+    ].forEach(({label, value}) => {
+      const opt = document.createElement('option');
+      opt.value = String(value); opt.textContent = label;
+      if (Math.abs(value - (state.stutterRate ?? 0.125)) < 0.001) opt.selected = true;
+      stutterRateSelect.append(opt);
+    });
+
+    stutterRateSelect.addEventListener('change', () => {
+      state.stutterRate = parseFloat(stutterRateSelect.value);
+      const eng = window._confusynthEngine ?? state.engine;
+      if (eng?.setStutterRate) eng.setStutterRate(state.stutterRate);
+    });
+
+    stutterBtn.addEventListener('click', () => {
+      state.stutterActive = !state.stutterActive;
+      stutterBtn.classList.toggle('active', state.stutterActive);
+      stutterBtn.textContent = state.stutterActive ? '■ STOP' : '▶ GO';
+      const eng = window._confusynthEngine ?? state.engine;
+      if (state.stutterActive) eng?.startStutter?.(state.stutterRate ?? 0.125);
+      else eng?.stopStutter?.();
+    });
+
+    stutterRow.append(stutterLabel, stutterBtn, stutterRateSelect);
+    perfCard.appendChild(stutterRow);
+    leftCol.appendChild(perfCard);
+
+    // ── Right column: Compressor, Reverb, Delay, Chorus, Master ──────────────
+    rightCol.innerHTML = `
+      <div class="page-card" data-card="compressor">
+        <h4>COMPRESSOR</h4>
+        ${compSliderHTML('THRESH',  'threshold', -60,   0,    1,     comp.threshold ?? -18,  'dB',  null)}
+        ${compSliderHTML('KNEE',    'knee',       0,    30,   1,     comp.knee      ?? 6,    'dB',  null)}
+        ${compSliderHTML('RATIO',   'ratio',      1,    20,   0.5,   comp.ratio     ?? 4,    ':1',  v => Number(v).toFixed(1))}
+        ${compSliderHTML('ATTACK',  'attack',     0.001, 0.5, 0.001, comp.attack    ?? 0.003,'ms',  v => (v * 1000).toFixed(1))}
+        ${compSliderHTML('RELEASE', 'release',    0.01,  2,   0.01,  comp.release   ?? 0.25, 'ms',  v => Number(v * 1000).toFixed(0))}
+      </div>
+
+      ${cardHTML('REVERB', `
+        <div style="font-family:var(--font-mono);font-size:0.5rem;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Convolution</div>
+        <div class="fx-type-row" data-group="conv-reverb-preset">
+          ${CONV_REVERB_TYPES.map(t => `
+            <button class="fx-type-btn${(state.convReverbPreset ?? 'room') === t ? ' active' : ''}"
+                    data-conv-reverb-preset="${t}">${CONV_REVERB_LABELS[t]}</button>
+          `).join('')}
+        </div>
+        <div class="fx-preset-info" data-reverb-preset-info style="font-size:0.68rem;opacity:0.55;margin:-2px 0 4px;letter-spacing:0.03em;">${_reverbPresetInfo(state.convReverbPreset ?? 'room')}</div>
+        ${sliderHTML('MIX',   'convReverbMix',      'global', 0,   1,   0.01, state.convReverbMix      ?? 0.3)}
+        ${sliderHTML('PRE',   'convReverbPreDelay', 'global', 0,   100, 1,    state.convReverbPreDelay ?? 0)}
+      `)}
+
+      ${cardHTML('DELAY', `
+        <div class="fx-sync-header">
+          <span class="fx-sync-label">TIME</span>
+          <button class="fx-sync-btn${(state.delaySyncEnabled ?? false) ? ' active' : ''}"
+                  data-delay-sync-toggle>SYNC</button>
+        </div>
+        <div data-delay-time-row>
+          ${!(state.delaySyncEnabled ?? false) ? `
+            ${sliderHTML('', 'delayTime', 'global', 0.001, 1.0, 0.001, state.delayTime ?? 0.28)}
+          ` : `
+            <div class="fx-type-row fx-sync-divs" data-group="delay-sync-div">
+              ${DELAY_SYNC_DIVS.map(d => `
+                <button class="fx-type-btn${(state.delaySyncDiv ?? '1/8') === d ? ' active' : ''}"
+                        data-delay-sync-div="${d}">${d}</button>
               `).join('')}
             </div>
-            ${sliderHTML('CUT',  'cutoff',    'track', 80,   18000, 1,    track.cutoff    ?? 3200)}
-            ${sliderHTML('RES',  'resonance', 'track', 0.01, 30,    0.01, track.resonance ?? 1.8)}
-            ${sliderHTML('DRIV', 'drive',     'track', 0,    1,     0.01, track.drive     ?? 0.18)}
-            ${sliderHTML('BITS', 'bitDepth',  'track', 1,    16,    1,    track.bitDepth  ?? 16)}
-            ${sliderHTML('SRR',  'srDiv',     'track', 1,    32,    1,    track.srDiv     ?? 1)}
-          </div>
+          `}
         </div>
+        ${sliderHTML('FDBK',   'delayFeedback',  'global', 0,   0.85,   0.01,  state.delayFeedback  ?? 0.38)}
+        ${sliderHTML('FILT',   'delayFilterFreq','global', 500, 10000,  100,   state.delayFilterFreq ?? 6000)}
+        ${sliderHTML('MIX',    'delayWet',        'global', 0,  1,      0.01,  state.delayWet       ?? 0.3)}
+      `)}
 
-        <!-- Right column: global effects -->
-        <div class="fx-right">
-          <div class="page-card" data-card="compressor">
-            <h4>COMPRESSOR</h4>
-            ${compSliderHTML('THRESH',  'threshold', -60,   0,    1,     comp.threshold ?? -18,  'dB',  null)}
-            ${compSliderHTML('KNEE',    'knee',       0,    30,   1,     comp.knee      ?? 6,    'dB',  null)}
-            ${compSliderHTML('RATIO',   'ratio',      1,    20,   0.5,   comp.ratio     ?? 4,    ':1',  v => Number(v).toFixed(1))}
-            ${compSliderHTML('ATTACK',  'attack',     0.001, 0.5, 0.001, comp.attack    ?? 0.003,'ms',  v => (v * 1000).toFixed(1))}
-            ${compSliderHTML('RELEASE', 'release',    0.01,  2,   0.01,  comp.release   ?? 0.25, 'ms',  v => Number(v * 1000).toFixed(0))}
-          </div>
+      ${cardHTML('CHORUS', `
+        ${sliderHTML('RATE',  'chorusRate',  'chorus', 0.1, 8,    0.1,  state.chorusRate  ?? 0.5)}
+        ${sliderHTML('DEPTH', 'chorusDepth', 'chorus', 0,   1,    0.01, state.chorusDepth ?? 0.25)}
+        ${sliderHTML('MIX',   'chorusMix',   'chorus', 0,   1,    0.01, state.chorusMix   ?? 0)}
+        ${sliderHTML('WIDTH', 'chorusWidth', 'chorus', 0,   1,    0.01, state.chorusWidth ?? 0.5)}
+      `)}
 
-          ${cardHTML('REVERB', `
-            <div style="font-family:var(--font-mono);font-size:0.5rem;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Convolution</div>
-            <div class="fx-type-row" data-group="conv-reverb-preset">
-              ${CONV_REVERB_TYPES.map(t => `
-                <button class="fx-type-btn${(state.convReverbPreset ?? 'room') === t ? ' active' : ''}"
-                        data-conv-reverb-preset="${t}">${CONV_REVERB_LABELS[t]}</button>
-              `).join('')}
-            </div>
-            <div class="fx-preset-info" data-reverb-preset-info style="font-size:0.68rem;opacity:0.55;margin:-2px 0 4px;letter-spacing:0.03em;">${_reverbPresetInfo(state.convReverbPreset ?? 'room')}</div>
-            ${sliderHTML('MIX',   'convReverbMix',      'global', 0,   1,   0.01, state.convReverbMix      ?? 0.3)}
-            ${sliderHTML('PRE',   'convReverbPreDelay', 'global', 0,   100, 1,    state.convReverbPreDelay ?? 0)}
-            <details style="margin-top:4px">
-              <summary style="font-family:var(--font-mono);font-size:0.5rem;color:var(--muted);cursor:pointer;user-select:none">FREEVERB (LEGACY)</summary>
-              <div style="margin-top:4px">
-                <div class="fx-type-row" data-group="reverb-type">
-                  ${REVERB_TYPES.map(t => `
-                    <button class="fx-type-btn${(state.reverbType ?? 'room') === t ? ' active' : ''}"
-                            data-reverb-type="${t}">${REVERB_LABELS[t]}</button>
-                  `).join('')}
-                </div>
-                ${sliderHTML('ROOM',  'reverbSize',     'global', 0.1,  0.98, 0.01, state.reverbSize     ?? 0.5)}
-                ${sliderHTML('DAMP',  'reverbDamping',  'global', 0,    1,    0.01, state.reverbDamping  ?? 0.5)}
-                ${sliderHTML('MIX',   'reverbMix',      'global', 0,    1,    0.01, state.reverbMix      ?? 0.22)}
-                ${sliderHTML('PRE',   'reverbPreDelay', 'global', 0,    100,  1,    state.reverbPreDelay ?? 0)}
-              </div>
-            </details>
-          `)}
-
-          ${cardHTML('DELAY', `
-            <div class="fx-sync-header">
-              <span class="fx-sync-label">TIME</span>
-              <button class="fx-sync-btn${(state.delaySyncEnabled ?? false) ? ' active' : ''}"
-                      data-delay-sync-toggle>SYNC</button>
-            </div>
-            <div data-delay-time-row>
-              ${!(state.delaySyncEnabled ?? false) ? `
-                ${sliderHTML('', 'delayTime', 'global', 0.001, 1.0, 0.001, state.delayTime ?? 0.28)}
-              ` : `
-                <div class="fx-type-row fx-sync-divs" data-group="delay-sync-div">
-                  ${DELAY_SYNC_DIVS.map(d => `
-                    <button class="fx-type-btn${(state.delaySyncDiv ?? '1/8') === d ? ' active' : ''}"
-                            data-delay-sync-div="${d}">${d}</button>
-                  `).join('')}
-                </div>
-              `}
-            </div>
-            ${sliderHTML('FDBK',   'delayFeedback',  'global', 0,   0.85,   0.01,  state.delayFeedback  ?? 0.38)}
-            ${sliderHTML('FILT',   'delayFilterFreq','global', 500, 10000,  100,   state.delayFilterFreq ?? 6000)}
-            ${sliderHTML('MIX',    'delayWet',        'global', 0,  1,      0.01,  state.delayWet       ?? 0.3)}
-          `)}
-
-          ${cardHTML('CHORUS', `
-            ${sliderHTML('RATE',  'chorusRate',  'chorus', 0.1, 8,    0.1,  state.chorusRate  ?? 0.5)}
-            ${sliderHTML('DEPTH', 'chorusDepth', 'chorus', 0,   1,    0.01, state.chorusDepth ?? 0.25)}
-            ${sliderHTML('MIX',   'chorusMix',   'chorus', 0,   1,    0.01, state.chorusMix   ?? 0)}
-            ${sliderHTML('WIDTH', 'chorusWidth', 'chorus', 0,   1,    0.01, state.chorusWidth ?? 0.5)}
-          `)}
-
-          ${cardHTML('MASTER', `
-            ${sliderHTML('DRIVE', 'masterDrive', 'global', 0, 1,    0.01, state.masterDrive ?? 0)}
-            ${sliderHTML('LEVEL', 'masterLevel', 'global', 0, 1,    0.01, state.masterLevel ?? 0.82)}
-            <div style="font-family:var(--font-mono);font-size:0.5rem;color:var(--muted);text-transform:uppercase;margin:6px 0 2px">MASTER EQ</div>
-            <div class="eq-band-row">
-              ${eqBandHTML('Low',  'masterEqLow',  state.masterEqLow  ?? 0, 'masterEQ')}
-              ${eqBandHTML('Mid',  'masterEqMid',  state.masterEqMid  ?? 0, 'masterEQ')}
-              ${eqBandHTML('High', 'masterEqHigh', state.masterEqHigh ?? 0, 'masterEQ')}
-            </div>
-          `)}
+      ${cardHTML('MASTER', `
+        ${sliderHTML('DRIVE', 'masterDrive', 'global', 0, 1,    0.01, state.masterDrive ?? 0)}
+        ${sliderHTML('LEVEL', 'masterLevel', 'global', 0, 1,    0.01, state.masterLevel ?? 0.82)}
+        <div style="font-family:var(--font-mono);font-size:0.5rem;color:var(--muted);text-transform:uppercase;margin:6px 0 2px">MASTER EQ</div>
+        <div class="eq-band-row">
+          ${eqBandHTML('Low',  'masterEqLow',  state.masterEqLow  ?? 0, 'masterEQ')}
+          ${eqBandHTML('Mid',  'masterEqMid',  state.masterEqMid  ?? 0, 'masterEQ')}
+          ${eqBandHTML('High', 'masterEqHigh', state.masterEqHigh ?? 0, 'masterEQ')}
         </div>
+      `)}
+    `;
 
-      </div>`;
+    cols.appendChild(leftCol);
+    cols.appendChild(rightCol);
+    scrollArea.appendChild(cols);
+    container.appendChild(scrollArea);
 
     // ── FX Preset bar ─────────────────────────────────────────────────────────
     const presetBar = document.createElement('div');
@@ -616,62 +675,12 @@ export default {
     });
     presetBar.append(saveBtn);
 
-    container.prepend(presetBar);
-
-    // ── Stutter row ───────────────────────────────────────────────────────────
-    const stutterRow = document.createElement('div');
-    stutterRow.style.cssText = 'display:flex;gap:4px;align-items:center;margin-bottom:8px';
-
-    const stutterLabel = document.createElement('span');
-    stutterLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted)';
-    stutterLabel.textContent = 'STUTTER:';
-
-    const stutterBtn = document.createElement('button');
-    stutterBtn.id = 'stutter-btn';
-    stutterBtn.className = 'seq-btn' + (state.stutterActive ? ' active' : '');
-    stutterBtn.textContent = state.stutterActive ? '■ STOP' : '▶ GO';
-    stutterBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem';
-
-    const stutterRateSelect = document.createElement('select');
-    stutterRateSelect.style.cssText = 'font-size:0.48rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px';
-
-    [
-      { label: '1/32', value: 0.0625 },
-      { label: '1/16', value: 0.125 },
-      { label: '1/8',  value: 0.25 },
-      { label: '1/4',  value: 0.5 },
-    ].forEach(({label, value}) => {
-      const opt = document.createElement('option');
-      opt.value = String(value); opt.textContent = label;
-      if (Math.abs(value - (state.stutterRate ?? 0.125)) < 0.001) opt.selected = true;
-      stutterRateSelect.append(opt);
-    });
-
-    stutterRateSelect.addEventListener('change', () => {
-      state.stutterRate = parseFloat(stutterRateSelect.value);
-      const eng = window._confusynthEngine ?? state.engine;
-      if (eng?.setStutterRate) eng.setStutterRate(state.stutterRate);
-    });
-
-    stutterBtn.addEventListener('click', () => {
-      state.stutterActive = !state.stutterActive;
-      stutterBtn.classList.toggle('active', state.stutterActive);
-      stutterBtn.textContent = state.stutterActive ? '■ STOP' : '▶ GO';
-      const eng = window._confusynthEngine ?? state.engine;
-      if (state.stutterActive) eng?.startStutter?.(state.stutterRate ?? 0.125);
-      else eng?.stopStutter?.();
-    });
-
-    stutterRow.append(stutterLabel, stutterBtn, stutterRateSelect);
-
-    // Insert at top of fx page after preset bar
-    const firstCard = container.querySelector('.page-card');
-    if (firstCard) firstCard.insertAdjacentElement('beforebegin', stutterRow);
-    else container.prepend(stutterRow);
+    // Place preset bar inside the header bar
+    headerBar.appendChild(presetBar);
 
     // ── BYPASS ALL FX toggle ──────────────────────────────────────────────────
     const bypassRow = document.createElement('div');
-    bypassRow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-shrink:0';
+    bypassRow.style.cssText = 'display:flex;gap:6px;align-items:center;flex-shrink:0';
 
     const bypassBtn = document.createElement('button');
     bypassBtn.className = 'seq-btn' + (_bypassed ? ' active' : '');
@@ -727,8 +736,7 @@ export default {
       `<span>CONV MIX: <span style="color:var(--screen-text)">${Math.round((state.convReverbMix ?? 0.3) * 100)}%</span></span>`;
 
     bypassRow.append(bypassBtn, statusBar);
-    if (firstCard) firstCard.insertAdjacentElement('beforebegin', bypassRow);
-    else container.prepend(bypassRow);
+    headerBar.appendChild(bypassRow);
 
     // ── Compressor gain-reduction meter ──────────────────────────────────────
     const compCard = container.querySelector('[data-card="compressor"]');
