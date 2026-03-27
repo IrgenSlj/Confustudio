@@ -1,4 +1,4 @@
-// tr909.js — Roland TR-909 Drum Machine module
+// tr909.js — Roland TR-909 Drum Machine module — enhanced synthesis
 
 export function createTr909(audioContext) {
   const ctx = audioContext;
@@ -26,15 +26,25 @@ export function createTr909(audioContext) {
     CY: [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
   };
 
-  // Steps: array of {active, velocity} per voice, 16 steps each
-  // velocity: 0=off, 1=low, 2=med, 3=high
-  const _steps = {};
-  VOICES.forEach(v => {
-    _steps[v] = Array.from({ length: 16 }, (_, i) => ({
-      active: DEFAULT_PATTERNS[v][i] === 1,
-      velocity: DEFAULT_PATTERNS[v][i] === 1 ? 3 : 0,
-    }));
+  // ── Pattern slots A/B/C/D ─────────────────────────────────────────────────
+  const PATTERN_SLOTS = ['A', 'B', 'C', 'D'];
+  let _activeSlot = 'A';
+
+  // Each slot stores {active, velocity, accent} for all 16 steps × 11 voices
+  const _patternSlots = {};
+  PATTERN_SLOTS.forEach(slot => {
+    _patternSlots[slot] = {};
+    VOICES.forEach(v => {
+      _patternSlots[slot][v] = Array.from({ length: 16 }, (_, i) => ({
+        active: slot === 'A' && DEFAULT_PATTERNS[v][i] === 1,
+        velocity: slot === 'A' && DEFAULT_PATTERNS[v][i] === 1 ? 3 : 0,
+        accent: false,
+      }));
+    });
   });
+
+  // Live reference always points to active slot
+  let _steps = _patternSlots['A'];
 
   // Per-voice params (tune 0-1, decay 0-1, volume 0-1)
   const _voiceParams = {
@@ -51,23 +61,41 @@ export function createTr909(audioContext) {
     CY: { tune: 0.5, decay: 0.5, volume: 0.65 },
   };
 
+  // Per-voice mute/solo state
+  const _mutedVoices = new Set();
+  let _soloVoice = null;
+
   let _seqStep = 0;
   let _running = false;
-  let _syncMode = false; // when true, advances on confusynth:clock
+  let _syncMode = false;
   let _standaloneTimer = null;
   let _standaloneBPM = 120;
   let _masterVolume = 0.8;
+  let _swing = 0; // 0–1
+  let _compEnabled = true;
 
   // ── Audio Engine ─────────────────────────────────────────────────────────
-  // Each voice has a pre-allocated gain node as its VCA output
   const _voiceGains = {};
-  const masterGain = ctx ? ctx.createGain() : null;
-  const outputGain = ctx ? ctx.createGain() : null;
+  const masterGain   = ctx ? ctx.createGain()  : null;
+  const compressor   = ctx ? ctx.createDynamicsCompressor() : null;
+  const outputGain   = ctx ? ctx.createGain()  : null;
 
   if (ctx) {
-    masterGain.gain.value = _masterVolume;
-    outputGain.gain.value = 1.0;
-    masterGain.connect(outputGain);
+    masterGain.gain.value  = _masterVolume;
+    outputGain.gain.value  = 1.0;
+
+    // Compressor settings — gentle glue comp
+    if (compressor) {
+      compressor.threshold.value = -6;
+      compressor.knee.value      = 6;
+      compressor.ratio.value     = 4;
+      compressor.attack.value    = 0.005;
+      compressor.release.value   = 0.05;
+      masterGain.connect(compressor);
+      compressor.connect(outputGain);
+    } else {
+      masterGain.connect(outputGain);
+    }
 
     VOICES.forEach(v => {
       const g = ctx.createGain();
@@ -93,7 +121,7 @@ export function createTr909(audioContext) {
     return src;
   }
 
-  // ── Drive curve (soft clip) ───────────────────────────────────────────────
+  // ── Soft clip curve ───────────────────────────────────────────────────────
   function _makeSoftClip(amount) {
     const n = 256;
     const curve = new Float32Array(n);
@@ -106,49 +134,87 @@ export function createTr909(audioContext) {
     return curve;
   }
 
+  // Shared soft-clip curve instance (reused across BD triggers)
+  const _bdClipCurve = ctx ? _makeSoftClip(20) : null;
+
   // ── Voice synthesis functions ─────────────────────────────────────────────
 
-  function _triggerBD(velocity, time) {
+  function _triggerBD(velocity, time, accent) {
     if (!ctx) return;
     const p = _voiceParams.BD;
     // Tune: 100–200 Hz start, 40–80 Hz end
-    const startFreq = 100 + p.tune * 100;  // 100–200Hz
-    const endFreq   = 40  + p.tune * 40;   // 40–80Hz
-    const decayTime = 0.25 + p.decay * 0.5; // 250–750ms
-    const velScale  = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
+    const startFreq  = 100 + p.tune * 100;
+    const endFreq    = 40  + p.tune * 40;
+    // Accent: louder + shorter decay (tighter punch)
+    const decayBase  = 0.2 + p.decay * 0.6; // 200–800ms
+    const decayTime  = accent ? decayBase * 0.8 : decayBase;
+    let   velScale   = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
+    if (accent) velScale = Math.min(1.0, velScale * 1.4);
 
+    // ── Main sine body ────────────────────────────────────────────────────
     const osc = ctx.createOscillator();
     osc.type = 'sine';
     osc.frequency.setValueAtTime(startFreq, time);
-    osc.frequency.exponentialRampToValueAtTime(endFreq, time + decayTime * 0.6);
+    // Two-segment pitch envelope: fast drop first 50ms then slower
+    const midFreq = startFreq + (endFreq - startFreq) * 0.7; // 70% of way at 50ms mark
+    osc.frequency.exponentialRampToValueAtTime(midFreq, time + 0.050);
+    osc.frequency.exponentialRampToValueAtTime(endFreq,  time + decayTime * 0.6);
 
+    // ── 2× harmonic sine for body ─────────────────────────────────────────
+    const osc2 = ctx.createOscillator();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(startFreq * 2, time);
+    osc2.frequency.exponentialRampToValueAtTime(midFreq * 2, time + 0.050);
+    osc2.frequency.exponentialRampToValueAtTime(endFreq * 2,  time + decayTime * 0.5);
+
+    const osc2Gain = ctx.createGain();
+    osc2Gain.gain.setValueAtTime(0.20 * velScale, time);
+    osc2Gain.gain.exponentialRampToValueAtTime(0.001, time + decayTime * 0.4);
+
+    // ── Click transient: 3ms highpassed noise burst ───────────────────────
+    const clickNoise = _createNoiseSource();
+    const clickHpf   = ctx.createBiquadFilter();
+    clickHpf.type           = 'highpass';
+    clickHpf.frequency.value = 2500;
+    clickHpf.Q.value         = 0.5;
+    const clickGain = ctx.createGain();
+    clickGain.gain.setValueAtTime(0, time);
+    clickGain.gain.linearRampToValueAtTime(0.35 * velScale, time + 0.0005);
+    clickGain.gain.exponentialRampToValueAtTime(0.001,       time + 0.003);
+
+    // ── Main VCA ──────────────────────────────────────────────────────────
     const vca = ctx.createGain();
     vca.gain.setValueAtTime(0, time);
     vca.gain.linearRampToValueAtTime(0.9 * velScale, time + 0.002);
     vca.gain.exponentialRampToValueAtTime(0.001, time + decayTime);
 
-    // Light distortion
+    // Light distortion (reuse shared curve)
     const ws = ctx.createWaveShaper();
-    ws.curve = _makeSoftClip(20);
+    ws.curve = _bdClipCurve;
     ws.oversample = '2x';
 
     osc.connect(ws);
+    osc2.connect(osc2Gain); osc2Gain.connect(ws);
     ws.connect(vca);
+    clickNoise.connect(clickHpf); clickHpf.connect(clickGain); clickGain.connect(_voiceGains.BD);
     vca.connect(_voiceGains.BD);
 
-    osc.start(time);
-    osc.stop(time + decayTime + 0.05);
+    osc.start(time);       osc.stop(time + decayTime + 0.05);
+    osc2.start(time);      osc2.stop(time + decayTime * 0.45);
+    clickNoise.start(time); clickNoise.stop(time + 0.01);
   }
 
-  function _triggerSD(velocity, time) {
+  function _triggerSD(velocity, time, accent) {
     if (!ctx) return;
     const p = _voiceParams.SD;
-    const decayTime = 0.1 + p.decay * 0.25; // 100–350ms
+    const decayBase = 0.1 + p.decay * 0.25; // 100–350ms
+    const decayTime = accent ? decayBase * 0.8 : decayBase;
     const snappy    = p.snappy ?? 0.5;
-    const velScale  = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
+    let   velScale  = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
+    if (accent) velScale = Math.min(1.0, velScale * 1.4);
     const tuneFreq  = 150 + p.tune * 100; // 150–250 Hz
 
-    // Sine body
+    // ── Sine body ─────────────────────────────────────────────────────────
     const oscBody = ctx.createOscillator();
     oscBody.type = 'sine';
     oscBody.frequency.setValueAtTime(tuneFreq, time);
@@ -156,40 +222,73 @@ export function createTr909(audioContext) {
 
     const vcaBody = ctx.createGain();
     vcaBody.gain.setValueAtTime(0, time);
-    vcaBody.gain.linearRampToValueAtTime(0.7 * velScale, time + 0.001);
+    vcaBody.gain.linearRampToValueAtTime(0.7 * velScale * (1 - snappy * 0.4), time + 0.001);
     vcaBody.gain.exponentialRampToValueAtTime(0.001, time + decayTime);
 
-    // Noise snare
-    const noise = _createNoiseSource();
-    const bpf = ctx.createBiquadFilter();
-    bpf.type = 'bandpass';
-    bpf.frequency.value = 500 + snappy * 1500; // 500–2000 Hz
-    bpf.Q.value = 0.5;
+    // ── 2× harmonic sine (rim resonance) ─────────────────────────────────
+    const oscBody2 = ctx.createOscillator();
+    oscBody2.type = 'sine';
+    oscBody2.frequency.setValueAtTime(tuneFreq * 2, time);
+    oscBody2.frequency.exponentialRampToValueAtTime(tuneFreq * 1.1, time + decayTime * 0.3);
 
-    const vcaNoise = ctx.createGain();
-    vcaNoise.gain.setValueAtTime(0, time);
-    vcaNoise.gain.linearRampToValueAtTime(0.6 * velScale * (0.5 + snappy * 0.5), time + 0.001);
-    vcaNoise.gain.exponentialRampToValueAtTime(0.001, time + decayTime * (0.5 + snappy * 0.5));
+    const vcaBody2 = ctx.createGain();
+    vcaBody2.gain.setValueAtTime(0, time);
+    vcaBody2.gain.linearRampToValueAtTime(0.3 * velScale, time + 0.001);
+    vcaBody2.gain.exponentialRampToValueAtTime(0.001, time + decayTime * 0.4);
 
-    oscBody.connect(vcaBody);
-    vcaBody.connect(_voiceGains.SD);
+    // ── Noise body (low BPF ~200-800 Hz) ─────────────────────────────────
+    const noiseBody = _createNoiseSource();
+    const bpfLo    = ctx.createBiquadFilter();
+    bpfLo.type          = 'bandpass';
+    bpfLo.frequency.value = 200 + p.tune * 200; // 200–400 Hz
+    bpfLo.Q.value         = 0.7;
+    const vcaNoiseBody = ctx.createGain();
+    vcaNoiseBody.gain.setValueAtTime(0, time);
+    vcaNoiseBody.gain.linearRampToValueAtTime(0.3 * velScale * (1 - snappy * 0.3), time + 0.001);
+    vcaNoiseBody.gain.exponentialRampToValueAtTime(0.001, time + decayTime * 0.8);
 
-    noise.connect(bpf);
-    bpf.connect(vcaNoise);
-    vcaNoise.connect(_voiceGains.SD);
+    // ── Noise sizzle (high BPF ~2k-8kHz) ─────────────────────────────────
+    const noiseSizz = _createNoiseSource();
+    const bpfHi    = ctx.createBiquadFilter();
+    bpfHi.type           = 'bandpass';
+    bpfHi.frequency.value = 2000 + snappy * 6000; // 2k–8kHz
+    bpfHi.Q.value          = 0.6;
+    const vcaNoiseSizz = ctx.createGain();
+    vcaNoiseSizz.gain.setValueAtTime(0, time);
+    vcaNoiseSizz.gain.linearRampToValueAtTime(0.5 * velScale * (0.3 + snappy * 0.7), time + 0.001);
+    vcaNoiseSizz.gain.exponentialRampToValueAtTime(0.001, time + decayTime * (0.4 + snappy * 0.5));
 
-    oscBody.start(time);
-    oscBody.stop(time + decayTime + 0.05);
-    noise.start(time);
-    noise.stop(time + decayTime + 0.05);
+    // ── Initial click transient (8ms noise burst) ─────────────────────────
+    const clickNoise = _createNoiseSource();
+    const clickHpf   = ctx.createBiquadFilter();
+    clickHpf.type           = 'highpass';
+    clickHpf.frequency.value = 3000;
+    const clickGain = ctx.createGain();
+    clickGain.gain.setValueAtTime(0, time);
+    clickGain.gain.linearRampToValueAtTime(0.4 * velScale, time + 0.0005);
+    clickGain.gain.exponentialRampToValueAtTime(0.001, time + 0.008);
+
+    oscBody.connect(vcaBody);        vcaBody.connect(_voiceGains.SD);
+    oscBody2.connect(vcaBody2);      vcaBody2.connect(_voiceGains.SD);
+    noiseBody.connect(bpfLo);        bpfLo.connect(vcaNoiseBody);    vcaNoiseBody.connect(_voiceGains.SD);
+    noiseSizz.connect(bpfHi);        bpfHi.connect(vcaNoiseSizz);    vcaNoiseSizz.connect(_voiceGains.SD);
+    clickNoise.connect(clickHpf);    clickHpf.connect(clickGain);    clickGain.connect(_voiceGains.SD);
+
+    oscBody.start(time);    oscBody.stop(time + decayTime + 0.05);
+    oscBody2.start(time);   oscBody2.stop(time + decayTime * 0.45);
+    noiseBody.start(time);  noiseBody.stop(time + decayTime + 0.05);
+    noiseSizz.start(time);  noiseSizz.stop(time + decayTime + 0.05);
+    clickNoise.start(time); clickNoise.stop(time + 0.015);
   }
 
-  function _triggerTom(voice, baseFreq, decayMs, velocity, time) {
+  function _triggerTom(voice, baseFreq, decayMs, velocity, time, accent) {
     if (!ctx) return;
     const p = _voiceParams[voice];
-    const freq = baseFreq * Math.pow(2, (p.tune - 0.5) * 1.5); // ±1.5 octave tune
-    const decayTime = (decayMs / 1000) * (0.5 + p.decay);
-    const velScale  = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
+    const freq = baseFreq * Math.pow(2, (p.tune - 0.5) * 1.5);
+    const decayBase = (decayMs / 1000) * (0.5 + p.decay);
+    const decayTime = accent ? decayBase * 0.8 : decayBase;
+    let velScale    = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
+    if (accent) velScale = Math.min(1.0, velScale * 1.4);
 
     const osc = ctx.createOscillator();
     osc.type = 'sine';
@@ -208,13 +307,13 @@ export function createTr909(audioContext) {
     osc.stop(time + decayTime + 0.05);
   }
 
-  function _triggerRS(velocity, time) {
+  function _triggerRS(velocity, time, accent) {
     if (!ctx) return;
     const p = _voiceParams.RS;
-    const velScale  = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
-    const freq = 300 + p.tune * 200; // 300–500 Hz
+    let velScale   = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
+    if (accent) velScale = Math.min(1.0, velScale * 1.4);
+    const freq = 300 + p.tune * 200;
 
-    // Short sine burst
     const osc = ctx.createOscillator();
     osc.type = 'square';
     osc.frequency.value = freq;
@@ -224,10 +323,9 @@ export function createTr909(audioContext) {
     vcaOsc.gain.linearRampToValueAtTime(0.5 * velScale, time + 0.001);
     vcaOsc.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
 
-    // Very short noise
     const noise = _createNoiseSource();
-    const hpf = ctx.createBiquadFilter();
-    hpf.type = 'highpass';
+    const hpf   = ctx.createBiquadFilter();
+    hpf.type           = 'highpass';
     hpf.frequency.value = 1000;
 
     const vcaNoise = ctx.createGain();
@@ -242,23 +340,28 @@ export function createTr909(audioContext) {
     noise.start(time); noise.stop(time + 0.06);
   }
 
-  function _triggerCP(velocity, time) {
+  function _triggerCP(velocity, time, accent) {
     if (!ctx) return;
     const p = _voiceParams.CP;
-    const velScale  = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
-    const decayTime = 0.1 + p.decay * 0.2;
-    // 4 staggered noise bursts at 0, 10, 20, 35ms
-    const delays = [0, 0.010, 0.020, 0.035];
+    let velScale   = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
+    if (accent) velScale = Math.min(1.0, velScale * 1.4);
+    const decayBase = 0.1 + p.decay * 0.2;
+    const decayTime = accent ? decayBase * 0.8 : decayBase;
+
+    // 5 staggered noise bursts: 0, 10, 20, 35, 60ms (authentic 909 has 5 layers)
+    const delays = [0, 0.010, 0.020, 0.035, 0.060];
+    const bpfFreq = 900 + p.tune * 300;
 
     delays.forEach((d, i) => {
       const t = time + d;
       const noise = _createNoiseSource();
       const bpf = ctx.createBiquadFilter();
-      bpf.type = 'bandpass';
-      bpf.frequency.value = 900 + p.tune * 300; // 900–1200 Hz
-      bpf.Q.value = 1.0;
+      bpf.type           = 'bandpass';
+      bpf.frequency.value = bpfFreq;
+      bpf.Q.value         = 3.0; // increased Q for more punch
 
-      const burstLen = i < 3 ? 0.006 : decayTime; // first 3 short, last has decay
+      const isLast   = i === delays.length - 1;
+      const burstLen = isLast ? decayTime : 0.006;
       const vca = ctx.createGain();
       vca.gain.setValueAtTime(0, t);
       vca.gain.linearRampToValueAtTime(0.6 * velScale, t + 0.001);
@@ -266,103 +369,127 @@ export function createTr909(audioContext) {
 
       noise.connect(bpf); bpf.connect(vca); vca.connect(_voiceGains.CP);
       noise.start(t); noise.stop(t + burstLen + 0.05);
+
+      // 5ms echo at 30% on the last burst (reverb-style delay)
+      if (isLast) {
+        const echoNoise = _createNoiseSource();
+        const echoBpf   = ctx.createBiquadFilter();
+        echoBpf.type           = 'bandpass';
+        echoBpf.frequency.value = bpfFreq;
+        echoBpf.Q.value         = 3.0;
+        const echoVca = ctx.createGain();
+        const te = t + 0.005; // 5ms later
+        echoVca.gain.setValueAtTime(0, te);
+        echoVca.gain.linearRampToValueAtTime(0.18 * velScale, te + 0.001); // 30% of 0.6
+        echoVca.gain.exponentialRampToValueAtTime(0.001, te + decayTime * 0.6);
+        echoNoise.connect(echoBpf); echoBpf.connect(echoVca); echoVca.connect(_voiceGains.CP);
+        echoNoise.start(te); echoNoise.stop(te + decayTime * 0.65);
+      }
     });
   }
 
-  function _triggerCB(velocity, time) {
+  function _triggerCB(velocity, time, accent) {
     if (!ctx) return;
     const p = _voiceParams.CB;
-    const velScale  = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
-    const decayTime = 0.3 + p.decay * 0.6;
+    let velScale   = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
+    if (accent) velScale = Math.min(1.0, velScale * 1.4);
+    const decayBase = 0.3 + p.decay * 0.6;
+    const decayTime = accent ? decayBase * 0.8 : decayBase;
     const tuneMult  = Math.pow(2, (p.tune - 0.5) * 0.5);
 
-    // Two square waves at 562 Hz and 845 Hz
-    const freqs = [562 * tuneMult, 845 * tuneMult];
+    // 4 square oscillators: 562, 845, 1100, 1480 Hz
+    const freqs = [562 * tuneMult, 845 * tuneMult, 1100 * tuneMult, 1480 * tuneMult];
+
+    // Shared bandpass centered at 800 Hz
+    const bpf = ctx.createBiquadFilter();
+    bpf.type           = 'bandpass';
+    bpf.frequency.value = 800 * tuneMult;
+    bpf.Q.value         = 2.5;
+    bpf.connect(_voiceGains.CB);
+
     freqs.forEach(freq => {
       const osc = ctx.createOscillator();
       osc.type = 'square';
       osc.frequency.value = freq;
 
-      const bpf = ctx.createBiquadFilter();
-      bpf.type = 'bandpass';
-      bpf.frequency.value = 700 * tuneMult;
-      bpf.Q.value = 2.0;
-
       const vca = ctx.createGain();
+      // Double-decay: very fast 15ms partial decay then slower main decay
       vca.gain.setValueAtTime(0, time);
       vca.gain.linearRampToValueAtTime(0.35 * velScale, time + 0.001);
-      vca.gain.setValueAtTime(0.35 * velScale, time + 0.006);
-      vca.gain.exponentialRampToValueAtTime(0.001, time + decayTime);
+      vca.gain.exponentialRampToValueAtTime(0.12 * velScale, time + 0.015); // fast first stage
+      vca.gain.exponentialRampToValueAtTime(0.001, time + decayTime);       // slower main
 
-      osc.connect(bpf); bpf.connect(vca); vca.connect(_voiceGains.CB);
+      osc.connect(vca); vca.connect(bpf);
       osc.start(time); osc.stop(time + decayTime + 0.05);
     });
   }
 
-  // Shared metallic HH oscillator frequencies (Hz)
+  // Shared metallic HH oscillator frequencies (Hz) — authentic TR-909
   const HH_FREQS = [205.3, 309.1, 416.7, 522.4, 633.8, 769.2];
 
-  function _makeHHOscs(time, decayTime, velScale, destGain) {
+  function _makeHHOscs(time, decayTime, velScale, destNode) {
     HH_FREQS.forEach(freq => {
       const osc = ctx.createOscillator();
       osc.type = 'square';
       osc.frequency.value = freq;
 
-      const g = ctx.createGain();
-      g.gain.value = 0.15 / HH_FREQS.length; // normalize
+      // Individual bandpass per oscillator (Q=0.8, freq matches osc)
+      const bpf = ctx.createBiquadFilter();
+      bpf.type           = 'bandpass';
+      bpf.frequency.value = freq;
+      bpf.Q.value         = 0.8;
 
-      osc.connect(g);
-      g.connect(destGain);
+      const g = ctx.createGain();
+      g.gain.value = (0.15 * velScale) / HH_FREQS.length;
+
+      osc.connect(bpf); bpf.connect(g); g.connect(destNode);
       osc.start(time);
       osc.stop(time + decayTime + 0.05);
     });
   }
 
-  // Open HH state — store current open HH VCA so CH can choke it
+  // Open HH state — store current VCA so CH can choke it
   let _ohVca = null;
-  let _ohChokeTime = null;
 
-  function _triggerOH(velocity, time) {
+  function _triggerOH(velocity, time, accent) {
     if (!ctx) return;
     const p = _voiceParams.OH;
-    const velScale  = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
-    const decayTime = 0.2 + p.decay * 0.6;
+    let velScale   = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
+    if (accent) velScale = Math.min(1.0, velScale * 1.4);
+    // Longer decay range with tune: 400–2000ms
+    const decayTime = accent
+      ? (0.4 + p.tune * 1.6) * 0.8
+      : (0.4 + p.tune * 1.6);
 
-    // Create a sub-gain for this OH instance so CH can choke it
     const ohVca = ctx.createGain();
     ohVca.gain.setValueAtTime(0, time);
     ohVca.gain.linearRampToValueAtTime(velScale, time + 0.001);
     ohVca.gain.exponentialRampToValueAtTime(0.001, time + decayTime);
     ohVca.connect(_voiceGains.OH);
 
-    // BPF + HPF for metallic character
-    const bpf = ctx.createBiquadFilter();
-    bpf.type = 'bandpass';
-    bpf.frequency.value = 8000 + p.tune * 4000;
-    bpf.Q.value = 0.5;
-
+    // Final highpass at 7000 Hz
     const hpf = ctx.createBiquadFilter();
-    hpf.type = 'highpass';
-    hpf.frequency.value = 3000;
-
-    _makeHHOscs(time, decayTime, velScale, bpf);
-    bpf.connect(hpf);
+    hpf.type           = 'highpass';
+    hpf.frequency.value = 7000;
     hpf.connect(ohVca);
 
+    _makeHHOscs(time, decayTime, velScale, hpf);
+
     _ohVca = ohVca;
-    _ohChokeTime = time;
   }
 
-  function _triggerCH(velocity, time) {
+  function _triggerCH(velocity, time, accent) {
     if (!ctx) return;
     const p = _voiceParams.CH;
-    const velScale  = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
-    const decayTime = 0.04 + p.decay * 0.06; // 40–100ms very short
+    let velScale   = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
+    if (accent) velScale = Math.min(1.0, velScale * 1.4);
+    const decayTime = 0.04 + p.decay * 0.06; // 40–100ms
 
-    // Choke any open HH
+    // Proper choke: ramp down current OH VCA immediately
     if (_ohVca) {
       _ohVca.gain.cancelScheduledValues(time);
-      _ohVca.gain.setTargetAtTime(0, time, 0.005);
+      _ohVca.gain.setValueAtTime(_ohVca.gain.value, time);
+      _ohVca.gain.linearRampToValueAtTime(0, time + 0.003);
       _ohVca = null;
     }
 
@@ -372,57 +499,65 @@ export function createTr909(audioContext) {
     chVca.gain.exponentialRampToValueAtTime(0.001, time + decayTime);
     chVca.connect(_voiceGains.CH);
 
-    const bpf = ctx.createBiquadFilter();
-    bpf.type = 'bandpass';
-    bpf.frequency.value = 8000 + p.tune * 4000;
-    bpf.Q.value = 0.7;
-
+    // Final highpass at 7000 Hz
     const hpf = ctx.createBiquadFilter();
-    hpf.type = 'highpass';
-    hpf.frequency.value = 5000;
-
-    _makeHHOscs(time, decayTime, velScale, bpf);
-    bpf.connect(hpf);
+    hpf.type           = 'highpass';
+    hpf.frequency.value = 7000;
     hpf.connect(chVca);
+
+    _makeHHOscs(time, decayTime, velScale, hpf);
   }
 
-  function _triggerCY(velocity, time) {
+  function _triggerCY(velocity, time, accent) {
     if (!ctx) return;
     const p = _voiceParams.CY;
-    const velScale  = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
-    const decayTime = 1.5 + p.decay * 3.0; // 1.5–4.5s long
+    let velScale   = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
+    if (accent) velScale = Math.min(1.0, velScale * 1.4);
+    const decayTime = accent
+      ? (1.5 + p.decay * 3.0) * 0.8
+      : (1.5 + p.decay * 3.0); // 1.5–4.5s
     const tuneMult  = Math.pow(2, (p.tune - 0.5) * 0.5);
 
     const cyVca = ctx.createGain();
     cyVca.gain.setValueAtTime(0, time);
-    cyVca.gain.linearRampToValueAtTime(0.5 * velScale, time + 0.001);
+    cyVca.gain.linearRampToValueAtTime(0.45 * velScale, time + 0.002);
     cyVca.gain.exponentialRampToValueAtTime(0.001, time + decayTime);
     cyVca.connect(_voiceGains.CY);
 
-    // Cymbal: similar HH but slightly detuned and more high-frequency content
+    // Attack click transient
+    const clickNoise = _createNoiseSource();
+    const clickHpf   = ctx.createBiquadFilter();
+    clickHpf.type           = 'highpass';
+    clickHpf.frequency.value = 5000;
+    const clickGain = ctx.createGain();
+    clickGain.gain.setValueAtTime(0, time);
+    clickGain.gain.linearRampToValueAtTime(0.25 * velScale, time + 0.0005);
+    clickGain.gain.exponentialRampToValueAtTime(0.001, time + 0.004);
+    clickNoise.connect(clickHpf); clickHpf.connect(clickGain); clickGain.connect(_voiceGains.CY);
+    clickNoise.start(time); clickNoise.stop(time + 0.008);
+
     const CY_FREQS = [205.3 * tuneMult, 309.1 * tuneMult, 416.7 * tuneMult,
                       522.4 * tuneMult * 1.02, 633.8 * tuneMult * 1.01, 769.2 * tuneMult];
 
     const bpf = ctx.createBiquadFilter();
-    bpf.type = 'bandpass';
+    bpf.type           = 'bandpass';
     bpf.frequency.value = 6000 * tuneMult;
-    bpf.Q.value = 0.3;
+    bpf.Q.value         = 0.3;
 
     const hpf = ctx.createBiquadFilter();
-    hpf.type = 'highpass';
+    hpf.type           = 'highpass';
     hpf.frequency.value = 4000;
 
-    // Add noise layer for cymbal sizzle
-    const noise = _createNoiseSource();
+    // Noise sizzle layer
+    const noise    = _createNoiseSource();
     const noiseBpf = ctx.createBiquadFilter();
-    noiseBpf.type = 'bandpass';
+    noiseBpf.type           = 'bandpass';
     noiseBpf.frequency.value = 8000;
-    noiseBpf.Q.value = 1.0;
+    noiseBpf.Q.value         = 1.0;
     const noiseVca = ctx.createGain();
     noiseVca.gain.setValueAtTime(0, time);
     noiseVca.gain.linearRampToValueAtTime(0.15 * velScale, time + 0.002);
     noiseVca.gain.exponentialRampToValueAtTime(0.001, time + decayTime * 0.7);
-
     noise.connect(noiseBpf); noiseBpf.connect(noiseVca); noiseVca.connect(cyVca);
     noise.start(time); noise.stop(time + decayTime * 0.75);
 
@@ -440,73 +575,127 @@ export function createTr909(audioContext) {
     hpf.connect(cyVca);
   }
 
+  // ── Mute/Solo helper ──────────────────────────────────────────────────────
+  function _isVoiceAudible(voice) {
+    if (_soloVoice) return voice === _soloVoice;
+    return !_mutedVoices.has(voice);
+  }
+
+  function _applyMuteGain(voice) {
+    if (!ctx || !_voiceGains[voice]) return;
+    const audible = _isVoiceAudible(voice);
+    _voiceGains[voice].gain.setTargetAtTime(
+      audible ? _voiceParams[voice].volume : 0,
+      ctx.currentTime, 0.01
+    );
+  }
+
+  function _refreshAllMuteGains() {
+    VOICES.forEach(v => _applyMuteGain(v));
+  }
+
   // ── Master trigger dispatcher ─────────────────────────────────────────────
-  function _triggerVoice(voice, velocity, time) {
+  function _triggerVoice(voice, velocity, time, accent) {
     if (!ctx) return;
-    const now = time ?? ctx.currentTime;
-    const v = velocity ?? 3;
-    const p = _voiceParams[voice];
+    const now    = time ?? ctx.currentTime;
+    const v      = velocity ?? 3;
+    const ac     = accent ?? false;
+    const p      = _voiceParams[voice];
 
-    // Flash pad LED
+    if (!_isVoiceAudible(voice)) return;
+
     _flashPad(voice);
+    _flashVU(voice);
 
-    // Dispatch note on
     window.dispatchEvent(new CustomEvent('confusynth:note:on', {
       detail: { source: 'tr909', voice, velocity: v, time: now },
     }));
 
     switch (voice) {
-      case 'BD': _triggerBD(v, now); break;
-      case 'SD': _triggerSD(v, now); break;
-      case 'LT': _triggerTom('LT', 80  + p.tune * 60,  200, v, now); break;
-      case 'MT': _triggerTom('MT', 110 + p.tune * 80,  180, v, now); break;
-      case 'HT': _triggerTom('HT', 160 + p.tune * 100, 160, v, now); break;
-      case 'RS': _triggerRS(v, now); break;
-      case 'CP': _triggerCP(v, now); break;
-      case 'CB': _triggerCB(v, now); break;
-      case 'OH': _triggerOH(v, now); break;
-      case 'CH': _triggerCH(v, now); break;
-      case 'CY': _triggerCY(v, now); break;
+      case 'BD': _triggerBD(v, now, ac); break;
+      case 'SD': _triggerSD(v, now, ac); break;
+      case 'LT': _triggerTom('LT', 80  + p.tune * 60,  200, v, now, ac); break;
+      case 'MT': _triggerTom('MT', 110 + p.tune * 80,  180, v, now, ac); break;
+      case 'HT': _triggerTom('HT', 160 + p.tune * 100, 160, v, now, ac); break;
+      case 'RS': _triggerRS(v, now, ac); break;
+      case 'CP': _triggerCP(v, now, ac); break;
+      case 'CB': _triggerCB(v, now, ac); break;
+      case 'OH': _triggerOH(v, now, ac); break;
+      case 'CH': _triggerCH(v, now, ac); break;
+      case 'CY': _triggerCY(v, now, ac); break;
     }
   }
 
   // ── Sequencer step trigger ────────────────────────────────────────────────
-  function _triggerStep(stepIdx) {
-    const now = ctx ? ctx.currentTime : 0;
+  function _triggerStep(stepIdx, schedTime) {
+    const now = schedTime ?? (ctx ? ctx.currentTime : 0);
     VOICES.forEach(voice => {
       const step = _steps[voice][stepIdx];
       if (step.active && step.velocity > 0) {
-        _triggerVoice(voice, step.velocity, now);
+        _triggerVoice(voice, step.velocity, now, step.accent);
       }
     });
     _highlightStep(stepIdx);
   }
 
-  // ── Standalone transport ──────────────────────────────────────────────────
+  // ── Swing offset helper ───────────────────────────────────────────────────
+  function _swingOffset(stepIdx, stepDurationSec) {
+    // Odd steps (0-indexed: 1, 3, 5...) are delayed
+    if (_swing > 0 && (stepIdx % 2) === 1) {
+      return _swing * stepDurationSec * 0.33;
+    }
+    return 0;
+  }
+
+  // ── Standalone transport (look-ahead scheduler) ───────────────────────────
+  let _scheduleAheadTime = 0.1; // seconds
+  let _lookaheadMs       = 25;  // ms between scheduler calls
+  let _nextStepTime      = 0;
+  let _schedTimer        = null;
+
+  function _getStepDuration() {
+    return (60 / _standaloneBPM) / 4; // 16th note
+  }
+
+  function _scheduleNext() {
+    const stepDur = _getStepDuration();
+    while (_nextStepTime < ctx.currentTime + _scheduleAheadTime) {
+      const swingDelay = _swingOffset(_seqStep, stepDur);
+      _triggerStep(_seqStep, _nextStepTime + swingDelay);
+      _seqStep    = (_seqStep + 1) % 16;
+      _nextStepTime += stepDur;
+    }
+  }
+
   function _startStandalone() {
-    if (_standaloneTimer) clearInterval(_standaloneTimer);
-    const msPerBeat = 60000 / _standaloneBPM;
-    const msPerStep = msPerBeat / 4;
-    _seqStep = 0;
-    _standaloneTimer = setInterval(() => {
-      _triggerStep(_seqStep % 16);
-      _seqStep = (_seqStep + 1) % 16;
-    }, msPerStep);
+    if (_schedTimer) clearInterval(_schedTimer);
+    _seqStep      = 0;
+    _nextStepTime = ctx ? ctx.currentTime : 0;
+    _schedTimer   = setInterval(_scheduleNext, _lookaheadMs);
   }
 
   function _stopStandalone() {
-    if (_standaloneTimer) { clearInterval(_standaloneTimer); _standaloneTimer = null; }
+    if (_schedTimer) { clearInterval(_schedTimer); _schedTimer = null; }
     _highlightStep(-1);
   }
 
   // ── Clock sync ────────────────────────────────────────────────────────────
   window.addEventListener('confusynth:clock', (e) => {
-    const { step, bpm } = e.detail ?? {};
+    const { step, bpm, time: clockTime } = e.detail ?? {};
     if (!_running || !_syncMode) return;
-    if (bpm && _standaloneBPM !== bpm) _standaloneBPM = bpm;
-    _stopStandalone();
+    if (bpm && _standaloneBPM !== bpm) {
+      _standaloneBPM = bpm;
+      const bpmEl = el?.querySelector(`#${_id}-bpm`);
+      if (bpmEl) bpmEl.textContent = bpm;
+    }
+    if (_schedTimer) _stopStandalone();
     const s = typeof step === 'number' ? step % 16 : _seqStep;
-    _triggerStep(s);
+    const schedTime = (typeof clockTime === 'number' && ctx)
+      ? clockTime
+      : (ctx ? ctx.currentTime : 0);
+    const stepDur = _getStepDuration();
+    const swingDelay = _swingOffset(s, stepDur);
+    _triggerStep(s, schedTime + swingDelay);
     _seqStep = (s + 1) % 16;
   });
 
@@ -520,7 +709,7 @@ export function createTr909(audioContext) {
         background: linear-gradient(180deg, #ddd5c2 0%, #cfc5b0 100%);
         border: 2px solid #a89880;
         border-radius: 8px;
-        width: 920px;
+        width: 960px;
         min-height: 280px;
         box-shadow: 0 4px 18px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.3);
         padding: 8px 12px 12px;
@@ -561,11 +750,53 @@ export function createTr909(audioContext) {
       }
       .tr909-port-bar .port:hover { background: #2e2824; }
 
+      /* Pattern slot buttons */
+      .tr909-pattern-slots {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+      }
+      .tr909-slot-btn {
+        background: linear-gradient(180deg, #4a4440 0%, #2e2a28 100%);
+        color: #c0a870;
+        border: 1px solid #1a1614;
+        border-radius: 3px;
+        padding: 3px 9px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        cursor: pointer;
+        text-transform: uppercase;
+      }
+      .tr909-slot-btn.active {
+        background: linear-gradient(180deg, #e07000 0%, #a04800 100%);
+        color: #fff8e8;
+        box-shadow: 0 0 6px rgba(255,140,0,0.4);
+      }
+      .tr909-slot-btn:hover:not(.active) { background: linear-gradient(180deg, #5a5450 0%, #3e3a38 100%); }
+      .tr909-copy-paste {
+        display: flex;
+        gap: 3px;
+        margin-left: 4px;
+      }
+      .tr909-copy-paste button {
+        background: linear-gradient(180deg, #383430 0%, #201e1c 100%);
+        color: #a09070;
+        border: 1px solid #1a1614;
+        border-radius: 3px;
+        padding: 3px 7px;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+      }
+      .tr909-copy-paste button:hover { background: linear-gradient(180deg, #484440 0%, #302e2c 100%); }
+
       /* Pads row */
       .tr909-pads-row {
         display: flex;
         gap: 5px;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
         align-items: flex-end;
       }
       .tr909-pad-wrap {
@@ -586,6 +817,7 @@ export function createTr909(audioContext) {
         box-shadow: 0 2px 4px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
         min-width: 44px;
         min-height: 44px;
+        position: relative;
       }
       .tr909-pad:hover {
         background: linear-gradient(160deg, #6e6460 0%, #4e4a48 100%);
@@ -600,6 +832,55 @@ export function createTr909(audioContext) {
         letter-spacing: 1px;
         color: #5a4e3a;
         text-transform: uppercase;
+      }
+
+      /* VU meter strip */
+      .tr909-vu {
+        width: 100%;
+        height: 4px;
+        background: #1a1614;
+        border-radius: 2px;
+        overflow: hidden;
+        position: relative;
+      }
+      .tr909-vu-bar {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #40c040, #e0e000, #e04000);
+        border-radius: 2px;
+        transition: width 0.03s ease-out;
+      }
+      .tr909-vu-bar.flash {
+        width: 100%;
+        transition: none;
+      }
+      .tr909-vu-bar.fade {
+        width: 0%;
+        transition: width 0.25s ease-out;
+      }
+
+      /* Mute button */
+      .tr909-mute-btn {
+        font-size: 8px;
+        font-weight: 700;
+        color: #786858;
+        background: #2a2220;
+        border: 1px solid #1a1614;
+        border-radius: 2px;
+        padding: 1px 4px;
+        cursor: pointer;
+        letter-spacing: 0.5px;
+        line-height: 1.4;
+      }
+      .tr909-mute-btn.muted {
+        background: #602000;
+        color: #ff8040;
+        border-color: #903020;
+      }
+      .tr909-mute-btn.solo {
+        background: #006020;
+        color: #40ff80;
+        border-color: #209050;
       }
 
       /* Voice knob rows */
@@ -678,7 +959,7 @@ export function createTr909(audioContext) {
       }
       .tr909-step {
         flex: 1;
-        height: 20px;
+        height: 22px;
         background: #3a3230;
         border: 1px solid #2a2220;
         border-radius: 3px;
@@ -704,6 +985,21 @@ export function createTr909(audioContext) {
       }
       .tr909-step:hover { filter: brightness(1.2); }
 
+      /* Accent dot on step */
+      .tr909-step .accent-dot {
+        display: none;
+        position: absolute;
+        bottom: 2px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 4px;
+        height: 4px;
+        background: #ff6010;
+        border-radius: 50%;
+        box-shadow: 0 0 3px rgba(255,96,16,0.8);
+      }
+      .tr909-step.accented .accent-dot { display: block; }
+
       /* Bottom controls */
       .tr909-bottom {
         display: flex;
@@ -712,11 +1008,14 @@ export function createTr909(audioContext) {
         margin-top: 8px;
         padding-top: 6px;
         border-top: 1px solid #b8a890;
+        flex-wrap: wrap;
+        gap: 6px;
       }
       .tr909-transport {
         display: flex;
         gap: 6px;
         align-items: center;
+        flex-wrap: wrap;
       }
       .tr909-btn {
         background: linear-gradient(180deg, #4a4440 0%, #2e2a28 100%);
@@ -756,10 +1055,29 @@ export function createTr909(audioContext) {
         color: #40e0d0;
         box-shadow: 0 0 6px rgba(64,224,208,0.3);
       }
+      .tr909-comp-btn {
+        background: linear-gradient(180deg, #3a3040 0%, #201828 100%);
+        color: #a080c0;
+        border: 1px solid #1a1020;
+        border-radius: 4px;
+        padding: 5px 10px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        cursor: pointer;
+        text-transform: uppercase;
+        transition: background 0.12s;
+      }
+      .tr909-comp-btn.active {
+        background: linear-gradient(180deg, #503070 0%, #301850 100%);
+        color: #d0a0ff;
+        box-shadow: 0 0 6px rgba(160,80,255,0.3);
+      }
       .tr909-master-knob-wrap {
         display: flex;
         align-items: center;
         gap: 8px;
+        flex-wrap: wrap;
       }
       .tr909-knob-lg {
         width: 34px;
@@ -795,6 +1113,7 @@ export function createTr909(audioContext) {
         min-width: 54px;
         text-align: center;
         letter-spacing: 2px;
+        cursor: pointer;
       }
       .tr909-label-sm {
         font-size: 9px;
@@ -802,6 +1121,12 @@ export function createTr909(audioContext) {
         color: #7a6a50;
         letter-spacing: 0.5px;
         text-transform: uppercase;
+      }
+      /* Swing knob row */
+      .tr909-swing-wrap {
+        display: flex;
+        align-items: center;
+        gap: 5px;
       }
     `;
     document.head.appendChild(style);
@@ -813,15 +1138,17 @@ export function createTr909(audioContext) {
   el.id = _id;
   el.dataset.moduleType = 'tr909';
 
-  // Pad row HTML
+  // Pad row HTML: each pad gets a VU meter + mute button
   const padsHtml = VOICES.map(v => `
     <div class="tr909-pad-wrap">
       <div class="tr909-pad" data-voice="${v}" title="${VOICE_LABELS[v]}"></div>
+      <div class="tr909-vu"><div class="tr909-vu-bar" data-vu="${v}"></div></div>
       <span class="tr909-pad-label">${v}</span>
+      <button class="tr909-mute-btn" data-mute="${v}" title="Mute/Solo ${v}">M</button>
     </div>
   `).join('');
 
-  // Voice knob mini-rows: tune + decay + volume per voice
+  // Voice knob mini-rows: tune + decay + volume + optional snappy per voice
   const voiceKnobsHtml = VOICES.map(v => {
     const p = _voiceParams[v];
     const knobAngle = (val) => -135 + val * 270;
@@ -853,7 +1180,7 @@ export function createTr909(audioContext) {
     `;
   }).join('');
 
-  // Step sequencer rows
+  // Step sequencer rows — each step has an accent-dot child element
   const seqRowsHtml = VOICES.map(v => {
     const stepsHtml = Array.from({ length: 16 }, (_, i) => {
       const step = _steps[v][i];
@@ -863,7 +1190,8 @@ export function createTr909(audioContext) {
             : step.velocity === 2 ? 'active active-mid'
             : 'active active-high';
       }
-      return `<div class="tr909-step ${cls}" data-voice="${v}" data-step="${i}"></div>`;
+      if (step.accent) cls += ' accented';
+      return `<div class="tr909-step ${cls}" data-voice="${v}" data-step="${i}"><span class="accent-dot"></span></div>`;
     }).join('');
     return `
       <div class="tr909-seq-row">
@@ -873,9 +1201,22 @@ export function createTr909(audioContext) {
     `;
   }).join('');
 
+  // Pattern slot buttons HTML
+  const patternSlotsHtml = PATTERN_SLOTS.map(s =>
+    `<button class="tr909-slot-btn${s === 'A' ? ' active' : ''}" data-slot="${s}">${s}</button>`
+  ).join('');
+
   el.innerHTML = `
     <div class="tr909-port-bar">
       <span class="tr909-brand">TR-909</span>
+      <div class="tr909-pattern-slots">
+        <span class="tr909-label-sm">PAT:</span>
+        ${patternSlotsHtml}
+        <div class="tr909-copy-paste">
+          <button id="${_id}-copy" title="Copy current pattern">CPY</button>
+          <button id="${_id}-paste" title="Paste to current pattern">PST</button>
+        </div>
+      </div>
       <span class="port" data-port="audio-out">AUDIO OUT</span>
     </div>
     <div class="tr909-pads-row">${padsHtml}</div>
@@ -886,8 +1227,13 @@ export function createTr909(audioContext) {
         <button class="tr909-btn" id="${_id}-play">&#9654; PLAY</button>
         <button class="tr909-btn" id="${_id}-stop">&#9632; STOP</button>
         <button class="tr909-sync-btn" id="${_id}-sync" title="Sync to confusynth:clock">SYNC</button>
+        <button class="tr909-comp-btn${_compEnabled ? ' active' : ''}" id="${_id}-comp" title="Master compressor">COMP</button>
       </div>
       <div class="tr909-master-knob-wrap">
+        <div class="tr909-swing-wrap">
+          <span class="tr909-label-sm">SWING</span>
+          <div class="tr909-knob-lg" id="${_id}-swing" title="Swing (0–100%)"></div>
+        </div>
         <span class="tr909-label-sm">MASTER</span>
         <div class="tr909-knob-lg" id="${_id}-mvol" title="Master Volume"></div>
         <span class="tr909-label-sm">VOL</span>
@@ -903,9 +1249,6 @@ export function createTr909(audioContext) {
   }
 
   function _setKnobRotation(knobEl, val) {
-    knobEl.style.setProperty('--r', `${_knobAngleDeg(val)}deg`);
-    // Use ::after pseudo — drive via transform on the knob element directly
-    // We override the ::after with a real indicator div approach using inline style
     knobEl.style.transform = `rotate(${_knobAngleDeg(val)}deg)`;
   }
 
@@ -918,6 +1261,7 @@ export function createTr909(audioContext) {
   });
 
   _setKnobRotation(el.querySelector(`#${_id}-mvol`), _masterVolume);
+  _setKnobRotation(el.querySelector(`#${_id}-swing`), _swing);
 
   // ── Knob drag interaction ─────────────────────────────────────────────────
   function _attachKnobDrag(knobEl, getter, setter) {
@@ -925,12 +1269,12 @@ export function createTr909(audioContext) {
     knobEl.addEventListener('pointerdown', e => {
       e.preventDefault();
       knobEl.setPointerCapture(e.pointerId);
-      startY = e.clientY;
+      startY   = e.clientY;
       startVal = getter();
     });
     knobEl.addEventListener('pointermove', e => {
       if (!e.buttons) return;
-      const delta = (startY - e.clientY) / 150;
+      const delta  = (startY - e.clientY) / 150;
       const newVal = Math.max(0, Math.min(1, startVal + delta));
       setter(newVal);
       _setKnobRotation(knobEl, newVal);
@@ -946,7 +1290,9 @@ export function createTr909(audioContext) {
       (val) => {
         _voiceParams[voice][param] = val;
         if (param === 'volume' && ctx && _voiceGains[voice]) {
-          _voiceGains[voice].gain.setTargetAtTime(val, ctx.currentTime, 0.02);
+          if (_isVoiceAudible(voice)) {
+            _voiceGains[voice].gain.setTargetAtTime(val, ctx.currentTime, 0.02);
+          }
         }
       }
     );
@@ -958,19 +1304,24 @@ export function createTr909(audioContext) {
     () => _masterVolume,
     (val) => {
       _masterVolume = val;
-      if (ctx && masterGain) {
-        masterGain.gain.setTargetAtTime(val, ctx.currentTime, 0.02);
-      }
+      if (ctx && masterGain) masterGain.gain.setTargetAtTime(val, ctx.currentTime, 0.02);
     }
   );
 
-  // ── BPM display (click + scroll to change) ───────────────────────────────
+  const swingKnob = el.querySelector(`#${_id}-swing`);
+  _attachKnobDrag(
+    swingKnob,
+    () => _swing,
+    (val) => { _swing = val; }
+  );
+
+  // ── BPM display ───────────────────────────────────────────────────────────
   const bpmDisplay = el.querySelector(`#${_id}-bpm`);
   bpmDisplay?.addEventListener('wheel', e => {
     e.preventDefault();
     _standaloneBPM = Math.max(40, Math.min(280, _standaloneBPM - Math.sign(e.deltaY)));
     bpmDisplay.textContent = _standaloneBPM;
-    if (_running && !_syncMode && _standaloneTimer) _startStandalone();
+    if (_running && !_syncMode && _schedTimer) _startStandalone();
   });
   bpmDisplay?.addEventListener('click', () => {
     const input = prompt('Enter BPM (40–280):', _standaloneBPM);
@@ -979,7 +1330,7 @@ export function createTr909(audioContext) {
     if (!isNaN(v) && v >= 40 && v <= 280) {
       _standaloneBPM = v;
       bpmDisplay.textContent = v;
-      if (_running && !_syncMode && _standaloneTimer) _startStandalone();
+      if (_running && !_syncMode && _schedTimer) _startStandalone();
     }
   });
 
@@ -988,38 +1339,131 @@ export function createTr909(audioContext) {
     pad.addEventListener('pointerdown', e => {
       e.preventDefault();
       if (ctx && ctx.state === 'suspended') ctx.resume();
-      _triggerVoice(pad.dataset.voice, 3);
+      _triggerVoice(pad.dataset.voice, 3, undefined, false);
     });
   });
 
-  // ── Step buttons ─────────────────────────────────────────────────────────
+  // ── Step buttons — left-click cycles velocity, right-click toggles accent ─
   el.querySelectorAll('.tr909-step').forEach(stepEl => {
     stepEl.addEventListener('click', e => {
       e.preventDefault();
       const voice = stepEl.dataset.voice;
-      const i = parseInt(stepEl.dataset.step);
-      const step = _steps[voice][i];
+      const i     = parseInt(stepEl.dataset.step);
+      const step  = _steps[voice][i];
 
       if (!step.active) {
-        // Off → high
-        step.active = true;
+        step.active   = true;
         step.velocity = 3;
       } else if (step.velocity === 3) {
-        // High → mid
         step.velocity = 2;
       } else if (step.velocity === 2) {
-        // Mid → low
         step.velocity = 1;
       } else {
-        // Low → off
-        step.active = false;
+        step.active   = false;
         step.velocity = 0;
+        step.accent   = false;
       }
 
-      stepEl.classList.toggle('active', step.active);
-      stepEl.classList.toggle('active-low',  step.active && step.velocity === 1);
-      stepEl.classList.toggle('active-mid',  step.active && step.velocity === 2);
-      stepEl.classList.toggle('active-high', step.active && step.velocity === 3);
+      _updateStepEl(stepEl, step);
+    });
+
+    stepEl.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      const voice = stepEl.dataset.voice;
+      const i     = parseInt(stepEl.dataset.step);
+      const step  = _steps[voice][i];
+      if (!step.active) return;
+      step.accent = !step.accent;
+      _updateStepEl(stepEl, step);
+    });
+  });
+
+  function _updateStepEl(stepEl, step) {
+    stepEl.classList.toggle('active',      step.active);
+    stepEl.classList.toggle('active-low',  step.active && step.velocity === 1);
+    stepEl.classList.toggle('active-mid',  step.active && step.velocity === 2);
+    stepEl.classList.toggle('active-high', step.active && step.velocity === 3);
+    stepEl.classList.toggle('accented',    step.active && step.accent);
+  }
+
+  // ── Pattern slot switching ────────────────────────────────────────────────
+  let _clipboardPattern = null;
+
+  function _switchSlot(slot) {
+    _activeSlot = slot;
+    _steps = _patternSlots[slot];
+
+    // Update slot button highlights
+    el.querySelectorAll('.tr909-slot-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.slot === slot);
+    });
+
+    // Refresh all step button visuals
+    el.querySelectorAll('.tr909-step').forEach(stepEl => {
+      const voice = stepEl.dataset.voice;
+      const i     = parseInt(stepEl.dataset.step);
+      _updateStepEl(stepEl, _steps[voice][i]);
+    });
+  }
+
+  el.querySelectorAll('.tr909-slot-btn').forEach(btn => {
+    btn.addEventListener('click', () => _switchSlot(btn.dataset.slot));
+  });
+
+  el.querySelector(`#${_id}-copy`)?.addEventListener('click', () => {
+    // Deep copy current slot
+    _clipboardPattern = {};
+    VOICES.forEach(v => {
+      _clipboardPattern[v] = _steps[v].map(s => ({ ...s }));
+    });
+  });
+
+  el.querySelector(`#${_id}-paste`)?.addEventListener('click', () => {
+    if (!_clipboardPattern) return;
+    VOICES.forEach(v => {
+      _steps[v] = _clipboardPattern[v].map(s => ({ ...s }));
+      _patternSlots[_activeSlot][v] = _steps[v];
+    });
+    // Refresh UI
+    el.querySelectorAll('.tr909-step').forEach(stepEl => {
+      const voice = stepEl.dataset.voice;
+      const i     = parseInt(stepEl.dataset.step);
+      _updateStepEl(stepEl, _steps[voice][i]);
+    });
+  });
+
+  // ── Mute / Solo buttons ───────────────────────────────────────────────────
+  el.querySelectorAll('.tr909-mute-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const voice = btn.dataset.mute;
+      if (_soloVoice === voice) {
+        // Unsolo
+        _soloVoice = null;
+        btn.classList.remove('solo');
+        btn.textContent = 'M';
+      } else if (e.shiftKey) {
+        // Shift+click: solo
+        _soloVoice = voice;
+        el.querySelectorAll('.tr909-mute-btn').forEach(b => {
+          b.classList.remove('muted', 'solo');
+          b.textContent = 'M';
+        });
+        btn.classList.add('solo');
+        btn.textContent = 'S';
+      } else {
+        // Regular click: mute toggle
+        if (_mutedVoices.has(voice)) {
+          _mutedVoices.delete(voice);
+          btn.classList.remove('muted');
+          btn.textContent = 'M';
+        } else {
+          _mutedVoices.add(voice);
+          btn.classList.add('muted');
+          btn.textContent = 'M';
+        }
+      }
+      _refreshAllMuteGains();
     });
   });
 
@@ -1027,6 +1471,7 @@ export function createTr909(audioContext) {
   const playBtn = el.querySelector(`#${_id}-play`);
   const stopBtn = el.querySelector(`#${_id}-stop`);
   const syncBtn = el.querySelector(`#${_id}-sync`);
+  const compBtn = el.querySelector(`#${_id}-comp`);
 
   playBtn?.addEventListener('click', () => {
     _running = true;
@@ -1046,8 +1491,21 @@ export function createTr909(audioContext) {
   syncBtn?.addEventListener('click', () => {
     _syncMode = !_syncMode;
     syncBtn.classList.toggle('active', _syncMode);
-    if (_syncMode && _standaloneTimer) _stopStandalone();
+    if (_syncMode && _schedTimer) _stopStandalone();
     else if (_running && !_syncMode) _startStandalone();
+  });
+
+  compBtn?.addEventListener('click', () => {
+    _compEnabled = !_compEnabled;
+    compBtn.classList.toggle('active', _compEnabled);
+    if (ctx && compressor) {
+      if (_compEnabled) {
+        // Bypass: reduce ratio to 1 (unity)
+        compressor.ratio.setTargetAtTime(4, ctx.currentTime, 0.02);
+      } else {
+        compressor.ratio.setTargetAtTime(1, ctx.currentTime, 0.02);
+      }
+    }
   });
 
   // ── Step highlight ─────────────────────────────────────────────────────────
@@ -1065,6 +1523,22 @@ export function createTr909(audioContext) {
     if (_padFlashTimers[voice]) clearTimeout(_padFlashTimers[voice]);
     pad.classList.add('triggered');
     _padFlashTimers[voice] = setTimeout(() => pad.classList.remove('triggered'), 120);
+  }
+
+  // ── VU meter flash ────────────────────────────────────────────────────────
+  const _vuTimers = {};
+  function _flashVU(voice) {
+    const bar = el.querySelector(`.tr909-vu-bar[data-vu="${voice}"]`);
+    if (!bar) return;
+    if (_vuTimers[voice]) clearTimeout(_vuTimers[voice]);
+    bar.classList.remove('fade');
+    bar.classList.add('flash');
+    // Use double rAF to let the browser apply the 'flash' class first
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      bar.classList.remove('flash');
+      bar.classList.add('fade');
+      _vuTimers[voice] = setTimeout(() => bar.classList.remove('fade'), 280);
+    }));
   }
 
   // ── Cable autoconnect ─────────────────────────────────────────────────────
