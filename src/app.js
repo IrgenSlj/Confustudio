@@ -13,6 +13,7 @@ import { initBackground } from './background.js';
 
 // Page modules
 import patternPage  from './pages/pattern.js';
+import padPage      from './pages/pad.js';
 import pianoRollPage from './pages/piano-roll.js';
 import soundPage    from './pages/sound.js';
 import mixerPage    from './pages/mixer.js';
@@ -202,6 +203,7 @@ window.exportMidi = exportMidi;
 // ─────────────────────────────────────────────
 const PAGES = {
   'pattern':    patternPage,
+  'pad':        padPage,
   'piano-roll': pianoRollPage,
   'sound':      soundPage,
   'mixer':      mixerPage,
@@ -1848,10 +1850,25 @@ function scheduleLoop() {
       });
 
       // Advance all per-track step counters individually
-      pattern.kit.tracks.forEach((track, ti) => {
-        const trackLen = track.stepCount ?? ((track.trackLength > 0) ? track.trackLength : pattern.length);
-        _trackStepIdx[ti] = (_trackStepIdx[ti] + 1) % trackLen;
-      });
+      // Stutter / beat-repeat: loop within a fixed window instead of advancing
+      if (window._stutterActive) {
+        const STUTTER_SIZES = { '1/32': 0.5, '1/16': 1, '1/8': 2, '1/4': 4, '1/2': 8 };
+        const stutterSteps  = STUTTER_SIZES[window._stutterSize ?? '1/8'] ?? 2;
+        const startStep     = window._stutterStartStep ?? 0;
+        pattern.kit.tracks.forEach((track, ti) => {
+          const trackLen = track.stepCount ?? ((track.trackLength > 0) ? track.trackLength : pattern.length);
+          const advanced = (_trackStepIdx[ti] + 1) % trackLen;
+          const windowLen = Math.max(1, Math.round(stutterSteps));
+          _trackStepIdx[ti] = startStep + ((advanced - startStep + windowLen) % windowLen);
+        });
+      } else {
+        pattern.kit.tracks.forEach((track, ti) => {
+          const trackLen = track.stepCount ?? ((track.trackLength > 0) ? track.trackLength : pattern.length);
+          _trackStepIdx[ti] = (_trackStepIdx[ti] + 1) % trackLen;
+        });
+      }
+      // Expose current step index for stutter start capture
+      window._currentStep = _trackStepIdx[0];
 
       // state.currentStep tracks track 0 for the playhead display
       state.currentStep = _trackStepIdx[0];
@@ -3387,7 +3404,7 @@ function bindUI() {
     if (e.key !== 'Tab') return;
     if (e.target.matches('input, select, textarea')) return;
     e.preventDefault();
-    const PAGE_ORDER = ['pattern', 'piano-roll', 'sound', 'mixer', 'fx', 'scenes', 'banks', 'arranger', 'settings'];
+    const PAGE_ORDER = ['pattern', 'pad', 'piano-roll', 'sound', 'mixer', 'fx', 'scenes', 'banks', 'arranger', 'settings'];
     const cur = PAGE_ORDER.indexOf(state.currentPage);
     const next = e.shiftKey
       ? (cur - 1 + PAGE_ORDER.length) % PAGE_ORDER.length
@@ -3645,7 +3662,7 @@ function initMacros() {
 // SWIPE PAGE NAVIGATION
 // ─────────────────────────────────────────────
 function setupSwipe() {
-  const PAGE_ORDER = ['pattern', 'piano-roll', 'sound', 'mixer', 'fx', 'arranger', 'scenes', 'banks', 'settings'];
+  const PAGE_ORDER = ['pattern', 'pad', 'piano-roll', 'sound', 'mixer', 'fx', 'arranger', 'scenes', 'banks', 'settings'];
   const content = document.getElementById('main-content') ?? document.querySelector('.page-content') ?? document.querySelector('main');
   if (!content) return;
 

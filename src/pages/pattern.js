@@ -1687,6 +1687,164 @@ export default {
     swingDiv.append(swingViz, swingLabel);
     toolbar.append(swingDiv);
 
+    // ── STUTTER / Beat-Repeat ─────────────────────────────────────────────────
+    const stutterActive = !!(window._stutterActive);
+    const stutterSize   = window._stutterSize ?? '1/8';
+
+    const stutterWrap = document.createElement('div');
+    stutterWrap.className = 'stutter-section';
+    stutterWrap.style.cssText = 'display:flex;align-items:center;gap:3px;flex-shrink:0;flex-wrap:wrap;border-left:1px solid #333;padding-left:5px';
+
+    const stutterLabel = document.createElement('span');
+    stutterLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.46rem;color:var(--muted);letter-spacing:0.05em';
+    stutterLabel.textContent = 'STUTTER';
+
+    const stutterSizes = document.createElement('div');
+    stutterSizes.className = 'stutter-sizes';
+    stutterSizes.style.cssText = 'display:flex;gap:2px';
+    ['1/32','1/16','1/8','1/4','1/2'].forEach(sz => {
+      const btn = document.createElement('button');
+      btn.className = 'seq-btn stutter-size-btn' + (stutterSize === sz ? ' active' : '');
+      btn.dataset.size = sz;
+      btn.textContent = sz;
+      btn.style.cssText = btn.style.cssText + (stutterSize === sz
+        ? ';background:var(--accent);color:#000;border-color:var(--accent)'
+        : '');
+      btn.addEventListener('click', () => {
+        window._stutterSize = sz;
+        stutterSizes.querySelectorAll('.stutter-size-btn').forEach(b => {
+          const on = b.dataset.size === sz;
+          b.classList.toggle('active', on);
+          b.style.cssText = on ? 'background:var(--accent);color:#000;border-color:var(--accent)' : '';
+        });
+      });
+      stutterSizes.append(btn);
+    });
+
+    const stutterToggle = document.createElement('button');
+    stutterToggle.className = 'seq-btn' + (stutterActive ? ' active' : '');
+    stutterToggle.id = 'stutter-toggle';
+    stutterToggle.textContent = 'STUTTER';
+    stutterToggle.style.cssText = stutterActive
+      ? 'background:#ff6eb4;color:#000;border-color:#ff6eb4;font-weight:bold'
+      : '';
+    stutterToggle.title = 'Toggle stutter / beat-repeat';
+    stutterToggle.addEventListener('click', () => {
+      const nowActive = !window._stutterActive;
+      window._stutterActive = nowActive;
+      if (nowActive) {
+        // Capture the starting step index at the moment stutter activates
+        window._stutterStartStep = window._currentStep ?? 0;
+        stutterToggle.style.cssText = 'background:#ff6eb4;color:#000;border-color:#ff6eb4;font-weight:bold';
+        stutterToggle.classList.add('active');
+      } else {
+        stutterToggle.style.cssText = '';
+        stutterToggle.classList.remove('active');
+      }
+    });
+
+    stutterWrap.append(stutterLabel, stutterSizes, stutterToggle);
+    actionsDiv.append(stutterWrap);
+
+    // ── RANDOMIZE track ───────────────────────────────────────────────────────
+    const randomizeWrap = document.createElement('div');
+    randomizeWrap.style.cssText = 'display:flex;align-items:center;gap:3px;flex-shrink:0;border-left:1px solid #333;padding-left:5px;flex-wrap:wrap';
+
+    const rndLabel = document.createElement('span');
+    rndLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.46rem;color:var(--muted)';
+    rndLabel.textContent = 'RND';
+
+    // Density selector for randomize
+    const densityBtns = document.createElement('div');
+    densityBtns.style.cssText = 'display:flex;gap:2px';
+    const DENSITIES = { LOW: 0.25, MED: 0.5, HIGH: 0.8 };
+    let _randomizeDensity = state._randomizeDensityPad ?? 0.5;
+    Object.entries(DENSITIES).forEach(([label, val]) => {
+      const btn = document.createElement('button');
+      btn.className = 'seq-btn' + (Math.abs(val - _randomizeDensity) < 0.01 ? ' active' : '');
+      btn.textContent = label;
+      btn.style.cssText = Math.abs(val - _randomizeDensity) < 0.01
+        ? 'background:var(--accent);color:#000;border-color:var(--accent)'
+        : '';
+      btn.addEventListener('click', () => {
+        _randomizeDensity = val;
+        state._randomizeDensityPad = val;
+        densityBtns.querySelectorAll('button').forEach(b => {
+          const active = b.textContent === label;
+          b.classList.toggle('active', active);
+          b.style.cssText = active ? 'background:var(--accent);color:#000;border-color:var(--accent)' : '';
+        });
+      });
+      densityBtns.append(btn);
+    });
+
+    // RANDOMIZE button
+    const randomizeBtn = document.createElement('button');
+    randomizeBtn.className = 'seq-btn';
+    randomizeBtn.innerHTML = '&#127922; RANDOM';
+    randomizeBtn.title = 'Randomize current track steps with density + scale';
+    randomizeBtn.addEventListener('click', () => {
+      randomizeTrack(state.selectedTrackIndex, _randomizeDensity);
+    });
+
+    // MUTATE button
+    const mutateBtn = document.createElement('button');
+    mutateBtn.className = 'seq-btn';
+    mutateBtn.innerHTML = '&#10033; MUTATE';
+    mutateBtn.title = 'Slightly mutate current track (flip 1-2 random steps)';
+    mutateBtn.addEventListener('click', () => {
+      mutateTrack(state.selectedTrackIndex);
+    });
+
+    randomizeWrap.append(rndLabel, densityBtns, randomizeBtn, mutateBtn);
+    actionsDiv.append(randomizeWrap);
+
+    // ── Randomize / Mutate helpers ────────────────────────────────────────────
+    const SCALE_NOTES = {
+      major:      [0, 2, 4, 5, 7, 9, 11],
+      minor:      [0, 2, 3, 5, 7, 8, 10],
+      pentatonic: [0, 2, 4, 7, 9],
+      chromatic:  [0,1,2,3,4,5,6,7,8,9,10,11],
+    };
+    function getRandomNoteInScale(si) {
+      const genre  = state.randomizeGenre ?? 'random';
+      const scaleKey = (genre === 'jazz' || genre === 'latin') ? 'minor' : 'major';
+      const intervals = SCALE_NOTES[scaleKey];
+      const root = 60; // Middle C
+      const octShift = Math.floor(si / intervals.length) * 12;
+      return root + intervals[si % intervals.length] + octShift;
+    }
+
+    function randomizeTrack(trackIndex, density) {
+      const currentTrack = pattern.kit.tracks[trackIndex];
+      const len = currentTrack.trackLength > 0 ? currentTrack.trackLength : pattern.length;
+      const genre = state.randomizeGenre ?? 'random';
+      const weights = getGenreStepWeights(genre, trackIndex, len);
+      currentTrack.steps.slice(0, len).forEach((step, si) => {
+        const w    = weights[si] ?? 1;
+        const prob = Math.min(1, density * w + (si % 4 === 0 ? 0.15 : 0));
+        step.active = Math.random() < prob;
+        if (step.active) {
+          // velocity: map 0/1/2 float values used elsewhere (0~low, 1~med, 2~high isn't standard)
+          // Use 0-1 float consistent with existing velocity field
+          step.velocity = 0.4 + Math.random() * 0.6;
+          step.note     = getRandomNoteInScale(si);
+        }
+      });
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+    }
+
+    function mutateTrack(trackIndex) {
+      const currentTrack = pattern.kit.tracks[trackIndex];
+      const len       = currentTrack.trackLength > 0 ? currentTrack.trackLength : pattern.length;
+      const numFlips  = 1 + Math.floor(Math.random() * 2); // 1 or 2
+      for (let i = 0; i < numFlips; i++) {
+        const si = Math.floor(Math.random() * len);
+        currentTrack.steps[si].active = !currentTrack.steps[si].active;
+      }
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+    }
+
     toolbar.append(euclidDiv, actionsDiv);
     wrapper.append(toolbar);
   },
