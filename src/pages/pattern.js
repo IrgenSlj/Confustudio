@@ -553,6 +553,12 @@ export default {
       });
       labelWrap.append(stepCountSel);
 
+      // Step length indicator — shows active step count in small text
+      const stepLenIndicator = document.createElement('span');
+      stepLenIndicator.style.cssText = 'font-family:var(--font-mono);font-size:0.4rem;color:var(--muted);display:block;text-align:center;margin-top:1px;letter-spacing:0.03em';
+      stepLenIndicator.textContent = trkStepCount + ' steps';
+      labelWrap.append(stepLenIndicator);
+
       labelWrap.style.cursor = 'pointer';
       labelWrap.title = 'Click to select track; click label text to expand/collapse step details';
       labelWrap.addEventListener('click', () => emit('track:select', { trackIndex: ti }));
@@ -578,6 +584,13 @@ export default {
 
       // Step buttons — use per-track stepCount if set, otherwise fall back to global pattern.length
       trk.steps.slice(0, trkStepCount).forEach((step, si) => {
+        // Group separator every 16 steps when step count exceeds 16
+        if (trkStepCount > 16 && si > 0 && si % 16 === 0) {
+          const sep = document.createElement('div');
+          sep.style.cssText = 'width:2px;height:18px;background:rgba(255,255,255,0.12);border-radius:1px;flex-shrink:0;align-self:center;margin:0 1px';
+          row.append(sep);
+        }
+
         const btn = document.createElement('button');
         btn.className = 'step-btn step-sm';
         btn.style.position = 'relative';

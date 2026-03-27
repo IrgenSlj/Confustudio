@@ -3387,6 +3387,34 @@ button {
   border-color: #533;
 }
 
+/* GAIN TRIM knob — slightly smaller, warm amber tint */
+.djm-knob--trim {
+  width: 24px;
+  height: 24px;
+  background: radial-gradient(circle at 38% 32%, #554422, #2a2010);
+  border-color: #776633;
+}
+
+/* FILTER knob — blue/cyan tint to indicate frequency sweep */
+.djm-knob--filter {
+  width: 26px;
+  height: 26px;
+  background: radial-gradient(circle at 38% 32%, #224455, #102030);
+  border-color: #336677;
+}
+
+/* Per-channel peak LED */
+.djm-peak-led {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #333;
+  border: 1px solid #555;
+  margin: 2px auto;
+  transition: background 0.05s, box-shadow 0.05s;
+  cursor: default;
+}
+
 .djm-knob-label {
   font-size: 0.42rem;
   color: #666;

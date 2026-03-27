@@ -929,13 +929,151 @@ export default {
       requestAnimationFrame(updateMeters);
     })();
 
+    // ── Connected external module channel strips ─────────────────────────────
+    // Persist across re-renders via window._connectedModules
+    if (!window._connectedModules) window._connectedModules = [];
+
+    function renderConnectedStrips() {
+      // Remove any previously rendered external strips
+      container.querySelectorAll('.ext-module-strip').forEach(el => el.remove());
+
+      if (!window._connectedModules.length) return;
+
+      const extHeader = document.createElement('div');
+      extHeader.className = 'ext-module-strip';
+      extHeader.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);padding:4px 2px 2px;border-top:1px solid rgba(255,255,255,0.08);margin-top:4px';
+      extHeader.textContent = 'EXTERNAL MODULES';
+      container.append(extHeader);
+
+      window._connectedModules.forEach((mod, idx) => {
+        const strip = document.createElement('div');
+        strip.className = 'fader-strip ext-module-strip';
+        strip.style.cssText = 'border-left:3px solid #a060d0';
+
+        // Label
+        const nameSpan = document.createElement('div');
+        nameSpan.style.cssText = 'font-family:var(--font-mono);font-size:0.5rem;color:#c090f0;font-weight:bold;padding:3px 4px 0;text-overflow:ellipsis;overflow:hidden;white-space:nowrap';
+        nameSpan.textContent = mod.label;
+        strip.append(nameSpan);
+
+        // Fader (0–1.5)
+        const faderWrap = document.createElement('div');
+        faderWrap.style.cssText = 'display:flex;align-items:center;gap:3px;padding:2px 4px';
+
+        const faderLabel = document.createElement('span');
+        faderLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);flex-shrink:0';
+        faderLabel.textContent = 'VOL';
+
+        const fader = document.createElement('input');
+        fader.type = 'range';
+        fader.min = 0; fader.max = 1.5; fader.step = 0.01;
+        fader.value = mod.gain ?? 1;
+        fader.style.cssText = 'flex:1;accent-color:#a060d0;height:3px';
+        const faderVal = document.createElement('span');
+        faderVal.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);min-width:26px;text-align:right';
+        faderVal.textContent = parseFloat(fader.value).toFixed(2);
+
+        fader.addEventListener('input', () => {
+          const v = parseFloat(fader.value);
+          faderVal.textContent = v.toFixed(2);
+          mod.gain = v;
+          // Apply to audio node if available
+          const el = mod.el;
+          if (el) {
+            const gainNode = el._tr909Audio?.gain ?? el._tb303Audio?.gain ?? el._juno60Audio?.gain;
+            if (gainNode) gainNode.value = v;
+          }
+        });
+
+        faderWrap.append(faderLabel, fader, faderVal);
+        strip.append(faderWrap);
+
+        // Pan
+        const panWrap = document.createElement('div');
+        panWrap.style.cssText = 'display:flex;align-items:center;gap:3px;padding:0 4px 2px';
+        const panLabel = document.createElement('span');
+        panLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);flex-shrink:0';
+        panLabel.textContent = 'PAN';
+        const panSlider = document.createElement('input');
+        panSlider.type = 'range'; panSlider.min = -1; panSlider.max = 1; panSlider.step = 0.05;
+        panSlider.value = mod.pan ?? 0;
+        panSlider.style.cssText = 'flex:1;accent-color:#a060d0;height:3px';
+        const panVal = document.createElement('span');
+        panVal.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);min-width:22px;text-align:right';
+        const fmt = v => v === 0 ? 'C' : v > 0 ? `R${Math.round(v*100)}` : `L${Math.round(-v*100)}`;
+        panVal.textContent = fmt(mod.pan ?? 0);
+        panSlider.addEventListener('input', () => {
+          const v = parseFloat(panSlider.value);
+          panVal.textContent = fmt(v);
+          mod.pan = v;
+          const el = mod.el;
+          if (el) {
+            const panNode = el._tr909Audio?.pan ?? el._tb303Audio?.pan ?? el._juno60Audio?.pan;
+            if (panNode) panNode.value = v;
+          }
+        });
+        panWrap.append(panLabel, panSlider, panVal);
+        strip.append(panWrap);
+
+        // Mute / Solo
+        const msRow = document.createElement('div');
+        msRow.style.cssText = 'display:flex;gap:2px;padding:0 4px 4px';
+        const muteBtn = document.createElement('button');
+        muteBtn.className = 'fader-mute' + (mod.muted ? ' active' : '');
+        muteBtn.textContent = 'M'; muteBtn.style.flex = '1';
+        muteBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          mod.muted = !mod.muted;
+          muteBtn.classList.toggle('active', mod.muted);
+          const el = mod.el;
+          if (el) {
+            const gainNode = el._tr909Audio?.gain ?? el._tb303Audio?.gain ?? el._juno60Audio?.gain;
+            if (gainNode) gainNode.value = mod.muted ? 0 : (mod.gain ?? 1);
+          }
+        });
+        const soloBtn = document.createElement('button');
+        soloBtn.className = 'fader-solo' + (mod.solo ? ' active' : '');
+        soloBtn.textContent = 'S'; soloBtn.style.flex = '1';
+        soloBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          mod.solo = !mod.solo;
+          soloBtn.classList.toggle('active', mod.solo);
+        });
+        msRow.append(muteBtn, soloBtn);
+        strip.append(msRow);
+
+        container.append(strip);
+      });
+    }
+
+    renderConnectedStrips();
+
     // Auto-add channel strip when a module's audio-out connects to mixer
     const cableHandler = (e) => {
-      const { fromEl, toEl } = e.detail;
-      const fromModule = fromEl?.closest?.('.studio-module');
-      const toModule = toEl?.closest?.('.studio-module');
-      if (fromEl?.dataset?.port === 'audio-out' && toEl?.dataset?.port?.includes('-in')) {
-        // A module's audio out just connected — trigger mixer re-render
+      const { fromEl, toEl, fromPort, toPort } = e.detail ?? {};
+      if (!fromEl) return;
+
+      // Check if the connected-from element has a module type
+      const moduleEl = fromEl?.closest?.('[data-module-type]') ?? (fromEl?.dataset?.moduleType ? fromEl : null);
+      const moduleType = moduleEl?.dataset?.moduleType;
+
+      if (moduleType) {
+        // Register if not already tracked
+        const alreadyTracked = window._connectedModules.some(m => m.el === moduleEl);
+        if (!alreadyTracked) {
+          const labelMap = { 'tb-303': 'TB-303', 'tr-909': 'TR-909', 'juno-60': 'JUNO-60' };
+          window._connectedModules.push({
+            el:    moduleEl,
+            label: labelMap[moduleType] ?? moduleType.toUpperCase(),
+            gain:  1,
+            pan:   0,
+            muted: false,
+            solo:  false,
+          });
+        }
+        renderConnectedStrips();
+      } else if (fromEl?.dataset?.port === 'audio-out' && toEl?.dataset?.port?.includes('-in')) {
+        // Generic audio-out connection — trigger mixer re-render
         emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
       }
     };

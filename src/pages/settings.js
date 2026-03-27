@@ -101,6 +101,10 @@ export default {
             state.audioContext ? (state.audioContext.state === 'running' ? 'Running' : state.audioContext.state) : 'Not initialised',
             state.audioContext ? 'var(--live)' : 'var(--muted)')}
           <button class="screen-btn" data-action="initAudio" style="margin:6px 0">Init Audio</button>
+          <div id="audio-output-device-section" style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px">
+            <div style="font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);margin-bottom:4px">AUDIO OUTPUT DEVICE</div>
+            <div id="audio-output-loading" style="font-family:var(--font-mono);font-size:0.52rem;color:var(--muted)">Scanning devices…</div>
+          </div>
           ${infoRow('RATE',    'RATE: ' + sampleRate + (sampleRate !== '—' ? ' Hz' : ''), 'var(--screen-text)')}
           ${infoRow('LATENCY', 'LATENCY: ' + latencyMs, 'var(--screen-text)')}
           ${infoRow('RESAMPLER',
@@ -211,6 +215,75 @@ export default {
       setTabBar.querySelectorAll('.tab').forEach(btn => {
         btn.classList.toggle('active', btn.textContent === current);
       });
+    }
+
+    // ── Audio Output Device selector ─────────────────────────────────────────
+    const audioOutSection = container.querySelector('#audio-output-device-section');
+    if (audioOutSection) {
+      const loadingEl = audioOutSection.querySelector('#audio-output-loading');
+      if (navigator.mediaDevices?.enumerateDevices) {
+        navigator.mediaDevices.enumerateDevices().then(devices => {
+          const outputs = devices.filter(d => d.kind === 'audiooutput');
+          if (loadingEl) loadingEl.remove();
+
+          if (!outputs.length) {
+            const msg = document.createElement('div');
+            msg.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted)';
+            msg.textContent = 'No output devices found.';
+            audioOutSection.append(msg);
+            return;
+          }
+
+          const row = document.createElement('div');
+          row.className = 'settings-row';
+          const label = document.createElement('label');
+          label.textContent = 'Output';
+
+          const sel = document.createElement('select');
+          sel.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px';
+
+          outputs.forEach(dev => {
+            const opt = document.createElement('option');
+            opt.value = dev.deviceId;
+            opt.textContent = dev.label || `Output ${dev.deviceId.slice(0, 8)}`;
+            if (state._audioOutputDeviceId === dev.deviceId) opt.selected = true;
+            sel.append(opt);
+          });
+
+          const hint = document.createElement('div');
+          hint.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted);margin-top:4px';
+
+          sel.addEventListener('change', async () => {
+            const deviceId = sel.value;
+            state._audioOutputDeviceId = deviceId;
+            const dest = state.audioContext?.destination;
+            if (dest && typeof dest.setSinkId === 'function') {
+              try {
+                await dest.setSinkId(deviceId);
+                hint.style.color = 'var(--live)';
+                hint.textContent = 'Output device set.';
+              } catch (err) {
+                hint.style.color = 'var(--record)';
+                hint.textContent = 'Failed: ' + (err.message ?? err);
+              }
+            } else {
+              hint.style.color = 'var(--muted)';
+              hint.textContent = 'setSinkId not supported in this browser.';
+            }
+          });
+
+          if (!state.audioContext?.destination || typeof state.audioContext.destination.setSinkId !== 'function') {
+            hint.textContent = 'Note: output switching requires Chrome 110+ or Edge.';
+          }
+
+          row.append(label, sel);
+          audioOutSection.append(row, hint);
+        }).catch(() => {
+          if (loadingEl) loadingEl.textContent = 'Could not enumerate devices.';
+        });
+      } else {
+        if (loadingEl) loadingEl.textContent = 'enumerateDevices not supported.';
+      }
     }
 
     // ── MIDI Output Routing section ──────────────────────────────────────────

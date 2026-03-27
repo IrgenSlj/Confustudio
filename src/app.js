@@ -1833,7 +1833,12 @@ function scheduleLoop() {
 
       // Dispatch clock event so external modules (TB-303, TR-909) can sync
       document.dispatchEvent(new CustomEvent('confusynth:clock', {
-        detail: { step: state.currentStep, bpm: state.bpm, time: _schedNextTime }
+        detail: {
+          step: state.currentStep,
+          bpm: state.bpm,
+          time: _schedNextTime,
+          beat: Math.floor(state.currentStep / 4),
+        }
       }));
 
       // ── XFade automation record / playback ─────────────────────────────────
@@ -2058,6 +2063,10 @@ async function togglePlay() {
     if (state.midiClockOut && state.engine?.startMidiClock) {
       state.engine.startMidiClock(state.bpm ?? 120);
     }
+    // Notify external modules that transport has started
+    document.dispatchEvent(new CustomEvent('confusynth:transport', {
+      detail: { playing: true, bpm: state.bpm, time: state.audioContext.currentTime }
+    }));
     updateTransportUI();
     scheduleLoop();
   }
@@ -2078,6 +2087,10 @@ function stopPlay() {
   if (state.midiClockOut && state.engine?.stopMidiClock) {
     state.engine.stopMidiClock();
   }
+  // Notify external modules that transport has stopped
+  document.dispatchEvent(new CustomEvent('confusynth:transport', {
+    detail: { playing: false, bpm: state.bpm, time: state.audioContext?.currentTime ?? 0 }
+  }));
   // Restore any randomized fill steps when stopping
   if (state._preFillSnapshot) {
     state._fillActive = false;

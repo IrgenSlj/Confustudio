@@ -223,11 +223,21 @@ export class AudioEngine {
     this._chorusWidthSum.connect(this.chorusWet);
     this.chorusWet.connect(this.masterCompressor);
 
-    // Master chain: masterGain → masterCompressor → masterSaturator → [limiter?] → masterEQLow → masterEQMid → masterEQHigh → analyser → destination
-    // Initially no limiter — setLimiter(true) inserts it between saturator and EQ
+    // Master stereo width — StereoPanner inserted before analyser
+    // setMasterWidth(val) adjusts pan value (-1=full left, 0=centre, 1=full right)
+    this.masterPan = context.createStereoPanner();
+    this.masterPan.pan.value = 0;
+
+    // EQ chain feeds masterPan → analyser
+    this.masterEQHigh.disconnect();
+    this.masterEQHigh.connect(this.masterPan);
+    this.masterPan.connect(this.analyser);
+
+    // Master chain: masterGain → masterCompressor → masterSaturator → masterLimiter → masterEQLow → … → masterPan → analyser → destination
     this.master.connect(this.masterCompressor);
     this.masterCompressor.connect(this.masterSaturator);
-    this.masterSaturator.connect(this.masterEQLow);
+    this.masterSaturator.connect(this.masterLimiter);
+    this.masterLimiter.connect(this.masterEQLow);
     this.analyser.connect(context.destination);
 
     // CUE output — pre-fader listen bus, sums to master
@@ -430,6 +440,13 @@ export class AudioEngine {
 
   setMasterLevel(v) {
     this.master.gain.setTargetAtTime(Math.max(0, Math.min(1, v)), this.context.currentTime, 0.01);
+  }
+
+  // Stereo width control: adjusts the master StereoPanner pan value.
+  // val: -1 (full left) → 0 (centre) → 1 (full right).
+  setMasterWidth(val) {
+    if (!this.masterPan) return;
+    this.masterPan.pan.setTargetAtTime(Math.max(-1, Math.min(1, val)), this.context.currentTime, 0.01);
   }
 
   setCueGain(v) {
