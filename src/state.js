@@ -399,13 +399,26 @@ export function createAppState() {
       pan:    0,
     })),
 
-    // Global macro controls (4 mappable sliders)
+    // Global macro controls (4 mappable knobs)
     macros: [
-      { name: 'Macro 1', param: null, min: 0, max: 1, value: 0.5 },
-      { name: 'Macro 2', param: null, min: 0, max: 1, value: 0.5 },
-      { name: 'Macro 3', param: null, min: 0, max: 1, value: 0.5 },
-      { name: 'Macro 4', param: null, min: 0, max: 1, value: 0.5 },
+      { name: 'M1', param: null, min: 0, max: 1, value: 0.5, color: '#f0c640' },
+      { name: 'M2', param: null, min: 0, max: 1, value: 0.5, color: '#5add71' },
+      { name: 'M3', param: null, min: 0, max: 1, value: 0.5, color: '#67d7ff' },
+      { name: 'M4', param: null, min: 0, max: 1, value: 0.5, color: '#ff8c52' },
     ],
+
+    // Mod Matrix
+    modMatrix: {
+      routes: [],  // array of {sourceId, destId, trackIndex, amount, enabled}
+      lfos: [
+        { rate: 1,   shape: 'sine',     amount: 0, sync: false },
+        { rate: 0.5, shape: 'triangle', amount: 0, sync: false },
+      ],
+      envs: [
+        { attack: 0.01, decay: 0.2, sustain: 0.5, release: 0.3, amount: 0, trigger: 'note' },
+        { attack: 0.1,  decay: 0.5, sustain: 0.3, release: 0.8, amount: 0, trigger: 'note' },
+      ],
+    },
 
     // MIDI output routing (per-track channel, 0 = off/internal, 1–16 = MIDI channel)
     midiOutputChannels: new Array(8).fill(0),

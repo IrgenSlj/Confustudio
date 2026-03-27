@@ -304,6 +304,110 @@ export class AudioEngine {
 
     // Shared noise buffer — pre-created once, looped per trigger (not per-note allocation)
     this._noiseBuffer = this.createNoiseBuffer(2);
+
+    // ── Mod Matrix LFOs ───────────────────────────────────────────────────────
+    // Two global LFO oscillators for the mod matrix routing system.
+    this.lfo1 = context.createOscillator();
+    this.lfo1.type = 'sine';
+    this.lfo1.frequency.value = 1;
+    this.lfo1Gain = context.createGain();
+    this.lfo1Gain.gain.value = 0;
+    this.lfo1.connect(this.lfo1Gain);
+    this.lfo1.start();
+
+    this.lfo2 = context.createOscillator();
+    this.lfo2.type = 'triangle';
+    this.lfo2.frequency.value = 0.5;
+    this.lfo2Gain = context.createGain();
+    this.lfo2Gain.gain.value = 0;
+    this.lfo2.connect(this.lfo2Gain);
+    this.lfo2.start();
+
+    // Track the currently connected mod-matrix AudioParam connections so we can
+    // disconnect them before reconnecting on each applyModMatrix call.
+    this._modConnections = []; // [{lfoGain, param}]
+  }
+
+  // ——————————————————————————————————————————————
+  // Mod Matrix
+  // ——————————————————————————————————————————————
+
+  /**
+   * Apply mod-matrix routes to the Web Audio graph.
+   * Only LFO sources are wired directly into AudioParams; other sources
+   * (velocity, macros, etc.) are applied at note-trigger time in JS.
+   *
+   * @param {Array}  routes   — array of {sourceId, destId, trackIndex, amount, enabled}
+   * @param {Array}  lfos     — lfo config objects [{rate, shape, amount, sync}]
+   * @param {Array}  macros   — macro value objects [{value, color, name}]
+   * @param {Object} trackBuses — optional map of trackIndex → { filter, gainNode, panNode }
+   */
+  applyModMatrix(routes, lfos, macros, trackBuses) {
+    // Disconnect all previous mod connections
+    if (this._modConnections) {
+      this._modConnections.forEach(({ lfoGain, param }) => {
+        try { lfoGain.disconnect(param); } catch (_) {}
+      });
+    }
+    this._modConnections = [];
+
+    if (!routes || !routes.length) return;
+
+    // Update LFO oscillator settings from config
+    if (lfos) {
+      if (lfos[0]) {
+        this.lfo1.frequency.value = lfos[0].rate ?? 1;
+        try { this.lfo1.type = lfos[0].shape ?? 'sine'; } catch (_) {}
+      }
+      if (lfos[1]) {
+        this.lfo2.frequency.value = lfos[1].rate ?? 0.5;
+        try { this.lfo2.type = lfos[1].shape ?? 'triangle'; } catch (_) {}
+      }
+    }
+
+    routes.forEach(route => {
+      if (!route.enabled) return;
+
+      // Resolve the source to an LFO gain node (only LFOs have AudioNode outputs)
+      let lfoGain = null;
+      if (route.sourceId === 'lfo1') lfoGain = this.lfo1Gain;
+      else if (route.sourceId === 'lfo2') lfoGain = this.lfo2Gain;
+      if (!lfoGain) return; // Non-LFO sources are handled in JS at trigger time
+
+      // Scale the gain by the route amount
+      lfoGain.gain.value = route.amount;
+
+      // Resolve the destination AudioParam
+      const param = this._resolveModParam(route.destId, route.trackIndex, trackBuses);
+      if (!param) return;
+
+      try {
+        lfoGain.connect(param);
+        this._modConnections.push({ lfoGain, param });
+      } catch (_) {}
+    });
+  }
+
+  /**
+   * Resolve a mod destination ID to an AudioParam.
+   * Returns null if no suitable param is available.
+   */
+  _resolveModParam(destId, trackIndex, trackBuses) {
+    switch (destId) {
+      case 'master_reverb':
+        return this.reverbWet?.gain ?? null;
+      case 'master_delay':
+        return this.delayWet2?.gain ?? null;
+      case 'master_cutoff':
+        return this.delayFilter?.frequency ?? null;
+      case 'group_volume':
+        return this.groupBuses?.[trackIndex ?? 0]?.gain ?? null;
+      default: {
+        // Per-track destinations — needs live voice params (not available at
+        // static graph time). Store the destination for note-trigger pickup.
+        return null;
+      }
+    }
   }
 
   // ——————————————————————————————————————————————

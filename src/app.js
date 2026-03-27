@@ -22,6 +22,7 @@ import scenesPage   from './pages/scenes.js';
 import banksPage    from './pages/banks.js';
 import arrangerPage from './pages/arranger.js';
 import settingsPage from './pages/settings.js';
+import modMatrixPage from './pages/modmatrix.js';
 
 // ─────────────────────────────────────────────
 // TOAST NOTIFICATION
@@ -208,6 +209,7 @@ const PAGES = {
   'sound':      soundPage,
   'mixer':      mixerPage,
   'fx':         fxPage,
+  'modmatrix':  modMatrixPage,
   'scenes':     scenesPage,
   'banks':      banksPage,
   'arranger':   arrangerPage,
@@ -3404,7 +3406,7 @@ function bindUI() {
     if (e.key !== 'Tab') return;
     if (e.target.matches('input, select, textarea')) return;
     e.preventDefault();
-    const PAGE_ORDER = ['pattern', 'pad', 'piano-roll', 'sound', 'mixer', 'fx', 'scenes', 'banks', 'arranger', 'settings'];
+    const PAGE_ORDER = ['pattern', 'pad', 'piano-roll', 'sound', 'mixer', 'fx', 'modmatrix', 'scenes', 'banks', 'arranger', 'settings'];
     const cur = PAGE_ORDER.indexOf(state.currentPage);
     const next = e.shiftKey
       ? (cur - 1 + PAGE_ORDER.length) % PAGE_ORDER.length
@@ -3520,16 +3522,22 @@ function applyMacro(i) {
   scheduleSave();
 }
 
+const MACRO_COLORS = ['#f0c640', '#5add71', '#67d7ff', '#ff8c52'];
+
 function initMacros() {
   // Ensure macros array is initialised (backwards compat with saved state)
   if (!Array.isArray(state.macros) || state.macros.length < 4) {
     state.macros = [
-      { name: 'Macro 1', param: null, min: 0, max: 1, value: 0.5 },
-      { name: 'Macro 2', param: null, min: 0, max: 1, value: 0.5 },
-      { name: 'Macro 3', param: null, min: 0, max: 1, value: 0.5 },
-      { name: 'Macro 4', param: null, min: 0, max: 1, value: 0.5 },
+      { name: 'M1', param: null, min: 0, max: 1, value: 0.5, color: '#f0c640' },
+      { name: 'M2', param: null, min: 0, max: 1, value: 0.5, color: '#5add71' },
+      { name: 'M3', param: null, min: 0, max: 1, value: 0.5, color: '#67d7ff' },
+      { name: 'M4', param: null, min: 0, max: 1, value: 0.5, color: '#ff8c52' },
     ];
   }
+  // Ensure color fields exist on older saved macros
+  state.macros.forEach((m, i) => {
+    if (!m.color) m.color = MACRO_COLORS[i] ?? '#f0c640';
+  });
 
   const leftCol = document.querySelector('aside.left-col');
   if (!leftCol) return;
@@ -3654,15 +3662,116 @@ function initMacros() {
     wrap.appendChild(col);
   });
 
-  // Macros removed from left-col to keep it uncluttered
-  // leftCol.appendChild(wrap);
+  // Keep old slider-based wrap (hidden) for backwards-compat with param mapping
+  // leftCol.appendChild(wrap); // slider panel intentionally not mounted in left-col
+
+  // ── Build chassis macro knobs ─────────────────────────────────────────────
+  // leftCol is already declared above; re-query if null after early returns
+  const leftColKnobs = document.querySelector('aside.left-col');
+  if (!leftColKnobs) return;
+
+  // Remove any previously injected macro knobs (re-entrant safety)
+  const prevKnobs = leftColKnobs.querySelector('#macro-knobs');
+  if (prevKnobs) prevKnobs.remove();
+
+  const macroKnobs = document.createElement('div');
+  macroKnobs.className = 'macro-knobs';
+  macroKnobs.id = 'macro-knobs';
+
+  // 2×2 grid: row 0 = macros 0,1 | row 1 = macros 2,3
+  [[0, 1], [2, 3]].forEach(pair => {
+    const row = document.createElement('div');
+    row.className = 'macro-knob-row';
+    pair.forEach(i => {
+      const macro = state.macros[i];
+      const wrap = document.createElement('div');
+      wrap.className = 'macro-knob-wrap';
+      wrap.dataset.macro = i;
+
+      const knob = document.createElement('div');
+      knob.className = 'macro-knob';
+      knob.id = `macro-${i}`;
+      knob.dataset.macro = i;
+      knob.style.setProperty('--macro-color', macro.color);
+      // Rotate indicator based on value (−135° at 0, +135° at 1)
+      const angle = -135 + (macro.value ?? 0.5) * 270;
+      knob.style.transform = `rotate(${angle}deg)`;
+      knob.title = `${macro.name}: ${Math.round((macro.value ?? 0.5) * 100)}%`;
+
+      const labelEl = document.createElement('span');
+      labelEl.className = 'macro-label';
+      labelEl.id = `macro-label-${i}`;
+      labelEl.textContent = macro.name;
+
+      // Double-click label → rename
+      labelEl.addEventListener('dblclick', () => {
+        labelEl.contentEditable = 'true';
+        labelEl.focus();
+        const sel = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(labelEl);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      });
+      labelEl.addEventListener('blur', () => {
+        labelEl.contentEditable = 'false';
+        const newName = labelEl.textContent.trim() || macro.name;
+        state.macros[i].name = newName;
+        labelEl.textContent = newName;
+        knob.title = `${newName}: ${Math.round((macro.value ?? 0.5) * 100)}%`;
+        saveState(state);
+      });
+      labelEl.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); labelEl.blur(); }
+        if (e.key === 'Escape') { labelEl.textContent = macro.name; labelEl.blur(); }
+        e.stopPropagation();
+      });
+
+      // Drag to change value
+      let _dragStartY = 0;
+      let _dragStartVal = 0;
+      knob.addEventListener('pointerdown', e => {
+        if (e.button !== 0) return;
+        _dragStartY   = e.clientY;
+        _dragStartVal = state.macros[i].value ?? 0.5;
+        knob.setPointerCapture(e.pointerId);
+        e.preventDefault();
+      });
+      knob.addEventListener('pointermove', e => {
+        if (e.buttons !== 1) return;
+        const dy = _dragStartY - e.clientY; // up = positive
+        const sensitivity = e.shiftKey ? 0.002 : 0.005;
+        const newVal = Math.min(1, Math.max(0, _dragStartVal + dy * sensitivity));
+        state.macros[i].value = newVal;
+        const ang = -135 + newVal * 270;
+        knob.style.transform = `rotate(${ang}deg)`;
+        knob.title = `${state.macros[i].name}: ${Math.round(newVal * 100)}%`;
+        applyMacro(i);
+        // Trigger applyModMatrix for macro-sourced routes
+        if (state.engine?.applyModMatrix && state.modMatrix) {
+          state.engine.applyModMatrix(state.modMatrix.routes, state.modMatrix.lfos, state.macros);
+        }
+        document.dispatchEvent(new CustomEvent('macro:change', { detail: { index: i, value: newVal } }));
+      });
+      knob.addEventListener('pointerup', () => {
+        saveState(state);
+      });
+
+      wrap.appendChild(knob);
+      wrap.appendChild(labelEl);
+      row.appendChild(wrap);
+    });
+    macroKnobs.appendChild(row);
+  });
+
+  leftColKnobs.appendChild(macroKnobs);
 }
 
 // ─────────────────────────────────────────────
 // SWIPE PAGE NAVIGATION
 // ─────────────────────────────────────────────
 function setupSwipe() {
-  const PAGE_ORDER = ['pattern', 'pad', 'piano-roll', 'sound', 'mixer', 'fx', 'arranger', 'scenes', 'banks', 'settings'];
+  const PAGE_ORDER = ['pattern', 'pad', 'piano-roll', 'sound', 'mixer', 'fx', 'modmatrix', 'arranger', 'scenes', 'banks', 'settings'];
   const content = document.getElementById('main-content') ?? document.querySelector('.page-content') ?? document.querySelector('main');
   if (!content) return;
 
