@@ -1,5 +1,70 @@
 // src/pages/scenes.js — Scene slots, crossfader, snapshot
-import { getActivePattern, getActiveTrack } from '../state.js';
+import { getActivePattern, getActiveTrack, TRACK_COLORS } from '../state.js';
+
+// ── Inject scene card CSS once ──────────────────────────────────────────────
+(function injectSceneCSS() {
+  if (document.getElementById('scene-card-css')) return;
+  const s = document.createElement('style');
+  s.id = 'scene-card-css';
+  s.textContent = `
+.scene-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 6px; }
+.scene-card {
+  border-radius: 5px; padding: 8px; cursor: pointer;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  transition: all 0.15s; display: flex; flex-direction: column; gap: 4px;
+  min-height: 80px; position: relative;
+}
+.scene-card:hover { border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.07); }
+.scene-card.scene-active {
+  border-color: var(--live); background: rgba(90,221,113,0.1);
+  box-shadow: 0 0 8px rgba(90,221,113,0.2);
+}
+.scene-card.scene-captured { border-color: rgba(255,255,255,0.15); }
+.scene-card.scene-ab-a { border-color: rgba(240,198,64,0.7); }
+.scene-card.scene-ab-b { border-color: rgba(90,221,113,0.7); }
+.scene-letter { font-size: 1.2rem; font-weight: 900; color: rgba(255,255,255,0.15); line-height: 1; font-family: var(--font-mono); }
+.scene-card.scene-active .scene-letter { color: var(--live); }
+.scene-card.scene-ab-a .scene-letter { color: rgba(240,198,64,0.9); }
+.scene-card.scene-ab-b .scene-letter { color: rgba(90,221,113,0.9); }
+.scene-name { font-size: 0.62rem; font-weight: 600; color: rgba(255,255,255,0.65); font-family: var(--font-mono); }
+.scene-preview {
+  display: flex; gap: 2px; align-items: flex-end;
+  height: 18px; overflow: hidden; flex: 1;
+}
+.scene-track-bar { display: flex; gap: 1px; align-items: flex-end; }
+.scene-vol-bar, .scene-cut-bar { width: 3px; border-radius: 1px; min-height: 2px; }
+.scene-empty-hint {
+  font-size: 0.5rem; color: rgba(255,255,255,0.18); flex: 1;
+  display: flex; align-items: center; font-family: var(--font-mono);
+}
+.scene-footer { display: flex; align-items: center; margin-top: auto; gap: 4px; }
+.scene-cap-count { flex: 1; font-size: 0.5rem; color: rgba(255,255,255,0.25); font-family: var(--font-mono); }
+.scene-cap-btn {
+  padding: 2px 7px; font-size: 0.55rem; font-weight: 700;
+  border-radius: 2px; border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.5);
+  cursor: pointer; letter-spacing: 0.06em; font-family: var(--font-mono);
+}
+.scene-cap-btn:hover { border-color: var(--live); color: var(--live); background: rgba(90,221,113,0.1); }
+.scene-modified-dot {
+  position: absolute; top: 5px; right: 5px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(255,200,0,0.8); box-shadow: 0 0 4px rgba(255,200,0,0.5);
+}
+/* Crossfader */
+.scene-xfader-wrap {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  background: rgba(0,0,0,0.2); border-radius: 4px; margin: 0 0 4px;
+}
+.scene-xfader-lbl { font-size: 0.6rem; font-weight: 700; color: rgba(255,255,255,0.5); font-family: var(--font-mono); }
+.scene-xfader-lbl-a { color: rgba(240,198,64,0.9); min-width: 60px; }
+.scene-xfader-lbl-b { color: rgba(90,221,113,0.9); min-width: 60px; text-align: right; }
+.scene-xfader { flex: 1; }
+.scene-xfader-val { font-size: 0.58rem; color: var(--live); width: 40px; text-align: center; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+`;
+  document.head.append(s);
+})();
 
 const INTERP_PARAMS = ['cutoff', 'decay', 'delaySend', 'pitch', 'volume'];
 const SCENE_PARAMS_LIST = INTERP_PARAMS;
@@ -89,113 +154,160 @@ export default {
     header.append(chainBtn, chainBarsInput);
     container.append(header);
 
-    // Crossfader
+    // ── Crossfader (improved) ──────────────────────────────────────────────
     const cfWrap = document.createElement('div');
-    cfWrap.style.cssText = 'margin-bottom:10px;flex-shrink:0';
+    cfWrap.className = 'scene-xfader-wrap';
+    cfWrap.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(0,0,0,0.2);border-radius:4px;margin-bottom:6px;flex-shrink:0';
 
-    // Scene A / B labels with names
-    const cfLabels = document.createElement('div');
-    cfLabels.style.cssText = 'display:flex;justify-content:space-between;margin-bottom:4px';
-    const sAName = (scenes[sceneA]?.name || `Scene ${String.fromCharCode(65+sceneA)}`).slice(0, 10);
-    const sBName = (scenes[sceneB]?.name || `Scene ${String.fromCharCode(65+sceneB)}`).slice(0, 10);
-    cfLabels.innerHTML = `
-      <span style="font-family:var(--font-mono);font-size:0.58rem;color:rgba(240,198,64,0.9)">
-        A: ${String.fromCharCode(65+sceneA)} ${sAName}
-      </span>
-      <span style="font-family:var(--font-mono);font-size:0.58rem;color:rgba(90,221,113,0.9)">
-        ${sBName} ${String.fromCharCode(65+sceneB)} :B
-      </span>
-    `;
+    const sAName = (scenes[sceneA]?.name || `Scene ${String.fromCharCode(65+sceneA)}`).slice(0, 8);
+    const sBName = (scenes[sceneB]?.name || `Scene ${String.fromCharCode(65+sceneB)}`).slice(0, 8);
 
-    // Gradient track showing A→B blend
-    const cfTrack = document.createElement('div');
-    cfTrack.style.cssText = `
-      position:relative; height:8px; border-radius:4px; margin-bottom:4px;
-      background: linear-gradient(to right, rgba(240,198,64,0.6), rgba(90,221,113,0.6));
-      border: 1px solid rgba(255,255,255,0.1);
-    `;
-    // Position indicator dot
+    const cfLblA = document.createElement('span');
+    cfLblA.className = 'scene-xfader-lbl scene-xfader-lbl-a';
+    cfLblA.textContent = `A: ${sAName}`;
+
+    // Gradient track + slider
+    const cfTrackWrap = document.createElement('div');
+    cfTrackWrap.style.cssText = 'flex:1;position:relative;height:10px;border-radius:5px;background:linear-gradient(to right,rgba(240,198,64,0.6),rgba(90,221,113,0.6));border:1px solid rgba(255,255,255,0.1)';
+
     const cfDot = document.createElement('div');
-    cfDot.style.cssText = `
-      position:absolute; top:50%; transform:translate(-50%,-50%);
-      width:14px; height:14px; border-radius:50%;
-      background:#fff; box-shadow:0 0 6px rgba(255,255,255,0.8);
-      left: ${crossfader * 100}%;
-      pointer-events:none; transition:left 0.05s;
-    `;
-    cfTrack.append(cfDot);
+    cfDot.style.cssText = `position:absolute;top:50%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 0 6px rgba(255,255,255,0.8);left:${crossfader * 100}%;pointer-events:none;transition:left 0.05s`;
+    cfTrackWrap.append(cfDot);
 
-    // Actual range input (invisible, overlays the track)
     const cfSlider = document.createElement('input');
-    cfSlider.type = 'range'; cfSlider.min = 0; cfSlider.max = 1; cfSlider.step = 0.01;
-    cfSlider.value = crossfader;
-    cfSlider.style.cssText = `
-      position:absolute; top:0; left:0; width:100%; height:100%;
-      opacity:0; cursor:pointer; margin:0;
-    `;
-    cfTrack.style.position = 'relative';
-    cfTrack.append(cfSlider);
+    cfSlider.type = 'range'; cfSlider.min = '0'; cfSlider.max = '1'; cfSlider.step = '0.01';
+    cfSlider.value = String(crossfader);
+    cfSlider.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;margin:0';
+    cfTrackWrap.append(cfSlider);
+
+    const cfVal = document.createElement('span');
+    cfVal.className = 'scene-xfader-val';
+    const cfPctText = v => v <= 0.01 ? 'Full A' : v >= 0.99 ? 'Full B' : `${Math.round(v * 100)}%`;
+    cfVal.textContent = cfPctText(crossfader);
+
+    const cfLblB = document.createElement('span');
+    cfLblB.className = 'scene-xfader-lbl scene-xfader-lbl-b';
+    cfLblB.textContent = `${sBName} :B`;
 
     cfSlider.addEventListener('input', () => {
       const v = parseFloat(cfSlider.value);
       cfDot.style.left = (v * 100) + '%';
+      cfVal.textContent = cfPctText(v);
       emit('state:change', { path: 'crossfader', value: v });
     });
 
-    // Percentage label
-    const cfPct = document.createElement('div');
-    cfPct.style.cssText = 'text-align:center;font-family:var(--font-mono);font-size:0.52rem;color:var(--muted)';
-    cfPct.textContent = `${Math.round(crossfader * 100)}% → B`;
-    cfSlider.addEventListener('input', () => {
-      const v = parseFloat(cfSlider.value);
-      cfPct.textContent = v <= 0.01 ? 'Full A' : v >= 0.99 ? 'Full B' : `${Math.round(v * 100)}% → B`;
-    });
-
-    cfWrap.append(cfLabels, cfTrack, cfPct);
+    cfWrap.append(cfLblA, cfTrackWrap, cfVal, cfLblB);
     container.append(cfWrap);
 
-    // Scene grid (2×4)
+    // ── Scene grid (4×2 with parameter preview) ──────────────────────────
     const sceneGrid = document.createElement('div');
-    sceneGrid.className = 'scenes-grid';
+    sceneGrid.className = 'scene-grid';
     sceneGrid.style.cssText = 'margin-bottom:8px;flex-shrink:0';
 
     scenes.forEach((scene, si) => {
-      const sceneCard = document.createElement('div');
-      sceneCard.style.cssText = 'display:flex;flex-direction:column;gap:2px;position:relative';
-
-      const btn = document.createElement('button');
-      btn.className = 'scene-btn';
       const letter = String.fromCharCode(65 + si);
-      const displayName = scene.name || `Scene ${letter}`;
-      btn.innerHTML = `<strong>${letter}</strong><span>${displayName}</span>`;
-      btn.title = `Scene slot ${si + 1} (${letter})`;
-      const capturedCount = (state.project.scenes[si]?.tracks ?? []).filter(trackData =>
-        trackData && Object.keys(trackData).length > 0
-      ).length;
-      const noInterpCount = state.project.scenes[si]?.noInterp?.length ?? 0;
-      const meta = document.createElement('div');
-      meta.style.cssText = 'display:flex;gap:4px;justify-content:center;margin-top:2px;font-family:var(--font-mono);font-size:0.42rem;color:var(--muted)';
-      meta.innerHTML = `
-        <span>${capturedCount}/8</span>
-        ${state.project.scenes[si]?.bpm ? `<span>${Math.round(state.project.scenes[si].bpm)}BPM</span>` : ''}
-        ${noInterpCount ? `<span>${noInterpCount} snap</span>` : ''}
-      `;
+      const projectScene = state.project.scenes[si];
+      const hasData = projectScene?.tracks && projectScene.tracks.some(t => t && Object.keys(t).length > 0);
 
-      if (si === sceneA) btn.style.borderColor = 'rgba(240,198,64,0.7)';
-      if (si === sceneB) btn.style.borderColor = 'rgba(90,221,113,0.7)';
+      const card = document.createElement('div');
+      card.className = [
+        'scene-card',
+        si === sceneA ? 'scene-ab-a' : '',
+        si === sceneB ? 'scene-ab-b' : '',
+        hasData ? 'scene-captured' : '',
+      ].filter(Boolean).join(' ');
 
-      // ── Task 3: Scene "sit modified" highlight ─────────────────────────────
-      // Hook point: if state._scenesModified is a Set of scene indices that have
-      // unsaved/live-modified params, we apply a subtle glow to those cards.
-      // state._scenesModified is expected to be populated by the audio engine or
-      // state reducer whenever a param is edited in a scene without a new snapshot.
+      // Modified dot
       if (state._scenesModified instanceof Set && state._scenesModified.has(si)) {
-        btn.style.boxShadow = '0 0 8px 2px rgba(255,200,0,0.25)';
-        btn.title = (btn.title || '') + ' [modified]';
+        const dot = document.createElement('div');
+        dot.className = 'scene-modified-dot';
+        dot.title = 'Modified since last capture';
+        card.append(dot);
       }
 
-      // ── Feature 1: Scene preview on hover ──────────────────────────────────
-      // Build param diff tooltip helper
+      // Letter
+      const letterEl = document.createElement('div');
+      letterEl.className = 'scene-letter';
+      letterEl.textContent = letter;
+      card.append(letterEl);
+
+      // Name
+      const nameEl = document.createElement('div');
+      nameEl.className = 'scene-name';
+      nameEl.textContent = scene.name || `Scene ${letter}`;
+      card.append(nameEl);
+
+      // Parameter preview bars (if captured)
+      if (hasData) {
+        const previewEl = document.createElement('div');
+        previewEl.className = 'scene-preview';
+        (projectScene.tracks || []).slice(0, 8).forEach((t, ti) => {
+          if (!t || Object.keys(t).length === 0) return;
+          const col = TRACK_COLORS[ti % TRACK_COLORS.length];
+          const vol = t.volume ?? 0.7;
+          const cut = t.cutoff ? Math.min(1, t.cutoff / 8000) : 0.5;
+          const barGroup = document.createElement('div');
+          barGroup.className = 'scene-track-bar';
+          const volBar = document.createElement('div');
+          volBar.className = 'scene-vol-bar';
+          volBar.style.height = Math.max(2, Math.round(vol * 16)) + 'px';
+          volBar.style.background = col;
+          const cutBar = document.createElement('div');
+          cutBar.className = 'scene-cut-bar';
+          cutBar.style.height = Math.max(2, Math.round(cut * 16)) + 'px';
+          cutBar.style.background = col + '88';
+          barGroup.append(volBar, cutBar);
+          previewEl.append(barGroup);
+        });
+        card.append(previewEl);
+      } else {
+        const hint = document.createElement('div');
+        hint.className = 'scene-empty-hint';
+        hint.textContent = 'Click CAP to capture';
+        card.append(hint);
+      }
+
+      // Footer: cap count + CAP button
+      const footer = document.createElement('div');
+      footer.className = 'scene-footer';
+      const capCount = document.createElement('span');
+      capCount.className = 'scene-cap-count';
+      capCount.textContent = hasData
+        ? (projectScene?.bpm ? `✓ ${Math.round(projectScene.bpm)}BPM` : '✓ captured')
+        : '—';
+      const captureBtn = document.createElement('button');
+      captureBtn.className = 'scene-cap-btn';
+      captureBtn.textContent = 'CAP';
+      captureBtn.title = 'Capture current state into this scene';
+      captureBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        const tracks = getActivePattern(state).kit.tracks;
+        if (scenes[si] && scenes[si].tracks) {
+          tracks.forEach((track, ti) => {
+            scenes[si].tracks[ti] = {
+              cutoff: track.cutoff, decay: track.decay, delaySend: track.delaySend,
+              pitch: track.pitch, volume: track.volume,
+            };
+          });
+        }
+        const CAPTURE_PARAMS = ['volume', 'pan', 'cutoff', 'resonance', 'attack', 'decay',
+                                'sustain', 'release', 'reverbSend', 'delaySend', 'pitch'];
+        if (!state.project.scenes[si]) state.project.scenes[si] = {};
+        state.project.scenes[si].tracks = tracks.map(track => {
+          const captured = {};
+          CAPTURE_PARAMS.forEach(p => { if (track[p] !== undefined) captured[p] = track[p]; });
+          return captured;
+        });
+        state.project.scenes[si].bpm = state.bpm;
+        state.project.scenes[si].swing = state.swing;
+        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+        card.style.outline = '2px solid var(--accent)';
+        setTimeout(() => { card.style.outline = ''; }, 500);
+      });
+      footer.append(capCount, captureBtn);
+      card.append(footer);
+
+      // Hover: live preview + diff tooltip
       const DIFF_PARAMS = ['cutoff', 'decay', 'delaySend', 'pitch', 'volume', 'pan', 'resonance', 'reverbSend'];
       const DIFF_LABELS = { cutoff:'Cut', decay:'Dec', delaySend:'Dly', pitch:'Pit', volume:'Vol', pan:'Pan', resonance:'Res', reverbSend:'Rev' };
       function buildDiffTooltip(sceneIdx) {
@@ -208,40 +320,33 @@ export default {
           const sceneVal = sceneTrackData[p];
           if (sceneVal === undefined) continue;
           const liveVal = liveTrack[p] ?? 0;
-          if (Math.abs(sceneVal - liveVal) > 1e-6) {
-            diffs.push({ param: p, scene: sceneVal, live: liveVal });
-          }
+          if (Math.abs(sceneVal - liveVal) > 1e-6) diffs.push({ param: p, scene: sceneVal, live: liveVal });
           if (diffs.length >= 5) break;
         }
         if (diffs.length === 0) return null;
         const tip = document.createElement('div');
         tip.style.cssText = [
-          'position:absolute', 'z-index:100', 'left:50%', 'top:calc(100% + 4px)',
-          'transform:translateX(-50%)', 'min-width:110px', 'max-width:160px',
-          'background:#1a1a1a', 'border:1px solid rgba(255,255,255,0.15)',
-          'border-radius:4px', 'padding:5px 7px', 'pointer-events:none',
-          'font-family:var(--font-mono)', 'font-size:0.46rem', 'color:var(--screen-text)',
+          'position:absolute','z-index:100','left:50%','top:calc(100% + 4px)',
+          'transform:translateX(-50%)','min-width:110px','max-width:160px',
+          'background:#1a1a1a','border:1px solid rgba(255,255,255,0.15)',
+          'border-radius:4px','padding:5px 7px','pointer-events:none',
+          'font-family:var(--font-mono)','font-size:0.46rem','color:var(--screen-text)',
           'box-shadow:0 4px 12px rgba(0,0,0,0.6)',
         ].join(';');
         diffs.forEach(({ param, scene, live }) => {
           const row = document.createElement('div');
           row.style.cssText = 'display:flex;justify-content:space-between;gap:6px;margin-bottom:2px';
           const delta = scene - live;
-          const arrow = delta > 0 ? '\u2191' : '\u2193';
+          const arrow = delta > 0 ? '↑' : '↓';
           const color = delta > 0 ? '#5add71' : '#f0a050';
-          row.innerHTML = `
-            <span style="color:var(--muted);text-transform:uppercase">${DIFF_LABELS[param] ?? param}</span>
-            <span style="color:var(--muted)">${typeof live === 'number' ? live.toFixed(2) : live}</span>
-            <span style="color:${color}">${arrow}${typeof scene === 'number' ? scene.toFixed(2) : scene}</span>
-          `;
+          row.innerHTML = `<span style="color:var(--muted);text-transform:uppercase">${DIFF_LABELS[param] ?? param}</span><span style="color:var(--muted)">${typeof live === 'number' ? live.toFixed(2) : live}</span><span style="color:${color}">${arrow}${typeof scene === 'number' ? scene.toFixed(2) : scene}</span>`;
           tip.append(row);
         });
         return tip;
       }
 
       let _diffTip = null;
-      btn.addEventListener('mouseenter', () => {
-        // Live preview
+      card.addEventListener('mouseenter', () => {
         const previewScene = state.project.scenes[si];
         if (!previewScene?.tracks) return;
         const trackData = previewScene.tracks[state.selectedTrackIndex];
@@ -249,46 +354,35 @@ export default {
         const track = getActiveTrack(state);
         state._scenePreview = { scene: si, prev: { ...track } };
         Object.assign(track, trackData);
-        // Diff tooltip
         _diffTip = buildDiffTooltip(si);
-        if (_diffTip) {
-          sceneCard.style.position = 'relative';
-          sceneCard.append(_diffTip);
-        }
+        if (_diffTip) card.append(_diffTip);
       });
-
-      btn.addEventListener('mouseleave', () => {
+      card.addEventListener('mouseleave', () => {
         if (state._scenePreview) {
           const track = getActiveTrack(state);
           Object.assign(track, state._scenePreview.prev);
           state._scenePreview = null;
         }
-        if (_diffTip) {
-          _diffTip.remove();
-          _diffTip = null;
-        }
+        if (_diffTip) { _diffTip.remove(); _diffTip = null; }
       });
 
-      // ── Feature 3: Double-click to rename ──────────────────────────────────
-      let _sceneEditTimeout;
-      btn.addEventListener('dblclick', (e) => {
+      // Double-click to rename
+      card.addEventListener('dblclick', e => {
         e.stopPropagation();
-        clearTimeout(_sceneEditTimeout);
         const currentName = state.project.scenes[si]?.name || `Scene ${letter}`;
         const input = document.createElement('input');
         input.type = 'text';
         input.value = currentName;
-        input.style.cssText = 'width:60px;background:transparent;border:none;border-bottom:1px solid var(--accent);color:var(--screen-text);font-family:var(--font-mono);font-size:0.55rem;outline:none';
-        btn.innerHTML = '';
-        btn.append(input);
-        input.focus();
-        input.select();
+        input.style.cssText = 'width:100%;background:transparent;border:none;border-bottom:1px solid var(--accent);color:var(--screen-text);font-family:var(--font-mono);font-size:0.6rem;outline:none';
+        nameEl.replaceWith(input);
+        input.focus(); input.select();
         const save = () => {
           const name = input.value.trim() || currentName;
           if (!state.project.scenes[si]) state.project.scenes[si] = {};
           state.project.scenes[si].name = name;
-          // Also sync top-level scenes array
           if (state.scenes[si]) state.scenes[si].name = name;
+          input.replaceWith(nameEl);
+          nameEl.textContent = name;
           emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
         };
         input.addEventListener('blur', save);
@@ -299,8 +393,8 @@ export default {
         });
       });
 
-      btn.addEventListener('click', () => {
-        // First click = set A, second click on different = set B
+      // Click to set A (or B if already A)
+      card.addEventListener('click', () => {
         if (sceneA === si) {
           emit('state:change', { path: 'sceneB', value: si });
         } else {
@@ -309,47 +403,18 @@ export default {
         this.render(container, { ...state, sceneA: si }, emit);
       });
 
-      // ── CAPTURE button: save current live track params into this scene slot ──
-      const captureBtn = document.createElement('button');
-      captureBtn.className = 'seq-btn';
-      captureBtn.textContent = 'CAP';
-      captureBtn.title = 'Capture current state into this scene';
-      captureBtn.style.cssText = 'position:absolute;bottom:2px;right:2px;font-size:0.38rem;padding:1px 4px;opacity:0.7;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:2px;z-index:2';
-      captureBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        const tracks = getActivePattern(state).kit.tracks;
-        // Write into state.scenes[si].tracks (used by interpolateScenes)
-        tracks.forEach((track, ti) => {
-          if (scenes[si] && scenes[si].tracks) {
-            scenes[si].tracks[ti] = {
-              cutoff: track.cutoff, decay: track.decay, delaySend: track.delaySend,
-              pitch: track.pitch, volume: track.volume,
-            };
-          }
-        });
-        // Also write extended params into state.project.scenes[si]
-        const CAPTURE_PARAMS = ['volume', 'pan', 'cutoff', 'resonance', 'attack', 'decay',
-                                'sustain', 'release', 'reverbSend', 'delaySend', 'pitch'];
-        if (!state.project.scenes[si]) state.project.scenes[si] = {};
-        state.project.scenes[si].tracks = tracks.map(track => {
-          const captured = {};
-          CAPTURE_PARAMS.forEach(p => { if (track[p] !== undefined) captured[p] = track[p]; });
-          return captured;
-        });
-        state.project.scenes[si].bpm = state.bpm;
-        state.project.scenes[si].swing = state.swing;
-        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
-        // Flash the card
-        sceneCard.style.outline = '2px solid var(--accent)';
-        setTimeout(() => { sceneCard.style.outline = ''; }, 500);
-      });
-
-      btn.style.position = 'relative';
-      btn.append(captureBtn);
-      sceneCard.append(btn, meta);
-      sceneGrid.append(sceneCard);
+      sceneGrid.append(card);
     });
     container.append(sceneGrid);
+
+    // Helper: flash scene card to confirm snap
+    function flashSceneSlot(slotIdx) {
+      const cards = sceneGrid.querySelectorAll('.scene-card');
+      const target = cards[slotIdx];
+      if (!target) return;
+      target.classList.add('scene-snap-confirm');
+      setTimeout(() => target.classList.remove('scene-snap-confirm'), 300);
+    }
 
     // Snapshot + param display
     const bottomRow = document.createElement('div');
@@ -359,15 +424,6 @@ export default {
     snapCard.className = 'page-card';
     snapCard.style.cssText = 'flex:0 0 auto;display:flex;flex-direction:column;gap:6px';
     snapCard.innerHTML = '<h4>Snapshot</h4>';
-
-    // Helper: briefly flash the scene slot button in the grid to confirm a snap
-    function flashSceneSlot(slotIdx) {
-      const btns = sceneGrid.querySelectorAll('.scene-btn');
-      const target = btns[slotIdx];
-      if (!target) return;
-      target.classList.add('scene-snap-confirm');
-      setTimeout(() => target.classList.remove('scene-snap-confirm'), 300);
-    }
 
     const snapBtn = document.createElement('button');
     snapBtn.className = 'screen-btn';

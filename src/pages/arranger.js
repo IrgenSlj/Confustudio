@@ -4,6 +4,92 @@ import { TRACK_COLORS } from '../state.js';
 
 const TIME_SIGNATURES = ['4/4', '3/4', '6/8', '5/4', '7/8'];
 
+// ── Section color map ──────────────────────────────────────────────────────
+const SECTION_COLORS = {
+  intro:   '#67d7ff',
+  verse:   '#5add71',
+  chorus:  '#f0c640',
+  bridge:  '#c67dff',
+  outro:   '#f05b52',
+};
+function sectionColor(name) {
+  const key = (name ?? '').toLowerCase().replace(/\s+\d+$/, '').trim();
+  return SECTION_COLORS[key] ?? '#888';
+}
+
+// ── Inject arr- scoped CSS once ────────────────────────────────────────────
+(function injectArrCSS() {
+  if (document.getElementById('arr-css')) return;
+  const s = document.createElement('style');
+  s.id = 'arr-css';
+  s.textContent = `
+.arr-timeline {
+  overflow-x: auto; overflow-y: hidden;
+  flex: 1; min-height: 0; min-width: 0;
+  background: rgba(0,0,0,0.2);
+  border-radius: 4px;
+}
+.arr-ruler {
+  display: flex; height: 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  position: sticky; top: 0; z-index: 1; background: rgba(0,0,0,0.4);
+  overflow: hidden;
+}
+.arr-ruler-mark {
+  min-width: 30px; flex-shrink: 0;
+  font-size: 0.5rem; color: rgba(255,255,255,0.3);
+  font-family: var(--font-mono);
+  padding: 2px 3px; border-right: 1px solid rgba(255,255,255,0.06);
+}
+.arr-track {
+  display: flex; align-items: stretch; gap: 2px;
+  padding: 6px 4px; min-height: 50px;
+}
+.arr-block {
+  flex-shrink: 0; border-radius: 4px; padding: 5px 7px;
+  background: color-mix(in srgb, var(--sec-color) 20%, transparent);
+  border: 1px solid var(--sec-color);
+  border-left: 3px solid var(--sec-color);
+  cursor: pointer; user-select: none;
+  display: flex; flex-direction: column; justify-content: center; gap: 2px;
+  transition: filter 0.1s;
+  position: relative;
+}
+.arr-block:hover { filter: brightness(1.2); }
+.arr-block.playing {
+  box-shadow: 0 0 0 1px var(--sec-color), 0 0 8px var(--sec-color);
+  animation: arr-block-pulse 1s ease-in-out infinite alternate;
+}
+@keyframes arr-block-pulse {
+  from { filter: brightness(1.0); }
+  to   { filter: brightness(1.3); }
+}
+.arr-block-name { font-size: 0.62rem; font-weight: 600; color: var(--sec-color); white-space: nowrap; }
+.arr-block-bars { font-size: 0.5rem; color: rgba(255,255,255,0.35); font-family: var(--font-mono); }
+.arr-block-fa {
+  font-size: 0.48rem; color: rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.07); border-radius: 2px; padding: 0 3px;
+  align-self: flex-start; font-family: var(--font-mono);
+}
+.arr-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; flex: 1; color: rgba(255,255,255,0.2); font-size: 0.7rem;
+  padding: 20px; font-family: var(--font-mono);
+}
+.arr-empty-icon { font-size: 2rem; opacity: 0.3; }
+.arr-empty-hint { font-size: 0.6rem; color: rgba(255,255,255,0.15); text-align: center; }
+.arr-quick-add { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; }
+.arr-quick-btn {
+  padding: 4px 10px; font-size: 0.6rem; font-weight: 600; border-radius: 3px;
+  border: 1px solid rgba(255,255,255,0.15); background: transparent;
+  color: rgba(255,255,255,0.4); cursor: pointer; transition: all 0.1s;
+  font-family: var(--font-mono);
+}
+.arr-quick-btn:hover { border-color: var(--live); color: var(--live); }
+`;
+  document.head.append(s);
+})();
+
 export default {
   render(container, state, emit) {
     container.innerHTML = '';
@@ -95,196 +181,243 @@ export default {
     loopBar.append(loopToggle, loopFromLabel, loopFromInput, loopToLabel, loopToInput);
     container.append(loopBar);
 
-    // ── Section list ───────────────────────────────────────────────────────
-    const list = document.createElement('div');
-    list.style.cssText = 'flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px;min-height:0';
+    // ── Horizontal timeline ────────────────────────────────────────────────
+    // Track which section is selected for the detail panel
+    if (state._arrSelectedSection == null) state._arrSelectedSection = 0;
+
+    const timelineOuter = document.createElement('div');
+    timelineOuter.style.cssText = 'display:flex;flex-direction:column;flex:1;min-height:0;gap:4px';
 
     if (arranger.length === 0) {
-      const emptyState = document.createElement('div');
-      emptyState.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;opacity:0.6;padding:20px';
-
-      const emptyIcon = document.createElement('div');
-      emptyIcon.style.cssText = 'font-size:2rem';
-      emptyIcon.textContent = '≡';
-
-      const emptyText = document.createElement('div');
-      emptyText.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);text-align:center;line-height:1.6';
-      emptyText.innerHTML = 'No sections yet<br><span style="font-size:0.5rem;opacity:0.7">Use "Add Section" below or drag patterns here</span>';
-
-      // Quick-add buttons for common arrangements
-      const quickAddRow = document.createElement('div');
-      quickAddRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;justify-content:center';
+      const emptyDiv = document.createElement('div');
+      emptyDiv.className = 'arr-empty';
+      emptyDiv.innerHTML = `
+        <div class="arr-empty-icon">⧖</div>
+        <div>No sections yet</div>
+        <div class="arr-empty-hint">Add a section below or pick a quick template</div>
+      `;
+      const quickAdd = document.createElement('div');
+      quickAdd.className = 'arr-quick-add';
       ['Intro', 'Verse', 'Chorus', 'Bridge', 'Outro'].forEach(name => {
         const qBtn = document.createElement('button');
-        qBtn.className = 'seq-btn';
+        qBtn.className = 'arr-quick-btn';
+        const col = sectionColor(name);
+        qBtn.style.setProperty('--quick-color', col);
+        qBtn.style.cssText = `padding:4px 10px;font-size:0.6rem;font-weight:600;border-radius:3px;border:1px solid ${col}55;background:${col}11;color:${col};cursor:pointer;font-family:var(--font-mono);transition:all 0.1s`;
         qBtn.textContent = `+ ${name}`;
-        qBtn.style.cssText = 'font-size:0.44rem;padding:3px 8px';
-        qBtn.addEventListener('click', () => {
-          emit('arranger:addSection', { name, bars: 4 });
-        });
-        quickAddRow.append(qBtn);
+        qBtn.addEventListener('mouseenter', () => { qBtn.style.borderColor = col; qBtn.style.background = col + '22'; });
+        qBtn.addEventListener('mouseleave', () => { qBtn.style.borderColor = col + '55'; qBtn.style.background = col + '11'; });
+        qBtn.addEventListener('click', () => emit('arranger:addSection', { name, bars: 4 }));
+        quickAdd.append(qBtn);
       });
+      emptyDiv.append(quickAdd);
+      timelineOuter.append(emptyDiv);
+    } else {
+      // Build the timeline
+      const timelineWrap2 = document.createElement('div');
+      timelineWrap2.className = 'arr-timeline';
+      timelineWrap2.style.cssText = 'overflow-x:auto;overflow-y:hidden;flex:1;min-height:0;background:rgba(0,0,0,0.2);border-radius:4px;display:flex;flex-direction:column';
 
-      emptyState.append(emptyIcon, emptyText, quickAddRow);
-      list.append(emptyState);
-    }
-
-    arranger.forEach((section, idx) => {
-      const sceneColorFull = TRACK_COLORS[(section.sceneIdx ?? 0) % TRACK_COLORS.length];
-      // Per-section color (defaults to scene color, cycles through TRACK_COLORS on click)
-      if (section.color == null) section.color = TRACK_COLORS[idx % TRACK_COLORS.length];
-      const sectionBorderColor = section.color;
-      const inLoopRange = arrLoop && idx >= arrLoopStart && idx <= arrLoopEnd;
-
-      const row = document.createElement('div');
-      row.className = 'arr-row';
-      row.dataset.sectionIdx = idx;
-      row.style.cssText = `
-        display:flex;align-items:center;gap:8px;padding:6px 8px;
-        border-radius:5px;border:1px solid var(--border);background:#141414;
-        border-left: 3px solid ${sectionBorderColor};padding-left:6px;
-        position:relative;overflow:hidden;
-      `;
-      if (idx === arrangementCursor) {
-        row.style.borderColor = 'rgba(240,91,82,0.5)';
-        row.style.borderLeftColor = sectionBorderColor;
-        row.style.background  = 'rgba(240,91,82,0.05)';
-      }
-      if (idx === activeSectionIdx) {
-        row.classList.add('active');
-        row.style.borderColor = 'rgba(90,221,113,0.6)';
-        row.style.borderLeftColor = sectionBorderColor;
-        row.style.background  = 'rgba(90,221,113,0.06)';
-      }
-      if (inLoopRange) {
-        row.style.outline = '1px solid rgba(90,221,113,0.35)';
-        row.style.outlineOffset = '-1px';
-      }
-
-      // Drag-to-reorder
-      row.draggable = true;
-      row.addEventListener('dragstart', e => {
-        e.dataTransfer.setData('text/plain', idx);
-        row.classList.add('dragging');
-      });
-      row.addEventListener('dragend', () => row.classList.remove('dragging'));
-      row.addEventListener('dragover', e => { e.preventDefault(); row.classList.add('drag-over'); });
-      row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
-      row.addEventListener('drop', e => {
-        e.preventDefault();
-        row.classList.remove('drag-over');
-        const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
-        if (fromIdx === idx) return;
-        const sections = state.arranger;
-        const [moved] = sections.splice(fromIdx, 1);
-        sections.splice(idx, 0, moved);
-        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
-      });
-
-      // ── Right-click context menu ────────────────────────────────────────
-      row.addEventListener('contextmenu', e => {
-        e.preventDefault();
-        e.stopPropagation();
-        // Remove any existing context menu
-        document.querySelectorAll('.arr-ctx-menu').forEach(m => m.remove());
-
-        const menu = document.createElement('div');
-        menu.className = 'arr-ctx-menu';
-        menu.style.cssText = [
-          'position:fixed', 'z-index:9999',
-          'background:#1e1e1e', 'border:1px solid var(--border)',
-          'border-radius:5px', 'padding:4px 0',
-          'font-family:var(--font-mono)', 'font-size:0.62rem',
-          'box-shadow:0 4px 16px rgba(0,0,0,0.6)',
-          'min-width:144px',
-        ].join(';');
-        menu.style.left = `${e.clientX}px`;
-        menu.style.top  = `${e.clientY}px`;
-
-        const menuItem = (label, icon, action) => {
-          const item = document.createElement('div');
-          item.style.cssText = 'padding:6px 14px;cursor:pointer;color:var(--screen-text);display:flex;align-items:center;gap:8px';
-          item.innerHTML = `<span style="opacity:0.65">${icon}</span>${label}`;
-          item.addEventListener('mouseenter', () => { item.style.background = 'rgba(255,255,255,0.06)'; });
-          item.addEventListener('mouseleave', () => { item.style.background = ''; });
-          item.addEventListener('click', () => { menu.remove(); action(); });
-          return item;
-        };
-
-        menu.append(
-          menuItem('Duplicate', '⧉', () => {
-            const clone = JSON.parse(JSON.stringify(section));
-            state.arranger.splice(idx + 1, 0, clone);
-            emit('state:change', { path: 'scale', value: state.scale });
-          }),
-          menuItem('Insert Before', '↑+', () => {
-            const newSec = { sceneIdx: section.sceneIdx ?? 0, bars: section.bars ?? 4, name: `Section ${state.arranger.length + 1}`, repeat: 1, muted: false, followAction: 'next' };
-            state.arranger.splice(idx, 0, newSec);
-            emit('state:change', { path: 'scale', value: state.scale });
-          }),
-          menuItem('Delete', '✕', () => {
-            emit('state:change', { path: 'action_arrRemove', value: idx });
-          })
-        );
-
-        document.body.append(menu);
-
-        // Ensure menu stays within viewport
-        requestAnimationFrame(() => {
-          const mr = menu.getBoundingClientRect();
-          if (mr.right > window.innerWidth)  menu.style.left = `${e.clientX - mr.width}px`;
-          if (mr.bottom > window.innerHeight) menu.style.top  = `${e.clientY - mr.height}px`;
-        });
-
-        // Auto-close on outside click
-        const closeMenu = ev => {
-          if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('click', closeMenu, true); }
-        };
-        setTimeout(() => document.addEventListener('click', closeMenu, true), 0);
-      });
-
-      // ── Section rename on double-click ─────────────────────────────────
-      row.addEventListener('dblclick', e => {
-        e.stopPropagation();
-        const name = prompt('Section name:', section.name ?? `Section ${idx + 1}`);
-        if (name !== null) {
-          section.name = name;
-          const nameEl = row.querySelector('.arr-section-name, .section-label');
-          if (nameEl) nameEl.textContent = name;
-          // Also update the inline text input if present
-          const nameInput = row.querySelector('input[type="text"]');
-          if (nameInput) nameInput.value = name;
-          emit('state:change', { param: 'sectionName' });
+      // Bar ruler
+      const totalBarsForRuler = arranger.reduce((s, sec) => s + (sec.bars ?? 4), 0) || 1;
+      const ruler = document.createElement('div');
+      ruler.className = 'arr-ruler';
+      let barCount = 1;
+      arranger.forEach(sec => {
+        const secBars = sec.bars ?? 4;
+        for (let b = 0; b < secBars; b++) {
+          const mark = document.createElement('div');
+          mark.className = 'arr-ruler-mark';
+          mark.style.minWidth = '30px';
+          mark.textContent = barCount % 4 === 1 ? String(barCount) : '';
+          ruler.append(mark);
+          barCount++;
         }
       });
 
-      // Scene label (colored) — show scene name if available
-      const sceneLabel = document.createElement('span');
-      sceneLabel.style.cssText = `font-family:var(--font-mono);font-size:0.65rem;color:${sceneColorFull};min-width:18px;font-weight:700`;
-      const _sceneName = (scenes ?? [])[section.sceneIdx]?.name ?? `Scene ${(section.sceneIdx ?? 0) + 1}`;
-      sceneLabel.textContent   = _sceneName;
+      // Track area
+      const track = document.createElement('div');
+      track.className = 'arr-track';
 
-      // Bar count display
+      arranger.forEach((section, idx) => {
+        const isPlaying = idx === activeSectionIdx;
+        const isCursor = idx === arrangementCursor;
+        const color = section.color ?? sectionColor(section.name ?? '');
+        const block = document.createElement('div');
+        block.className = `arr-block${isPlaying ? ' playing' : ''}`;
+        block.dataset.sectionIdx = idx;
+        block.style.setProperty('--sec-color', color);
+        block.style.width = Math.max(60, (section.bars ?? 4) * 30) + 'px';
+        if (isCursor) {
+          block.style.outline = '2px solid rgba(240,91,82,0.7)';
+          block.style.outlineOffset = '-2px';
+        }
+        const fa = section.followAction ?? 'next';
+        const faIcon = { next: '→', loop: '↻', stop: '■', jump: '↩' }[fa] ?? '';
+        block.innerHTML = `
+          <div class="arr-block-name">${section.name ?? `Section ${idx + 1}`}</div>
+          <div class="arr-block-bars">${section.bars ?? 4} bars${section.repeat > 1 ? ` ×${section.repeat}` : ''}</div>
+          ${section.followAction && section.followAction !== 'next' ? `<div class="arr-block-fa">${faIcon} ${fa}</div>` : ''}
+        `;
+
+        // Right-click context menu
+        block.addEventListener('contextmenu', e => {
+          e.preventDefault();
+          e.stopPropagation();
+          document.querySelectorAll('.arr-ctx-menu').forEach(m => m.remove());
+          const menu = document.createElement('div');
+          menu.className = 'arr-ctx-menu';
+          menu.style.cssText = [
+            'position:fixed','z-index:9999',
+            'background:#1e1e1e','border:1px solid var(--border)',
+            'border-radius:5px','padding:4px 0',
+            'font-family:var(--font-mono)','font-size:0.62rem',
+            'box-shadow:0 4px 16px rgba(0,0,0,0.6)',
+            'min-width:144px',
+          ].join(';');
+          menu.style.left = `${e.clientX}px`;
+          menu.style.top = `${e.clientY}px`;
+          const menuItem = (label, icon, action) => {
+            const item = document.createElement('div');
+            item.style.cssText = 'padding:6px 14px;cursor:pointer;color:var(--screen-text);display:flex;align-items:center;gap:8px';
+            item.innerHTML = `<span style="opacity:0.65">${icon}</span>${label}`;
+            item.addEventListener('mouseenter', () => { item.style.background = 'rgba(255,255,255,0.06)'; });
+            item.addEventListener('mouseleave', () => { item.style.background = ''; });
+            item.addEventListener('click', () => { menu.remove(); action(); });
+            return item;
+          };
+          const faOptions = [
+            { value: 'next', label: '→ Next' }, { value: 'loop', label: '↻ Loop' },
+            { value: 'stop', label: '■ Stop' }, { value: 'jump', label: '↩ Jump' },
+          ];
+          menu.append(
+            menuItem('Rename', '✎', () => {
+              const name = prompt('Section name:', section.name ?? `Section ${idx + 1}`);
+              if (name !== null) {
+                section.name = name;
+                emit('state:change', { path: 'arranger', value: state.arranger });
+              }
+            }),
+            menuItem('Duplicate', '⧉', () => {
+              const clone = JSON.parse(JSON.stringify(section));
+              state.arranger.splice(idx + 1, 0, clone);
+              emit('state:change', { path: 'scale', value: state.scale });
+            }),
+            menuItem('Insert Before', '↑+', () => {
+              const newSec = { sceneIdx: section.sceneIdx ?? 0, bars: section.bars ?? 4, name: `Section ${state.arranger.length + 1}`, repeat: 1, muted: false, followAction: 'next' };
+              state.arranger.splice(idx, 0, newSec);
+              emit('state:change', { path: 'scale', value: state.scale });
+            }),
+            ...faOptions.map(({ value, label }) => menuItem(
+              (value === (section.followAction ?? 'next') ? '✓ ' : '') + 'Follow: ' + label,
+              '',
+              () => { section.followAction = value; emit('state:change', { path: 'arranger', value: state.arranger }); }
+            )),
+            menuItem('Delete', '✕', () => emit('state:change', { path: 'action_arrRemove', value: idx })),
+          );
+          document.body.append(menu);
+          requestAnimationFrame(() => {
+            const mr = menu.getBoundingClientRect();
+            if (mr.right > window.innerWidth) menu.style.left = `${e.clientX - mr.width}px`;
+            if (mr.bottom > window.innerHeight) menu.style.top = `${e.clientY - mr.height}px`;
+          });
+          const closeMenu = ev => {
+            if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('click', closeMenu, true); }
+          };
+          setTimeout(() => document.addEventListener('click', closeMenu, true), 0);
+        });
+
+        // Click to select (jump)
+        block.addEventListener('click', () => {
+          state._arrSelectedSection = idx;
+          emit('state:change', { path: 'arrangementCursor', value: idx });
+        });
+
+        // Double-click to rename inline
+        block.addEventListener('dblclick', e => {
+          e.stopPropagation();
+          const name = prompt('Section name:', section.name ?? `Section ${idx + 1}`);
+          if (name !== null) {
+            section.name = name;
+            emit('state:change', { path: 'arranger', value: state.arranger });
+          }
+        });
+
+        track.appendChild(block);
+      });
+
+      // Playhead overlay
+      if (activeSectionIdx >= 0) {
+        const barsBeforePlaying = arranger.slice(0, activeSectionIdx).reduce((s, sec) => s + (sec.bars ?? 4), 0);
+        const sectionBars = arranger[activeSectionIdx]?.bars ?? 4;
+        const sectionProgress = state._arrSectionBars != null ? (state._arrSectionBars / sectionBars) : 0;
+        const playheadPx = (barsBeforePlaying + sectionProgress * sectionBars) * 30 + 4; // 4 = track padding
+        const playhead = document.createElement('div');
+        playhead.style.cssText = `
+          position:absolute;top:0;bottom:0;width:2px;
+          left:${playheadPx}px;
+          background:var(--live);border-radius:1px;
+          animation:arrPlayheadPulse 0.5s ease-in-out infinite alternate;
+          pointer-events:none;z-index:10;
+        `;
+        track.style.position = 'relative';
+        track.append(playhead);
+      }
+
+      // Loop region indicator in ruler
+      if (arrLoop && arranger.length > 0) {
+        const barsBeforeLoopStart = arranger.slice(0, arrLoopStart).reduce((s, sec) => s + (sec.bars ?? 4), 0);
+        const loopBars = arranger.slice(arrLoopStart, arrLoopEnd + 1).reduce((s, sec) => s + (sec.bars ?? 4), 0);
+        const loopRegion = document.createElement('div');
+        loopRegion.style.cssText = `
+          position:absolute;top:0;bottom:0;
+          left:${barsBeforeLoopStart * 30}px;
+          width:${loopBars * 30}px;
+          background:rgba(90,221,113,0.06);
+          border-left:2px solid rgba(90,221,113,0.5);
+          border-right:2px solid rgba(90,221,113,0.5);
+          pointer-events:none;z-index:0;
+        `;
+        track.style.position = 'relative';
+        track.append(loopRegion);
+      }
+
+      timelineWrap2.append(ruler, track);
+      timelineOuter.append(timelineWrap2);
+    }
+
+    // ── Section detail panel (for selected section) ────────────────────────
+    const detailPanel = document.createElement('div');
+    detailPanel.style.cssText = 'flex-shrink:0;background:rgba(0,0,0,0.15);border-radius:4px;padding:5px 8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-family:var(--font-mono);font-size:0.58rem;min-height:36px';
+
+    const selIdx = state._arrSelectedSection ?? 0;
+    const selSection = arranger[selIdx];
+    if (selSection) {
+      // Section label
+      const selLabel = document.createElement('span');
+      const selColor = selSection.color ?? sectionColor(selSection.name ?? '');
+      selLabel.style.cssText = `font-weight:700;font-size:0.65rem;color:${selColor}`;
+      selLabel.textContent = `[${selIdx + 1}] ${selSection.name ?? 'Section'}`;
+      detailPanel.append(selLabel);
+
+      // Bars
       const barsLabel = document.createElement('span');
-      barsLabel.style.cssText  = 'font-family:var(--font-mono);font-size:0.62rem;color:var(--screen-text);min-width:28px;text-align:right;cursor:text';
-      barsLabel.textContent    = `${section.bars ?? 1}B`;
+      barsLabel.style.cssText = 'color:var(--muted)';
+      barsLabel.textContent = `${selSection.bars ?? 4}B`;
       barsLabel.title = 'Double-click to edit bar count';
-
-      // Inline edit on double-click
       barsLabel.addEventListener('dblclick', e => {
         e.stopPropagation();
         const barsInput = document.createElement('input');
         barsInput.type = 'number';
-        barsInput.min = '1';
-        barsInput.max = '64';
-        barsInput.value = String(section.bars ?? 1);
-        barsInput.style.cssText = 'font-family:var(--font-mono);font-size:0.62rem;color:var(--screen-text);width:36px;background:#222;border:1px solid var(--accent);border-radius:2px;padding:0 2px;text-align:right';
+        barsInput.min = '1'; barsInput.max = '64';
+        barsInput.value = String(selSection.bars ?? 4);
+        barsInput.style.cssText = 'width:36px;background:#222;border:1px solid var(--accent);border-radius:2px;padding:0 2px;font-family:var(--font-mono);font-size:0.58rem;color:var(--screen-text);text-align:right';
         const commit = () => {
-          const newBars = Math.max(1, Math.min(64, parseInt(barsInput.value) || 1));
-          section.bars = newBars;
+          const newBars = Math.max(1, Math.min(64, parseInt(barsInput.value) || 4));
+          selSection.bars = newBars;
           barsLabel.textContent = `${newBars}B`;
           barsInput.replaceWith(barsLabel);
-          emit('state:change', { path: `arranger[${idx}].bars`, value: newBars });
+          emit('state:change', { path: `arranger[${selIdx}].bars`, value: newBars });
         };
         barsInput.addEventListener('blur', commit);
         barsInput.addEventListener('keydown', ev => {
@@ -292,464 +425,220 @@ export default {
           if (ev.key === 'Escape') { barsInput.replaceWith(barsLabel); }
         });
         barsLabel.replaceWith(barsInput);
-        barsInput.focus();
-        barsInput.select();
+        barsInput.focus(); barsInput.select();
       });
-
-      // Bar count +/-
-      const minusBtn = document.createElement('button');
-      minusBtn.className    = 'bpm-arrow';
-      minusBtn.textContent  = '−';
-      minusBtn.addEventListener('click', () => {
-        const newBars = Math.max(1, (section.bars ?? 1) - 1);
-        section.bars = newBars;
-        emit('state:change', { path: `arranger[${idx}].bars`, value: newBars });
-        barsLabel.textContent = `${newBars}B`;
+      const minusBtn2 = document.createElement('button');
+      minusBtn2.className = 'bpm-arrow';
+      minusBtn2.textContent = '−';
+      minusBtn2.addEventListener('click', () => {
+        const v = Math.max(1, (selSection.bars ?? 4) - 1);
+        selSection.bars = v;
+        barsLabel.textContent = `${v}B`;
+        emit('state:change', { path: `arranger[${selIdx}].bars`, value: v });
       });
-
-      const plusBtn = document.createElement('button');
-      plusBtn.className    = 'bpm-arrow';
-      plusBtn.textContent  = '+';
-      plusBtn.addEventListener('click', () => {
-        const newBars = Math.min(64, (section.bars ?? 1) + 1);
-        section.bars = newBars;
-        emit('state:change', { path: `arranger[${idx}].bars`, value: newBars });
-        barsLabel.textContent = `${newBars}B`;
+      const plusBtn2 = document.createElement('button');
+      plusBtn2.className = 'bpm-arrow';
+      plusBtn2.textContent = '+';
+      plusBtn2.addEventListener('click', () => {
+        const v = Math.min(64, (selSection.bars ?? 4) + 1);
+        selSection.bars = v;
+        barsLabel.textContent = `${v}B`;
+        emit('state:change', { path: `arranger[${selIdx}].bars`, value: v });
       });
+      detailPanel.append(minusBtn2, barsLabel, plusBtn2);
 
-      // Per-section BPM override
-      const bpmLabel = document.createElement('span');
-      bpmLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.5rem;color:var(--muted)';
-      bpmLabel.textContent = 'BPM';
-
-      const bpmInput = document.createElement('input');
-      bpmInput.type = 'number';
-      bpmInput.className = 'arr-bpm-input';
-      bpmInput.min = '0';
-      bpmInput.max = '300';
-      bpmInput.value = String(section.bpmOverride ?? 0);
-      bpmInput.placeholder = String(state.bpm);
-      bpmInput.title = '0 = use global BPM';
-      bpmInput.addEventListener('change', () => {
-        section.bpmOverride = parseInt(bpmInput.value) || 0;
+      // Repeat
+      const repLabel = document.createElement('span');
+      repLabel.style.cssText = 'color:var(--muted)';
+      repLabel.textContent = '×';
+      const repeatInput2 = document.createElement('input');
+      repeatInput2.type = 'number';
+      repeatInput2.className = 'arr-bpm-input';
+      repeatInput2.min = '1'; repeatInput2.max = '16';
+      repeatInput2.value = String(selSection.repeat ?? 1);
+      repeatInput2.title = 'Repeat count';
+      repeatInput2.style.width = '32px';
+      repeatInput2.addEventListener('change', () => {
+        selSection.repeat = Math.max(1, Math.min(16, parseInt(repeatInput2.value) || 1));
+        repeatInput2.value = String(selSection.repeat);
         emit('state:change', { path: 'arranger', value: state.arranger });
       });
+      detailPanel.append(repLabel, repeatInput2);
 
-      // Per-section time signature
-      const tsSelect = document.createElement('select');
-      tsSelect.className = 'arr-ts-select';
-      tsSelect.title = 'Time signature';
+      // Follow action
+      const followSelect2 = document.createElement('select');
+      followSelect2.title = 'Follow action';
+      followSelect2.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 2px;cursor:pointer;max-width:70px';
+      [{ value:'next',label:'→ Next'},{value:'loop',label:'↻ Loop'},{value:'stop',label:'■ Stop'},{value:'jump',label:'↩ Jump'}].forEach(({value,label}) => {
+        const opt = document.createElement('option');
+        opt.value = value; opt.textContent = label;
+        if (value === (selSection.followAction ?? 'next')) opt.selected = true;
+        followSelect2.append(opt);
+      });
+      followSelect2.addEventListener('change', () => {
+        selSection.followAction = followSelect2.value;
+        emit('state:change', { path: 'arranger', value: state.arranger });
+      });
+      detailPanel.append(followSelect2);
+
+      // BPM override
+      const bpmLabel2 = document.createElement('span');
+      bpmLabel2.style.cssText = 'color:var(--muted)';
+      bpmLabel2.textContent = 'BPM';
+      const bpmInput2 = document.createElement('input');
+      bpmInput2.type = 'number';
+      bpmInput2.className = 'arr-bpm-input';
+      bpmInput2.min = '0'; bpmInput2.max = '300';
+      bpmInput2.value = String(selSection.bpmOverride ?? 0);
+      bpmInput2.placeholder = String(state.bpm);
+      bpmInput2.title = '0 = use global BPM';
+      bpmInput2.addEventListener('change', () => {
+        selSection.bpmOverride = parseInt(bpmInput2.value) || 0;
+        emit('state:change', { path: 'arranger', value: state.arranger });
+      });
+      detailPanel.append(bpmLabel2, bpmInput2);
+
+      // Time signature
+      const tsSelect2 = document.createElement('select');
+      tsSelect2.className = 'arr-ts-select';
+      tsSelect2.title = 'Time signature';
       TIME_SIGNATURES.forEach(ts => {
         const opt = document.createElement('option');
-        opt.value = ts;
-        opt.textContent = ts;
-        if (ts === (section.timeSignature ?? '4/4')) opt.selected = true;
-        tsSelect.append(opt);
+        opt.value = ts; opt.textContent = ts;
+        if (ts === (selSection.timeSignature ?? '4/4')) opt.selected = true;
+        tsSelect2.append(opt);
       });
-      tsSelect.addEventListener('change', () => {
-        section.timeSignature = tsSelect.value;
+      tsSelect2.addEventListener('change', () => {
+        selSection.timeSignature = tsSelect2.value;
         emit('state:change', { path: 'arranger', value: state.arranger });
       });
+      detailPanel.append(tsSelect2);
 
-      // Name input
-      const sceneName = document.createElement('input');
-      sceneName.type = 'text';
-      sceneName.value = section.name || (scenes[section.sceneIdx] && scenes[section.sceneIdx].name) || '—';
-      sceneName.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);flex:1;background:transparent;border:none;outline:none;padding:0;min-width:0';
-      sceneName.addEventListener('change', () => {
-        arranger[idx].name = sceneName.value;
-        emit('state:change', { path: 'arranger', value: arranger });
-      });
-      sceneName.addEventListener('focus', () => { sceneName.style.color = 'var(--screen-text)'; sceneName.select(); });
-      sceneName.addEventListener('blur',  () => { sceneName.style.color = 'var(--muted)'; });
-
-      // Move up/down (secondary — drag-to-reorder is preferred)
-      const upBtn = document.createElement('button');
-      upBtn.className = 'bpm-arrow';
-      upBtn.textContent = '↑';
-      upBtn.disabled = idx === 0;
-      upBtn.style.cssText = `opacity:${idx === 0 ? '0.2' : '0.45'};font-size:0.55rem;padding:1px 4px`;
-      upBtn.title = 'Move up';
-      upBtn.addEventListener('click', () =>
-        emit('state:change', { path: 'action_arrMoveUp', value: idx })
-      );
-
-      const dnBtn = document.createElement('button');
-      dnBtn.className = 'bpm-arrow';
-      dnBtn.textContent = '↓';
-      dnBtn.disabled = idx === arranger.length - 1;
-      dnBtn.style.cssText = `opacity:${idx === arranger.length - 1 ? '0.2' : '0.45'};font-size:0.55rem;padding:1px 4px`;
-      dnBtn.title = 'Move down';
-      dnBtn.addEventListener('click', () =>
-        emit('state:change', { path: 'action_arrMoveDown', value: idx })
-      );
-
-      const delBtn = document.createElement('button');
-      delBtn.className = 'seq-btn';
-      delBtn.textContent = '✕';
-      delBtn.style.padding = '4px 6px';
-      delBtn.addEventListener('click', () =>
-        emit('state:change', { path: 'action_arrRemove', value: idx })
-      );
-
-      // ── Color swatch with color picker ──────────────────────────────────
-      const colorSwatch = document.createElement('div');
-      colorSwatch.className = 'arr-color-swatch';
-      colorSwatch.style.cssText = `
-        width:10px;height:22px;border-radius:2px;cursor:pointer;flex-shrink:0;
-        background:${section.color};border:1px solid rgba(255,255,255,0.15);
-        position:relative;overflow:visible;
-      `;
-      colorSwatch.title = 'Click to change section color';
-
-      const colorPick = document.createElement('input');
-      colorPick.type = 'color';
-      colorPick.value = section.color ?? '#3a4a5a';
-      colorPick.style.cssText = 'width:14px;height:14px;padding:0;border:none;border-radius:2px;cursor:pointer;opacity:0;position:absolute;inset:0;width:100%;height:100%';
-      colorPick.addEventListener('change', () => {
-        section.color = colorPick.value;
-        colorSwatch.style.background = colorPick.value;
-        row.style.borderLeftColor = colorPick.value;
-        emit('state:change', { param: 'arranger' });
-      });
-      colorSwatch.append(colorPick);
-
-      // ── Repeat count ──────────────────────────────────────────────────────
-      if (section.repeat == null) section.repeat = 1;
-      const repeatLabel = document.createElement('span');
-      repeatLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.5rem;color:var(--muted)';
-      repeatLabel.textContent = '×';
-
-      const repeatInput = document.createElement('input');
-      repeatInput.type = 'number';
-      repeatInput.className = 'arr-bpm-input';
-      repeatInput.min = '1';
-      repeatInput.max = '16';
-      repeatInput.value = String(section.repeat ?? 1);
-      repeatInput.title = 'Repeat: play this section N times before advancing';
-      repeatInput.style.width = '32px';
-      repeatInput.addEventListener('change', () => {
-        section.repeat = Math.max(1, Math.min(16, parseInt(repeatInput.value) || 1));
-        repeatInput.value = String(section.repeat);
-        emit('state:change', { path: 'arranger', value: state.arranger });
-      });
-
-      // ── Follow action selector ────────────────────────────────────────────
-      if (section.followAction == null) section.followAction = 'next';
-      const followSelect = document.createElement('select');
-      followSelect.title = 'Follow action: what happens after this section finishes';
-      followSelect.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 2px;cursor:pointer;max-width:70px';
-      [
-        { value: 'next', label: '→ Next' },
-        { value: 'loop', label: '↻ Loop' },
-        { value: 'stop', label: '■ Stop' },
-        { value: 'jump', label: '↩ Jump' },
-      ].forEach(({ value, label }) => {
-        const opt = document.createElement('option');
-        opt.value = value;
-        opt.textContent = label;
-        if (value === (section.followAction ?? 'next')) opt.selected = true;
-        followSelect.append(opt);
-      });
-      followSelect.addEventListener('change', () => {
-        section.followAction = followSelect.value;
-        emit('state:change', { path: 'arranger', value: state.arranger });
-      });
-
-      // ── Section mute button ───────────────────────────────────────────────
-      if (section.muted == null) section.muted = false;
-      const muteBtn = document.createElement('button');
-      muteBtn.className = 'seq-btn' + (section.muted ? ' active' : '');
-      muteBtn.textContent = 'M';
-      muteBtn.title = section.muted ? 'Section muted — click to unmute' : 'Mute section (plays silently)';
-      muteBtn.style.cssText = `font-size:0.52rem;padding:2px 5px;${section.muted ? 'color:var(--live);border-color:var(--live);' : 'opacity:0.45;'}`;
-      muteBtn.addEventListener('click', e => {
+      // Mute
+      const muteBtn2 = document.createElement('button');
+      muteBtn2.className = 'seq-btn' + (selSection.muted ? ' active' : '');
+      muteBtn2.textContent = 'M';
+      muteBtn2.title = selSection.muted ? 'Muted — click to unmute' : 'Mute section';
+      muteBtn2.style.cssText = `font-size:0.52rem;padding:2px 5px;${selSection.muted ? 'color:var(--live);border-color:var(--live);' : 'opacity:0.45;'}`;
+      muteBtn2.addEventListener('click', e => {
         e.stopPropagation();
-        section.muted = !section.muted;
-        muteBtn.classList.toggle('active', section.muted);
-        muteBtn.style.cssText = `font-size:0.52rem;padding:2px 5px;${section.muted ? 'color:var(--live);border-color:var(--live);' : 'opacity:0.45;'}`;
-        muteBtn.title = section.muted ? 'Section muted — click to unmute' : 'Mute section (plays silently)';
+        selSection.muted = !selSection.muted;
+        muteBtn2.classList.toggle('active', selSection.muted);
+        muteBtn2.style.cssText = `font-size:0.52rem;padding:2px 5px;${selSection.muted ? 'color:var(--live);border-color:var(--live);' : 'opacity:0.45;'}`;
         emit('state:change', { path: 'arranger', value: state.arranger });
       });
 
-      // ── Section solo button ───────────────────────────────────────────────
-      const soloActive = (state.arrSoloSection === idx);
-      const soloBtn = document.createElement('button');
-      soloBtn.className = 'seq-btn' + (soloActive ? ' active' : '');
-      soloBtn.textContent = 'S';
-      soloBtn.title = soloActive ? 'Section solo — click to clear' : 'Solo: loop this section indefinitely';
-      soloBtn.style.cssText = `font-size:0.52rem;padding:2px 5px;${soloActive ? 'color:#ffe066;border-color:#ffe066;' : 'opacity:0.45;'}`;
-      soloBtn.addEventListener('click', e => {
+      // Solo
+      const soloActive2 = (state.arrSoloSection === selIdx);
+      const soloBtn2 = document.createElement('button');
+      soloBtn2.className = 'seq-btn' + (soloActive2 ? ' active' : '');
+      soloBtn2.textContent = 'S';
+      soloBtn2.title = soloActive2 ? 'Solo — click to clear' : 'Solo this section';
+      soloBtn2.style.cssText = `font-size:0.52rem;padding:2px 5px;${soloActive2 ? 'color:#ffe066;border-color:#ffe066;' : 'opacity:0.45;'}`;
+      soloBtn2.addEventListener('click', e => {
         e.stopPropagation();
-        const newSolo = (state.arrSoloSection === idx) ? null : idx;
-        emit('state:change', { path: 'arrSoloSection', value: newSolo });
+        emit('state:change', { path: 'arrSoloSection', value: state.arrSoloSection === selIdx ? null : selIdx });
       });
+      detailPanel.append(muteBtn2, soloBtn2);
 
-      // ── Track mute squares (8 mini colored squares) ─────────────────────
-      if (!Array.isArray(section.trackMutes) || section.trackMutes.length !== 8) {
-        section.trackMutes = Array(8).fill(false);
+      // Track mutes
+      if (!Array.isArray(selSection.trackMutes) || selSection.trackMutes.length !== 8) {
+        selSection.trackMutes = Array(8).fill(false);
       }
-      const mutesRow = document.createElement('div');
-      mutesRow.className = 'arr-track-mutes';
-      mutesRow.style.cssText = 'display:flex;gap:2px;align-items:center;flex-shrink:0';
-      mutesRow.title = 'Track mutes for this section';
-
-      section.trackMutes.forEach((muted, ti) => {
+      const mutesRow2 = document.createElement('div');
+      mutesRow2.style.cssText = 'display:flex;gap:2px;align-items:center;flex-shrink:0';
+      mutesRow2.title = 'Track mutes for this section';
+      selSection.trackMutes.forEach((muted, ti) => {
         const sq = document.createElement('div');
-        sq.className = 'arr-mute-sq';
-        const trackColor = TRACK_COLORS[ti % TRACK_COLORS.length];
-        sq.style.cssText = `
-          width:8px;height:8px;border-radius:1px;cursor:pointer;flex-shrink:0;
-          background:${muted ? '#2a2a2a' : trackColor};
-          border:1px solid ${muted ? '#444' : trackColor};
-          opacity:${muted ? '0.35' : '1'};
-          transition:background 0.1s,opacity 0.1s;
-        `;
-        sq.title = `Track ${ti + 1} — ${muted ? 'muted in section' : 'active'}`;
+        const tc = TRACK_COLORS[ti % TRACK_COLORS.length];
+        sq.style.cssText = `width:8px;height:8px;border-radius:1px;cursor:pointer;flex-shrink:0;background:${muted ? '#2a2a2a' : tc};border:1px solid ${muted ? '#444' : tc};opacity:${muted ? '0.35' : '1'};transition:background 0.1s,opacity 0.1s`;
+        sq.title = `Track ${ti + 1} — ${muted ? 'muted' : 'active'}`;
         sq.addEventListener('click', e => {
           e.stopPropagation();
-          section.trackMutes[ti] = !section.trackMutes[ti];
+          selSection.trackMutes[ti] = !selSection.trackMutes[ti];
           emit('state:change', { path: 'arranger', value: state.arranger });
         });
-        mutesRow.append(sq);
+        mutesRow2.append(sq);
       });
+      detailPanel.append(mutesRow2);
 
-      // ── Duplicate button ─────────────────────────────────────────────────
-      const dupBtn = document.createElement('button');
-      dupBtn.className = 'bpm-arrow';
-      dupBtn.textContent = '⧉';
-      dupBtn.title = 'Duplicate section';
-      dupBtn.style.cssText = 'font-size:0.6rem;padding:2px 5px;opacity:0.7';
-      dupBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        const clone = JSON.parse(JSON.stringify(section));
-        state.arranger.splice(idx + 1, 0, clone);
+      // Color swatch
+      if (selSection.color == null) selSection.color = sectionColor(selSection.name ?? '');
+      const colorSwatch2 = document.createElement('div');
+      colorSwatch2.style.cssText = `width:10px;height:22px;border-radius:2px;cursor:pointer;flex-shrink:0;background:${selSection.color};border:1px solid rgba(255,255,255,0.15);position:relative;overflow:visible`;
+      colorSwatch2.title = 'Click to change section color';
+      const colorPick2 = document.createElement('input');
+      colorPick2.type = 'color';
+      colorPick2.value = selSection.color ?? '#3a4a5a';
+      colorPick2.style.cssText = 'width:100%;height:100%;padding:0;border:none;border-radius:2px;cursor:pointer;opacity:0;position:absolute;inset:0';
+      colorPick2.addEventListener('change', () => {
+        selSection.color = colorPick2.value;
+        colorSwatch2.style.background = colorPick2.value;
+        emit('state:change', { param: 'arranger' });
+      });
+      colorSwatch2.append(colorPick2);
+      detailPanel.append(colorSwatch2);
+
+      // Dup/Up/Down/Del
+      const dupBtn2 = document.createElement('button');
+      dupBtn2.className = 'bpm-arrow';
+      dupBtn2.textContent = '⧉';
+      dupBtn2.title = 'Duplicate';
+      dupBtn2.style.cssText = 'font-size:0.6rem;padding:2px 5px;opacity:0.7;margin-left:auto';
+      dupBtn2.addEventListener('click', () => {
+        const clone = JSON.parse(JSON.stringify(selSection));
+        state.arranger.splice(selIdx + 1, 0, clone);
         emit('state:change', { path: 'scale', value: state.scale });
       });
-
-      // ── Section progress bar (updated by rAF loop below) ─────────────────
-      const progressBar = document.createElement('div');
-      progressBar.className = 'arr-row-progress';
-      progressBar.style.cssText = `
-        position:absolute;bottom:0;left:0;height:2px;width:0%;
-        background:var(--live);border-radius:0 1px 1px 0;
-        pointer-events:none;transition:width 0.1s linear;
-      `;
-
-      row.append(colorSwatch, sceneLabel, barsLabel, minusBtn, plusBtn, repeatLabel, repeatInput, followSelect, bpmLabel, bpmInput, tsSelect, sceneName, mutesRow, muteBtn, soloBtn, dupBtn, upBtn, dnBtn, delBtn, progressBar);
-      list.append(row);
-    });
-
-    // ── Visual timeline ────────────────────────────────────────────────────
-    const totalBarsAll = arranger.reduce((s, sec) => s + (sec.bars ?? 1), 0) || 1;
-
-    const SCENE_COLORS = ['#f0c640','#5add71','#67d7ff','#ff8c52','#c67dff','#ff6eb4','#40e0d0','#f05b52'];
-
-    const timelineWrap = document.createElement('div');
-    timelineWrap.style.cssText = 'position:relative;flex-shrink:0;margin-bottom:8px';
-
-    const timeline = document.createElement('div');
-    timeline.style.cssText = `
-      display:flex; align-items:stretch; gap:2px;
-      height:38px;
-      background:rgba(0,0,0,0.2); border-radius:5px; padding:3px; overflow:hidden;
-      position:relative;
-    `;
-
-    arranger.forEach((section, idx) => {
-      const block = document.createElement('div');
-      const widthPct = ((section.bars ?? 1) / totalBarsAll * 100).toFixed(1);
-      const color = SCENE_COLORS[idx % SCENE_COLORS.length];
-      const isCursor = idx === arrangementCursor;
-      const isPlayingBlock = idx === activeSectionIdx;
-      const inLoop = arrLoop && idx >= arrLoopStart && idx <= arrLoopEnd;
-      // Brightest when actively playing, bright when cursor, dim otherwise
-      const alphaBg = isPlayingBlock ? 'ff' : isCursor ? 'cc' : '44';
-      const alphaBorder = isPlayingBlock ? 'ff' : isCursor ? 'cc' : '88';
-      block.style.cssText = `
-        flex: 0 0 ${widthPct}%;
-        min-width: 18px;
-        background: ${color}${alphaBg};
-        border: 1px solid ${color}${alphaBorder};
-        ${inLoop ? `outline: 1px solid rgba(90,221,113,0.5); outline-offset:-1px;` : ''}
-        border-radius: 3px;
-        display:flex; align-items:center; justify-content:center;
-        font-family:var(--font-mono); font-size:0.5rem;
-        color:${isPlayingBlock || isCursor ? '#000' : color};
-        font-weight:600;
-        cursor:pointer;
-        overflow:hidden; white-space:nowrap;
-        transition: all 0.1s;
-      `;
-      block.title = `${section.name ?? `Section ${idx+1}`} — ${section.bars ?? 1}B${section.bpmOverride ? ` BPM:${section.bpmOverride}` : ''}`;
-      block.textContent = `${String.fromCharCode(65 + (section.sceneIdx ?? 0))}`;
-      block.addEventListener('click', () => {
-        emit('state:change', { path: 'arrangementCursor', value: idx });
-      });
-      timeline.append(block);
-    });
-
-    // Loop region overlay
-    let loopOverlay = null;
-    if (arrLoop && arranger.length > 0) {
-      const barsBeforeStart = arranger.slice(0, arrLoopStart).reduce((s, sec) => s + (sec.bars ?? 1), 0);
-      const loopBars = arranger.slice(arrLoopStart, arrLoopEnd + 1).reduce((s, sec) => s + (sec.bars ?? 1), 0);
-      const leftPct  = (barsBeforeStart / totalBarsAll * 100).toFixed(2);
-      const widthPct = (loopBars / totalBarsAll * 100).toFixed(2);
-
-      loopOverlay = document.createElement('div');
-      loopOverlay.className = 'arr-loop-region';
-      loopOverlay.style.left  = `${leftPct}%`;
-      loopOverlay.style.width = `${widthPct}%`;
-      loopOverlay.style.pointerEvents = 'none';
-
-      // ── Loop start handle ────────────────────────────────────────────────
-      const loopStartHandle = document.createElement('div');
-      loopStartHandle.style.cssText = 'position:absolute;top:0;bottom:0;left:-3px;width:6px;background:rgba(90,220,255,0.5);cursor:ew-resize;z-index:5;pointer-events:auto';
-      loopStartHandle.title = 'Drag to set loop start';
-
-      loopStartHandle.addEventListener('mousedown', e => {
-        e.stopPropagation();
-        const rect = timeline.getBoundingClientRect();
-        const onMove = me => {
-          const frac = Math.max(0, Math.min(1, (me.clientX - rect.left) / rect.width));
-          const bar = Math.round(frac * totalBarsAll);
-          // Convert bar offset to section index
-          let cumBars = 0;
-          let sectionIdx = 0;
-          for (let i = 0; i < arranger.length; i++) {
-            cumBars += (arranger[i].bars ?? 1);
-            if (bar <= cumBars || i === arranger.length - 1) { sectionIdx = i; break; }
-          }
-          if (sectionIdx < (state.arrLoopEnd ?? arrLoopEnd)) {
-            state.arrLoopStart = sectionIdx;
-            const newLeft = (arranger.slice(0, sectionIdx).reduce((s, sec) => s + (sec.bars ?? 1), 0) / totalBarsAll * 100).toFixed(2);
-            loopOverlay.style.left = `${newLeft}%`;
-            const newLoopBars = arranger.slice(sectionIdx, (state.arrLoopEnd ?? arrLoopEnd) + 1).reduce((s, sec) => s + (sec.bars ?? 1), 0);
-            loopOverlay.style.width = `${(newLoopBars / totalBarsAll * 100).toFixed(2)}%`;
-            emit('state:change', { param: 'arrLoopStart', value: sectionIdx });
-          }
-        };
-        const onUp = () => {
-          window.removeEventListener('mousemove', onMove);
-          window.removeEventListener('mouseup', onUp);
-        };
-        window.addEventListener('mousemove', onMove);
-        window.addEventListener('mouseup', onUp);
-      });
-
-      // ── Loop end handle ──────────────────────────────────────────────────
-      const loopEndHandle = document.createElement('div');
-      loopEndHandle.style.cssText = 'position:absolute;top:0;bottom:0;right:-3px;width:6px;background:rgba(90,220,255,0.5);cursor:ew-resize;z-index:5;pointer-events:auto';
-      loopEndHandle.title = 'Drag to set loop end';
-
-      loopEndHandle.addEventListener('mousedown', e => {
-        e.stopPropagation();
-        const rect = timeline.getBoundingClientRect();
-        const onMove = me => {
-          const frac = Math.max(0, Math.min(1, (me.clientX - rect.left) / rect.width));
-          const bar = Math.round(frac * totalBarsAll);
-          // Convert bar offset to section index
-          let cumBars = 0;
-          let sectionIdx = arranger.length - 1;
-          for (let i = 0; i < arranger.length; i++) {
-            cumBars += (arranger[i].bars ?? 1);
-            if (bar <= cumBars) { sectionIdx = i; break; }
-          }
-          if (sectionIdx > (state.arrLoopStart ?? arrLoopStart)) {
-            state.arrLoopEnd = sectionIdx;
-            const newLeft = (arranger.slice(0, state.arrLoopStart ?? arrLoopStart).reduce((s, sec) => s + (sec.bars ?? 1), 0) / totalBarsAll * 100).toFixed(2);
-            loopOverlay.style.left = `${newLeft}%`;
-            const newLoopBars = arranger.slice(state.arrLoopStart ?? arrLoopStart, sectionIdx + 1).reduce((s, sec) => s + (sec.bars ?? 1), 0);
-            loopOverlay.style.width = `${(newLoopBars / totalBarsAll * 100).toFixed(2)}%`;
-            emit('state:change', { param: 'arrLoopEnd', value: sectionIdx });
-          }
-        };
-        const onUp = () => {
-          window.removeEventListener('mousemove', onMove);
-          window.removeEventListener('mouseup', onUp);
-        };
-        window.addEventListener('mousemove', onMove);
-        window.addEventListener('mouseup', onUp);
-      });
-
-      loopOverlay.append(loopStartHandle, loopEndHandle);
-      timeline.append(loopOverlay);
+      const upBtn2 = document.createElement('button');
+      upBtn2.className = 'bpm-arrow';
+      upBtn2.textContent = '↑';
+      upBtn2.disabled = selIdx === 0;
+      upBtn2.style.cssText = `opacity:${selIdx === 0 ? '0.2' : '0.45'};font-size:0.55rem;padding:1px 4px`;
+      upBtn2.addEventListener('click', () => emit('state:change', { path: 'action_arrMoveUp', value: selIdx }));
+      const dnBtn2 = document.createElement('button');
+      dnBtn2.className = 'bpm-arrow';
+      dnBtn2.textContent = '↓';
+      dnBtn2.disabled = selIdx === arranger.length - 1;
+      dnBtn2.style.cssText = `opacity:${selIdx === arranger.length - 1 ? '0.2' : '0.45'};font-size:0.55rem;padding:1px 4px`;
+      dnBtn2.addEventListener('click', () => emit('state:change', { path: 'action_arrMoveDown', value: selIdx }));
+      const delBtn2 = document.createElement('button');
+      delBtn2.className = 'seq-btn';
+      delBtn2.textContent = '✕';
+      delBtn2.style.padding = '4px 6px';
+      delBtn2.addEventListener('click', () => emit('state:change', { path: 'action_arrRemove', value: selIdx }));
+      detailPanel.append(dupBtn2, upBtn2, dnBtn2, delBtn2);
+    } else {
+      detailPanel.innerHTML = `<span style="color:var(--muted);font-family:var(--font-mono);font-size:0.58rem">Click a section block to select it</span>`;
     }
 
-    // ── Timeline click-to-seek ───────────────────────────────────────────
-    timeline.addEventListener('click', e => {
-      // Ignore clicks on section blocks (they have their own handler)
-      if (e.target !== timeline && e.target !== loopOverlay) return;
-      if (arranger.length === 0) return;
-      const rect = timeline.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const totalW = rect.width;
-      const seekBar = Math.floor((x / totalW) * totalBarsAll);
-      state.arrPlayPos = seekBar;
-      emit('state:change', { param: 'arrPlayPos', value: seekBar });
-      emit('arranger:seek', { bar: seekBar });
-    });
+    timelineOuter.append(detailPanel);
+    container.append(timelineOuter);
 
-    if (arranger.length === 0) {
-      timeline.innerHTML = `<div style="flex:1;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:0.6rem;color:var(--muted)">Empty — add sections below</div>`;
-    }
+    // Time info
+    const timeInfo2 = document.createElement('div');
+    timeInfo2.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--muted);flex-shrink:0';
+    const totalBarsVal2 = arranger.reduce((s, sec) => s + (sec.bars ?? 4), 0);
+    timeInfo2.textContent = `${arranger.length} sections · ${totalBarsVal2} bars`;
+    container.append(timeInfo2);
 
-    // Pulsing playhead cursor overlaid on the timeline
-    if (activeSectionIdx >= 0 && arranger.length > 0) {
-      const barsBefore = arranger.slice(0, activeSectionIdx).reduce((s, sec) => s + (sec.bars ?? 1), 0);
-      const sectionBars = arranger[activeSectionIdx]?.bars ?? 1;
-      const sectionProgress = state._arrSectionBars != null ? (state._arrSectionBars / sectionBars) : 0;
-      const playheadPct = ((barsBefore + sectionProgress * sectionBars) / totalBarsAll * 100).toFixed(2);
-
-      const playhead = document.createElement('div');
-      playhead.style.cssText = `
-        position:absolute; top:0; bottom:0; width:2px;
-        left:${playheadPct}%;
-        background:var(--live);
-        border-radius:1px;
-        animation: arrPlayheadPulse 0.5s ease-in-out infinite alternate;
-        pointer-events:none;
-        z-index:10;
-      `;
-      timeline.append(playhead);
-    }
-
-    timelineWrap.append(timeline);
-    container.append(timelineWrap);
-
-    const timeInfo = document.createElement('div');
-    timeInfo.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--muted);margin-bottom:4px;flex-shrink:0';
-    const totalBarsVal = arranger.reduce((s, sec) => s + (sec.bars ?? 1), 0);
-    timeInfo.textContent = `${arranger.length} sections · ${totalBarsVal} bars`;
-    container.append(timeInfo);
-
-    container.append(list);
-
-    // ── rAF loop: highlight currently playing section + progress bar ───────
+    // ── rAF loop: animate playing block highlight ──────────────────────────
     if (container._hlRaf) cancelAnimationFrame(container._hlRaf);
-    function highlightSection() {
+    function highlightBlocks() {
       if (!container.isConnected) { container._hlRaf = null; return; }
       const idx = state._arrSection ?? -1;
-      const currentSection = state.arranger[idx];
-      container.querySelectorAll('.arr-row').forEach((row) => {
-        const rowIdx = parseInt(row.dataset.sectionIdx, 10);
-        const isPlaying = rowIdx === idx && state.isPlaying && state.arrangementMode;
-        row.classList.toggle('arr-row-playing', isPlaying);
-        const pb = row.querySelector('.arr-row-progress');
-        if (pb) {
-          if (isPlaying && currentSection) {
-            const totalBars = currentSection.bars ?? 1;
-            const elapsed = state._arrSectionBars ?? 0;
-            pb.style.width = `${Math.min(100, (elapsed / totalBars) * 100).toFixed(1)}%`;
-          } else {
-            pb.style.width = '0%';
-          }
-        }
+      container.querySelectorAll('.arr-block').forEach(block => {
+        const bIdx = parseInt(block.dataset.sectionIdx, 10);
+        const isPlaying = bIdx === idx && state.isPlaying && state.arrangementMode;
+        block.classList.toggle('playing', isPlaying);
       });
-      container._hlRaf = requestAnimationFrame(highlightSection);
+      container._hlRaf = requestAnimationFrame(highlightBlocks);
     }
-    container._hlRaf = requestAnimationFrame(highlightSection);
+    container._hlRaf = requestAnimationFrame(highlightBlocks);
+
+    // Ensure color defaults are set for all sections
+    arranger.forEach(section => { if (section.color == null) section.color = sectionColor(section.name ?? ''); });
+
 
     // ── Add section toolbar ────────────────────────────────────────────────
     const toolbar = document.createElement('div');
