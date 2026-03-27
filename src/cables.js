@@ -1,8 +1,14 @@
 // cables.js — SVG bezier patch cable system
 
 const CABLE_COLORS = [
-  '#f05b52', '#5add71', '#67d7ff', '#f0c640', '#c060d0',
-  '#f08040', '#40d0d0', '#d040a0'
+  '#ff4444', // red
+  '#44ff88', // green
+  '#44aaff', // blue
+  '#ffdd44', // yellow
+  '#ff44dd', // magenta
+  '#44ffdd', // cyan
+  '#ff8844', // orange
+  '#aa44ff', // purple
 ];
 
 let _colorIdx = 0;
@@ -57,15 +63,20 @@ export function initCables() {
     const dx = x2 - x1;
     const dy = y2 - y1;
     const dist = Math.hypot(dx, dy);
-    // Gravity sag: proportional to horizontal distance + minimum
-    const sag = Math.max(120, dist * 0.5 + 60);
-    // Control points hang below both endpoints
+
+    // More pronounced sag — cables drop heavily due to gravity
+    // Minimum sag is significant even for short cables
+    const sag = Math.max(80, dist * 0.6 + 80);
+
+    // Control points: both hang below their respective endpoints
+    // Add lateral spread so cables fan out naturally
+    const spread = Math.min(80, dist * 0.15);
+
+    const cp1x = x1 + dx * 0.25 - spread;
     const cp1y = y1 + sag;
+    const cp2x = x2 - dx * 0.25 + spread;
     const cp2y = y2 + sag;
-    // Slight horizontal spread so cables don't all stack on top of each other
-    const spread = dist * 0.12;
-    const cp1x = x1 - spread;
-    const cp2x = x2 + spread;
+
     return `M${x1},${y1} C${cp1x},${cp1y} ${cp2x},${cp2y} ${x2},${y2}`;
   }
 
@@ -143,15 +154,15 @@ export function initCables() {
 
     const shadow = document.createElementNS(NS, 'path');
     shadow.setAttribute('fill', 'none');
-    shadow.setAttribute('stroke', 'rgba(0,0,0,0.4)');
-    shadow.setAttribute('stroke-width', '9');
+    shadow.setAttribute('stroke', 'rgba(0,0,0,0.6)');
+    shadow.setAttribute('stroke-width', '5.5');
     shadow.setAttribute('stroke-linecap', 'round');
     shadow.style.pointerEvents = 'none';
 
     const body = document.createElementNS(NS, 'path');
     body.setAttribute('fill', 'none');
     body.setAttribute('stroke', color);
-    body.setAttribute('stroke-width', '5.5');
+    body.setAttribute('stroke-width', '3.5');
     body.setAttribute('stroke-linecap', 'round');
     body.style.pointerEvents = 'stroke';
     body.style.cursor = 'pointer';
@@ -273,10 +284,10 @@ export function initCables() {
     const tempPath = document.createElementNS(NS, 'path');
     tempPath.setAttribute('fill', 'none');
     tempPath.setAttribute('stroke', color);
-    tempPath.setAttribute('stroke-width', '3');
+    tempPath.setAttribute('stroke-width', '3.5');
     tempPath.setAttribute('stroke-linecap', 'round');
     tempPath.setAttribute('stroke-dasharray', '6 4');
-    tempPath.setAttribute('opacity', '0.75');
+    tempPath.setAttribute('opacity', '0.85');
     tempPath.style.pointerEvents = 'none';
 
     const tempPlug = createJackPlug(color);
