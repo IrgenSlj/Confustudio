@@ -299,6 +299,12 @@ export function initStudio() {
         mod.innerHTML = '';
         mod.appendChild(m.createJuno60(window._confusynthEngine?.context ?? null));
       });
+    } else if (type === 'tr909') {
+      mod.innerHTML = '<div class="module-loading-shell" style="width:920px;height:320px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading TR-909…</div>';
+      import('./modules/tr909.js').then(m => {
+        mod.innerHTML = '';
+        mod.appendChild(m.createTr909(window._confusynthEngine?.context ?? null));
+      });
     } else if (type.startsWith('figure-')) {
       const emoji = {
         'figure-cat': '🐱',
