@@ -218,7 +218,7 @@ button {
 /* Thin styled scrollbars */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #2a2a2a transparent;
+  scrollbar-color: rgba(255,255,255,0.2) transparent;
 }
 
 *::-webkit-scrollbar {
@@ -227,16 +227,16 @@ button {
 }
 
 *::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(255,255,255,0.05);
 }
 
 *::-webkit-scrollbar-thumb {
-  background: #2a2a2a;
+  background: rgba(255,255,255,0.2);
   border-radius: 2px;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: #3a3a3a;
+  background: rgba(255,255,255,0.35);
 }
 
 /* Amber focus rings for accessibility */
@@ -443,7 +443,7 @@ button {
 }
 
 .t-btn:active {
-  transform: translateY(1px);
+  transform: translateY(1px) scale(0.93);
   box-shadow: 0 1px 0 rgba(0,0,0,0.4), inset 0 1px 0 rgba(0,0,0,0.1);
 }
 
@@ -751,6 +751,12 @@ button {
   color: var(--live);
   background: rgba(90,221,113,0.08);
   border-color: rgba(90,221,113,0.3);
+  animation: status-playing-pulse 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes status-playing-pulse {
+  from { box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 6px rgba(90,221,113,0.2); }
+  to   { box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 14px rgba(90,221,113,0.55), 0 0 4px rgba(90,221,113,0.4); }
 }
 
 .topbar-status.recording {
@@ -793,6 +799,7 @@ button {
     linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015) 32%, rgba(0,0,0,0.3)),
     rgba(9,12,12,0.92);
   border: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 2px solid transparent;
   color: #6c8f77;
   font-family: var(--font-mono);
   font-size: 0.52rem;
@@ -801,7 +808,7 @@ button {
   padding: 4px 8px;
   cursor: pointer;
   border-radius: 6px;
-  transition: all 0.12s;
+  transition: all 0.15s ease;
   white-space: nowrap;
   flex-shrink: 0;
   box-shadow:
@@ -813,6 +820,7 @@ button {
 .tab.active {
   color: #fff4c9;
   border-color: rgba(240,198,64,0.38);
+  border-bottom-color: var(--live);
   background:
     linear-gradient(180deg, rgba(255,239,167,0.22), rgba(240,198,64,0.08) 40%, rgba(46,30,0,0.42)),
     rgba(240,198,64,0.08);
@@ -826,6 +834,7 @@ button {
   color: #c6f3d1;
   border-color: rgba(103,215,255,0.15);
   transform: translateY(-1px);
+  filter: brightness(1.1);
 }
 
 /* ============================================================
@@ -915,7 +924,9 @@ button {
   flex-shrink: 0;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.05),
-    inset 0 0 24px rgba(103,215,255,0.08);
+    inset 0 0 24px rgba(103,215,255,0.08),
+    0 0 8px rgba(103,215,255,0.12),
+    0 0 2px rgba(103,215,255,0.2);
   cursor: zoom-in;
   pointer-events: auto;
   transition: all 0.2s ease;
@@ -930,9 +941,20 @@ button {
   z-index: 500;
   border-radius: 0;
   opacity: 1;
-  background: rgba(0,0,0,0.92);
+  background: rgba(0,0,0,0.96);
   cursor: zoom-out;
   pointer-events: auto;
+  box-shadow: none;
+}
+
+/* Dark overlay behind expanded oscilloscope */
+.oscilloscope-strip.osc-expanded::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: -1;
+  pointer-events: none;
 }
 
 /* ============================================================
@@ -1260,14 +1282,15 @@ button {
 
 .step-btn.active {
   background:
-    linear-gradient(160deg, rgba(180,255,200,0.2) 0%, rgba(90,221,113,0.08) 40%, rgba(0,0,0,0.15) 100%),
+    linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 45%, rgba(0,0,0,0.18) 100%),
     var(--track-color, #2a4a2e);
-  border-color: rgba(90,221,113,0.5);
+  border-color: rgba(90,221,113,0.55);
   color: var(--live);
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.1),
-    inset 0 -4px 8px rgba(0,40,0,0.3),
-    0 0 8px rgba(90,221,113,0.2),
+    inset 0 1px 0 rgba(255,255,255,0.22),
+    inset 0 -4px 8px rgba(0,30,0,0.3),
+    inset 0 0 6px rgba(255,255,255,0.08),
+    0 0 10px rgba(90,221,113,0.28),
     0 3px 0 rgba(0,60,0,0.6);
 }
 
@@ -1306,12 +1329,21 @@ button {
 .step-btn.playhead {
   outline: 2px solid var(--record);
   outline-offset: -2px;
-  animation: playhead-pulse 0.1s ease-out;
+  animation: playhead-pulse 0.3s ease-out;
+}
+
+.step-btn.active.playhead {
+  animation: step-playing-glow 0.3s ease-out;
 }
 
 @keyframes playhead-pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(240,91,82,0.6); }
-  100% { box-shadow: 0 0 12px 4px rgba(240,91,82,0); }
+  0%   { box-shadow: 0 0 0 0 rgba(240,91,82,0.7), inset 0 0 8px rgba(255,255,255,0.4); }
+  100% { box-shadow: 0 0 14px 5px rgba(240,91,82,0), inset 0 0 0 transparent; }
+}
+
+@keyframes step-playing-glow {
+  0%   { filter: brightness(1.8); box-shadow: 0 0 10px var(--track-color, #5add71), inset 0 0 6px rgba(255,255,255,0.3); }
+  100% { filter: brightness(1); box-shadow: none; }
 }
 
 .step-btn.has-prob::before {
@@ -1790,6 +1822,7 @@ button {
   box-shadow:
     0 4px 0 #504030,
     0 5px 6px rgba(0,0,0,0.6),
+    0 7px 12px rgba(0,0,0,0.25),
     inset 0 1px 0 rgba(255,255,255,0.55),
     inset 0 -2px 3px rgba(0,0,0,0.12),
     inset 1px 0 0 rgba(255,255,255,0.2),
@@ -1800,15 +1833,20 @@ button {
   position: relative;
 }
 
+.qwerty-key:hover:not(.role-idle):not(.pressed) {
+  filter: brightness(1.12);
+}
+
 .qwerty-key:active,
 .qwerty-key.pressed {
-  transform: translateY(3px) scaleY(0.95);
-  filter: brightness(0.92);
+  transform: translateY(3px) scale(0.95);
+  filter: brightness(1.35);
   box-shadow:
     0 1px 0 #504030,
     0 1px 2px rgba(0,0,0,0.5),
     inset 0 2px 4px rgba(0,0,0,0.22),
     inset 0 1px 0 rgba(0,0,0,0.1);
+  transition: transform 0.04s ease, filter 0.04s ease, box-shadow 0.04s;
 }
 
 .qrow-fn .qwerty-key {
@@ -2009,23 +2047,24 @@ button {
 .qwerty-key.role-scene .qkey-cap  { color: rgba(140,70,20,0.8); }
 .qwerty-key.role-scene .qkey-hint { color: #f08040; }
 
-/* Pressed — amber flash */
+/* Pressed — amber flash with scale */
 .qwerty-key.pressed {
-  transform: translateY(3px) scaleY(0.96);
-  filter: brightness(1.4);
-  transition: transform 0.05s ease, filter 0.05s ease, box-shadow 50ms;
+  transform: translateY(3px) scale(0.95) !important;
+  filter: brightness(1.45) !important;
+  transition: transform 0.04s ease, filter 0.04s ease, box-shadow 0.04s !important;
   border-color: #c8a030 !important;
   background: linear-gradient(180deg, #f0d870 0%, #d8c050 70%, #c0a830 100%) !important;
   box-shadow:
     0 1px 0 #7a6a00,
     0 2px 1px rgba(0,0,0,0.4),
-    inset 0 1px 0 rgba(255,255,255,0.3) !important;
+    inset 0 1px 0 rgba(255,255,255,0.3),
+    0 0 6px rgba(240,198,64,0.4) !important;
 }
 .qwerty-key.pressed .qkey-cap  { color: #3a2800 !important; }
 .qwerty-key.pressed .qkey-hint { color: #3a2800 !important; }
 
-.qwerty-key:not(.role-idle):hover {
-  filter: brightness(1.08);
+/* hover handled per-key above */
+.qwerty-key:not(.role-idle):not(.pressed) {
   cursor: default;
 }
 
@@ -3723,29 +3762,46 @@ button {
 .piano-roll-view {
   display: flex;
   overflow: hidden;
+  min-height: 280px;
+  flex: 1;
 }
 
 .roll-keys {
   flex-shrink: 0;
-  width: 36px;
+  width: 38px;
+  min-width: 24px;
   overflow: hidden;
 }
 
 .roll-key {
   height: 18px;
   font-family: var(--font-mono);
-  font-size: 0.46rem;
+  font-size: 0.44rem;
   color: var(--muted);
   display: flex;
   align-items: center;
-  padding-left: 4px;
+  justify-content: flex-end;
+  padding-right: 4px;
   border-bottom: 1px solid rgba(255,255,255,0.03);
   white-space: nowrap;
+  background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.05));
+  transition: background 0.06s, color 0.06s;
 }
 
 .roll-key.black-key {
-  background: rgba(0,0,0,0.25);
-  color: rgba(255,255,255,0.3);
+  background: linear-gradient(90deg, rgba(0,0,0,0.2), rgba(0,0,0,0.35));
+  color: rgba(255,255,255,0.25);
+}
+
+.roll-key.roll-key-root {
+  background: linear-gradient(90deg, rgba(240,198,64,0.06), rgba(240,198,64,0.12));
+  border-bottom: 1px solid rgba(240,198,64,0.15);
+}
+
+.roll-key.lit {
+  background: rgba(240,198,64,0.2) !important;
+  color: var(--accent) !important;
+  transition: background 0.03s;
 }
 
 .roll-grid {
@@ -3755,10 +3811,10 @@ button {
 .roll-row {
   display: flex;
   height: 18px;
-  border-bottom: 1px solid rgba(255,255,255,0.03);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 
-.roll-row.black-row { background: rgba(0,0,0,0.15); }
+.roll-row.black-row { background: rgba(0,0,0,0.2); }
 
 .piano-cell {
   flex: none;
@@ -3771,15 +3827,18 @@ button {
 }
 
 .piano-cell.beat-start {
-  border-left: 1px solid rgba(255,255,255,0.08);
+  border-left: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.015);
 }
 
 .piano-cell:hover { background: rgba(255,255,255,0.05); }
 
 .piano-cell.active {
-  background: var(--track-color, var(--live));
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.04) 50%, rgba(0,0,0,0.12) 100%),
+    var(--track-color, var(--live));
   border-radius: 2px;
-  box-shadow: 0 0 4px var(--track-color, var(--live));
+  box-shadow: 0 0 6px var(--track-color, var(--live)), inset 0 1px 0 rgba(255,255,255,0.25);
 }
 
 .piano-cell.playhead {
@@ -5116,4 +5175,159 @@ input[type=range] {
 @keyframes stutter-pulse {
   0% { opacity: 1; }
   50% { opacity: 0.6; }
+}
+
+/* ============================================================
+   UI/UX IMPROVEMENTS — v3.1
+   ============================================================ */
+
+/* ── Step button beat-group spacing (every 4 steps) ──────────────── */
+.step-group-start {
+  margin-left: 4px !important;
+}
+
+/* Step buttons: probability percentage shown on hover */
+.step-btn.has-prob:hover::after {
+  content: attr(data-prob-pct);
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.38rem;
+  font-family: var(--font-mono);
+  color: var(--accent);
+  background: rgba(0,0,0,0.8);
+  padding: 1px 4px;
+  border-radius: 2px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Track copy — dashed border on copied track row */
+.mtg-row.track-copying {
+  outline: 1px dashed var(--accent);
+  outline-offset: -1px;
+}
+
+/* ── Active step enhancements ────────────────────────────────────── */
+.step-btn.active {
+  color: #fff !important;
+}
+
+/* ── MTG track row — bolder left border when selected ───────────── */
+.mtg-row.active {
+  border-left-width: 4px !important;
+}
+
+/* ── Piano roll: bar-1 beat background ───────────────────────────── */
+.piano-cell[data-col="0"],
+.piano-cell[data-col="16"],
+.piano-cell[data-col="32"],
+.piano-cell[data-col="48"] {
+  background: rgba(255,255,255,0.025);
+}
+
+/* ── Piano roll: selected notes ─────────────────────────────────── */
+.piano-cell.piano-cell-selected {
+  outline: 2px solid rgba(255,248,220,0.9) !important;
+  outline-offset: -2px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.12) 100%) !important;
+}
+
+/* ── Keyboard: key shadow reduced on press ───────────────────────── */
+.qwerty-key.pressed {
+  box-shadow:
+    0 1px 0 #504030,
+    0 2px 3px rgba(0,0,0,0.4) !important;
+}
+
+/* ── Knob hover / focus ──────────────────────────────────────────── */
+.knob {
+  cursor: pointer;
+}
+.knob:focus {
+  box-shadow: 0 0 0 2px var(--accent), 0 0 8px rgba(240,198,64,0.3);
+  outline: none;
+}
+
+/* ── Piano roll row: C notes slightly brighter background ─────────── */
+.roll-key.roll-key-root + .roll-row,
+.roll-row:has(+ .roll-row .roll-key-root) {
+  background: rgba(240,198,64,0.03);
+}
+
+/* ── Mobile / Tablet responsive tweaks ──────────────────────────── */
+@media (max-width: 900px) {
+  .machine-grid {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .left-col,
+  .right-col {
+    flex-direction: row;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-shrink: 0;
+    align-items: center;
+  }
+
+  .left-col {
+    padding: 4px 8px;
+    gap: 8px;
+    border-right: none;
+    border-bottom: 1px solid rgba(0,0,0,0.35);
+  }
+
+  .right-col {
+    padding: 4px 8px;
+    gap: 4px;
+    border-left: none;
+    border-top: 1px solid rgba(0,0,0,0.35);
+  }
+
+  .transport-buttons {
+    flex-direction: row;
+  }
+
+  .sig-vol-row {
+    flex-shrink: 0;
+  }
+
+  .chassis {
+    width: 100%;
+    height: auto;
+    min-height: 100vh;
+    border-radius: 0;
+  }
+
+  body {
+    font-size: 0.9em;
+  }
+
+  .tab {
+    font-size: 0.48rem;
+    padding: 3px 5px;
+  }
+}
+
+@media (max-width: 600px) {
+  .kbd-panel {
+    display: none;
+  }
+
+  .tab {
+    font-size: 0.44rem;
+    padding: 2px 4px;
+  }
+
+  .step-btn,
+  .step-sm {
+    height: 22px !important;
+  }
 }

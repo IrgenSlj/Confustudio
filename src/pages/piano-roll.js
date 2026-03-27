@@ -574,12 +574,23 @@ export default {
     view.append(keysCol, scrollContainer);
     container.append(view);
 
-    // Pinch-to-zoom on the roll grid
+    // Ctrl+scroll horizontal zoom on the roll grid
     const rollContainer = container.querySelector('.roll-grid') ?? gridCol;
 
     function renderRoll() {
       emit('knob:change', { param: 'rollZoom', value: state.rollZoom });
     }
+
+    scrollContainer.addEventListener('wheel', e => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -1 : 1;
+      const newZoom = Math.max(0, Math.min(4, (state.rollZoom ?? 1) + delta));
+      if (newZoom !== state.rollZoom) {
+        state.rollZoom = newZoom;
+        renderRoll();
+      }
+    }, { passive: false });
 
     let pinchStartDist = 0;
 
@@ -609,9 +620,17 @@ export default {
       }
     }, { passive: false });
 
-    // Animated playhead: highlight current step column
+    // Build a midi→key element map for key flash on play
+    const midiToKeyEl = new Map();
+    keysCol.querySelectorAll('.roll-key').forEach(keyEl => {
+      const midi = ROWS.find(r => r.name === keyEl.textContent.trim())?.midi;
+      if (midi != null) midiToKeyEl.set(midi, keyEl);
+    });
+
+    // Animated playhead: highlight current step column + flash keys
     let rafId = null;
     let lastHighlightedCol = -1;
+    const keyFlashTimers = new Map();
     function animatePlayhead() {
       if (!container.isConnected) {
         if (rafId !== null) cancelAnimationFrame(rafId);
@@ -624,6 +643,22 @@ export default {
           const col = Number(c.dataset.col);
           if (col === stepIdx) {
             c.classList.add('piano-cell-playing');
+            // Flash the corresponding piano key
+            const step = track.steps[stepIdx];
+            if (step?.active) {
+              const midi = step.paramLocks?.note ?? step.note;
+              if (midi != null) {
+                const keyEl = midiToKeyEl.get(midi);
+                if (keyEl) {
+                  keyEl.classList.add('lit');
+                  if (keyFlashTimers.has(midi)) clearTimeout(keyFlashTimers.get(midi));
+                  keyFlashTimers.set(midi, setTimeout(() => {
+                    keyEl.classList.remove('lit');
+                    keyFlashTimers.delete(midi);
+                  }, 120));
+                }
+              }
+            }
           } else if (col === lastHighlightedCol) {
             c.classList.remove('piano-cell-playing');
           }

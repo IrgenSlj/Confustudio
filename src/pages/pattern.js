@@ -483,6 +483,13 @@ export default {
       copyBtn.addEventListener('click', e => {
         e.stopPropagation();
         state._trackCopyBuffer = JSON.parse(JSON.stringify(trk.steps));
+        state._trackCopyIndex = ti;
+        // Visual indicator: briefly add dashed outline to this row
+        row.classList.add('track-copying');
+        // Remove copying class from any previously marked row
+        multiGrid.querySelectorAll('.mtg-row.track-copying').forEach(r => {
+          if (r !== row) r.classList.remove('track-copying');
+        });
         emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
         emit('toast', { msg: 'Track steps copied' });
       });
@@ -637,6 +644,7 @@ export default {
           btn.classList.add('has-prob');
           btn.style.setProperty('--prob', prob);
           btn.style.opacity = String(0.4 + prob * 0.6);
+          btn.dataset.probPct = Math.round(prob * 100) + '%';
         }
         // Velocity indicator (small number shown when velocity is noticeably below max)
         if (step.active && vel < 0.95) {
