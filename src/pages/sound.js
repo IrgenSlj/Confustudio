@@ -1,5 +1,6 @@
 // src/pages/sound.js — Machine type, waveform, ADSR, filter
 import { openSampleBrowser } from '../sample-browser.js';
+import { TRACK_COLORS } from '../state.js';
 
 const MACHINES  = ['tone', 'noise', 'sample', 'midi', 'plaits', 'clouds', 'rings'];
 const WAVEFORMS = ['sine', 'triangle', 'sawtooth', 'square'];
@@ -134,6 +135,109 @@ const RINGS_EXCITERS = [
   { label: 'Bow',     value: 2 },
 ];
 
+// ── Canvas-based ADSR visualizer ──────────────────────────────────────────────
+function drawADSR(canvas, attack, decay, sustain, release, color) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x <= W; x += W / 4) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+
+  const totalTime = attack + decay + 0.3 + release;
+  const aN = (attack / totalTime) * W * 0.8;
+  const dN = (decay / totalTime) * W * 0.8;
+  const sN = W * 0.15;
+  const rN = (release / totalTime) * W * 0.8;
+
+  const pad = 4;
+  const top = pad;
+  const bot = H - pad;
+  const susY = bot - (sustain * (H - pad * 2));
+
+  ctx.beginPath();
+  ctx.moveTo(0, bot);
+  ctx.lineTo(aN, top);
+  ctx.lineTo(aN + dN, susY);
+  ctx.lineTo(aN + dN + sN, susY);
+  ctx.lineTo(aN + dN + sN + rN, bot);
+  ctx.lineTo(0, bot);
+  ctx.closePath();
+  ctx.fillStyle = color + '30';
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(0, bot);
+  ctx.lineTo(aN, top);
+  ctx.lineTo(aN + dN, susY);
+  ctx.lineTo(aN + dN + sN, susY);
+  ctx.lineTo(aN + dN + sN + rN, bot);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.font = '8px monospace';
+  ctx.fillText('A', aN / 2 - 3, H - 2);
+  ctx.fillText('D', aN + dN / 2 - 3, H - 2);
+  ctx.fillText('S', aN + dN + sN / 2 - 3, H - 2);
+  ctx.fillText('R', aN + dN + sN + rN / 2 - 3, H - 2);
+}
+
+// ── Canvas-based filter frequency response visualizer ─────────────────────────
+function drawFilterResponse(canvas, cutoff, resonance, filterType, color) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fillRect(0, 0, W, H);
+
+  const freqToX = f => (Math.log10(f / 20) / Math.log10(1000)) * W;
+  const cutoffX = freqToX(cutoff);
+  const resBoost = resonance * 18;
+
+  ctx.beginPath();
+  for (let x = 0; x < W; x++) {
+    const freq = 20 * Math.pow(1000, x / W);
+    let gain = 0;
+
+    if (filterType === 'lowpass' || !filterType) {
+      const ratio = freq / cutoff;
+      gain = ratio < 1 ? 0 : -24 * Math.log2(ratio);
+      const dist = Math.abs(Math.log2(freq / cutoff));
+      if (dist < 0.5) gain += resBoost * Math.exp(-dist * dist * 8);
+    } else if (filterType === 'highpass') {
+      const ratio = cutoff / freq;
+      gain = ratio < 1 ? 0 : -24 * Math.log2(ratio);
+      const dist = Math.abs(Math.log2(freq / cutoff));
+      if (dist < 0.5) gain += resBoost * Math.exp(-dist * dist * 8);
+    } else if (filterType === 'bandpass') {
+      const dist = Math.abs(Math.log2(freq / cutoff));
+      gain = -dist * 12;
+      if (dist < 0.5) gain += resBoost * Math.exp(-dist * dist * 4);
+    }
+
+    const y = H / 2 - (gain / 36) * H;
+    if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2, 2]);
+  ctx.beginPath(); ctx.moveTo(cutoffX, 0); ctx.lineTo(cutoffX, H); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// ── Legacy SVG helpers kept for non-SYNTH-tab uses ───────────────────────────
 function buildEnvelopeSVG(attack, decay, sustain = 0.6, release = 0.3) {
   const W = 180, H = 48;
   const aX  = 4 + attack * 60;
@@ -151,7 +255,6 @@ function buildEnvelopeSVG(attack, decay, sustain = 0.6, release = 0.3) {
 
 function buildFilterSVG(cutoff, resonance) {
   const W = 180, H = 40;
-  // Normalize cutoff 80–16000 to x position
   const cx = 10 + (Math.log(cutoff / 80) / Math.log(200)) * (W - 20);
   const peakY = Math.max(4, H - resonance * 10 - 8);
   const pts = `M4,${H - 4} Q${cx * 0.6},${H - 4} ${cx - 8},${H - 6} L${cx},${peakY} L${cx + 8},${H - 6} Q${cx + 20},${H - 2} ${W - 4},${H - 2}`;
@@ -816,6 +919,404 @@ function makeSampleLoader(track, ti, emit, machCard, state) {
   obs.observe(document.body, { childList: true, subtree: true });
 }
 
+// ── Inject scoped CSS for the 3-column SYNTH tab (once) ──────────────────────
+(function injectSoundPageCSS() {
+  if (document.getElementById('_snd-col-styles')) return;
+  const s = document.createElement('style');
+  s.id = '_snd-col-styles';
+  s.textContent = `
+.snd-synth-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  padding: 6px;
+  height: 100%;
+  min-height: 0;
+}
+.snd-col {
+  display: flex; flex-direction: column; gap: 6px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 5px; padding: 8px 6px;
+  min-height: 0; overflow: hidden;
+}
+.snd-col-label {
+  font-size: 0.58rem; font-weight: 700; letter-spacing: 0.12em;
+  color: rgba(255,255,255,0.35); text-transform: uppercase; margin-bottom: 2px;
+  border-bottom: 1px solid rgba(255,255,255,0.07); padding-bottom: 4px;
+}
+.snd-waveform-row { display: flex; gap: 3px; flex-wrap: wrap; }
+.snd-wave-btn {
+  flex: 1; padding: 4px; display: flex; flex-direction: column;
+  align-items: center; gap: 3px; border-radius: 3px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05); cursor: pointer;
+  color: rgba(255,255,255,0.5); font-size: 0.48rem;
+  transition: all 0.1s;
+}
+.snd-wave-btn.active { background: rgba(90,221,113,0.15); border-color: var(--live); color: var(--live); }
+.snd-wave-btn svg { width: 28px; height: 14px; }
+.snd-param-row { display: flex; align-items: center; gap: 6px; font-size: 0.6rem; }
+.snd-param-lbl { color: rgba(255,255,255,0.4); width: 40px; flex-shrink: 0; font-size: 0.58rem; }
+.snd-param-slider { flex: 1; height: 3px; }
+.snd-param-val { color: rgba(255,255,255,0.6); width: 36px; text-align: right; font-variant-numeric: tabular-nums; font-size: 0.58rem; }
+.snd-adsr-canvas { width: 100%; height: 50px; border-radius: 3px; display: block; }
+.snd-filter-canvas { width: 100%; height: 40px; border-radius: 3px; display: block; }
+.snd-pitch-display {
+  font-size: 1.4rem; font-weight: 700; color: var(--live);
+  text-align: center; letter-spacing: 0.02em; font-variant-numeric: tabular-nums;
+  padding: 4px 0; line-height: 1;
+}
+.snd-pitch-midi { font-size: 0.55rem; color: rgba(255,255,255,0.3); text-align: center; }
+.snd-filter-type { display: flex; gap: 3px; }
+.snd-filter-btn {
+  flex: 1; padding: 3px 4px; font-size: 0.55rem; font-weight: 700;
+  border-radius: 2px; border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.4); cursor: pointer;
+}
+.snd-filter-btn.active { background: rgba(103,215,255,0.2); color: #67d7ff; border-color: #67d7ff; }
+.snd-toggle-btn {
+  padding: 4px 8px; font-size: 0.58rem; font-weight: 600;
+  border-radius: 3px; border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.4); cursor: pointer;
+}
+.snd-toggle-btn.on { background: rgba(90,221,113,0.2); color: var(--live); border-color: var(--live); }
+.snd-toggle-row { display: flex; gap: 4px; flex-wrap: wrap; }
+.snd-section-sep {
+  border: none; border-top: 1px solid rgba(255,255,255,0.06); margin: 2px 0;
+}
+  `.trim();
+  document.head.appendChild(s);
+})();
+
+// ── Helper: make a compact slider row for the 3-column layout ────────────────
+function makeSndParamRow(label, param, min, max, step, value, emit, trackIndex, onChange) {
+  const row = document.createElement('div');
+  row.className = 'snd-param-row';
+
+  const lbl = document.createElement('span');
+  lbl.className = 'snd-param-lbl';
+  lbl.textContent = label;
+
+  const slider = document.createElement('input');
+  slider.type = 'range';
+  slider.className = 'snd-param-slider';
+  slider.min = min; slider.max = max; slider.step = step;
+  slider.value = value;
+
+  const decimals = step < 0.1 ? 3 : step < 1 ? 2 : 0;
+  const val = document.createElement('span');
+  val.className = 'snd-param-val';
+  val.textContent = Number(value).toFixed(decimals);
+
+  slider.addEventListener('input', () => {
+    const v = parseFloat(slider.value);
+    val.textContent = v.toFixed(decimals);
+    emit('track:change', { trackIndex, param, value: v });
+    if (onChange) onChange(v);
+  });
+
+  row.append(lbl, slider, val);
+  row.dataset.param = param;
+  return row;
+}
+
+// ── OSC column ────────────────────────────────────────────────────────────────
+function buildOscColumn(track, ti, emit, color, rerender) {
+  const col = document.createElement('div');
+  col.className = 'snd-col';
+
+  const lbl = document.createElement('div');
+  lbl.className = 'snd-col-label';
+  lbl.textContent = 'OSC';
+  col.append(lbl);
+
+  // Machine type selector
+  const machRow = document.createElement('div');
+  machRow.style.cssText = 'display:flex;gap:3px;flex-wrap:wrap';
+  MACHINES.forEach(m => {
+    const btn = document.createElement('button');
+    const bc = MACHINE_BADGE_COLORS[m] ?? { bg: '#555', text: '#fff' };
+    btn.className = 'snd-filter-btn' + (track.machine === m ? ' active' : '');
+    btn.style.cssText = `font-size:0.48rem;padding:2px 4px`;
+    if (track.machine === m) {
+      btn.style.background = bc.bg + '33';
+      btn.style.borderColor = bc.bg;
+      btn.style.color = bc.bg;
+    }
+    btn.textContent = m.toUpperCase();
+    btn.addEventListener('click', () => {
+      track.machine = m;
+      emit('track:change', { trackIndex: ti, param: 'machine', value: m });
+      if (rerender) rerender();
+    });
+    machRow.append(btn);
+  });
+  col.append(machRow);
+
+  col.append(Object.assign(document.createElement('hr'), { className: 'snd-section-sep' }));
+
+  // Waveform selector (tone machine only)
+  if (!track.machine || track.machine === 'tone') {
+    const wfRow = document.createElement('div');
+    wfRow.className = 'snd-waveform-row';
+    WAVEFORMS.forEach(w => {
+      const btn = document.createElement('button');
+      btn.className = 'snd-wave-btn' + (track.waveform === w ? ' active' : '');
+      btn.innerHTML = `${WAVEFORM_SVGS[w] ?? ''}<span>${w.slice(0,3).toUpperCase()}</span>`;
+      btn.title = w;
+      btn.addEventListener('click', () => {
+        wfRow.querySelectorAll('.snd-wave-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        emit('track:change', { trackIndex: ti, param: 'waveform', value: w });
+      });
+      wfRow.append(btn);
+    });
+    col.append(wfRow);
+    col.append(Object.assign(document.createElement('hr'), { className: 'snd-section-sep' }));
+  }
+
+  // Pitch display
+  const pitchDisplay = document.createElement('div');
+  pitchDisplay.className = 'snd-pitch-display';
+  pitchDisplay.textContent = midiToNoteName(track.pitch ?? 60);
+
+  const pitchMidi = document.createElement('div');
+  pitchMidi.className = 'snd-pitch-midi';
+  pitchMidi.textContent = `MIDI ${track.pitch ?? 60}`;
+
+  col.append(pitchDisplay, pitchMidi);
+
+  const pitchRow = makeSndParamRow('Pitch', 'pitch', 0, 127, 1, track.pitch ?? 60, emit, ti, (v) => {
+    pitchDisplay.textContent = midiToNoteName(v);
+    pitchMidi.textContent = `MIDI ${v}`;
+  });
+  // Override val display to show note name
+  pitchRow.querySelector('.snd-param-val').textContent = midiToNoteName(track.pitch ?? 60);
+  pitchRow.querySelector('input').addEventListener('input', function() {
+    pitchRow.querySelector('.snd-param-val').textContent = midiToNoteName(parseInt(this.value));
+  });
+  col.append(pitchRow);
+
+  // Fine tune / detune
+  col.append(makeSndParamRow('Fine', 'detune', -100, 100, 1, track.detune ?? 0, emit, ti));
+
+  col.append(Object.assign(document.createElement('hr'), { className: 'snd-section-sep' }));
+
+  // Legato + Key Track toggles
+  const toggleRow = document.createElement('div');
+  toggleRow.className = 'snd-toggle-row';
+
+  const legatoBtn = document.createElement('button');
+  legatoBtn.className = 'snd-toggle-btn' + (track.legato ? ' on' : '');
+  legatoBtn.textContent = 'LEGATO';
+  legatoBtn.addEventListener('click', () => {
+    const newVal = !track.legato;
+    legatoBtn.classList.toggle('on', newVal);
+    emit('track:change', { trackIndex: ti, param: 'legato', value: newVal });
+  });
+
+  const ktActive = track.keyTracking ?? false;
+  const ktBtn = document.createElement('button');
+  ktBtn.className = 'snd-toggle-btn' + (ktActive ? ' on' : '');
+  ktBtn.textContent = 'KEY TRK';
+  ktBtn.title = 'Pitch sample relative to root note';
+  ktBtn.addEventListener('click', () => {
+    const newVal = !track.keyTracking;
+    track.keyTracking = newVal;
+    ktBtn.classList.toggle('on', newVal);
+    emit('track:change', { trackIndex: ti, param: 'keyTracking', value: newVal });
+  });
+
+  toggleRow.append(legatoBtn, ktBtn);
+  col.append(toggleRow);
+
+  return col;
+}
+
+// ── FILTER column ─────────────────────────────────────────────────────────────
+function buildFilterColumn(track, ti, emit, color) {
+  const col = document.createElement('div');
+  col.className = 'snd-col';
+
+  const lbl = document.createElement('div');
+  lbl.className = 'snd-col-label';
+  lbl.textContent = 'FILTER';
+  col.append(lbl);
+
+  // Filter response canvas
+  const filterCanvas = document.createElement('canvas');
+  filterCanvas.className = 'snd-filter-canvas';
+  filterCanvas.width = 120;
+  filterCanvas.height = 40;
+  col.append(filterCanvas);
+
+  const currentFilterType = track.filterType ?? 'lowpass';
+
+  function redrawFilter() {
+    const w = filterCanvas.offsetWidth;
+    if (w > 0) filterCanvas.width = w;
+    const cutoffRow = col.querySelector('[data-param="cutoff"] input');
+    const resRow    = col.querySelector('[data-param="resonance"] input');
+    const ftRow     = col.querySelector('[data-param="filterType"]');
+    const c = parseFloat(cutoffRow?.value ?? track.cutoff ?? 4000);
+    const r = parseFloat(resRow?.value ?? track.resonance ?? 0.5);
+    const ft = ftRow?.dataset.value ?? currentFilterType;
+    drawFilterResponse(filterCanvas, c, r, ft, color);
+  }
+
+  // Filter type buttons (LP / HP / BP)
+  const ftRow = document.createElement('div');
+  ftRow.className = 'snd-filter-type';
+  ftRow.dataset.param = 'filterType';
+  ftRow.dataset.value = currentFilterType;
+
+  const FILTER_TYPES_SHORT = [
+    { label: 'LP',    value: 'lowpass'   },
+    { label: 'HP',    value: 'highpass'  },
+    { label: 'BP',    value: 'bandpass'  },
+    { label: 'NOTCH', value: 'notch'     },
+    { label: 'PEAK',  value: 'peaking'   },
+    { label: 'LSH',   value: 'lowshelf'  },
+    { label: 'HSH',   value: 'highshelf' },
+  ];
+
+  FILTER_TYPES_SHORT.forEach(({ label, value }) => {
+    const btn = document.createElement('button');
+    btn.className = 'snd-filter-btn' + (currentFilterType === value ? ' active' : '');
+    btn.textContent = label;
+    btn.addEventListener('click', () => {
+      ftRow.querySelectorAll('.snd-filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      ftRow.dataset.value = value;
+      emit('track:change', { trackIndex: ti, param: 'filterType', value });
+      redrawFilter();
+    });
+    ftRow.append(btn);
+  });
+  col.append(ftRow);
+
+  // Filter param sliders
+  const filtParams = [
+    { label: 'Cutoff', param: 'cutoff',    min: 80,  max: 16000, step: 10,  def: 4000 },
+    { label: 'Res',    param: 'resonance', min: 0.5, max: 15,    step: 0.1, def: 0.5  },
+    { label: 'Drive',  param: 'drive',     min: 0,   max: 1,     step: 0.01,def: 0    },
+    { label: 'Env Amt',param: 'filterEnvAmt', min: -1, max: 1,  step: 0.01,def: 0    },
+  ];
+  filtParams.forEach(({ label, param, min, max, step, def }) => {
+    const row = makeSndParamRow(label, param, min, max, step, track[param] ?? def, emit, ti, () => redrawFilter());
+    col.append(row);
+  });
+
+  // Trigger initial draw after layout
+  requestAnimationFrame(() => redrawFilter());
+  col.addEventListener('input', () => redrawFilter());
+
+  return col;
+}
+
+// ── AMP column ────────────────────────────────────────────────────────────────
+function buildAmpColumn(track, ti, emit, color) {
+  const col = document.createElement('div');
+  col.className = 'snd-col';
+
+  const lbl = document.createElement('div');
+  lbl.className = 'snd-col-label';
+  lbl.textContent = 'AMP / ENV';
+  col.append(lbl);
+
+  // ADSR canvas
+  const adsrCanvas = document.createElement('canvas');
+  adsrCanvas.className = 'snd-adsr-canvas';
+  adsrCanvas.width = 120;
+  adsrCanvas.height = 50;
+  col.append(adsrCanvas);
+
+  const ADSR_PRESETS = [
+    { label: 'Perc',  a: 0.001, d: 0.1,  s: 0,   r: 0.05 },
+    { label: 'Pad',   a: 0.3,   d: 0.5,  s: 0.8, r: 1.0  },
+    { label: 'Pluck', a: 0.001, d: 0.15, s: 0.3, r: 0.2  },
+    { label: 'Long',  a: 0.1,   d: 0.3,  s: 0.7, r: 0.8  },
+    { label: 'Drone', a: 0.5,   d: 0.1,  s: 1.0, r: 2.0  },
+  ];
+
+  // Preset row
+  const presetRow = document.createElement('div');
+  presetRow.style.cssText = 'display:flex;gap:3px;flex-wrap:wrap';
+  ADSR_PRESETS.forEach(preset => {
+    const btn = document.createElement('button');
+    btn.className = 'snd-filter-btn';
+    btn.style.cssText = 'font-size:0.46rem;padding:2px 4px';
+    btn.textContent = preset.label;
+    btn.addEventListener('click', () => {
+      track.attack  = preset.a;
+      track.decay   = preset.d;
+      track.sustain = preset.s;
+      track.release = preset.r;
+      const params = ['attack', 'decay', 'sustain', 'release'];
+      const vals   = [preset.a, preset.d, preset.s, preset.r];
+      params.forEach((p, i) => {
+        const row = col.querySelector(`[data-param="${p}"]`);
+        if (row) {
+          const inp = row.querySelector('input');
+          const vEl = row.querySelector('.snd-param-val');
+          if (inp) inp.value = vals[i];
+          if (vEl) vEl.textContent = vals[i].toFixed(3);
+        }
+        emit('track:change', { trackIndex: ti, param: p, value: vals[i] });
+      });
+      redrawADSR();
+    });
+    presetRow.append(btn);
+  });
+  col.append(presetRow);
+
+  function redrawADSR() {
+    const w = adsrCanvas.offsetWidth;
+    if (w > 0) adsrCanvas.width = w;
+    const a = parseFloat(col.querySelector('[data-param="attack"] input')?.value   ?? track.attack  ?? 0.01);
+    const d = parseFloat(col.querySelector('[data-param="decay"] input')?.value    ?? track.decay   ?? 0.1);
+    const s = parseFloat(col.querySelector('[data-param="sustain"] input')?.value  ?? track.sustain ?? 0.5);
+    const r = parseFloat(col.querySelector('[data-param="release"] input')?.value  ?? track.release ?? 0.2);
+    drawADSR(adsrCanvas, a, d, s, r, color);
+  }
+
+  const adsrParams = [
+    { label: 'Atk',  param: 'attack',  min: 0.001, max: 2,  step: 0.001, def: 0.01 },
+    { label: 'Dec',  param: 'decay',   min: 0.01,  max: 2,  step: 0.01,  def: 0.1  },
+    { label: 'Sus',  param: 'sustain', min: 0,     max: 1,  step: 0.01,  def: 0.5  },
+    { label: 'Rel',  param: 'release', min: 0.01,  max: 4,  step: 0.01,  def: 0.2  },
+    { label: 'Gate', param: 'noteLength', min: 0.01, max: 1, step: 0.01, def: 0.5  },
+  ];
+  adsrParams.forEach(({ label, param, min, max, step, def }) => {
+    const row = makeSndParamRow(label, param, min, max, step, track[param] ?? def, emit, ti, () => redrawADSR());
+    col.append(row);
+  });
+
+  col.append(Object.assign(document.createElement('hr'), { className: 'snd-section-sep' }));
+
+  // Volume & pan
+  col.append(makeSndParamRow('Vol', 'volume', 0, 1, 0.01, track.volume ?? 0.8, emit, ti));
+  col.append(makeSndParamRow('Pan', 'pan',   -1, 1, 0.01, track.pan    ?? 0,   emit, ti));
+
+  requestAnimationFrame(() => redrawADSR());
+  col.addEventListener('input', () => redrawADSR());
+
+  return col;
+}
+
+// ── 3-column SYNTH tab renderer ───────────────────────────────────────────────
+function renderSynthTab(track, ti, emit, color, rerender) {
+  const div = document.createElement('div');
+  div.className = 'snd-synth-grid';
+
+  div.appendChild(buildOscColumn(track, ti, emit, color, rerender));
+  div.appendChild(buildFilterColumn(track, ti, emit, color));
+  div.appendChild(buildAmpColumn(track, ti, emit, color));
+
+  return div;
+}
+
 export default {
   render(container, state, emit) {
     // Cancel any running live-note watcher from a previous render
@@ -865,63 +1366,29 @@ export default {
       return g;
     }
 
-    const synthGrid  = makeGrid();
+    // ── 3-column SYNTH tab ───────────────────────────────────────────────────
+    const trackColor = TRACK_COLORS[ti] ?? '#5add71';
+
+    // synthWrapper holds the 3-column grid + any machine-specific extra cards
+    const synthWrapper = document.createElement('div');
+    synthWrapper.style.cssText = 'display:flex;flex-direction:column;flex:1;min-height:0;gap:6px;overflow-y:auto';
+    synthWrapper.style.display = showSynth ? 'flex' : 'none';
+
+    synthWrapper.appendChild(renderSynthTab(track, ti, emit, trackColor, () => this.render(container, state, emit)));
+
+    // Placeholder modGrid/sampleGrid for MOD/SAMPLE tabs (unchanged layout)
     const modGrid    = makeGrid();
     const sampleGrid = makeGrid();
 
-    synthGrid.style.display  = showSynth  ? '' : 'none';
     modGrid.style.display    = showMod    ? '' : 'none';
     sampleGrid.style.display = showSample ? '' : 'none';
 
-    // ── Pitch card ──
-    const pitchCard = document.createElement('div');
-    pitchCard.className = 'page-card';
-
-    const noteDisplay = document.createElement('div');
-    noteDisplay.style.cssText = 'font-family:var(--font-mono);font-size:1.4rem;font-weight:600;color:var(--accent);text-align:center;margin-bottom:4px;letter-spacing:0.05em';
-    noteDisplay.textContent = midiToNoteName(track.pitch ?? 60);
-
-    const pitchSlider = document.createElement('input');
-    pitchSlider.type = 'range';
-    pitchSlider.min = 0; pitchSlider.max = 127; pitchSlider.step = 1;
-    pitchSlider.value = track.pitch ?? 60;
-    pitchSlider.style.cssText = 'width:100%;accent-color:var(--accent)';
-
-    const pitchLabel = document.createElement('div');
-    pitchLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);text-align:center;margin-top:2px';
-    pitchLabel.textContent = `MIDI ${track.pitch ?? 60}`;
-
-    // Chord spelling display
-    const chordDisplay = document.createElement('div');
-    chordDisplay.className = 'chord-spelling';
-    function updateChordDisplay(midiNote) {
-      const voicing = CHORD_VOICINGS[track.chordMode];
-      if (voicing && voicing.length > 0) {
-        chordDisplay.textContent = voicing.map(iv => midiToNoteName(midiNote + iv)).join(' ');
-        chordDisplay.style.display = 'block';
-      } else {
-        chordDisplay.textContent = '';
-        chordDisplay.style.display = 'none';
-      }
-    }
-    updateChordDisplay(track.pitch ?? 60);
-
-    pitchSlider.addEventListener('input', () => {
-      const v = parseInt(pitchSlider.value);
-      noteDisplay.textContent = midiToNoteName(v);
-      pitchLabel.textContent = `MIDI ${v}`;
-      updateChordDisplay(v);
-      emit('track:change', { trackIndex: ti, param: 'pitch', value: v });
-    });
-
-    pitchCard.innerHTML = '<h4>Pitch</h4>';
-
-    // Live note indicator — shows the last triggered note while sequencer runs
+    // Live note indicator watch (used in OSC column pitch display)
     const liveNote = document.createElement('div');
     liveNote.className = 'live-note-display';
     liveNote.id = `live-note-${ti}`;
-    liveNote.textContent = '--';
-    pitchCard.prepend(liveNote);
+    liveNote.style.cssText = 'display:none'; // hidden — pitch display in OSC col does the job
+    synthWrapper.prepend(liveNote);
 
     const updateLiveNote = () => {
       const noteNum = state._lastNotes?.[ti];
@@ -934,137 +1401,6 @@ export default {
     };
     startNoteWatch();
     container._cleanupNoteWatch = () => cancelAnimationFrame(_noteRaf);
-
-    // Legato toggle
-    const legatoRow = document.createElement('div');
-    legatoRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:6px';
-    const legatoBtn = document.createElement('button');
-    legatoBtn.className = 'ctx-btn' + (track.legato ? ' active' : '');
-    legatoBtn.style.cssText = track.legato
-      ? 'color:var(--live);border-color:var(--live);box-shadow:0 0 6px var(--live)'
-      : '';
-    legatoBtn.textContent = 'LEGATO';
-    legatoBtn.addEventListener('click', () => {
-      const newVal = !track.legato;
-      legatoBtn.classList.toggle('active', newVal);
-      legatoBtn.style.cssText = newVal
-        ? 'color:var(--live);border-color:var(--live);box-shadow:0 0 6px var(--live)'
-        : '';
-      emit('track:change', { trackIndex: ti, param: 'legato', value: newVal });
-    });
-    legatoRow.append(legatoBtn);
-
-    // ── Key Tracking toggle (sample / clouds machines) ────────────────────────
-    // When enabled, the sample is pitched relative to its root note (track.note).
-    // Default: true for pitched machines (tone/plaits/rings/clouds), false for sample/noise.
-    const isSampleMachine = track.machine === 'sample' || track.machine === 'clouds';
-    const keyTrackRow = document.createElement('div');
-    keyTrackRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:4px';
-
-    const keyTrackBtn = document.createElement('button');
-    const ktActive = track.keyTracking ?? false;
-    keyTrackBtn.className = 'ctx-btn' + (ktActive ? ' active' : '');
-    keyTrackBtn.style.cssText = ktActive
-      ? 'color:var(--accent);border-color:var(--accent)'
-      : '';
-    keyTrackBtn.textContent = 'KEY TRACK';
-    keyTrackBtn.title = 'Pitch sample relative to its root note';
-    keyTrackBtn.addEventListener('click', () => {
-      const newVal = !track.keyTracking;
-      track.keyTracking = newVal;
-      keyTrackBtn.classList.toggle('active', newVal);
-      keyTrackBtn.style.cssText = newVal
-        ? 'color:var(--accent);border-color:var(--accent)'
-        : '';
-      emit('track:change', { trackIndex: ti, param: 'keyTracking', value: newVal });
-    });
-    keyTrackRow.append(keyTrackBtn);
-
-    // ── Auto pitch-detect row (sample / clouds machines only) ─────────────────
-    // Shows root note display + "Auto" button to run autocorrelation detection.
-    let autoDetectRow = null;
-    if (isSampleMachine) {
-      autoDetectRow = document.createElement('div');
-      autoDetectRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:4px';
-
-      const rootLabel = document.createElement('span');
-      rootLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);flex-shrink:0';
-      rootLabel.textContent = 'Root:';
-
-      const rootDisplay = document.createElement('span');
-      rootDisplay.style.cssText = 'font-family:var(--font-mono);font-size:0.65rem;color:var(--accent);min-width:28px';
-      rootDisplay.textContent = midiToNoteName(track.note ?? 60);
-
-      const autoBtn = document.createElement('button');
-      autoBtn.className = 'ctx-btn';
-      autoBtn.style.cssText = 'font-size:0.55rem;padding:2px 6px;margin-left:auto';
-      autoBtn.textContent = 'Auto';
-      autoBtn.title = 'Auto-detect root note from sample';
-      autoBtn.addEventListener('click', () => {
-        const buf = track.sampleBuffer;
-        if (!buf) {
-          emit('toast', { msg: 'No sample loaded' });
-          return;
-        }
-        const sr = state.audioContext?.sampleRate ?? buf.sampleRate;
-        const detected = detectPitch(buf, sr);
-        if (detected == null) {
-          emit('toast', { msg: 'No pitch detected' });
-        } else {
-          track.note = detected;
-          rootDisplay.textContent = midiToNoteName(detected);
-          emit('track:change', { trackIndex: ti, param: 'note', value: detected });
-          emit('toast', { msg: `Root: ${midiToNoteName(detected)}` });
-        }
-      });
-
-      autoDetectRow.append(rootLabel, rootDisplay, autoBtn);
-    }
-
-    pitchCard.append(noteDisplay, chordDisplay, pitchSlider, pitchLabel, legatoRow, keyTrackRow);
-    if (autoDetectRow) pitchCard.append(autoDetectRow);
-    synthGrid.append(pitchCard);
-
-    // ── Machine type card ──
-    const machCard = document.createElement('div');
-    machCard.className = 'page-card';
-    machCard.innerHTML = '<h4>Machine</h4>';
-    const machRow = document.createElement('div');
-    machRow.style.cssText = 'display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px';
-    MACHINES.forEach(m => {
-      const btn = document.createElement('button');
-      btn.className = 'ctx-btn' + (track.machine === m ? ' active' : '');
-      btn.textContent = m;
-      btn.addEventListener('click', () => {
-        machRow.querySelectorAll('.ctx-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        emit('track:change', { trackIndex: ti, param: 'machine', value: m });
-        // re-render to show/hide waveform section
-        this.render(container, { ...state, project: state.project }, emit);
-      });
-      machRow.append(btn);
-    });
-    machCard.append(machRow);
-
-    if (track.machine === 'tone') {
-      const wfRow = document.createElement('div');
-      wfRow.style.cssText = 'display:flex;gap:5px;flex-wrap:wrap';
-      WAVEFORMS.forEach(w => {
-        const btn = document.createElement('button');
-        btn.className = 'ctx-btn waveform-btn' + (track.waveform === w ? ' active' : '');
-        btn.title = w;
-        btn.innerHTML = `${WAVEFORM_SVGS[w] ?? ''}<span class="wf-label">${w.slice(0, 3)}</span>`;
-        btn.addEventListener('click', () => {
-          wfRow.querySelectorAll('.ctx-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          emit('track:change', { trackIndex: ti, param: 'waveform', value: w });
-        });
-        wfRow.append(btn);
-      });
-      machCard.append(wfRow);
-    }
-
-    synthGrid.append(machCard);
 
     // ── Sample card (SAMPLE tab) ──
     if (track.machine === 'sample' || track.machine === 'clouds') {
@@ -1184,7 +1520,7 @@ export default {
         plaitsCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti))
       );
 
-      synthGrid.append(plaitsCard);
+      synthWrapper.append(plaitsCard);
     }
 
     // ── Clouds card ──
@@ -1202,7 +1538,7 @@ export default {
         cloudsCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti))
       );
 
-      synthGrid.append(cloudsCard);
+      synthWrapper.append(cloudsCard);
     }
 
     // ── Rings card ──
@@ -1234,7 +1570,7 @@ export default {
         ringsCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti))
       );
 
-      synthGrid.append(ringsCard);
+      synthWrapper.append(ringsCard);
     }
 
     // ── ADSR card ──
@@ -1249,30 +1585,6 @@ export default {
     adsrCanvas.height = 40;
     adsrCanvas.style.cssText = 'display:block;width:100%;height:40px;margin-bottom:6px;background:#0a0a0a;border-radius:4px;border:1px solid var(--border)';
     adsrCard.append(adsrCanvas);
-
-    function drawADSR(canvas, attack, decay, sustain, release) {
-      const ctx = canvas.getContext('2d');
-      const W = canvas.width, H = canvas.height;
-      ctx.clearRect(0, 0, W, H);
-      const total = attack + decay + 0.2 + release;
-      const ax = (attack / total) * W;
-      const dx = ax + (decay / total) * W;
-      const sx = dx + (0.2 / total) * W;
-      const rx = W;
-      const sy = H - (sustain * H);
-      ctx.beginPath();
-      ctx.moveTo(0, H);
-      ctx.lineTo(ax, 0);
-      ctx.lineTo(dx, sy);
-      ctx.lineTo(sx, sy);
-      ctx.lineTo(rx, H);
-      ctx.strokeStyle = 'var(--accent)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      ctx.lineTo(0, H);
-      ctx.fillStyle = 'rgba(100,180,50,0.1)';
-      ctx.fill();
-    }
 
     // Helper to read current ADSR values from track / live slider inputs
     function getADSRValues() {
@@ -1290,7 +1602,7 @@ export default {
       const layoutW = adsrCanvas.offsetWidth;
       if (layoutW > 0) adsrCanvas.width = layoutW;
       const { a, d, s, r } = getADSRValues();
-      drawADSR(adsrCanvas, a, d, s, r);
+      drawADSR(adsrCanvas, a, d, s, r, TRACK_COLORS[ti] ?? '#5add71');
     }
 
     // ADSR shape presets
@@ -1633,7 +1945,7 @@ export default {
       refreshArpPreview();
     });
 
-    synthGrid.append(arpCard);
+    synthWrapper.append(arpCard);
 
     // SAMPLE tab placeholder when machine has no sample support
     if (track.machine !== 'sample' && track.machine !== 'clouds') {
@@ -1645,7 +1957,7 @@ export default {
       sampleGrid.append(noSampleCard);
     }
 
-    container.append(synthGrid, modGrid, sampleGrid);
+    container.append(synthWrapper, modGrid, sampleGrid);
   },
 
   knobMap: [
