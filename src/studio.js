@@ -293,6 +293,12 @@ export function initStudio() {
         mod.innerHTML = '';
         mod.appendChild(m.createTB303(ctx));
       });
+    } else if (type === 'juno60') {
+      mod.innerHTML = '<div class="module-loading-shell" style="width:860px;height:240px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Juno-60…</div>';
+      import('./modules/juno60.js').then(m => {
+        mod.innerHTML = '';
+        mod.appendChild(m.createJuno60(window._confusynthEngine?.context ?? null));
+      });
     } else if (type.startsWith('figure-')) {
       const emoji = {
         'figure-cat': '🐱',
