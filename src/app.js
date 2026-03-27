@@ -1793,6 +1793,9 @@ function scheduleLoop() {
             const gateDur = (track.gate ?? 0.5) * (60 / state.bpm) * 1000;
             state.engine.midiOutput.send([0x80 | ch, note, 0], window.performance.now() + gateDur);
           }
+          document.dispatchEvent(new CustomEvent('confusynth:note:on', {
+            detail: { note: noteToPlay, velocity: step.velocity ?? 1, trackIndex: ti, channel: ti }
+          }));
         } else {
           state.engine.triggerTrack(track, _schedNextTime + totalOffset - latencyComp, secsPerStep, {
             accent:      step.accent,
@@ -1812,6 +1815,9 @@ function scheduleLoop() {
             const gateDur = (track.gate ?? 0.5) * (60 / state.bpm) * 1000;
             state.engine.midiOutput.send([0x80 | ch, note, 0], window.performance.now() + gateDur);
           }
+          document.dispatchEvent(new CustomEvent('confusynth:note:on', {
+            detail: { note: step.note ?? track.pitch ?? 60, velocity: step.velocity ?? 1, trackIndex: ti, channel: ti }
+          }));
         }
       });
 
@@ -1824,6 +1830,11 @@ function scheduleLoop() {
       // state.currentStep tracks track 0 for the playhead display
       state.currentStep = _trackStepIdx[0];
       _schedStepIdx = _trackStepIdx[0]; // keep alias in sync
+
+      // Dispatch clock event so external modules (TB-303, TR-909) can sync
+      document.dispatchEvent(new CustomEvent('confusynth:clock', {
+        detail: { step: state.currentStep, bpm: state.bpm, time: _schedNextTime }
+      }));
 
       // ── XFade automation record / playback ─────────────────────────────────
       if (state.xfRecording) {

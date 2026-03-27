@@ -233,6 +233,11 @@ export function initCables() {
       }
     }
 
+    // Notify listeners that a cable was connected
+    document.dispatchEvent(new CustomEvent('cable:connected', {
+      detail: { fromEl, toEl, fromPort: fromEl.dataset.port, toPort: toEl.dataset.port }
+    }));
+
     // Right-click on body to remove cable
     layers.body.addEventListener('contextmenu', e => {
       e.preventDefault();

@@ -234,9 +234,19 @@ export function initStudio() {
     picker.innerHTML = `
       <div class="mp-title">Add Module</div>
       <div class="mp-hint">Drop another synth into view, add a DJ mixer, or place lightweight figures while testing zoom, pan, and cables.</div>
+      <div class="mp-section-label">INSTRUMENTS</div>
       <div class="mp-grid">
         <button data-module="synth">CONFUsynth</button>
+        <button data-module="tb303">TB-303</button>
+        <button data-module="juno60">Juno-60</button>
+        <button data-module="tr909">TR-909</button>
+      </div>
+      <div class="mp-section-label">MIXING</div>
+      <div class="mp-grid">
         <button data-module="djmixer">DJ Mixer</button>
+      </div>
+      <div class="mp-section-label">UTILITIES</div>
+      <div class="mp-grid">
         <button data-module="figure-cat">Cat Figure</button>
         <button data-module="figure-robot">Robot Figure</button>
         <button data-module="figure-cactus">Cactus Figure</button>
@@ -275,6 +285,13 @@ export function initStudio() {
         const ctx = window._confusynthEngine?.context ?? null;
         mod.innerHTML = '';
         mod.appendChild(m.createDJMixer(ctx));
+      });
+    } else if (type === 'tb303') {
+      mod.innerHTML = '<div class="module-loading-shell" style="width:680px;height:340px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading TB-303…</div>';
+      import('./modules/tb303.js').then((m) => {
+        const ctx = window._confusynthEngine?.context ?? null;
+        mod.innerHTML = '';
+        mod.appendChild(m.createTB303(ctx));
       });
     } else if (type.startsWith('figure-')) {
       const emoji = {
@@ -377,21 +394,19 @@ export function initStudio() {
   });
 
   wrap.addEventListener('wheel', (e) => {
+    e.preventDefault();
     if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
+      // ctrl+scroll or meta+scroll → zoom
       const rect = wrap.getBoundingClientRect();
       zoomBy(e.deltaY > 0 ? 0.92 : 1.08, e.clientX - rect.left, e.clientY - rect.top);
-      return;
+    } else {
+      // Two-finger pan: use deltaX and deltaY directly
+      _userHasPanned = true;
+      panX -= e.deltaX;
+      panY -= e.deltaY;
+      clampViewport();
+      applyTransform();
     }
-    const onScrollable = e.target.closest(
-      '.page-content, .mixer-fader-grid, .right-col, .fx-layout, .fx-left, .fx-right, .piano-roll-scroll, .arranger-scroll, [data-no-pan]'
-    );
-    if (onScrollable && !e.shiftKey) return;
-    e.preventDefault();
-    _userHasPanned = true;
-    panX -= e.deltaX;
-    panY -= e.deltaY;
-    clampViewport();
   }, { passive: false });
 
   let panning = false;

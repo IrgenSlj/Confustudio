@@ -4610,6 +4610,476 @@ input[type=range] {
   .mobile-zoom { transform: scale(1.3); }
 }
 
+/* ============================================================
+   TB-303 ACID BASS SYNTHESIZER
+   ============================================================ */
+
+.tb303-chassis {
+  width: 680px;
+  background: linear-gradient(180deg, #e8e8e8 0%, #c8c8c8 100%);
+  border: 2px solid #888;
+  border-radius: 6px;
+  box-shadow:
+    0 16px 48px rgba(0,0,0,0.55),
+    inset 0 1px 0 rgba(255,255,255,0.6),
+    inset 0 -1px 0 rgba(0,0,0,0.15);
+  font-family: var(--font-mono);
+  user-select: none;
+  overflow: hidden;
+}
+
+.tb303-ports-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 12px;
+  background: linear-gradient(180deg, #555 0%, #333 100%);
+  border-bottom: 2px solid #222;
+  cursor: grab;
+}
+
+.tb303-ports-bar:active { cursor: grabbing; }
+
+.tb303-brand {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #f0e8d0;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+}
+
+.tb303-ports-bar .port {
+  font-size: 0.45rem;
+  color: #aaa;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 3px;
+  border: 1px solid #555;
+  background: #222;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.tb303-ports-bar .port:hover {
+  border-color: #f0c640;
+  color: #f0c640;
+}
+
+.tb303-body {
+  padding: 10px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Knob rows ── */
+.tb303-knob-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.tb303-top-knobs {
+  justify-content: space-between;
+  background: linear-gradient(180deg, #d8d8d8 0%, #c0c0c0 100%);
+  border: 1px solid #aaa;
+  border-radius: 5px;
+  padding: 8px 14px 6px;
+}
+
+.tb303-knob-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.tb303-knob-label {
+  font-size: 0.38rem;
+  font-weight: 600;
+  color: #333;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.tb303-knob {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, #888, #333);
+  box-shadow:
+    0 3px 8px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.2);
+  cursor: pointer;
+  position: relative;
+  touch-action: none;
+}
+
+.tb303-knob--sm {
+  width: 34px;
+  height: 34px;
+}
+
+/* Dot indicator on knob */
+.tb303-knob::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #f0c640;
+  box-shadow: 0 0 3px #f0c640;
+}
+
+.tb303-knob--sm::after {
+  width: 3px;
+  height: 3px;
+  top: 3px;
+}
+
+.tb303-knob-val {
+  font-size: 0.36rem;
+  color: #555;
+  letter-spacing: 0.04em;
+  min-width: 28px;
+  text-align: center;
+}
+
+/* ── Middle row ── */
+.tb303-middle {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: linear-gradient(180deg, #d0d0d0 0%, #b8b8b8 100%);
+  border: 1px solid #aaa;
+  border-radius: 5px;
+  padding: 8px 14px;
+}
+
+.tb303-section-label {
+  font-size: 0.36rem;
+  font-weight: 700;
+  color: #444;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.tb303-wave-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tb303-wave-btns {
+  display: flex;
+  gap: 4px;
+}
+
+.tb303-wave-btn {
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 3px;
+  border: 1px solid #999;
+  background: #ccc;
+  color: #333;
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  transition: all 0.1s;
+}
+
+.tb303-wave-btn.active {
+  background: #e83c00;
+  border-color: #c83000;
+  color: #fff;
+  box-shadow: 0 0 6px rgba(232,60,0,0.5);
+}
+
+.tb303-wave-btn:hover:not(.active) {
+  background: #bbb;
+}
+
+.tb303-small-knobs {
+  display: flex;
+  gap: 12px;
+}
+
+.tb303-transport {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.tb303-run-btn,
+.tb303-stop-btn {
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 3px;
+  border: 1px solid #888;
+  background: #c8c8c8;
+  color: #333;
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  transition: all 0.1s;
+}
+
+.tb303-run-btn.active {
+  background: #3a9c3a;
+  border-color: #288028;
+  color: #fff;
+  box-shadow: 0 0 6px rgba(58,156,58,0.6);
+}
+
+.tb303-stop-btn.active {
+  background: #c83c3c;
+  border-color: #a02020;
+  color: #fff;
+}
+
+.tb303-run-btn:hover:not(.active),
+.tb303-stop-btn:hover:not(.active) {
+  background: #b8b8b8;
+}
+
+/* ── Sequencer section ── */
+.tb303-seq-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: linear-gradient(180deg, #ccc 0%, #b4b4b4 100%);
+  border: 1px solid #999;
+  border-radius: 5px;
+  padding: 8px 10px;
+}
+
+.tb303-seq-grid {
+  display: grid;
+  grid-template-columns: repeat(16, 1fr);
+  gap: 4px;
+}
+
+.tb303-step-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.tb303-step-led {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #666;
+  box-shadow: none;
+  transition: background 0.05s, box-shadow 0.05s;
+}
+
+.tb303-step.playing ~ .tb303-step-led,
+.tb303-step-wrap:has(.tb303-step.playing) .tb303-step-led {
+  background: #f0c640;
+  box-shadow: 0 0 6px #f0c640;
+}
+
+.tb303-step {
+  font-family: var(--font-mono);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1 / 1.1;
+  min-width: 0;
+  padding: 2px 1px;
+  border-radius: 3px;
+  border: 1px solid #999;
+  background: #b0b0b0;
+  color: #555;
+  cursor: pointer;
+  font-size: 0.32rem;
+  gap: 1px;
+  transition: all 0.08s;
+  position: relative;
+  overflow: hidden;
+}
+
+.tb303-step-num {
+  font-weight: 700;
+  font-size: 0.38rem;
+  line-height: 1;
+  color: #888;
+}
+
+.tb303-step-note {
+  font-size: 0.32rem;
+  color: #555;
+}
+
+.tb303-step.active {
+  background: #e07020;
+  border-color: #c05010;
+  color: #fff;
+  box-shadow:
+    0 0 6px rgba(224,112,32,0.6),
+    inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+.tb303-step.active .tb303-step-num { color: rgba(255,255,255,0.6); }
+.tb303-step.active .tb303-step-note { color: #fff; }
+
+.tb303-step.selected {
+  border-color: #4080e0;
+  box-shadow: 0 0 0 2px rgba(64,128,224,0.5);
+}
+
+.tb303-step.playing {
+  border-color: #f0c640;
+  box-shadow: 0 0 8px rgba(240,198,64,0.7);
+}
+
+.tb303-step.active.playing {
+  background: #f08020;
+  border-color: #f0c640;
+  box-shadow:
+    0 0 10px rgba(240,198,64,0.8),
+    inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+.tb303-step-flags {
+  display: flex;
+  gap: 1px;
+  width: 100%;
+}
+
+.tb303-flag-btn {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 0.3rem;
+  font-weight: 700;
+  padding: 1px 0;
+  border-radius: 2px;
+  border: 1px solid #999;
+  background: #bbb;
+  color: #666;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.08s;
+  letter-spacing: 0;
+}
+
+.tb303-acc-btn.on {
+  background: #d04000;
+  border-color: #a03000;
+  color: #fff;
+  box-shadow: 0 0 3px rgba(208,64,0,0.6);
+}
+
+.tb303-slide-btn.on {
+  background: #2060c0;
+  border-color: #1040a0;
+  color: #fff;
+  box-shadow: 0 0 3px rgba(32,96,192,0.6);
+}
+
+/* ── Note editor ── */
+.tb303-note-editor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+  border-top: 1px solid #aaa;
+}
+
+.tb303-note-picker {
+  display: flex;
+  gap: 2px;
+}
+
+.tb303-note-btn {
+  font-family: var(--font-mono);
+  font-size: 0.38rem;
+  font-weight: 600;
+  padding: 3px 4px;
+  min-width: 18px;
+  border-radius: 2px;
+  border: 1px solid #999;
+  background: #c8c8c8;
+  color: #333;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.08s;
+}
+
+.tb303-note-btn.sharp {
+  background: #555;
+  border-color: #333;
+  color: #ddd;
+}
+
+.tb303-note-btn.active {
+  background: #4080e0;
+  border-color: #2060c0;
+  color: #fff;
+  box-shadow: 0 0 4px rgba(64,128,224,0.5);
+}
+
+.tb303-note-btn:hover:not(.active) {
+  background: #b0b0b0;
+}
+.tb303-note-btn.sharp:hover:not(.active) {
+  background: #444;
+}
+
+.tb303-octave-picker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tb303-oct-btn {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid #999;
+  background: #c8c8c8;
+  color: #333;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  transition: background 0.08s;
+}
+
+.tb303-oct-btn:hover { background: #b0b0b0; }
+
+.tb303-oct-val {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #333;
+  min-width: 14px;
+  text-align: center;
+}
+
+.tb303-sel-label {
+  font-size: 0.38rem;
+  color: #666;
+  letter-spacing: 0.05em;
+  font-style: italic;
+}
+
 /* Stutter button */
 #stutter-btn.active {
   color: #f44; border-color: #f44; background: rgba(255,68,68,0.12);

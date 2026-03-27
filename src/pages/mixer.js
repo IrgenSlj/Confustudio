@@ -923,6 +923,26 @@ export default {
 
       requestAnimationFrame(updateMeters);
     })();
+
+    // Auto-add channel strip when a module's audio-out connects to mixer
+    const cableHandler = (e) => {
+      const { fromEl, toEl } = e.detail;
+      const fromModule = fromEl?.closest?.('.studio-module');
+      const toModule = toEl?.closest?.('.studio-module');
+      if (fromEl?.dataset?.port === 'audio-out' && toEl?.dataset?.port?.includes('-in')) {
+        // A module's audio out just connected — trigger mixer re-render
+        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      }
+    };
+    document.addEventListener('cable:connected', cableHandler);
+    // Cleanup when container leaves DOM
+    const obs = new MutationObserver(() => {
+      if (!container.isConnected) {
+        document.removeEventListener('cable:connected', cableHandler);
+        obs.disconnect();
+      }
+    });
+    obs.observe(document.body, { childList: true, subtree: false });
   },
 
   knobMap: [
