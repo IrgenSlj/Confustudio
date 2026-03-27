@@ -38,6 +38,7 @@ let _padAssignments = Array.from({ length: 16 }, (_, i) => i % 8); // pad → tr
 let _heldPads       = new Set(); // pads currently held (for hold mode)
 let _midiLearnMode  = false;
 let _midiLearnPad   = null;
+let _padMode        = 'drum'; // 'drum' | 'melodic'
 
 // ── CSS (injected once) ───────────────────────────────────────────────────────
 let _cssInjected = false;
@@ -51,18 +52,29 @@ function injectCSS() {
   flex-direction: column;
   height: 100%;
   background: #0d0d0d;
-  padding: 8px;
-  gap: 8px;
+  padding: 6px 8px;
+  gap: 6px;
   box-sizing: border-box;
   overflow: hidden;
 }
 
+/* ── Controls bar: single clean row ── */
 .pad-controls-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 3px;
   flex-shrink: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  height: 26px;
+}
+
+.pad-ctrl-sep {
+  width: 1px;
+  height: 16px;
+  background: #333;
+  flex-shrink: 0;
+  margin: 0 2px;
 }
 
 .pad-ctrl-btn {
@@ -70,12 +82,14 @@ function injectCSS() {
   color: var(--screen-text, #e0ffe0);
   border: 1px solid #333;
   border-radius: 4px;
-  padding: 3px 8px;
+  padding: 2px 6px;
   font-family: var(--font-mono, monospace);
-  font-size: 0.55rem;
+  font-size: 0.52rem;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.1s, border-color 0.1s;
+  transition: background 0.1s, border-color 0.1s, transform 0.04s, filter 0.04s;
+  height: 22px;
+  flex-shrink: 0;
 }
 .pad-ctrl-btn:hover { background: #252525; }
 .pad-ctrl-btn.active {
@@ -88,18 +102,24 @@ function injectCSS() {
   border-color: #c67dff;
   color: #c67dff;
 }
+.pad-ctrl-btn.mode-melodic {
+  background: #5580ff33;
+  border-color: #5580ff;
+  color: #88aaff;
+}
 
 .pad-octave-group {
   display: flex;
   align-items: center;
   gap: 2px;
+  flex-shrink: 0;
 }
 .pad-octave-label {
   font-family: var(--font-mono, monospace);
-  font-size: 0.55rem;
+  font-size: 0.52rem;
   color: var(--muted, #888);
-  padding: 0 4px;
-  min-width: 24px;
+  padding: 0 3px;
+  min-width: 22px;
   text-align: center;
 }
 
@@ -108,18 +128,35 @@ function injectCSS() {
   color: var(--screen-text, #e0ffe0);
   border: 1px solid #333;
   border-radius: 4px;
-  padding: 2px 5px;
+  padding: 1px 4px;
   font-family: var(--font-mono, monospace);
-  font-size: 0.52rem;
+  font-size: 0.5rem;
   cursor: pointer;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+/* ── Square pad grid ── */
+.pad-grid-wrapper {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .pad-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  flex: 1;
-  min-height: 0;
+  grid-template-rows: repeat(4, 1fr);
+  gap: 6px;
+  padding: 4px;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  aspect-ratio: 1;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .pad-cell {
@@ -130,17 +167,21 @@ function injectCSS() {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  padding: 8px;
+  padding: 6px 8px;
   user-select: none;
   touch-action: none;
   border: 2px solid transparent;
-  transition: border-color 0.08s, transform 0.05s;
+  transition: transform 0.12s, filter 0.12s, border-color 0.08s;
   box-sizing: border-box;
   min-height: 0;
+  aspect-ratio: 1;
 }
 .pad-cell:active,
-.pad-cell.pressed {
-  transform: scale(0.96);
+.pad-cell.pressed,
+.pad-cell.pad-hit {
+  transform: scale(0.92) !important;
+  filter: brightness(1.4) !important;
+  transition: transform 0.04s, filter 0.04s !important;
   border-color: rgba(255,255,255,0.7) !important;
 }
 .pad-cell.assign-target {
@@ -150,11 +191,14 @@ function injectCSS() {
 
 .pad-label-name {
   font-family: var(--font-mono, monospace);
-  font-size: 0.55rem;
+  font-size: 0.52rem;
   color: rgba(255,255,255,0.9);
   line-height: 1.3;
   pointer-events: none;
   text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .pad-label-note {
   font-family: var(--font-mono, monospace);
@@ -163,6 +207,14 @@ function injectCSS() {
   color: rgba(255,255,255,1);
   pointer-events: none;
   text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
+/* Melodic mode: larger note name, no track label needed */
+.pad-grid.mode-melodic .pad-label-name {
+  font-size: 0.45rem;
+  opacity: 0.7;
+}
+.pad-grid.mode-melodic .pad-label-note {
+  font-size: 0.72rem;
 }
 
 .pad-flash-overlay {
@@ -191,6 +243,17 @@ function injectCSS() {
   pointer-events: none;
 }
 
+/* Octave badge — small corner label in melodic mode */
+.pad-octave-badge {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.36rem;
+  color: rgba(255,255,255,0.4);
+  pointer-events: none;
+}
+
 @keyframes pad-flash {
   0%   { background: rgba(255,255,255,var(--flash-opacity, 0.55)); }
   100% { background: rgba(255,255,255,0); }
@@ -209,7 +272,7 @@ export default {
     injectCSS();
     container.innerHTML = '';
     container.className = (container.className || '') + ' pad-controller-page';
-    container.style.cssText = 'display:flex;flex-direction:column;height:100%;background:#0d0d0d;padding:8px;gap:8px;box-sizing:border-box;overflow:hidden';
+    container.style.cssText = 'display:flex;flex-direction:column;height:100%;background:#0d0d0d;padding:6px 8px;gap:6px;box-sizing:border-box;overflow:hidden';
 
     const tracks = state.project.banks[state.activeBank].patterns[state.activePattern].kit.tracks;
     const notes  = padNotes(_scaleName, _octave);
@@ -217,6 +280,13 @@ export default {
     // ── Controls bar ─────────────────────────────────────────────────────────
     const controlsBar = document.createElement('div');
     controlsBar.className = 'pad-controls-bar';
+
+    // Helper: thin separator
+    const makeSep = () => {
+      const sep = document.createElement('div');
+      sep.className = 'pad-ctrl-sep';
+      return sep;
+    };
 
     // Hold mode toggle
     const holdBtn = document.createElement('button');
@@ -279,6 +349,18 @@ export default {
       _rerenderGrid();
     });
 
+    // MODE toggle: DRUM vs MELODIC
+    const modeBtn = document.createElement('button');
+    modeBtn.className = 'pad-ctrl-btn' + (_padMode === 'melodic' ? ' mode-melodic' : '');
+    modeBtn.textContent = _padMode === 'melodic' ? 'MELODIC' : 'DRUM';
+    modeBtn.title = 'Toggle between Drum (8 tracks) and Melodic (16 scale notes) mode';
+    modeBtn.addEventListener('click', () => {
+      _padMode = _padMode === 'drum' ? 'melodic' : 'drum';
+      modeBtn.textContent = _padMode === 'melodic' ? 'MELODIC' : 'DRUM';
+      modeBtn.classList.toggle('mode-melodic', _padMode === 'melodic');
+      _rerenderGrid();
+    });
+
     // Assignment mode toggle
     const assignBtn = document.createElement('button');
     assignBtn.className = 'pad-ctrl-btn' + (_assignMode ? ' warn' : '');
@@ -302,33 +384,62 @@ export default {
       midiLearnBtn.classList.toggle('warn', _midiLearnMode);
     });
 
-    controlsBar.append(holdBtn, stepRecBtn, octGroup, scaleSelect, assignBtn, midiLearnBtn);
+    controlsBar.append(
+      holdBtn, stepRecBtn,
+      makeSep(),
+      octGroup,
+      makeSep(),
+      scaleSelect,
+      makeSep(),
+      modeBtn,
+      makeSep(),
+      assignBtn, midiLearnBtn
+    );
     container.append(controlsBar);
 
     // ── Pad grid ──────────────────────────────────────────────────────────────
+    const gridWrapper = document.createElement('div');
+    gridWrapper.className = 'pad-grid-wrapper';
+    container.append(gridWrapper);
+
     const grid = document.createElement('div');
-    grid.className = 'pad-grid';
-    container.append(grid);
+    grid.className = 'pad-grid' + (_padMode === 'melodic' ? ' mode-melodic' : '');
+    gridWrapper.append(grid);
 
     // Keep a reference to rerender only the grid labels/state
     function _rerenderGrid() {
       grid.innerHTML = '';
+      grid.className = 'pad-grid' + (_padMode === 'melodic' ? ' mode-melodic' : '');
       buildPads();
     }
 
     function buildPads() {
       const currentNotes = padNotes(_scaleName, _octave);
       for (let i = 0; i < 16; i++) {
-        const trackIdx = _padAssignments[i];
-        const track    = tracks[trackIdx] ?? tracks[0];
-        const color    = TRACK_COLORS[trackIdx % TRACK_COLORS.length];
-        const note     = currentNotes[i];
-        const noteName = midiToNoteName(note);
+        // ── Determine track index and note based on mode ──────────────────────
+        let trackIdx, note, noteName, nameLabel;
+        if (_padMode === 'melodic') {
+          // Melodic mode: all 16 pads → consecutive scale notes → active/first track
+          trackIdx  = state.selectedTrackIndex ?? 0;
+          note      = currentNotes[i];
+          noteName  = midiToNoteName(note);
+          nameLabel = tracks[trackIdx]?.name ?? `T${trackIdx + 1}`; // show active track name small
+        } else {
+          // Drum mode: pad i → track i%8, octave shift for pads 8-15
+          trackIdx = _padAssignments[i];
+          const octShift = Math.floor(i / 8);
+          note     = (currentNotes[i % 8] ?? currentNotes[0]) + octShift * 12;
+          noteName = midiToNoteName(note);
+          nameLabel = tracks[trackIdx]?.name ?? `T${trackIdx + 1}`;
+        }
+
+        const track = tracks[trackIdx] ?? tracks[0];
+        const color = TRACK_COLORS[trackIdx % TRACK_COLORS.length];
 
         const pad = document.createElement('div');
         pad.className = 'pad-cell';
         pad.dataset.padIdx = String(i);
-        pad.style.background = hexWithAlpha(color, 0.45);
+        pad.style.background = hexWithAlpha(color, _padMode === 'melodic' ? 0.35 : 0.45);
         pad.style.borderColor = hexWithAlpha(color, 0.3);
 
         if (_assignMode && _assignPadIdx === i) {
@@ -348,7 +459,7 @@ export default {
         // Labels
         const labelName = document.createElement('div');
         labelName.className = 'pad-label-name';
-        labelName.textContent = track.name ?? `Track ${trackIdx + 1}`;
+        labelName.textContent = nameLabel;
 
         const labelNote = document.createElement('div');
         labelNote.className = 'pad-label-note';
@@ -381,7 +492,17 @@ export default {
           const relY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
           const velocity = Math.max(0.05, 1 - relY * 0.8); // top=1.0, bottom=0.2
 
-          triggerPad(i, trackIdx, currentNotes[i], velocity, flashOverlay, velBar, color);
+          // Determine the effective note for this pad at trigger time
+          const effectiveNotes = padNotes(_scaleName, _octave);
+          let trigNote;
+          if (_padMode === 'melodic') {
+            trigNote = effectiveNotes[i];
+          } else {
+            const octShiftTrig = Math.floor(i / 8);
+            trigNote = (effectiveNotes[i % 8] ?? effectiveNotes[0]) + octShiftTrig * 12;
+          }
+
+          triggerPad(i, trackIdx, trigNote, velocity, flashOverlay, velBar, color);
           pad.classList.add('pressed');
           _heldPads.add(i);
         });
@@ -390,9 +511,8 @@ export default {
           pad.classList.remove('pressed');
           if (_holdMode) return; // sustain
           _heldPads.delete(i);
-          const noteToOff = currentNotes[i];
           document.dispatchEvent(new CustomEvent('confusynth:note:off', {
-            detail: { note: noteToOff, trackIndex: trackIdx }
+            detail: { note, trackIndex: trackIdx }
           }));
         });
 

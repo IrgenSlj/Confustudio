@@ -133,10 +133,101 @@ const STEP_CONDITIONS = [
   { value: 'not_fill', label: 'Not Fill' },
 ];
 
+// ─── Pattern page scoped styles (injected once) ───────────────────────────────
+let _patternCssInjected = false;
+function injectPatternCSS() {
+  if (_patternCssInjected) return;
+  _patternCssInjected = true;
+  const style = document.createElement('style');
+  style.textContent = `
+/* ── Compact track rows: all 8 visible at once ── */
+.multi-track-grid {
+  overflow-y: auto !important;
+  flex: 1 !important;
+  min-height: 0 !important;
+  gap: 1px !important;
+}
+.mtg-row {
+  min-height: 44px !important;
+  max-height: 54px !important;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+/* ── Compact label area ── */
+.mtg-label-wrap {
+  width: 80px !important;
+  min-width: 80px !important;
+  max-width: 80px !important;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 2px 3px;
+  overflow: hidden;
+}
+.mtg-label {
+  font-size: 0.54rem !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.mtg-machine {
+  font-size: 0.38rem !important;
+  white-space: nowrap;
+}
+.mtg-rand-btn {
+  font-size: 0.5rem !important;
+  padding: 0px 2px !important;
+  line-height: 1.2;
+}
+/* ── Step buttons: border-radius + beat groups ── */
+.step-btn {
+  border-radius: 3px !important;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.step-btn.step-group-start {
+  margin-left: 4px !important;
+}
+/* ── Toolbar: single row, no wrap ── */
+.seq-toolbar {
+  flex-shrink: 0 !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  gap: 4px !important;
+  align-items: flex-start !important;
+}
+.seq-actions {
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  align-items: center;
+  gap: 3px !important;
+}
+.seq-btn {
+  font-size: 0.58rem !important;
+  padding: 3px 6px !important;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+/* ── Euclid panel: inline in toolbar, not floating ── */
+.seq-euclid {
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+}
+.euclid-canvas {
+  width: 52px !important;
+  height: 52px !important;
+}
+  `;
+  document.head.append(style);
+}
+
 export default {
   render(container, state, emit) {
+    injectPatternCSS();
     container.innerHTML = '';
-    container.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:6px 8px;gap:4px';
+    container.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow:hidden;padding:6px 8px;gap:4px';
 
     const pattern = state.project.banks[state.activeBank].patterns[state.activePattern];
     const selTi   = state.selectedTrackIndex;
@@ -227,7 +318,7 @@ export default {
 
     // ── Outer wrapper ─────────────────────────────────────────────────────────
     const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'position:relative;flex:1;display:flex;flex-direction:column;gap:6px;min-height:0';
+    wrapper.style.cssText = 'position:relative;flex:1;display:flex;flex-direction:column;gap:4px;min-height:0;overflow:hidden';
     if (state._fillActive) {
       wrapper.style.outline = '2px solid var(--live)';
       wrapper.style.outlineOffset = '-2px';
@@ -458,13 +549,22 @@ export default {
       row.style.setProperty('--track-color', TRACK_COLORS[ti]);
       if (trkStepCount > 16) row.style.overflowX = 'auto';
 
-      // Track label
+      // Track label — compact layout: name + machine badge on row 1, buttons on row 2
       const labelWrap = document.createElement('div');
       labelWrap.className = 'mtg-label-wrap';
-      labelWrap.innerHTML = `
-        <span class="mtg-label">T${ti + 1}</span>
-        <span class="mtg-machine">${(trk.machine || 'tone').slice(0, 4).toUpperCase()}</span>
+      // Row 1: track name + machine badge
+      const labelRow1 = document.createElement('div');
+      labelRow1.style.cssText = 'display:flex;align-items:center;gap:2px;overflow:hidden';
+      labelRow1.innerHTML = `
+        <span class="mtg-label" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">T${ti + 1}</span>
+        <span class="mtg-machine" style="flex-shrink:0">${(trk.machine || 'tone').slice(0, 4).toUpperCase()}</span>
       `;
+      labelWrap.append(labelRow1);
+      // Row 2: action buttons (horizontal, compact)
+      const labelRow2 = document.createElement('div');
+      labelRow2.style.cssText = 'display:flex;align-items:center;gap:1px;flex-wrap:nowrap;overflow:hidden';
+      labelWrap.append(labelRow2);
+
       const randBtn = document.createElement('button');
       randBtn.className = 'mtg-rand-btn';
       randBtn.title = 'Randomize steps (uses current density + genre)';
@@ -474,7 +574,7 @@ export default {
         // Delegate to app.js so pushHistory is called there
         emit('pattern:randomize', { trackIndex: ti });
       });
-      labelWrap.append(randBtn);
+      labelRow2.append(randBtn);
 
       const copyBtn = document.createElement('button');
       copyBtn.className = 'mtg-rand-btn';
@@ -493,7 +593,7 @@ export default {
         emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
         emit('toast', { msg: 'Track steps copied' });
       });
-      labelWrap.append(copyBtn);
+      labelRow2.append(copyBtn);
 
       const pasteBtn = document.createElement('button');
       pasteBtn.className = 'mtg-rand-btn';
@@ -505,7 +605,7 @@ export default {
         if (!state._trackCopyBuffer) return;
         emit('state:change', { path: 'action_trackPaste', value: { trackIndex: ti } });
       });
-      labelWrap.append(pasteBtn);
+      labelRow2.append(pasteBtn);
 
       // REC arm button per track
       const recArmBtn = document.createElement('button');
@@ -521,13 +621,13 @@ export default {
         recArmBtn.title = trk.recArmed ? 'Disarm track from recording' : 'Arm track for recording';
         emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
       });
-      labelWrap.append(recArmBtn);
+      labelRow2.append(recArmBtn);
 
       // Velocity randomize button per track
       const velRandBtn = document.createElement('button');
       velRandBtn.className = 'mtg-rand-btn mtg-vel-rand-btn';
       velRandBtn.title = 'Randomize step velocities';
-      velRandBtn.textContent = '⚄';
+      velRandBtn.textContent = 'V⚄';
       velRandBtn.addEventListener('click', e => {
         e.stopPropagation();
         const activePattern = state.project.banks[state.activeBank].patterns[state.activePattern];
@@ -537,11 +637,11 @@ export default {
         });
         emit('state:change', { param: 'pattern' });
       });
-      labelWrap.append(velRandBtn);
+      labelRow2.append(velRandBtn);
 
-      // Per-track step count selector (polyrhythm)
+      // Per-track step count selector (polyrhythm) — placed in label row 1 as a small inline select
       const stepCountSel = document.createElement('select');
-      stepCountSel.style.cssText = 'font-size:0.44rem;background:var(--surface);color:var(--muted);border:1px solid rgba(255,255,255,0.1);border-radius:2px;padding:0 2px;width:32px';
+      stepCountSel.style.cssText = 'font-size:0.38rem;background:var(--surface);color:var(--muted);border:1px solid rgba(255,255,255,0.1);border-radius:2px;padding:0 1px;width:28px;flex-shrink:0';
       stepCountSel.title = 'Track step count (polyrhythm)';
       [8, 12, 16, 24, 32].forEach(n => {
         const opt = document.createElement('option');
@@ -558,13 +658,11 @@ export default {
         // Trigger a re-render by emitting a no-op length change (same value, causes renderPage)
         emit('state:change', { path: 'length', value: pattern.length });
       });
-      labelWrap.append(stepCountSel);
+      labelRow1.append(stepCountSel);
 
-      // Step length indicator — shows active step count in small text
+      // Step length indicator hidden at compact size (info already in selector)
       const stepLenIndicator = document.createElement('span');
-      stepLenIndicator.style.cssText = 'font-family:var(--font-mono);font-size:0.4rem;color:var(--muted);display:block;text-align:center;margin-top:1px;letter-spacing:0.03em';
-      stepLenIndicator.textContent = trkStepCount + ' steps';
-      labelWrap.append(stepLenIndicator);
+      stepLenIndicator.style.cssText = 'display:none';
 
       labelWrap.style.cursor = 'pointer';
       labelWrap.title = 'Click to select track; click label text to expand/collapse step details';
@@ -1172,8 +1270,8 @@ export default {
 
     // ── Euclid canvas visualizer ───────────────────────────────────────────
     const euclidCanvas = document.createElement('canvas');
-    euclidCanvas.width  = 80;
-    euclidCanvas.height = 80;
+    euclidCanvas.width  = 52;
+    euclidCanvas.height = 52;
     euclidCanvas.className = 'euclid-canvas';
     euclidCanvas.title = 'Euclidean pattern preview';
 
