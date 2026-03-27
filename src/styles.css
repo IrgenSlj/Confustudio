@@ -3947,6 +3947,35 @@ button {
   min-width: max-content;
 }
 
+/* ── Automation lanes ── */
+.automation-section { width: max-content; min-width: 100%; }
+.auto-lane { border-top: 1px solid rgba(255,255,255,0.08); }
+.auto-lane-header {
+  display: flex; align-items: center; gap: 8px; padding: 3px 8px;
+  background: #0a120a; cursor: pointer; user-select: none;
+  font-size: 0.6rem; color: rgba(255,255,255,0.5);
+}
+.auto-lane-header:hover { background: #111a11; }
+.auto-lane-header .auto-lane-name { flex: 1; font-weight: 600; }
+.auto-lane-canvas { display: block; }
+.auto-add-btn {
+  display: flex; align-items: center; gap: 6px; padding: 4px 12px;
+  background: transparent; border: 1px dashed rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.4); font-size: 0.6rem; cursor: pointer;
+  margin: 4px 8px; border-radius: 3px;
+}
+.auto-add-btn:hover { border-color: rgba(255,255,255,0.3); color: rgba(255,255,255,0.6); }
+.auto-add-dropdown {
+  position: absolute; z-index: 100; background: #111a11;
+  border: 1px solid rgba(255,255,255,0.15); border-radius: 4px;
+  padding: 4px 0; min-width: 120px; box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+.auto-add-dropdown-item {
+  padding: 4px 12px; font-size: 0.6rem; font-family: var(--font-mono);
+  color: rgba(255,255,255,0.6); cursor: pointer;
+}
+.auto-add-dropdown-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+
 /* ============================================================
    HELP MODAL
    ============================================================ */

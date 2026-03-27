@@ -734,6 +734,286 @@ export default {
     });
 
     container.append(velLane);
+
+    // ── Automation Lanes ──────────────────────────────────────────────────────
+
+    const AUTO_PARAMS = [
+      { id: 'cutoff',    label: 'Cutoff'    },
+      { id: 'resonance', label: 'Resonance' },
+      { id: 'velocity',  label: 'Velocity'  },
+      { id: 'attack',    label: 'Attack'    },
+      { id: 'decay',     label: 'Decay'     },
+      { id: 'note',      label: 'Note'      },
+      { id: 'pan',       label: 'Pan'       },
+      { id: 'drive',     label: 'Drive'     },
+    ];
+
+    const LANE_COLORS = {
+      cutoff:    '#67d7ff',
+      resonance: '#c67dff',
+      velocity:  '#f0c640',
+      attack:    '#5add71',
+      decay:     '#ff8c52',
+      pan:       '#40e0d0',
+      drive:     '#f05b52',
+      note:      '#ff6eb4',
+    };
+
+    // Default value resolver: maps paramId to a 0–1 value from track defaults
+    function getDefaultValue(tr, paramId) {
+      switch (paramId) {
+        case 'cutoff':    return Math.max(0, Math.min(1, (tr.cutoff ?? 3200) / 18000));
+        case 'resonance': return Math.max(0, Math.min(1, ((tr.resonance ?? 1) - 0.5) / 29.5));
+        case 'velocity':  return 1;
+        case 'attack':    return Math.max(0, Math.min(1, (tr.attack ?? 0.005) / 2));
+        case 'decay':     return Math.max(0, Math.min(1, (tr.decay ?? 0.28) / 4));
+        case 'note':      return Math.max(0, Math.min(1, ((tr.pitch ?? 60) - 24) / 72));
+        case 'pan':       return Math.max(0, Math.min(1, ((tr.pan ?? 0) + 1) / 2));
+        case 'drive':     return Math.max(0, Math.min(1, tr.drive ?? 0.18));
+        default:          return 0.5;
+      }
+    }
+
+    // Persistent open-lane state on window so it survives re-renders
+    window._autoLanes = window._autoLanes ?? [];
+
+    const LANE_HEIGHT = 60;
+    const stepW = cellW; // each bar = one step cell
+
+    function drawLaneCanvas(canvas, paramId) {
+      const ctx = canvas.getContext('2d');
+      const w   = canvas.width;
+      const h   = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      // Background
+      ctx.fillStyle = '#0d1208';
+      ctx.fillRect(0, 0, w, h);
+
+      // Grid lines at every 4 steps
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= steps; i += 4) {
+        ctx.beginPath();
+        ctx.moveTo(i * stepW, 0);
+        ctx.lineTo(i * stepW, h);
+        ctx.stroke();
+      }
+
+      const barColor = LANE_COLORS[paramId] ?? '#888';
+
+      for (let si = 0; si < steps; si++) {
+        const step = track.steps[si];
+        const val  = (step.paramLocks && step.paramLocks[paramId] != null)
+          ? step.paramLocks[paramId]
+          : getDefaultValue(track, paramId);
+        const barH = Math.max(2, val * (h - 4));
+        ctx.fillStyle = barColor + 'cc';
+        ctx.fillRect(si * stepW + 1, h - barH - 2, stepW - 2, barH);
+      }
+    }
+
+    function buildLaneEl(paramId) {
+      const paramDef = AUTO_PARAMS.find(p => p.id === paramId);
+      const label    = paramDef?.label ?? paramId;
+      const isOpen   = window._autoLanes.includes(paramId);
+
+      const laneEl = document.createElement('div');
+      laneEl.className = 'auto-lane';
+      laneEl.dataset.paramId = paramId;
+
+      // Header
+      const header = document.createElement('div');
+      header.className = 'auto-lane-header';
+      header.innerHTML = `
+        <span class="auto-lane-name" style="color:${LANE_COLORS[paramId] ?? '#888'}">${label}</span>
+        <span class="auto-lane-value" style="font-family:var(--font-mono);font-size:0.55rem;color:rgba(255,255,255,0.35);min-width:32px;text-align:right">—</span>
+        <span class="auto-lane-close" title="Remove lane" style="cursor:pointer;padding:0 2px;opacity:0.5">×</span>
+      `;
+
+      // Canvas body
+      const canvasEl = document.createElement('canvas');
+      canvasEl.className = 'auto-lane-canvas';
+      canvasEl.width  = steps * stepW;
+      canvasEl.height = LANE_HEIGHT;
+      canvasEl.style.display = isOpen ? 'block' : 'none';
+
+      // Toggle collapse on header click (but not close button)
+      header.addEventListener('click', (e) => {
+        if (e.target.classList.contains('auto-lane-close')) return;
+        const nowOpen = canvasEl.style.display === 'none';
+        canvasEl.style.display = nowOpen ? 'block' : 'none';
+        if (nowOpen) drawLaneCanvas(canvasEl, paramId);
+      });
+
+      // Close / remove lane
+      header.querySelector('.auto-lane-close').addEventListener('click', (e) => {
+        e.stopPropagation();
+        window._autoLanes = window._autoLanes.filter(id => id !== paramId);
+        laneEl.remove();
+      });
+
+      laneEl.append(header, canvasEl);
+
+      if (isOpen) {
+        drawLaneCanvas(canvasEl, paramId);
+      }
+
+      // Mouse drawing interaction
+      let isDragging = false;
+
+      function updateBar(e) {
+        const rect = canvasEl.getBoundingClientRect();
+        const x  = e.clientX - rect.left;
+        const y  = e.clientY - rect.top;
+        const si = Math.floor(x / stepW);
+        if (si < 0 || si >= steps) return;
+        const val = Math.max(0, Math.min(1, 1 - y / rect.height));
+        if (!track.steps[si].paramLocks) track.steps[si].paramLocks = {};
+        track.steps[si].paramLocks[paramId] = val;
+        // Update value readout in header
+        header.querySelector('.auto-lane-value').textContent = val.toFixed(2);
+        emit('state:change');
+        drawLaneCanvas(canvasEl, paramId);
+      }
+
+      canvasEl.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        isDragging = true;
+        updateBar(e);
+      });
+
+      canvasEl.addEventListener('mousemove', (e) => {
+        // Value readout on hover even without drag
+        const rect = canvasEl.getBoundingClientRect();
+        const x  = e.clientX - rect.left;
+        const si = Math.floor(x / stepW);
+        if (si >= 0 && si < steps) {
+          const step = track.steps[si];
+          const val  = (step.paramLocks && step.paramLocks[paramId] != null)
+            ? step.paramLocks[paramId]
+            : getDefaultValue(track, paramId);
+          header.querySelector('.auto-lane-value').textContent = val.toFixed(2);
+        }
+        if (isDragging) updateBar(e);
+      });
+
+      canvasEl.addEventListener('mouseleave', () => {
+        header.querySelector('.auto-lane-value').textContent = '—';
+      });
+
+      canvasEl.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const rect = canvasEl.getBoundingClientRect();
+        const x  = e.clientX - rect.left;
+        const si = Math.floor(x / stepW);
+        if (si >= 0 && si < steps && track.steps[si].paramLocks) {
+          delete track.steps[si].paramLocks[paramId];
+          emit('state:change');
+          drawLaneCanvas(canvasEl, paramId);
+        }
+      });
+
+      window.addEventListener('mouseup', () => { isDragging = false; });
+
+      return laneEl;
+    }
+
+    // Automation section wrapper (shares scroll with the roll — appended to scrollContainer)
+    // We use a separate full-width div below the keysCol+scrollContainer view
+    const autoSection = document.createElement('div');
+    autoSection.className = 'automation-section';
+    autoSection.id = 'auto-section';
+    autoSection.style.cssText = 'flex-shrink:0;';
+
+    // Render existing open lanes
+    window._autoLanes.forEach(paramId => {
+      autoSection.append(buildLaneEl(paramId));
+    });
+
+    // "Add Lane" button
+    const addLaneBtn = document.createElement('button');
+    addLaneBtn.className = 'auto-add-btn';
+    addLaneBtn.textContent = '+ Add Lane';
+    autoSection.append(addLaneBtn);
+
+    addLaneBtn.addEventListener('click', (e) => {
+      // Remove existing dropdown if any
+      document.querySelector('.auto-add-dropdown')?.remove();
+
+      const dropdown = document.createElement('div');
+      dropdown.className = 'auto-add-dropdown';
+
+      const available = AUTO_PARAMS.filter(p => !window._autoLanes.includes(p.id));
+      if (available.length === 0) {
+        const item = document.createElement('div');
+        item.className = 'auto-add-dropdown-item';
+        item.style.color = 'rgba(255,255,255,0.3)';
+        item.textContent = 'All params added';
+        dropdown.append(item);
+      } else {
+        available.forEach(param => {
+          const item = document.createElement('div');
+          item.className = 'auto-add-dropdown-item';
+          item.style.cssText = `color:${LANE_COLORS[param.id] ?? '#aaa'}`;
+          item.textContent = param.label;
+          item.addEventListener('click', () => {
+            dropdown.remove();
+            if (!window._autoLanes.includes(param.id)) {
+              window._autoLanes.push(param.id);
+              const laneEl = buildLaneEl(param.id);
+              autoSection.insertBefore(laneEl, addLaneBtn);
+              // Open immediately since we just added it
+              const canvas = laneEl.querySelector('.auto-lane-canvas');
+              if (canvas) { canvas.style.display = 'block'; drawLaneCanvas(canvas, param.id); }
+            }
+          });
+          dropdown.append(item);
+        });
+      }
+
+      // Position near button
+      const btnRect = addLaneBtn.getBoundingClientRect();
+      dropdown.style.cssText += `position:fixed;top:${btnRect.bottom + 2}px;left:${btnRect.left}px;`;
+      document.body.append(dropdown);
+
+      const closeDropdown = (ev) => {
+        if (!dropdown.contains(ev.target) && ev.target !== addLaneBtn) {
+          dropdown.remove();
+          document.removeEventListener('click', closeDropdown, true);
+        }
+      };
+      setTimeout(() => document.addEventListener('click', closeDropdown, true), 0);
+    });
+
+    // The autoSection needs to scroll in sync with the piano roll grid.
+    // We place it inside a wrapper that mirrors the layout: left key gutter + scrollable body.
+    const autoRow = document.createElement('div');
+    autoRow.style.cssText = 'display:flex;flex-shrink:0;';
+    // Key gutter spacer to align with the piano keys column
+    const autoGutter = document.createElement('div');
+    autoGutter.style.cssText = 'flex-shrink:0;width:28px;max-width:28px;';
+    // Scroll container that shares scrollLeft with the main roll scrollContainer
+    const autoScroll = document.createElement('div');
+    autoScroll.style.cssText = 'flex:1;overflow-x:auto;overflow-y:visible;scrollbar-width:none;';
+    autoScroll.append(autoSection);
+    autoRow.append(autoGutter, autoScroll);
+    container.append(autoRow);
+
+    // Keep both scroll containers in sync
+    let syncingScroll = false;
+    scrollContainer.addEventListener('scroll', () => {
+      if (syncingScroll) return;
+      syncingScroll = true;
+      autoScroll.scrollLeft = scrollContainer.scrollLeft;
+      syncingScroll = false;
+    });
+    autoScroll.addEventListener('scroll', () => {
+      if (syncingScroll) return;
+      syncingScroll = true;
+      scrollContainer.scrollLeft = autoScroll.scrollLeft;
+      syncingScroll = false;
+    });
   },
 
   knobMap: [
