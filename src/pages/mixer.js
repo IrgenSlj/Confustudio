@@ -1,920 +1,584 @@
-// src/pages/mixer.js — 8-channel vertical fader mixer
+// src/pages/mixer.js — redesigned mixer: compact track strips + horizontal group faders
 
 import { TRACK_COLORS } from '../state.js';
 
-// ── Mini EQ canvas draw ───────────────────────────────────────────────────────
+const GROUP_COLORS = [
+  '#f0c640', '#5add71', '#67d7ff', '#ff8c52',
+  '#c67dff', '#ff6eb4', '#40e0d0', '#f05b52',
+];
 
-function drawMiniEQ(canvas, low, mid, high) {
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-  ctx.clearRect(0, 0, W, H);
+// ── Injected CSS (scoped to .mixer-page) ─────────────────────────────────────
+const MIXER_CSS = `
+.mixer-page { display: flex; flex-direction: column; gap: 0; height: 100%; min-height: 0; overflow-y: auto; }
+.mx-section { border-bottom: 1px solid rgba(255,255,255,0.07); padding: 8px 10px; flex-shrink: 0; }
+.mx-section-hdr {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em;
+  color: rgba(255,255,255,0.4); text-transform: uppercase;
+  margin-bottom: 6px; font-family: var(--font-mono);
+}
+.mx-section-hdr .mx-actions { margin-left: auto; display: flex; gap: 4px; }
+.mx-bulk-btn {
+  font-family: var(--font-mono); font-size: 0.5rem; padding: 2px 6px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.45); border-radius: 2px; cursor: pointer;
+}
+.mx-bulk-btn:hover { color: rgba(255,255,255,0.8); border-color: rgba(255,255,255,0.3); }
 
-  // Center line (0 dB)
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-  ctx.lineWidth = 0.5;
-  ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
+/* Track strips */
+.mx-tracks { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 4px; }
+.mx-track-strip {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px; min-width: 64px; max-width: 80px; flex: 1;
+  padding: 6px 4px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-top: 2px solid var(--tc, #888);
+  border-radius: 3px; cursor: pointer; transition: background 0.1s;
+}
+.mx-track-strip:hover { background: rgba(255,255,255,0.06); }
+.mx-track-strip.selected { outline: 1px solid rgba(240,198,64,0.4); outline-offset: -1px; }
+.mx-track-strip.strip-muted-by-solo { opacity: 0.35; }
+.mx-track-name {
+  display: flex; align-items: center; gap: 3px;
+  font-size: 0.58rem; font-weight: 600; color: rgba(255,255,255,0.7);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;
+  font-family: var(--font-mono);
+}
+.mx-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--tc, #888); flex-shrink: 0; }
+.mx-sends { display: flex; gap: 6px; }
+.mx-send-wrap { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.mx-send-knob-input {
+  width: 22px; height: 22px; writing-mode: vertical-lr; direction: rtl;
+  appearance: none; -webkit-appearance: slider-vertical;
+  cursor: ns-resize; accent-color: var(--tc, #888);
+}
+.mx-send-lbl { font-size: 0.46rem; color: rgba(255,255,255,0.4); font-family: var(--font-mono); }
+.mx-pan {
+  width: 100%; height: 3px; appearance: none;
+  background: rgba(255,255,255,0.15); border-radius: 2px; cursor: ew-resize;
+  accent-color: var(--tc, #888);
+}
+.mx-pan::-webkit-slider-thumb {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--tc, #888); appearance: none;
+}
+.mx-fader-wrap { height: 72px; display: flex; align-items: center; justify-content: center; }
+.mx-fader {
+  writing-mode: vertical-lr; direction: rtl;
+  width: 3px; height: 62px; appearance: none;
+  background: rgba(255,255,255,0.15); border-radius: 2px;
+  cursor: ns-resize; accent-color: var(--tc, #888);
+}
+.mx-fader::-webkit-slider-thumb {
+  width: 22px; height: 8px; border-radius: 2px;
+  background: var(--tc, #888); appearance: none;
+}
+.mx-vol-readout {
+  font-size: 0.52rem; color: rgba(255,255,255,0.4);
+  font-variant-numeric: tabular-nums; font-family: var(--font-mono);
+}
+.mx-ms-row { display: flex; gap: 3px; }
+.mx-mute, .mx-solo {
+  width: 22px; height: 16px; font-size: 0.5rem; font-weight: 700;
+  border-radius: 2px; border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.5); cursor: pointer;
+  font-family: var(--font-mono);
+}
+.mx-mute.on { background: rgba(240,91,82,0.3); color: #f05b52; border-color: #f05b52; }
+.mx-solo.on { background: rgba(240,198,64,0.3); color: #f0c640; border-color: #f0c640; }
+.mx-meter-wrap { width: 100%; height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; margin-top: 1px; }
+.mx-meter-bar { height: 100%; width: 0%; background: var(--tc, #5add71); border-radius: 2px; transition: width 0.05s; }
 
-  // EQ curve approximation using 3 control points
-  const yL = H / 2 - (low  / 12) * (H / 2 - 2);
-  const yM = H / 2 - (mid  / 12) * (H / 2 - 2);
-  const yH = H / 2 - (high / 12) * (H / 2 - 2);
+/* Groups */
+.mx-groups-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.mx-group-row {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 6px; background: rgba(255,255,255,0.03);
+  border-radius: 3px; border-left: 2px solid var(--gc, #888);
+}
+.mx-group-lbl {
+  font-size: 0.58rem; font-weight: 700; color: rgba(255,255,255,0.5);
+  width: 20px; flex-shrink: 0; font-family: var(--font-mono);
+}
+.mx-group-fader { flex: 1; height: 3px; accent-color: var(--gc, #888); }
+.mx-group-pan { width: 40px; height: 3px; accent-color: var(--gc, #888); flex-shrink: 0; }
+.mx-group-val {
+  font-size: 0.52rem; color: rgba(255,255,255,0.4);
+  width: 24px; text-align: right; font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+.mx-group-mute {
+  width: 16px; height: 14px; font-size: 0.45rem; font-weight: 700;
+  border-radius: 2px; border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.4); cursor: pointer;
+  flex-shrink: 0; font-family: var(--font-mono);
+}
+.mx-group-mute.on { background: rgba(240,91,82,0.25); color: #f05b52; border-color: #f05b52; }
 
-  ctx.strokeStyle = '#a0c060';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(0, yL);
-  ctx.bezierCurveTo(W * 0.25, yL, W * 0.3, yM, W / 2, yM);
-  ctx.bezierCurveTo(W * 0.7, yM, W * 0.75, yH, W, yH);
-  ctx.stroke();
+/* External modules */
+.mx-ext-strip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 6px; background: rgba(255,255,255,0.03);
+  border-radius: 3px; border-left: 2px solid #a060d0;
+  font-family: var(--font-mono);
+}
+.mx-ext-name { font-size: 0.55rem; color: #c090f0; font-weight: bold; min-width: 52px; flex-shrink: 0; }
+.mx-ext-fader { flex: 1; height: 3px; accent-color: #a060d0; }
+.mx-ext-val { font-size: 0.5rem; color: rgba(255,255,255,0.35); width: 26px; text-align: right; font-variant-numeric: tabular-nums; }
+.mx-ext-pan { width: 40px; height: 3px; accent-color: #a060d0; }
+.mx-ext-mute {
+  width: 16px; height: 14px; font-size: 0.45rem; font-weight: 700;
+  border-radius: 2px; border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.4); cursor: pointer;
+  flex-shrink: 0;
+}
+.mx-ext-mute.on { background: rgba(240,91,82,0.25); color: #f05b52; border-color: #f05b52; }
+`;
+
+function injectCSS() {
+  if (document.getElementById('mx-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'mx-styles';
+  style.textContent = MIXER_CSS;
+  document.head.appendChild(style);
+}
+
+// ── Track strip builder ───────────────────────────────────────────────────────
+function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
+  const color = TRACK_COLORS[ti] ?? '#888';
+
+  const strip = document.createElement('div');
+  strip.className = 'mx-track-strip' + (ti === state.selectedTrackIndex ? ' selected' : '');
+  strip.style.setProperty('--tc', color);
+
+  strip.addEventListener('click', () =>
+    emit('state:change', { path: 'selectedTrackIndex', value: ti })
+  );
+
+  // Track name
+  const nameRow = document.createElement('div');
+  nameRow.className = 'mx-track-name';
+  const dot = document.createElement('span');
+  dot.className = 'mx-dot';
+  const nameSpan = document.createElement('span');
+  nameSpan.textContent = track.name ?? `T${ti + 1}`;
+  nameSpan.style.overflow = 'hidden';
+  nameSpan.style.textOverflow = 'ellipsis';
+  nameSpan.style.whiteSpace = 'nowrap';
+  nameSpan.style.flex = '1';
+  nameSpan.style.minWidth = '0';
+
+  // Double-click to rename
+  nameSpan.style.cursor = 'text';
+  nameSpan.addEventListener('dblclick', e => {
+    e.stopPropagation();
+    const currentName = track.name ?? `T${ti + 1}`;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentName;
+    input.style.cssText = 'font-family:var(--font-mono);font-size:0.55rem;width:100%;background:#111;color:var(--screen-text);border:1px solid var(--accent);border-radius:2px;padding:0 2px';
+    const commit = () => {
+      const newName = input.value.trim() || currentName;
+      track.name = newName;
+      nameSpan.textContent = newName;
+      if (nameRow.contains(input)) nameRow.replaceChild(nameSpan, input);
+      emit('state:change', { path: 'tracks', value: state.tracks });
+    };
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', ev => {
+      if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+      if (ev.key === 'Escape') { input.removeEventListener('blur', commit); nameSpan.textContent = track.name ?? `T${ti + 1}`; nameRow.replaceChild(nameSpan, input); }
+    });
+    nameRow.replaceChild(input, nameSpan);
+    input.focus(); input.select();
+  });
+
+  nameRow.append(dot, nameSpan);
+  strip.append(nameRow);
+
+  // Send knobs (R = reverb, D = delay) — vertical mini sliders
+  const sendsRow = document.createElement('div');
+  sendsRow.className = 'mx-sends';
+
+  function makeSendKnob(label, initVal, onChange) {
+    const wrap = document.createElement('div');
+    wrap.className = 'mx-send-wrap';
+    const knob = document.createElement('input');
+    knob.type = 'range'; knob.min = 0; knob.max = 1; knob.step = 0.01;
+    knob.value = initVal;
+    knob.className = 'mx-send-knob-input';
+    knob.title = `${label === 'R' ? 'Reverb' : 'Delay'} send`;
+    knob.addEventListener('input', () => onChange(parseFloat(knob.value)));
+    const lbl = document.createElement('span');
+    lbl.className = 'mx-send-lbl';
+    lbl.textContent = label;
+    wrap.append(knob, lbl);
+    return { wrap, knob };
+  }
+
+  const { wrap: revWrap, knob: revKnob } = makeSendKnob('R', track.reverbSend ?? 0, v => {
+    track.reverbSend = v;
+    emit('track:change', { trackIndex: ti, param: 'reverbSend', value: v });
+    if (state.engine?.setTrackReverbSend) state.engine.setTrackReverbSend(ti, v);
+  });
+  const { wrap: dlyWrap, knob: dlyKnob } = makeSendKnob('D', track.delaySend ?? 0, v => {
+    track.delaySend = v;
+    emit('track:change', { trackIndex: ti, param: 'delaySend', value: v });
+    if (state.engine?.setTrackDelaySend) state.engine.setTrackDelaySend(ti, v);
+  });
+  sendsRow.append(revWrap, dlyWrap);
+  strip.append(sendsRow);
+
+  // Pan slider
+  const panSlider = document.createElement('input');
+  panSlider.type = 'range';
+  panSlider.min = -1; panSlider.max = 1; panSlider.step = 0.05;
+  panSlider.value = track.pan ?? 0;
+  panSlider.className = 'mx-pan';
+  panSlider.title = 'Pan';
+  panSlider.addEventListener('input', () =>
+    emit('track:change', { trackIndex: ti, param: 'pan', value: parseFloat(panSlider.value) })
+  );
+  strip.append(panSlider);
+
+  // Vertical volume fader
+  const faderWrap = document.createElement('div');
+  faderWrap.className = 'mx-fader-wrap';
+  const fader = document.createElement('input');
+  fader.type = 'range';
+  fader.setAttribute('orient', 'vertical');
+  fader.min = 0; fader.max = 1.5; fader.step = 0.01;
+  fader.value = track.volume ?? 0.8;
+  fader.className = 'mx-fader';
+  fader.title = 'Volume';
+
+  const volReadout = document.createElement('div');
+  volReadout.className = 'mx-vol-readout';
+  volReadout.textContent = Math.round((track.volume ?? 0.8) * 100);
+
+  fader.addEventListener('input', () => {
+    const v = parseFloat(fader.value);
+    volReadout.textContent = Math.round(v * 100);
+    emit('track:change', { trackIndex: ti, param: 'volume', value: v });
+    // Fader link support
+    const links = state.faderLinks ?? [];
+    const linked = links.find(l => l.a === ti || l.b === ti);
+    if (linked) {
+      const otherIdx = linked.a === ti ? linked.b : linked.a;
+      const otherTrack = state.project.banks[state.activeBank].patterns[state.activePattern].kit.tracks[otherIdx];
+      if (otherTrack) {
+        otherTrack.volume = v;
+        emit('track:change', { trackIndex: otherIdx, param: 'volume', value: v });
+      }
+    }
+  });
+
+  faderWrap.append(fader);
+  strip.append(faderWrap, volReadout);
+
+  // Level meter (horizontal bar at bottom)
+  const meterWrap = document.createElement('div');
+  meterWrap.className = 'mx-meter-wrap';
+  const meterBar = document.createElement('div');
+  meterBar.className = 'mx-meter-bar';
+  meterWrap.append(meterBar);
+  strip.append(meterWrap);
+  meterEls.push({ bar: meterBar, track });
+
+  // Mute + Solo
+  const msRow = document.createElement('div');
+  msRow.className = 'mx-ms-row';
+
+  const muteBtn = document.createElement('button');
+  muteBtn.className = 'mx-mute' + (track.mute ? ' on' : '');
+  muteBtn.textContent = 'M';
+  muteBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    track.mute = !track.mute;
+    muteBtn.classList.toggle('on', track.mute);
+    emit('track:change', { trackIndex: ti, param: 'mute', value: track.mute });
+  });
+
+  const soloBtn = document.createElement('button');
+  soloBtn.className = 'mx-solo' + (track.solo ? ' on' : '');
+  soloBtn.textContent = 'S';
+  soloBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    track.solo = !track.solo;
+    soloBtn.classList.toggle('on', track.solo);
+    emit('track:change', { trackIndex: ti, param: 'solo', value: track.solo });
+    // update solo dimming for all strips
+    const anySolo = stripEls.some((el, i) => {
+      const t = state.project.banks[state.activeBank].patterns[state.activePattern].kit.tracks[i];
+      return t?.solo;
+    });
+    stripEls.forEach((el, i) => {
+      const t = state.project.banks[state.activeBank].patterns[state.activePattern].kit.tracks[i];
+      if (anySolo && !t?.solo) el.classList.add('strip-muted-by-solo');
+      else el.classList.remove('strip-muted-by-solo');
+    });
+  });
+
+  msRow.append(muteBtn, soloBtn);
+  strip.append(msRow);
+
+  return strip;
+}
+
+// ── Group row builder ─────────────────────────────────────────────────────────
+function buildGroupRow(group, gi, state, emit) {
+  const color = GROUP_COLORS[gi] ?? '#888';
+
+  const row = document.createElement('div');
+  row.className = 'mx-group-row';
+  row.style.setProperty('--gc', color);
+
+  const lbl = document.createElement('span');
+  lbl.className = 'mx-group-lbl';
+  lbl.style.color = color;
+  lbl.textContent = group.name ?? `G${gi + 1}`;
+  row.append(lbl);
+
+  // Pan (compact, fixed width)
+  const panSlider = document.createElement('input');
+  panSlider.type = 'range'; panSlider.min = -1; panSlider.max = 1; panSlider.step = 0.05;
+  panSlider.value = group.pan ?? 0;
+  panSlider.className = 'mx-group-pan';
+  panSlider.title = 'Pan';
+  panSlider.addEventListener('input', () => {
+    const v = parseFloat(panSlider.value);
+    group.pan = v;
+    if (state.engine) state.engine.setGroupPan(gi, v);
+    emit('state:change', { path: `groups.${gi}.pan`, value: v });
+  });
+  row.append(panSlider);
+
+  // Horizontal volume fader
+  const fader = document.createElement('input');
+  fader.type = 'range'; fader.min = 0; fader.max = 1.5; fader.step = 0.01;
+  fader.value = group.volume ?? 1;
+  fader.className = 'mx-group-fader';
+  fader.title = 'Volume';
+
+  const valSpan = document.createElement('span');
+  valSpan.className = 'mx-group-val';
+  valSpan.textContent = Math.round((group.volume ?? 1) * 100);
+
+  fader.addEventListener('input', () => {
+    const v = parseFloat(fader.value);
+    valSpan.textContent = Math.round(v * 100);
+    group.volume = v;
+    if (state.engine) state.engine.setGroupVolume(gi, v);
+    emit('state:change', { path: `groups.${gi}.volume`, value: v });
+  });
+  row.append(fader, valSpan);
+
+  // Mute
+  const muteBtn = document.createElement('button');
+  muteBtn.className = 'mx-group-mute' + (group.muted ? ' on' : '');
+  muteBtn.textContent = 'M';
+  muteBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    group.muted = !group.muted;
+    muteBtn.classList.toggle('on', group.muted);
+    if (state.engine) {
+      state.engine.setGroupMute(gi, group.muted);
+      if (!group.muted) state.engine.setGroupVolume(gi, group.volume ?? 1);
+    }
+    emit('state:change', { path: `groups.${gi}.muted`, value: group.muted });
+  });
+  row.append(muteBtn);
+
+  return row;
 }
 
 export default {
   render(container, state, emit) {
+    injectCSS();
     container.innerHTML = '';
-    container.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:6px 8px;gap:4px';
 
     const pattern = state.project.banks[state.activeBank].patterns[state.activePattern];
     const tracks  = pattern.kit.tracks;
 
-    const header = document.createElement('div');
-    header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0';
-    header.innerHTML = `<span class="page-title" style="margin:0">Mixer</span>
-      <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted)">8 tracks</span>`;
-    container.append(header);
+    // Root page wrapper
+    const page = document.createElement('div');
+    page.className = 'mixer-page';
+    container.append(page);
 
-    const meterData = new Uint8Array(32);
-    const meterEls = [];
-    const voiceCountEls = [];
-    const _peakLevels = new Array(8).fill(0);
-    const _peakDecay  = new Array(8).fill(0);
-    // GR meter canvases — one per strip that has sidechain active
-    const grMeterEls = [];
-    // Sparkline data — one entry per strip
-    const sparklineEls = [];
+    // ── TRACKS section ───────────────────────────────────────────────────────
+    const tracksSection = document.createElement('div');
+    tracksSection.className = 'mx-section';
 
-    // Bulk mute/unmute/solo-off bar
-    const bulkBar = document.createElement('div');
-    bulkBar.className = 'mixer-bulk-bar';
+    const tracksHdr = document.createElement('div');
+    tracksHdr.className = 'mx-section-hdr';
+    tracksHdr.innerHTML = `<span>Tracks</span><span style="font-weight:400;font-size:0.5rem;color:rgba(255,255,255,0.25)">${tracks.length} ch</span>`;
+
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'mx-actions';
 
     const muteAllBtn = document.createElement('button');
-    muteAllBtn.className = 'mixer-bulk-btn';
+    muteAllBtn.className = 'mx-bulk-btn';
     muteAllBtn.textContent = 'Mute All';
     muteAllBtn.addEventListener('click', () => {
       tracks.forEach(t => { t.mute = true; });
+      stripEls.forEach(el => el.querySelector('.mx-mute')?.classList.add('on'));
       emit('state:change', { path: 'mixer.bulkMute', value: true });
     });
 
     const unmuteAllBtn = document.createElement('button');
-    unmuteAllBtn.className = 'mixer-bulk-btn';
+    unmuteAllBtn.className = 'mx-bulk-btn';
     unmuteAllBtn.textContent = 'Unmute All';
     unmuteAllBtn.addEventListener('click', () => {
       tracks.forEach(t => { t.mute = false; });
+      stripEls.forEach(el => el.querySelector('.mx-mute')?.classList.remove('on'));
       emit('state:change', { path: 'mixer.bulkMute', value: false });
     });
 
     const soloOffBtn = document.createElement('button');
-    soloOffBtn.className = 'mixer-bulk-btn';
-    soloOffBtn.textContent = 'Solo off';
+    soloOffBtn.className = 'mx-bulk-btn';
+    soloOffBtn.textContent = 'Solo Off';
     soloOffBtn.addEventListener('click', () => {
       tracks.forEach(t => { t.solo = false; });
+      stripEls.forEach(el => {
+        el.querySelector('.mx-solo')?.classList.remove('on');
+        el.classList.remove('strip-muted-by-solo');
+      });
       emit('state:change', { path: 'mixer.soloOff', value: true });
-      updateSoloDim();
     });
 
-    bulkBar.append(muteAllBtn, unmuteAllBtn, soloOffBtn);
-    container.append(bulkBar);
+    actionsDiv.append(muteAllBtn, unmuteAllBtn, soloOffBtn);
+    tracksHdr.append(actionsDiv);
+    tracksSection.append(tracksHdr);
 
-    const faderGrid = document.createElement('div');
-    faderGrid.className = 'mixer-fader-grid';
-    faderGrid.style.cssText = 'flex:1;min-height:0;padding-bottom:4px;overflow-x:hidden';
+    const tracksRow = document.createElement('div');
+    tracksRow.className = 'mx-tracks';
 
-    // Collect mini-EQ canvases for later redraws
-    const eqCanvases = [];
-
-    // Collect strip elements so solo dimming can be applied globally
     const stripEls = [];
-
-    // Update strip opacity whenever any solo state changes
-    const updateSoloDim = () => {
-      const anySolo = tracks.some(t => t.solo);
-      stripEls.forEach((el, i) => {
-        if (anySolo && !tracks[i].solo) {
-          el.classList.add('strip-muted-by-solo');
-        } else {
-          el.classList.remove('strip-muted-by-solo');
-        }
-      });
-    };
+    const meterEls = [];
 
     tracks.forEach((track, ti) => {
-      const strip = document.createElement('div');
-      strip.className = 'fader-strip';
+      const strip = buildTrackStrip(track, ti, state, emit, stripEls, meterEls);
       stripEls.push(strip);
-      strip.style.cursor = 'pointer';
-      strip.style.borderLeft = `3px solid ${TRACK_COLORS[ti]}`;
-      strip.style.setProperty('--track-color', TRACK_COLORS[ti]);
-      if (ti === state.selectedTrackIndex) {
-        strip.style.outline = '1px solid rgba(240,198,64,0.35)';
-        strip.style.borderRadius = '5px';
-      }
-      strip.addEventListener('click', () =>
-        emit('state:change', { path: 'selectedTrackIndex', value: ti })
-      );
+      tracksRow.append(strip);
+    });
 
-      // ── Track name (double-click to rename) ──────────────────────────────
-      const nameSpan = document.createElement('span');
-      nameSpan.className = 'fader-track-name';
-      nameSpan.style.cssText = 'font-size:0.5rem;color:var(--track-color,var(--screen-text));display:flex;align-items:center;gap:2px;font-family:var(--font-mono);font-weight:bold;cursor:text;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0';
-      nameSpan.innerHTML = `${track.name ?? `T${ti + 1}`} <span style="font-size:0.44rem;color:var(--muted);font-weight:400">${(track.machine || 'tone').toUpperCase()}</span>`;
+    tracksSection.append(tracksRow);
+    page.append(tracksSection);
 
-      nameSpan.addEventListener('dblclick', e => {
-        e.stopPropagation();
-        const currentName = track.name ?? `T${ti + 1}`;
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.value = currentName;
-        input.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;width:100%;background:#111;color:var(--screen-text);border:1px solid var(--accent);border-radius:2px;padding:0 2px';
+    // ── GROUPS section ───────────────────────────────────────────────────────
+    if (state.groups && state.groups.length > 0) {
+      const groupsSection = document.createElement('div');
+      groupsSection.className = 'mx-section';
 
-        const commit = () => {
-          const newName = input.value.trim() || currentName;
-          track.name = newName;
-          emit('state:change', { path: 'selectedTrackIndex', value: state.selectedTrackIndex });
-          // Restore nameSpan
-          nameSpan.innerHTML = `${track.name} <span style="font-size:0.44rem;color:var(--muted);font-weight:400">${(track.machine || 'tone').toUpperCase()}</span>`;
-          if (nameSpan.contains(input)) nameSpan.replaceChild(nameSpan.firstChild, input);
-          // Persist
-          emit('state:change', { path: 'tracks', value: state.tracks });
-        };
-        const cancel = () => {
-          nameSpan.innerHTML = `${track.name ?? `T${ti + 1}`} <span style="font-size:0.44rem;color:var(--muted);font-weight:400">${(track.machine || 'tone').toUpperCase()}</span>`;
-        };
+      const groupsHdr = document.createElement('div');
+      groupsHdr.className = 'mx-section-hdr';
+      groupsHdr.textContent = 'Groups';
+      groupsSection.append(groupsHdr);
 
-        input.addEventListener('blur', commit);
-        input.addEventListener('keydown', ev => {
-          if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
-          if (ev.key === 'Escape') { input.removeEventListener('blur', commit); cancel(); }
-        });
+      const groupsGrid = document.createElement('div');
+      groupsGrid.className = 'mx-groups-grid';
 
-        nameSpan.textContent = '';
-        nameSpan.appendChild(input);
-        input.focus();
-        input.select();
+      state.groups.forEach((group, gi) => {
+        groupsGrid.append(buildGroupRow(group, gi, state, emit));
       });
 
-      // ── Color stripe at top of strip ────────────────────────────────────
-      const colorStripe = document.createElement('div');
-      colorStripe.style.cssText = `height:3px;background:${TRACK_COLORS[ti]};border-radius:2px 2px 0 0;margin-bottom:2px`;
-      strip.prepend(colorStripe);
+      groupsSection.append(groupsGrid);
+      page.append(groupsSection);
+    }
 
-      // ── Strip header (name + color dot + M/S buttons) ────────────────────
-      const stripHeader = document.createElement('div');
-      stripHeader.className = 'strip-header';
-      stripHeader.style.cssText = 'display:flex;align-items:center;gap:2px;width:100%;padding:2px 2px 2px;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0';
+    // ── EXTERNAL MODULES section ─────────────────────────────────────────────
+    if (!window._connectedModules) window._connectedModules = [];
 
-      const colorDot = document.createElement('span');
-      colorDot.style.cssText = `width:6px;height:6px;border-radius:50%;background:${TRACK_COLORS[ti]};flex-shrink:0;display:inline-block`;
-      stripHeader.append(colorDot);
+    let extSection = null;
 
-      stripHeader.append(nameSpan);
+    function renderExtModules() {
+      if (extSection) extSection.remove();
+      extSection = null;
+      if (!window._connectedModules.length) return;
 
-      const collapseBtn = document.createElement('button');
-      collapseBtn.className = 'mix-collapse-btn';
-      collapseBtn.textContent = strip.dataset.collapsed === 'true' ? '▶' : '▼';
-      collapseBtn.title = 'Collapse strip';
+      extSection = document.createElement('div');
+      extSection.className = 'mx-section';
 
-      stripHeader.append(collapseBtn);
-      strip.append(stripHeader);
+      const extHdr = document.createElement('div');
+      extHdr.className = 'mx-section-hdr';
+      extHdr.textContent = 'External Modules';
+      extSection.append(extHdr);
 
-      // ── Strip body (everything below the header, can be collapsed) ───────
-      const stripBody = document.createElement('div');
-      stripBody.className = 'strip-body';
+      window._connectedModules.forEach(mod => {
+        const strip = document.createElement('div');
+        strip.className = 'mx-ext-strip';
 
-      collapseBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        const isCollapsed = strip.dataset.collapsed === 'true';
-        strip.dataset.collapsed = String(!isCollapsed);
-        collapseBtn.textContent = !isCollapsed ? '▶' : '▼';
-        stripBody.style.display = isCollapsed ? '' : 'none';
-      });
+        const nameLbl = document.createElement('span');
+        nameLbl.className = 'mx-ext-name';
+        nameLbl.textContent = mod.label;
+        strip.append(nameLbl);
 
-      // ── Mini EQ canvas ───────────────────────────────────────────────────
-      const eqCanvas = document.createElement('canvas');
-      eqCanvas.className = 'mix-eq-mini';
-      eqCanvas.width  = 40;
-      eqCanvas.height = 20;
-      drawMiniEQ(eqCanvas, track.eqLow ?? 0, track.eqMid ?? 0, track.eqHigh ?? 0);
-      stripBody.append(eqCanvas);
-      eqCanvases.push({ canvas: eqCanvas, track });
-
-      // ── Pan row — interactive horizontal slider ───────────────────────────
-      const panRow = document.createElement('div');
-      panRow.style.cssText = 'display:flex;align-items:center;gap:3px;width:100%';
-
-      const panLabel = document.createElement('span');
-      panLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);flex-shrink:0';
-      panLabel.textContent = 'PAN';
-
-      const panSlider = document.createElement('input');
-      panSlider.type = 'range';
-      panSlider.min = -1; panSlider.max = 1; panSlider.step = 0.05;
-      panSlider.value = track.pan;
-      panSlider.style.cssText = 'flex:1;accent-color:var(--track-color,var(--accent));height:3px';
-      panSlider.title = 'Pan position (L=-1, C=0, R=1)';
-      panSlider.addEventListener('input', () =>
-        emit('track:change', { trackIndex: ti, param: 'pan', value: parseFloat(panSlider.value) })
-      );
-
-      const panVal = document.createElement('span');
-      panVal.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);min-width:22px;text-align:right';
-      panVal.textContent = track.pan === 0 ? 'C' : track.pan > 0 ? `R${Math.round(track.pan * 100)}` : `L${Math.round(-track.pan * 100)}`;
-      panSlider.addEventListener('input', () => {
-        const v = parseFloat(panSlider.value);
-        panVal.textContent = v === 0 ? 'C' : v > 0 ? `R${Math.round(v * 100)}` : `L${Math.round(-v * 100)}`;
-      });
-
-      panRow.append(panLabel, panSlider, panVal);
-      stripBody.append(panRow);
-
-      // ── Stereo width row ─────────────────────────────────────────────────
-      const widthRow = document.createElement('div');
-      widthRow.style.cssText = 'display:flex;align-items:center;gap:3px;width:100%';
-
-      const widthLabel = document.createElement('span');
-      widthLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);flex-shrink:0';
-      widthLabel.textContent = 'W';
-
-      const widthSlider = document.createElement('input');
-      widthSlider.type = 'range';
-      widthSlider.min = 0; widthSlider.max = 2; widthSlider.step = 0.05;
-      widthSlider.value = track.stereoWidth ?? 1;
-      widthSlider.style.cssText = 'flex:1;accent-color:var(--track-color,var(--accent));height:3px';
-      // stereoWidth: 0=mono, 1=normal, 2=wide — M-S processed in engine.js triggerTrack
-      widthSlider.addEventListener('input', () => {
-        const v = parseFloat(widthSlider.value);
-        widthVal.textContent = v.toFixed(2);
-        emit('track:change', { trackIndex: ti, param: 'stereoWidth', value: v });
-      });
-
-      const widthVal = document.createElement('span');
-      widthVal.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);min-width:22px;text-align:right';
-      widthVal.textContent = (track.stereoWidth ?? 1).toFixed(2);
-
-      widthRow.append(widthLabel, widthSlider, widthVal);
-      stripBody.append(widthRow);
-
-      // ── FX Send controls ─────────────────────────────────────────────────
-      const sendsDiv = document.createElement('div');
-      sendsDiv.className = 'mix-sends';
-
-      // REV send
-      const revRow = document.createElement('div');
-      revRow.className = 'mix-send-row';
-      const revLabel = document.createElement('span');
-      revLabel.textContent = 'R';
-      const revSlider = document.createElement('input');
-      revSlider.type = 'range';
-      revSlider.min = 0; revSlider.max = 1; revSlider.step = 0.01;
-      revSlider.value = track.reverbSend ?? 0;
-      const revVal = document.createElement('span');
-      revVal.className = 'send-val';
-      revVal.textContent = Math.round((track.reverbSend ?? 0) * 100) + '%';
-      revSlider.addEventListener('input', () => {
-        const v = parseFloat(revSlider.value);
-        revVal.textContent = Math.round(v * 100) + '%';
-        track.reverbSend = v;
-        emit('track:change', { trackIndex: ti, param: 'reverbSend', value: v });
-        // Wire into convolution reverb send bus
-        if (state.engine?.setTrackReverbSend) state.engine.setTrackReverbSend(ti, v);
-      });
-      const revMuteBtn = document.createElement('button');
-      revMuteBtn.className = 'mix-send-mute' + (track.sendMuted?.[0] ? ' active' : '');
-      revMuteBtn.textContent = 'M';
-      revMuteBtn.title = 'Mute send to Reverb';
-      revMuteBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        if (!track.sendMuted) track.sendMuted = [false, false];
-        track.sendMuted[0] = !track.sendMuted[0];
-        revMuteBtn.classList.toggle('active', track.sendMuted[0]);
-        emit('track:change', { trackIndex: ti, param: 'sendMuted', value: track.sendMuted });
-      });
-      revRow.append(revLabel, revSlider, revVal, revMuteBtn);
-
-      // DLY send
-      const dlyRow = document.createElement('div');
-      dlyRow.className = 'mix-send-row';
-      const dlyLabel = document.createElement('span');
-      dlyLabel.textContent = 'D';
-      const dlySlider = document.createElement('input');
-      dlySlider.type = 'range';
-      dlySlider.min = 0; dlySlider.max = 1; dlySlider.step = 0.01;
-      dlySlider.value = track.delaySend ?? 0;
-      const dlyVal = document.createElement('span');
-      dlyVal.className = 'send-val';
-      dlyVal.textContent = Math.round((track.delaySend ?? 0) * 100) + '%';
-      dlySlider.addEventListener('input', () => {
-        const v = parseFloat(dlySlider.value);
-        dlyVal.textContent = Math.round(v * 100) + '%';
-        track.delaySend = v;
-        emit('track:change', { trackIndex: ti, param: 'delaySend', value: v });
-        // Wire into send/return delay bus
-        if (state.engine?.setTrackDelaySend) state.engine.setTrackDelaySend(ti, v);
-      });
-      const dlyMuteBtn = document.createElement('button');
-      dlyMuteBtn.className = 'mix-send-mute' + (track.sendMuted?.[1] ? ' active' : '');
-      dlyMuteBtn.textContent = 'M';
-      dlyMuteBtn.title = 'Mute send to Delay';
-      dlyMuteBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        if (!track.sendMuted) track.sendMuted = [false, false];
-        track.sendMuted[1] = !track.sendMuted[1];
-        dlyMuteBtn.classList.toggle('active', track.sendMuted[1]);
-        emit('track:change', { trackIndex: ti, param: 'sendMuted', value: track.sendMuted });
-      });
-      dlyRow.append(dlyLabel, dlySlider, dlyVal, dlyMuteBtn);
-
-      sendsDiv.append(revRow, dlyRow);
-      stripBody.append(sendsDiv);
-
-      // ── Input gain row ───────────────────────────────────────────────────
-      const gainRow = document.createElement('div');
-      gainRow.style.cssText = 'display:flex;align-items:center;gap:3px;width:100%';
-
-      const gainLabel = document.createElement('span');
-      gainLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);flex-shrink:0';
-      gainLabel.textContent = 'GAIN';
-
-      const gainSlider = document.createElement('input');
-      gainSlider.type = 'range';
-      gainSlider.min = 0; gainSlider.max = 2; gainSlider.step = 0.01;
-      gainSlider.value = track.inputGain ?? 1.0;
-      gainSlider.style.cssText = 'flex:1;accent-color:var(--track-color,var(--accent));height:3px';
-
-      const gainVal = document.createElement('span');
-      gainVal.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);min-width:26px;text-align:right';
-      gainVal.textContent = (track.inputGain ?? 1.0).toFixed(1) + '\u00d7';
-
-      gainSlider.addEventListener('input', () => {
-        const v = parseFloat(gainSlider.value);
-        gainVal.textContent = v.toFixed(1) + '\u00d7';
-        emit('track:change', { trackIndex: ti, param: 'inputGain', value: v });
-      });
-
-      gainRow.append(gainLabel, gainSlider, gainVal);
-      stripBody.append(gainRow);
-
-      // ── Vertical fader ───────────────────────────────────────────────────
-      const fader = document.createElement('input');
-      fader.type = 'range';
-      fader.setAttribute('orient', 'vertical');
-      fader.min   = 0;
-      fader.max   = 1;
-      fader.step  = 0.01;
-      fader.value = track.volume;
-      fader.style.cssText = 'writing-mode:vertical-lr;direction:rtl;height:70px;width:20px;accent-color:var(--track-color,var(--accent));flex-shrink:0';
-      fader.style.setProperty('accent-color', TRACK_COLORS[ti]);
-      const faderReadout = document.createElement('span');
-      faderReadout.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);text-align:center;display:block;min-width:24px';
-      faderReadout.textContent = parseFloat(fader.value).toFixed(2);
-
-      fader.addEventListener('input', () => {
-        const v = parseFloat(fader.value);
-        faderReadout.textContent = v.toFixed(2);
-        emit('track:change', { trackIndex: ti, param: 'volume', value: v });
-        // Fader link: if this track is linked to an adjacent track, mirror the change
-        const links = state.faderLinks ?? [];
-        const linked = links.find(l => l.a === ti || l.b === ti);
-        if (linked) {
-          const otherIdx = linked.a === ti ? linked.b : linked.a;
-          const otherTrack = tracks[otherIdx];
-          if (otherTrack) {
-            otherTrack.volume = v;
-            emit('track:change', { trackIndex: otherIdx, param: 'volume', value: v });
+        const fader = document.createElement('input');
+        fader.type = 'range'; fader.min = 0; fader.max = 1.5; fader.step = 0.01;
+        fader.value = mod.gain ?? 1;
+        fader.className = 'mx-ext-fader';
+        const faderVal = document.createElement('span');
+        faderVal.className = 'mx-ext-val';
+        faderVal.textContent = parseFloat(fader.value).toFixed(2);
+        fader.addEventListener('input', () => {
+          const v = parseFloat(fader.value);
+          faderVal.textContent = v.toFixed(2);
+          mod.gain = v;
+          const el = mod.el;
+          if (el) {
+            const gainNode = el._tr909Audio?.gain ?? el._tb303Audio?.gain ?? el._juno60Audio?.gain;
+            if (gainNode) gainNode.value = v;
           }
-        }
-      });
-      stripBody.append(fader, faderReadout);
-
-      // ── Mini send knobs (R = reverb conv, D = delay) ─────────────────────
-      const miniSendRow = document.createElement('div');
-      miniSendRow.style.cssText = 'display:flex;gap:4px;justify-content:center;margin-top:2px';
-
-      function makeMiniKnob(label, initVal, color, onChange) {
-        const wrap = document.createElement('div');
-        wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:1px';
-
-        const lbl = document.createElement('span');
-        lbl.style.cssText = `font-family:var(--font-mono);font-size:0.38rem;color:${color};letter-spacing:0.04em`;
-        lbl.textContent = label;
-
-        const knob = document.createElement('input');
-        knob.type  = 'range';
-        knob.min   = 0; knob.max = 1; knob.step = 0.01;
-        knob.value = initVal;
-        knob.style.cssText = `width:24px;height:24px;writing-mode:vertical-lr;direction:rtl;accent-color:${color};cursor:pointer;-webkit-appearance:slider-vertical`;
-        knob.title = `${label} send level`;
-
-        const val = document.createElement('span');
-        val.style.cssText = `font-family:var(--font-mono);font-size:0.38rem;color:${color}`;
-        val.textContent = Math.round(initVal * 100) + '%';
-
-        knob.addEventListener('input', () => {
-          const v = parseFloat(knob.value);
-          val.textContent = Math.round(v * 100) + '%';
-          onChange(v);
         });
+        strip.append(fader, faderVal);
 
-        wrap.append(lbl, knob, val);
-        return wrap;
-      }
+        const panSlider = document.createElement('input');
+        panSlider.type = 'range'; panSlider.min = -1; panSlider.max = 1; panSlider.step = 0.05;
+        panSlider.value = mod.pan ?? 0;
+        panSlider.className = 'mx-ext-pan';
+        panSlider.title = 'Pan';
+        panSlider.addEventListener('input', () => {
+          const v = parseFloat(panSlider.value);
+          mod.pan = v;
+          const el = mod.el;
+          if (el) {
+            const panNode = el._tr909Audio?.pan ?? el._tb303Audio?.pan ?? el._juno60Audio?.pan;
+            if (panNode) panNode.value = v;
+          }
+        });
+        strip.append(panSlider);
 
-      const revKnob = makeMiniKnob('R', track.reverbSend ?? 0, '#67d7ff', v => {
-        track.reverbSend = v;
-        emit('track:change', { trackIndex: ti, param: 'reverbSend', value: v });
-        if (state.engine?.setTrackReverbSend) state.engine.setTrackReverbSend(ti, v);
-        // Sync the full-width send slider above
-        revSlider.value = v;
-        revVal.textContent = Math.round(v * 100) + '%';
-      });
-
-      const dlyKnob = makeMiniKnob('D', track.delaySend ?? 0, '#f0c640', v => {
-        track.delaySend = v;
-        emit('track:change', { trackIndex: ti, param: 'delaySend', value: v });
-        if (state.engine?.setTrackDelaySend) state.engine.setTrackDelaySend(ti, v);
-        // Sync the full-width send slider above
-        dlySlider.value = v;
-        dlyVal.textContent = Math.round(v * 100) + '%';
-      });
-
-      miniSendRow.append(revKnob, dlyKnob);
-      stripBody.append(miniSendRow);
-
-      // ── Fader link button (links this strip with the next) ───────────────
-      if (ti < tracks.length - 1) {
-        const linkBtn = document.createElement('button');
-        linkBtn.className = 'fader-link-btn';
-        linkBtn.title = `Link T${ti + 1} + T${ti + 2}`;
-        linkBtn.textContent = '\u26D3'; // ⛓
-        const isLinked = (state.faderLinks ?? []).some(l => l.a === ti && l.b === ti + 1);
-        if (isLinked) linkBtn.classList.add('active');
-        linkBtn.addEventListener('click', e => {
+        const muteBtn = document.createElement('button');
+        muteBtn.className = 'mx-ext-mute' + (mod.muted ? ' on' : '');
+        muteBtn.textContent = 'M';
+        muteBtn.addEventListener('click', e => {
           e.stopPropagation();
-          state.faderLinks = state.faderLinks ?? [];
-          const idx = state.faderLinks.findIndex(l => l.a === ti && l.b === ti + 1);
-          if (idx >= 0) {
-            state.faderLinks.splice(idx, 1);
-            linkBtn.classList.remove('active');
-          } else {
-            state.faderLinks.push({ a: ti, b: ti + 1 });
-            linkBtn.classList.add('active');
+          mod.muted = !mod.muted;
+          muteBtn.classList.toggle('on', mod.muted);
+          const el = mod.el;
+          if (el) {
+            const gainNode = el._tr909Audio?.gain ?? el._tb303Audio?.gain ?? el._juno60Audio?.gain;
+            if (gainNode) gainNode.value = mod.muted ? 0 : (mod.gain ?? 1);
           }
-          emit('state:change', { path: 'tracks', value: state.tracks });
         });
-        stripBody.append(linkBtn);
-      }
+        strip.append(muteBtn);
 
-      // ── Level meter bar (animated) ───────────────────────────────────────
-      const meterWrap = document.createElement('div');
-      meterWrap.className = 'mixer-meter-wrap';
-      const meterBar = document.createElement('div');
-      meterBar.className = 'mixer-meter-bar';
-      const peakLine = document.createElement('div');
-      peakLine.className = 'mixer-peak-line';
-      meterWrap.append(meterBar, peakLine);
-      stripBody.append(meterWrap);
-      meterEls.push({ bar: meterBar, peak: peakLine, track });
-
-      // ── Volume readout ───────────────────────────────────────────────────
-      const vol = document.createElement('span');
-      vol.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--accent)';
-      vol.textContent = Math.round(track.volume * 100);
-      stripBody.append(vol);
-
-      // ── CUE button (pre-fader listen) ────────────────────────────────────
-      const cueBtn = document.createElement('button');
-      cueBtn.className = 'fader-cue' + (track.cue ? ' active' : '');
-      cueBtn.textContent = 'CUE';
-      cueBtn.title = 'Pre-fader listen';
-      cueBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        track.cue = !track.cue;
-        cueBtn.classList.toggle('active', track.cue);
-        // Count how many tracks have cue active
-        const cuedCount = tracks.filter(t => t.cue).length;
-        if (state.engine?.setCueGain) {
-          state.engine.setCueGain(cuedCount > 0 ? 1 : 0);
-        }
-        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
-      });
-      stripBody.append(cueBtn);
-
-      // ── Mute / Solo buttons ──────────────────────────────────────────────
-      const msRow = document.createElement('div');
-      msRow.style.cssText = 'display:flex;gap:2px;width:100%';
-
-      const muteBtn = document.createElement('button');
-      muteBtn.className = 'fader-mute' + (track.mute ? ' active' : '');
-      muteBtn.textContent = 'M';
-      muteBtn.style.flex = '1';
-      muteBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        emit('track:change', { trackIndex: ti, param: 'mute', value: !track.mute });
-        muteBtn.classList.toggle('active');
+        extSection.append(strip);
       });
 
-      const soloBtn = document.createElement('button');
-      soloBtn.className = 'fader-solo' + (track.solo ? ' active' : '');
-      soloBtn.textContent = 'S';
-      soloBtn.style.flex = '1';
-      soloBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        track.solo = !track.solo;
-        soloBtn.classList.toggle('active', track.solo);
-        emit('track:change', { trackIndex: ti, param: 'solo', value: track.solo });
-        updateSoloDim();
-      });
+      page.append(extSection);
+    }
 
-      msRow.append(muteBtn, soloBtn);
-      stripBody.append(msRow);
+    renderExtModules();
 
-      // ── Sidechain controls ───────────────────────────────────────────────
-      const scRow = document.createElement('div');
-      scRow.style.cssText = 'display:flex;align-items:center;gap:3px;width:100%;margin-top:3px';
+    // ── rAF meter loop ───────────────────────────────────────────────────────
+    const meterData = new Uint8Array(32);
+    const _peakLevels = new Array(8).fill(0);
+    const _peakDecay  = new Array(8).fill(0);
 
-      // SC button — sets this track as the sidechain source (only one at a time)
-      const scBtn = document.createElement('button');
-      const isScSource = !!track.isSidechainSource;
-      scBtn.className = 'fader-cue' + (isScSource ? ' active' : '');
-      scBtn.textContent = 'SC';
-      scBtn.title = 'Set as sidechain source (ducks other tracks on trigger)';
-      scBtn.style.cssText = 'font-size:0.44rem;padding:1px 4px;flex-shrink:0' +
-        (isScSource ? ';border:1px solid #00d4ff;color:#00d4ff;font-weight:bold;background:rgba(0,212,255,0.12)' : '');
-      scBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        // Toggle: if already the source, clear it; otherwise set this track
-        const wasActive = !!track.isSidechainSource;
-        tracks.forEach(t => { t.isSidechainSource = false; });
-        track.isSidechainSource = !wasActive;
-
-        // Update all SC button styles in this render pass
-        faderGrid.querySelectorAll('.sc-btn').forEach((b, i) => {
-          const active = !!tracks[i].isSidechainSource;
-          b.classList.toggle('active', active);
-          b.style.border     = active ? '1px solid #00d4ff' : '';
-          b.style.color      = active ? '#00d4ff' : '';
-          b.style.fontWeight = active ? 'bold' : '';
-          b.style.background = active ? 'rgba(0,212,255,0.12)' : '';
-        });
-
-        // Emit canonical event so app.js can sync the engine
-        const newSourceIndex = track.isSidechainSource ? ti : -1;
-        emit('state:change', { path: 'sidechainSource', value: newSourceIndex });
-      });
-      scBtn.classList.add('sc-btn');
-      scRow.append(scBtn);
-
-      // Duck slider — 0 (no duck) to 1 (full mute)
-      const duckLabel = document.createElement('span');
-      duckLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);flex-shrink:0';
-      duckLabel.textContent = 'DUCK';
-
-      const duckSlider = document.createElement('input');
-      duckSlider.type = 'range';
-      duckSlider.min = 0; duckSlider.max = 1; duckSlider.step = 0.01;
-      duckSlider.value = track.sidechainAmount ?? 0;
-      duckSlider.style.cssText = 'flex:1;accent-color:var(--accent);height:3px';
-
-      const duckVal = document.createElement('span');
-      duckVal.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);min-width:22px;text-align:right';
-      duckVal.textContent = Math.round((track.sidechainAmount ?? 0) * 100) + '%';
-
-      duckSlider.addEventListener('input', () => {
-        const v = parseFloat(duckSlider.value);
-        duckVal.textContent = Math.round(v * 100) + '%';
-        track.sidechainAmount = v;
-        // If this track is the active sidechain source, update engine immediately
-        if (track.isSidechainSource && state.engine) {
-          state.engine.setSidechainAmount(v);
-        }
-        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
-      });
-
-      scRow.append(duckLabel, duckSlider, duckVal);
-      stripBody.append(scRow);
-
-      // ── Sidechain GR meter ───────────────────────────────────────────────
-      const grMeter = document.createElement('canvas');
-      grMeter.width = 4; grMeter.height = 40;
-      grMeter.style.cssText = 'display:block;margin:2px auto;border-radius:1px;background:#111;cursor:default';
-      grMeter.title = 'Sidechain ducking amount';
-      stripBody.append(grMeter);
-      grMeterEls.push({ canvas: grMeter, track });
-
-      // ── Peak history sparkline ────────────────────────────────────────────
-      const sparkCanvas = document.createElement('canvas');
-      sparkCanvas.width = 40; sparkCanvas.height = 12;
-      sparkCanvas.style.cssText = 'display:block;width:100%;height:12px;margin-top:2px;border-radius:2px';
-      strip._peakHistory = new Float32Array(20);
-      strip._currentPeak = 0;
-      sparklineEls.push({ canvas: sparkCanvas, strip });
-      stripBody.append(sparkCanvas);
-
-      // ── Bus selector ─────────────────────────────────────────────────────
-      const busRow = document.createElement('div');
-      busRow.style.cssText = 'display:flex;gap:2px;margin-top:3px';
-      const currentBus = track.outputBus ?? 'master';
-
-      // Tag strip with current bus for CSS tinting
-      strip.classList.add('mix-strip');
-      strip.dataset.bus = currentBus;
-
-      const BUS_BTN_COLORS = { master: '#e0e0e0', bus1: '#ff8c00', bus2: '#00d4ff' };
-      [['master', 'M'], ['bus1', 'B1'], ['bus2', 'B2']].forEach(([val, label]) => {
-        const btn = document.createElement('button');
-        const isActive = currentBus === val;
-        btn.className = 'fader-cue bus-btn' + (isActive ? ' active' : '');
-        btn.dataset.busVal = val;
-        btn.textContent = label;
-        btn.title = `Route to ${val}`;
-        btn.style.cssText = 'font-size:0.44rem;padding:1px 3px;flex:1';
-        btn.style.color = BUS_BTN_COLORS[val];
-        if (isActive) {
-          btn.style.borderColor = BUS_BTN_COLORS[val];
-          btn.style.background  = BUS_BTN_COLORS[val] + '22';
-        }
-        btn.addEventListener('click', e => {
-          e.stopPropagation();
-          busRow.querySelectorAll('.bus-btn').forEach(b => {
-            b.classList.remove('active');
-            b.style.borderColor = '';
-            b.style.background  = '';
-          });
-          btn.classList.add('active');
-          btn.style.borderColor = BUS_BTN_COLORS[val];
-          btn.style.background  = BUS_BTN_COLORS[val] + '22';
-          // Update strip tint
-          strip.dataset.bus = val;
-          emit('track:change', { trackIndex: ti, param: 'outputBus', value: val });
-        });
-        busRow.append(btn);
-      });
-      stripBody.append(busRow);
-
-      // ── Voice count indicator ─────────────────────────────────────────────
-      const voiceCount = document.createElement('span');
-      voiceCount.className = 'voice-count';
-      voiceCount.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);display:block;text-align:center;margin-top:3px;letter-spacing:0.05em';
-      voiceCount.textContent = '0V';
-      stripBody.append(voiceCount);
-      voiceCountEls.push({ el: voiceCount, ti });
-
-      strip.append(stripBody);
-      faderGrid.append(strip);
-    });
-
-    container.append(faderGrid);
-
-    // ── Bus master controls ──────────────────────────────────────────────────
-    const busSection = document.createElement('div');
-    busSection.className = 'mixer-bus-section';
-
-    const busSectionLabel = document.createElement('div');
-    busSectionLabel.className = 'mixer-bus-section-label';
-    busSectionLabel.textContent = 'BUS';
-    busSection.append(busSectionLabel);
-
-    const busStripsRow = document.createElement('div');
-    busStripsRow.className = 'mixer-bus-strips';
-
-    [
-      { key: 'bus1Level', label: 'BUS 1', color: '#ff8c00', engineKey: 'bus1' },
-      { key: 'bus2Level', label: 'BUS 2', color: '#00d4ff', engineKey: 'bus2' },
-    ].forEach(({ key, label, color, engineKey }) => {
-      const busStrip = document.createElement('div');
-      busStrip.className = 'mixer-bus-strip';
-      busStrip.style.setProperty('--bus-color', color);
-
-      const busLabel = document.createElement('span');
-      busLabel.className = 'mixer-bus-strip-label';
-      busLabel.textContent = label;
-      busLabel.style.color = color;
-
-      const busLevel = state[key] ?? 1.0;
-
-      const busFader = document.createElement('input');
-      busFader.type  = 'range';
-      busFader.min   = 0;
-      busFader.max   = 1;
-      busFader.step  = 0.01;
-      busFader.value = busLevel;
-      busFader.className = 'mixer-bus-fader';
-      busFader.style.accentColor = color;
-
-      const busValSpan = document.createElement('span');
-      busValSpan.className = 'mixer-bus-val';
-      busValSpan.textContent = Math.round(busLevel * 100);
-
-      busFader.addEventListener('input', () => {
-        const v = parseFloat(busFader.value);
-        busValSpan.textContent = Math.round(v * 100);
-        state[key] = v;
-        // Wire to engine bus gain node if available
-        if (state.engine && state.engine[engineKey]) {
-          const ctx = state.audioContext;
-          if (ctx) {
-            state.engine[engineKey].gain.setTargetAtTime(v, ctx.currentTime, 0.01);
-          } else {
-            state.engine[engineKey].gain.value = v;
-          }
-        }
-        emit('state:change', { path: key, value: v });
-      });
-
-      busStrip.append(busLabel, busFader, busValSpan);
-
-      // ── 3-band EQ ──────────────────────────────────────────────────────────
-      const eqRow = document.createElement('div');
-      eqRow.style.cssText = 'display:flex;align-items:flex-start;gap:3px;width:100%;margin-top:4px';
-
-      const eqSectionLabel = document.createElement('span');
-      eqSectionLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--bus-color,var(--muted));flex-shrink:0;margin-top:2px';
-      eqSectionLabel.textContent = 'EQ';
-      eqRow.append(eqSectionLabel);
-
-      [
-        { band: 'Low',  suffix: 'EqLow'  },
-        { band: 'Mid',  suffix: 'EqMid'  },
-        { band: 'Hi',   suffix: 'EqHigh' },
-      ].forEach(({ band, suffix }) => {
-        const eqKey = engineKey + suffix;
-        const currentVal = state[eqKey] ?? 0;
-
-        const col = document.createElement('div');
-        col.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:1px;flex:1';
-
-        const bandLabel = document.createElement('span');
-        bandLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--bus-color,var(--muted))';
-        bandLabel.textContent = band;
-
-        const eqSlider = document.createElement('input');
-        eqSlider.type  = 'range';
-        eqSlider.min   = -12;
-        eqSlider.max   = 12;
-        eqSlider.step  = 0.5;
-        eqSlider.value = currentVal;
-        eqSlider.style.cssText = 'width:100%;accent-color:var(--bus-color,' + color + ');height:3px';
-
-        const eqValSpan = document.createElement('span');
-        eqValSpan.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--bus-color,var(--muted));text-align:center';
-        eqValSpan.textContent = (currentVal >= 0 ? '+' : '') + currentVal.toFixed(1) + ' dB';
-
-        eqSlider.addEventListener('input', () => {
-          const v = parseFloat(eqSlider.value);
-          eqValSpan.textContent = (v >= 0 ? '+' : '') + v.toFixed(1) + ' dB';
-          state[eqKey] = v;
-          emit('state:change', { path: eqKey, value: v });
-        });
-
-        col.append(bandLabel, eqSlider, eqValSpan);
-        eqRow.append(col);
-      });
-
-      busStrip.append(eqRow);
-      busStripsRow.append(busStrip);
-    });
-
-    busSection.append(busStripsRow);
-    container.append(busSection);
-
-    // ── Group bus fader strips ───────────────────────────────────────────────
-    const groupSection = document.createElement('div');
-    groupSection.style.cssText = 'flex-shrink:0;margin-top:6px';
-
-    // Collapsible header
-    const groupHeaderRow = document.createElement('div');
-    groupHeaderRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:4px;cursor:pointer;user-select:none';
-
-    const groupSectionLabel = document.createElement('div');
-    groupSectionLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.55rem;color:var(--muted);letter-spacing:0.08em;flex:1';
-    groupSectionLabel.textContent = 'GROUPS';
-
-    const groupCollapseBtn = document.createElement('button');
-    groupCollapseBtn.className = 'mix-collapse-btn';
-    groupCollapseBtn.textContent = '▼';
-    groupCollapseBtn.title = 'Collapse groups';
-
-    groupHeaderRow.append(groupSectionLabel, groupCollapseBtn);
-    groupSection.append(groupHeaderRow);
-
-    const groupStripsRow = document.createElement('div');
-    groupStripsRow.style.cssText = 'display:flex;gap:4px;overflow-x:auto;padding-bottom:4px';
-
-    groupCollapseBtn.addEventListener('click', () => {
-      const isCollapsed = groupStripsRow.style.display === 'none';
-      groupStripsRow.style.display = isCollapsed ? '' : 'none';
-      groupCollapseBtn.textContent = isCollapsed ? '▼' : '▶';
-    });
-
-    const GROUP_COLORS = [
-      '#f0c640', '#5add71', '#67d7ff', '#ff8c52',
-      '#c67dff', '#ff6eb4', '#40e0d0', '#f05b52',
-    ];
-
-    (state.groups ?? []).forEach((group, gi) => {
-      const color = GROUP_COLORS[gi];
-
-      const gStrip = document.createElement('div');
-      gStrip.style.cssText = `display:flex;flex-direction:column;align-items:center;gap:3px;min-width:48px;padding:4px 3px;border-radius:4px;border-left:3px solid ${color};background:rgba(0,0,0,0.25);font-family:var(--font-mono)`;
-
-      // Color stripe at top
-      const gColorStripe = document.createElement('div');
-      gColorStripe.style.cssText = `height:2px;width:100%;background:${color};border-radius:2px 2px 0 0;margin-bottom:1px`;
-      gStrip.prepend(gColorStripe);
-
-      // Group name label
-      const gLabel = document.createElement('span');
-      gLabel.style.cssText = `font-size:0.5rem;color:${color};font-weight:bold;text-align:center;letter-spacing:0.04em`;
-      gLabel.textContent = group.name ?? `G${gi + 1}`;
-
-      // Pan slider
-      const gPanRow = document.createElement('div');
-      gPanRow.style.cssText = 'display:flex;align-items:center;gap:2px;width:100%';
-      const gPanLabel = document.createElement('span');
-      gPanLabel.style.cssText = 'font-size:0.4rem;color:var(--muted)';
-      gPanLabel.textContent = 'P';
-      const gPanSlider = document.createElement('input');
-      gPanSlider.type = 'range';
-      gPanSlider.min = -1; gPanSlider.max = 1; gPanSlider.step = 0.05;
-      gPanSlider.value = group.pan ?? 0;
-      gPanSlider.style.cssText = `flex:1;height:3px;accent-color:${color}`;
-      const gPanVal = document.createElement('span');
-      gPanVal.style.cssText = 'font-size:0.4rem;color:var(--muted);min-width:18px;text-align:right';
-      const panNum = group.pan ?? 0;
-      gPanVal.textContent = panNum === 0 ? 'C' : panNum > 0 ? `R${Math.round(panNum * 100)}` : `L${Math.round(-panNum * 100)}`;
-      gPanSlider.addEventListener('input', () => {
-        const v = parseFloat(gPanSlider.value);
-        gPanVal.textContent = v === 0 ? 'C' : v > 0 ? `R${Math.round(v * 100)}` : `L${Math.round(-v * 100)}`;
-        group.pan = v;
-        if (state.engine) state.engine.setGroupPan(gi, v);
-        emit('state:change', { path: `groups.${gi}.pan`, value: v });
-      });
-      gPanRow.append(gPanLabel, gPanSlider, gPanVal);
-
-      // Vertical volume fader (0–1.5)
-      const gFader = document.createElement('input');
-      gFader.type = 'range';
-      gFader.setAttribute('orient', 'vertical');
-      gFader.min = 0; gFader.max = 1.5; gFader.step = 0.01;
-      gFader.value = group.volume ?? 1;
-      gFader.style.cssText = `writing-mode:vertical-lr;direction:rtl;height:60px;width:20px;accent-color:${color};flex-shrink:0`;
-      gFader.addEventListener('input', () => {
-        const v = parseFloat(gFader.value);
-        gVolVal.textContent = Math.round(v * 100);
-        group.volume = v;
-        if (state.engine) state.engine.setGroupVolume(gi, v);
-        emit('state:change', { path: `groups.${gi}.volume`, value: v });
-      });
-
-      // Volume readout
-      const gVolVal = document.createElement('span');
-      gVolVal.style.cssText = 'font-size:0.5rem;color:var(--accent);text-align:center';
-      gVolVal.textContent = Math.round((group.volume ?? 1) * 100);
-
-      // Mute button
-      const gMuteBtn = document.createElement('button');
-      gMuteBtn.className = 'fader-mute' + (group.muted ? ' active' : '');
-      gMuteBtn.textContent = 'M';
-      gMuteBtn.style.cssText = 'width:100%;font-size:0.44rem;padding:1px 0';
-      gMuteBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        group.muted = !group.muted;
-        gMuteBtn.classList.toggle('active', group.muted);
-        if (state.engine) {
-          // Mute overrides volume to 0; unmute restores saved volume
-          state.engine.setGroupMute(gi, group.muted);
-          if (!group.muted) state.engine.setGroupVolume(gi, group.volume ?? 1);
-        }
-        emit('state:change', { path: `groups.${gi}.muted`, value: group.muted });
-      });
-
-      gStrip.append(gLabel, gPanRow, gFader, gVolVal, gMuteBtn);
-      groupStripsRow.append(gStrip);
-    });
-
-    groupSection.append(groupStripsRow);
-    container.append(groupSection);
-
-    // Shared interval: shift peak history for all sparklines every 100 ms
-    const _sparkInterval = setInterval(() => {
-      if (!faderGrid.isConnected) { clearInterval(_sparkInterval); return; }
-      sparklineEls.forEach(({ strip: s }) => {
-        s._peakHistory.copyWithin(0, 1);
-        s._peakHistory[19] = s._currentPeak ?? 0;
-      });
-    }, 100);
-
-    // Single rAF loop animates all 8 meters + GR meters + sparklines + voice counts
     (function updateMeters() {
-      if (!faderGrid.isConnected) return;
+      if (!page.isConnected) return;
       if (state.engine?.analyser) {
         state.engine.analyser.getByteTimeDomainData(meterData);
         let sum = 0;
@@ -923,222 +587,38 @@ export default {
           sum += s * s;
         }
         const rms = Math.sqrt(sum / meterData.length);
-        meterEls.forEach(({ bar, peak, track: t }, i) => {
-          const level = t.mute ? 0 : Math.min(1, rms * 1.4 * (t.volume + 0.15));
-          const h = Math.round(level * 100);
-          bar.style.height = h + '%';
-
-          // Peak-hold logic
-          if (level > _peakLevels[i]) {
-            _peakLevels[i] = level;
-            _peakDecay[i]  = 60;
-          } else if (_peakDecay[i] > 0) {
-            _peakDecay[i]--;
-          } else {
-            _peakLevels[i] = Math.max(0, _peakLevels[i] - 0.005);
-          }
-          peak.style.setProperty('--peak', _peakLevels[i]);
-
-          // Feed current peak into strip for sparkline sampling
-          if (stripEls[i]) stripEls[i]._currentPeak = level;
-        });
-
-        // Draw GR meters — single shared sidechainGain node drives all strips
-        const eng = state.engine;
-        const reduction = eng?._sidechainEnabled
-          ? 1 - (eng?.sidechainGain?.gain?.value ?? 1)
-          : 0;
-        grMeterEls.forEach(({ canvas: grc, track: gt }) => {
-          const ctx2d = grc.getContext('2d');
-          ctx2d.clearRect(0, 0, 4, 40);
-          if ((gt.sidechainAmount > 0 || gt.isSidechainSource) && reduction > 0.01) {
-            const h = Math.round(reduction * 40);
-            const g = ctx2d.createLinearGradient(0, 40 - h, 0, 40);
-            g.addColorStop(0, '#f44'); g.addColorStop(1, '#fa0');
-            ctx2d.fillStyle = g;
-            ctx2d.fillRect(0, 40 - h, 4, h);
-          }
-        });
-
-        // Draw sparklines
-        sparklineEls.forEach(({ canvas: sc, strip: ss }) => {
-          const sctx = sc.getContext('2d');
-          sctx.clearRect(0, 0, 40, 12);
-          sctx.beginPath();
-          sctx.strokeStyle = 'rgba(90,221,113,0.5)';
-          sctx.lineWidth = 1;
-          for (let i = 0; i < 20; i++) {
-            const x = i * 2;
-            const y = 12 - ss._peakHistory[i] * 12;
-            if (i === 0) sctx.moveTo(x, y);
-            else sctx.lineTo(x, y);
-          }
-          sctx.stroke();
+        meterEls.forEach(({ bar, track: t }, i) => {
+          const level = t.mute ? 0 : Math.min(1, rms * 1.4 * ((t.volume ?? 0.8) + 0.15));
+          bar.style.width = Math.round(level * 100) + '%';
+          if (level > _peakLevels[i]) { _peakLevels[i] = level; _peakDecay[i] = 60; }
+          else if (_peakDecay[i] > 0) { _peakDecay[i]--; }
+          else { _peakLevels[i] = Math.max(0, _peakLevels[i] - 0.005); }
         });
       }
-
-      // Update voice count indicators
-      if (state.engine?._voiceQueue) {
-        voiceCountEls.forEach(({ el, ti }) => {
-          const count = state.engine._voiceQueue.get(ti)?.length ?? 0;
-          el.textContent = count + 'V';
-          el.style.color = count > 0 ? '#5add71' : 'var(--muted)';
-        });
-      }
-
       requestAnimationFrame(updateMeters);
     })();
 
-    // ── Connected external module channel strips ─────────────────────────────
-    // Persist across re-renders via window._connectedModules
-    if (!window._connectedModules) window._connectedModules = [];
-
-    function renderConnectedStrips() {
-      // Remove any previously rendered external strips
-      container.querySelectorAll('.ext-module-strip').forEach(el => el.remove());
-
-      if (!window._connectedModules.length) return;
-
-      const extHeader = document.createElement('div');
-      extHeader.className = 'ext-module-strip';
-      extHeader.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);padding:4px 2px 2px;border-top:1px solid rgba(255,255,255,0.08);margin-top:4px';
-      extHeader.textContent = 'EXTERNAL MODULES';
-      container.append(extHeader);
-
-      window._connectedModules.forEach((mod, idx) => {
-        const strip = document.createElement('div');
-        strip.className = 'fader-strip ext-module-strip';
-        strip.style.cssText = 'border-left:3px solid #a060d0';
-
-        // Label
-        const nameSpan = document.createElement('div');
-        nameSpan.style.cssText = 'font-family:var(--font-mono);font-size:0.5rem;color:#c090f0;font-weight:bold;padding:3px 4px 0;text-overflow:ellipsis;overflow:hidden;white-space:nowrap';
-        nameSpan.textContent = mod.label;
-        strip.append(nameSpan);
-
-        // Fader (0–1.5)
-        const faderWrap = document.createElement('div');
-        faderWrap.style.cssText = 'display:flex;align-items:center;gap:3px;padding:2px 4px';
-
-        const faderLabel = document.createElement('span');
-        faderLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);flex-shrink:0';
-        faderLabel.textContent = 'VOL';
-
-        const fader = document.createElement('input');
-        fader.type = 'range';
-        fader.min = 0; fader.max = 1.5; fader.step = 0.01;
-        fader.value = mod.gain ?? 1;
-        fader.style.cssText = 'flex:1;accent-color:#a060d0;height:3px';
-        const faderVal = document.createElement('span');
-        faderVal.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);min-width:26px;text-align:right';
-        faderVal.textContent = parseFloat(fader.value).toFixed(2);
-
-        fader.addEventListener('input', () => {
-          const v = parseFloat(fader.value);
-          faderVal.textContent = v.toFixed(2);
-          mod.gain = v;
-          // Apply to audio node if available
-          const el = mod.el;
-          if (el) {
-            const gainNode = el._tr909Audio?.gain ?? el._tb303Audio?.gain ?? el._juno60Audio?.gain;
-            if (gainNode) gainNode.value = v;
-          }
-        });
-
-        faderWrap.append(faderLabel, fader, faderVal);
-        strip.append(faderWrap);
-
-        // Pan
-        const panWrap = document.createElement('div');
-        panWrap.style.cssText = 'display:flex;align-items:center;gap:3px;padding:0 4px 2px';
-        const panLabel = document.createElement('span');
-        panLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);flex-shrink:0';
-        panLabel.textContent = 'PAN';
-        const panSlider = document.createElement('input');
-        panSlider.type = 'range'; panSlider.min = -1; panSlider.max = 1; panSlider.step = 0.05;
-        panSlider.value = mod.pan ?? 0;
-        panSlider.style.cssText = 'flex:1;accent-color:#a060d0;height:3px';
-        const panVal = document.createElement('span');
-        panVal.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);min-width:22px;text-align:right';
-        const fmt = v => v === 0 ? 'C' : v > 0 ? `R${Math.round(v*100)}` : `L${Math.round(-v*100)}`;
-        panVal.textContent = fmt(mod.pan ?? 0);
-        panSlider.addEventListener('input', () => {
-          const v = parseFloat(panSlider.value);
-          panVal.textContent = fmt(v);
-          mod.pan = v;
-          const el = mod.el;
-          if (el) {
-            const panNode = el._tr909Audio?.pan ?? el._tb303Audio?.pan ?? el._juno60Audio?.pan;
-            if (panNode) panNode.value = v;
-          }
-        });
-        panWrap.append(panLabel, panSlider, panVal);
-        strip.append(panWrap);
-
-        // Mute / Solo
-        const msRow = document.createElement('div');
-        msRow.style.cssText = 'display:flex;gap:2px;padding:0 4px 4px';
-        const muteBtn = document.createElement('button');
-        muteBtn.className = 'fader-mute' + (mod.muted ? ' active' : '');
-        muteBtn.textContent = 'M'; muteBtn.style.flex = '1';
-        muteBtn.addEventListener('click', e => {
-          e.stopPropagation();
-          mod.muted = !mod.muted;
-          muteBtn.classList.toggle('active', mod.muted);
-          const el = mod.el;
-          if (el) {
-            const gainNode = el._tr909Audio?.gain ?? el._tb303Audio?.gain ?? el._juno60Audio?.gain;
-            if (gainNode) gainNode.value = mod.muted ? 0 : (mod.gain ?? 1);
-          }
-        });
-        const soloBtn = document.createElement('button');
-        soloBtn.className = 'fader-solo' + (mod.solo ? ' active' : '');
-        soloBtn.textContent = 'S'; soloBtn.style.flex = '1';
-        soloBtn.addEventListener('click', e => {
-          e.stopPropagation();
-          mod.solo = !mod.solo;
-          soloBtn.classList.toggle('active', mod.solo);
-        });
-        msRow.append(muteBtn, soloBtn);
-        strip.append(msRow);
-
-        container.append(strip);
-      });
-    }
-
-    renderConnectedStrips();
-
-    // Auto-add channel strip when a module's audio-out connects to mixer
-    const cableHandler = (e) => {
-      const { fromEl, toEl, fromPort, toPort } = e.detail ?? {};
+    // ── Cable connect listener ───────────────────────────────────────────────
+    const cableHandler = e => {
+      const { fromEl } = e.detail ?? {};
       if (!fromEl) return;
-
-      // Check if the connected-from element has a module type
       const moduleEl = fromEl?.closest?.('[data-module-type]') ?? (fromEl?.dataset?.moduleType ? fromEl : null);
       const moduleType = moduleEl?.dataset?.moduleType;
-
       if (moduleType) {
-        // Register if not already tracked
         const alreadyTracked = window._connectedModules.some(m => m.el === moduleEl);
         if (!alreadyTracked) {
           const labelMap = { 'tb-303': 'TB-303', 'tr-909': 'TR-909', 'juno-60': 'JUNO-60' };
           window._connectedModules.push({
-            el:    moduleEl,
+            el: moduleEl,
             label: labelMap[moduleType] ?? moduleType.toUpperCase(),
-            gain:  1,
-            pan:   0,
-            muted: false,
-            solo:  false,
+            gain: 1, pan: 0, muted: false, solo: false,
           });
         }
-        renderConnectedStrips();
-      } else if (fromEl?.dataset?.port === 'audio-out' && toEl?.dataset?.port?.includes('-in')) {
-        // Generic audio-out connection — trigger mixer re-render
-        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+        renderExtModules();
       }
     };
     document.addEventListener('cable:connected', cableHandler);
-    // Cleanup when container leaves DOM
+
     const obs = new MutationObserver(() => {
       if (!container.isConnected) {
         document.removeEventListener('cable:connected', cableHandler);
