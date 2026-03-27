@@ -195,6 +195,92 @@ function decodeMIDI(arrayBuffer) {
 
 const TRACK_COLORS = ['#f0c640','#5add71','#67d7ff','#ff8c52','#c67dff','#ff6eb4','#40e0d0','#f05b52'];
 
+// ─── Inject Bank page CSS (once) ──────────────────────────────────────────────
+if (!document.getElementById('_banks-css')) {
+  const s = document.createElement('style');
+  s.id = '_banks-css';
+  s.textContent = `
+.bank-pattern-card {
+  border-radius: 4px; cursor: pointer; overflow: hidden;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  transition: border-color 0.12s, background 0.12s;
+  display: flex; flex-direction: column; gap: 0;
+  position: relative;
+}
+.bank-pattern-card:hover { border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.07); }
+.bank-pattern-card.active { border-color: var(--live); box-shadow: 0 0 6px rgba(90,221,113,0.25); }
+.bank-pattern-card.active::after {
+  content: '▶'; position: absolute; top: 2px; right: 4px;
+  font-size: 0.55rem; color: var(--live); pointer-events: none;
+}
+.bank-pat-num {
+  font-size: 0.65rem; font-weight: 700; color: rgba(255,255,255,0.4);
+  padding: 3px 5px 0; font-family: var(--font-mono);
+}
+.bank-pat-canvas { width: 100%; display: block; }
+.bank-pat-bpm {
+  font-size: 0.5rem; color: rgba(255,255,255,0.25);
+  padding: 1px 4px 3px; font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+.bank-tabs { display: flex; gap: 2px; padding: 4px 6px; }
+.bank-tab {
+  flex: 1; padding: 5px 4px; font-size: 0.65rem; font-weight: 700;
+  border-radius: 3px; border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.45);
+  cursor: pointer; text-align: center; transition: all 0.1s; letter-spacing: 0.05em;
+  font-family: var(--font-mono);
+}
+.bank-tab:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); }
+.bank-tab.active { background: rgba(90,221,113,0.15); color: var(--live); border-color: var(--live); }
+`;
+  document.head.append(s);
+}
+
+// ─── Pattern Canvas Thumbnail ─────────────────────────────────────────────────
+function buildPatternThumbnail(pattern, trackColors) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 80;
+  canvas.height = 32;
+  const ctx = canvas.getContext('2d');
+
+  // Background
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fillRect(0, 0, 80, 32);
+
+  if (!pattern?.kit?.tracks) return canvas;
+
+  const tracks = pattern.kit.tracks.slice(0, 8);
+  const rowH = 32 / 8;
+
+  tracks.forEach((track, ti) => {
+    const steps = track.steps ?? [];
+    const color = trackColors[ti] ?? '#888';
+    const dotW = 80 / 16;
+
+    for (let si = 0; si < 16; si++) {
+      const step = steps[si];
+      const active = step?.active ?? false;
+      const x = si * dotW + dotW * 0.15;
+      const y = ti * rowH + rowH * 0.15;
+      const w = dotW * 0.7;
+      const h = rowH * 0.7;
+
+      ctx.fillStyle = active ? color : 'rgba(255,255,255,0.06)';
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(x, y, w, h, 1);
+      } else {
+        ctx.rect(x, y, w, h);
+      }
+      ctx.fill();
+    }
+  });
+
+  return canvas;
+}
+
 function computePatternDiff(patA, patB) {
   return patA.kit.tracks.map((trackA, ti) => {
     const trackB = patB.kit.tracks[ti];
@@ -552,12 +638,12 @@ export default {
     // ── Bank/Pattern Section (hidden when chain tab is active) ─────────────
     // Bank selector (A–H)
     const bankRow = document.createElement('div');
-    bankRow.style.cssText = 'display:flex;gap:2px;flex-shrink:0;margin-bottom:4px';
+    bankRow.className = 'bank-tabs';
+    bankRow.style.cssText = 'flex-shrink:0;margin-bottom:4px';
     BANK_LETTERS.forEach((letter, bi) => {
       const btn = document.createElement('button');
-      btn.className = 'bank-btn' + (bi === activeBank ? ' active' : '');
+      btn.className = 'bank-tab' + (bi === activeBank ? ' active' : '');
       btn.textContent = letter;
-      btn.style.cssText = 'flex:1;font-family:var(--font-mono);font-size:0.6rem;padding:3px;border-radius:2px;min-width:0';
       btn.addEventListener('click', () => {
         emit('state:change', { path: 'activeBank', value: bi });
         emit('state:change', { path: 'activePattern', value: 0 });
@@ -573,14 +659,10 @@ export default {
     patGrid.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:4px;flex:1;overflow-y:auto';
 
     project.banks[activeBank].patterns.forEach((pat, pi) => {
-      const btn = document.createElement('button');
-      btn.className = 'bank-btn';
-      btn.style.cssText = 'padding:4px 2px;display:flex;flex-direction:column;align-items:center;gap:1px;min-height:60px;max-height:80px';
-      if (pi === activePattern) {
-        btn.style.cssText += ';color:var(--accent);border-color:rgba(240,198,64,0.5);background:rgba(240,198,64,0.07)';
-        if (state.chainPatterns) {
-          btn.classList.add('chain-active');
-        }
+      const btn = document.createElement('div');
+      btn.className = 'bank-pattern-card' + (pi === activePattern ? ' active' : '');
+      if (pi === activePattern && state.chainPatterns) {
+        btn.classList.add('chain-active');
       }
 
       // A/B badges
@@ -601,65 +683,28 @@ export default {
         btn.append(badge);
       }
 
-      const num = document.createElement('span');
-      num.style.cssText = 'font-size:0.8rem;font-family:var(--font-mono)';
+      // Pattern number
+      const num = document.createElement('div');
+      num.className = 'bank-pat-num';
       num.textContent = String(pi + 1).padStart(2, '0');
+      btn.append(num);
 
-      // Compute density for name color
-      const patTracksForDensity = pat.kit?.tracks ?? [];
-      const totalPossibleSteps = (pat.length ?? 16) * 8;
-      const totalActiveSteps = patTracksForDensity.reduce((sum, t) => sum + (t.steps?.slice(0, pat.length ?? 16).filter(s => s.active).length ?? 0), 0);
-      const densityPct = totalPossibleSteps > 0 ? (totalActiveSteps / totalPossibleSteps) * 100 : 0;
-      const nameColor = totalActiveSteps === 0
-        ? 'var(--muted)'
-        : densityPct > 50
-          ? 'var(--accent)'
-          : 'var(--screen-text)';
+      // Canvas thumbnail
+      const thumb = buildPatternThumbnail(pat, TRACK_COLORS);
+      thumb.className = 'bank-pat-canvas';
+      btn.append(thumb);
 
+      // BPM
+      const bpmEl = document.createElement('div');
+      bpmEl.className = 'bank-pat-bpm';
+      bpmEl.textContent = `${state.bpm ?? 120} BPM`;
+      btn.append(bpmEl);
+
+      // Keep name as hidden data attr for rename UX below
       const name = document.createElement('span');
-      name.style.cssText = `font-size:0.52rem;color:${nameColor};max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap`;
+      name.style.cssText = 'display:none';
       name.textContent = pat.name.replace(/^Pattern /, '');
-
-      // Mini step density bars — 8 stacked horizontal bars, one per track
-      const density = document.createElement('div');
-      density.style.cssText = 'display:flex;flex-direction:column;gap:1px;margin-top:1px;width:100%;height:16px';
-
-      const patTracks = pat.kit?.tracks ?? [];
-      patTracks.slice(0, 8).forEach((trk, ti) => {
-        const patLen = pat.length ?? 16;
-        const activeCount = trk.steps?.slice(0, patLen).filter(s => s.active).length ?? 0;
-        const fillPct = patLen > 0 ? (activeCount / patLen) * 100 : 0;
-
-        const barTrack = document.createElement('div');
-        barTrack.style.cssText = 'position:relative;width:100%;height:2px;background:rgba(255,255,255,0.06);border-radius:1px;overflow:hidden';
-
-        const fill = document.createElement('div');
-        fill.style.cssText = `position:absolute;left:0;top:0;height:100%;width:${fillPct}%;border-radius:1px;background:${activeCount > 0 ? TRACK_COLORS[ti] : 'transparent'};transition:width 0.1s`;
-        barTrack.append(fill);
-        density.append(barTrack);
-      });
-
-      const tracksWithContent = patTracks.filter(t => t.steps?.some(s => s.active)).length;
-      if (tracksWithContent > 0) {
-        const countEl = document.createElement('div');
-        countEl.style.cssText = 'font-size:0.38rem;font-family:var(--font-mono);color:var(--muted);margin-top:1px';
-        countEl.textContent = `${tracksWithContent}t`;
-        btn.append(num, name, density, countEl);
-      } else {
-        btn.append(num, name, density);
-      }
-
-      // Mini dot preview — first 8 steps of track 1
-      const preview = document.createElement('div');
-      preview.style.cssText = 'display:flex;gap:1px;justify-content:center;margin-top:2px';
-      const track0 = pat?.kit?.tracks?.[0];
-      for (let si = 0; si < 8; si++) {
-        const dot = document.createElement('div');
-        const on = track0?.steps?.[si]?.active ?? false;
-        dot.style.cssText = `width:4px;height:4px;border-radius:50%;background:${on ? 'var(--accent)' : 'rgba(255,255,255,0.12)'}`;
-        preview.append(dot);
-      }
-      btn.append(preview);
+      btn.append(name);
 
       // Follow action badge
       const followAction = pat.followAction ?? 'next';
@@ -680,13 +725,6 @@ export default {
         emit('state:change', { param: 'followAction' });
       });
       btn.style.position = 'relative';
-
-      // Active step count badge
-      const lengthBadge = document.createElement('span');
-      lengthBadge.style.cssText = 'position:absolute;top:2px;left:2px;font-family:var(--font-mono);font-size:0.44rem;color:var(--muted);opacity:0.7';
-      const activeSteps = pat.kit.tracks?.reduce((sum, t) => sum + (t.steps?.filter(s => s.active).length ?? 0), 0) ?? 0;
-      lengthBadge.textContent = activeSteps > 0 ? `${activeSteps}` : '';
-      btn.append(lengthBadge);
 
       // Quick-clear button
       const clearBtn = document.createElement('button');
@@ -717,9 +755,8 @@ export default {
         const input = document.createElement('input');
         input.type = 'text';
         input.value = originalName.replace(/^Pattern /, '');
-        input.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;background:transparent;border:none;color:white;width:100%;outline:none;text-align:center;padding:0';
-        // Replace the name span with an input
-        name.replaceWith(input);
+        input.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;background:rgba(0,0,0,0.6);border:none;color:white;width:100%;outline:none;text-align:center;padding:2px 4px;position:absolute;top:2px;left:0;right:0;z-index:3';
+        btn.append(input);
         input.focus();
         input.select();
 
@@ -738,7 +775,7 @@ export default {
           if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
           if (ev.key === 'Escape') {
             input.removeEventListener('blur', commit);
-            input.replaceWith(name);
+            input.remove();
           }
         });
       });

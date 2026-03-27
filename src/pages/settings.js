@@ -4,6 +4,146 @@ import { saveState, getActivePattern, RECORDER_SLOT_COUNT } from '../state.js';
 
 const VERSION = 'v3.0.0';
 
+// ─── Inject Settings CSS (once) ───────────────────────────────────────────────
+if (!document.getElementById('_settings-extra-css')) {
+  const s = document.createElement('style');
+  s.id = '_settings-extra-css';
+  s.textContent = `
+.set-shortcuts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 6px; }
+.set-shortcut-category { display: flex; flex-direction: column; gap: 3px; }
+.set-shortcut-cat-label {
+  font-size: 0.55rem; font-weight: 700; letter-spacing: 0.1em;
+  color: rgba(255,255,255,0.4); text-transform: uppercase;
+  margin-bottom: 3px; padding-bottom: 3px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.set-shortcut-row { display: flex; align-items: center; gap: 6px; padding: 1px 0; }
+.set-kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 26px; padding: 1px 5px; height: 17px;
+  border-radius: 3px; border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7);
+  font-family: monospace; font-size: 0.55rem; font-weight: 700;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.5);
+  white-space: nowrap; flex-shrink: 0;
+}
+.set-shortcut-action { font-size: 0.58rem; color: rgba(255,255,255,0.4); }
+.set-accent-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
+.set-accent-swatch {
+  width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
+  border: 2px solid transparent; transition: transform 0.1s, border-color 0.1s;
+}
+.set-accent-swatch:hover { transform: scale(1.15); }
+.set-accent-swatch.active { border-color: #fff; transform: scale(1.1); }
+`;
+  document.head.append(s);
+}
+
+// ─── Keyboard Shortcuts Reference ─────────────────────────────────────────────
+const ALL_SHORTCUTS = [
+  { category: 'Transport', shortcuts: [
+    { key: 'Space',       action: 'Play / Pause' },
+    { key: 'Shift+Space', action: 'Stop + Reset' },
+    { key: 'T',           action: 'Tap Tempo' },
+    { key: 'F',           action: 'Fill mode' },
+  ]},
+  { category: 'Navigation', shortcuts: [
+    { key: 'Q–O',         action: 'Switch page (Q=Pattern, W=Pads…)' },
+    { key: '[ ]',         action: 'Prev/Next page' },
+    { key: '1–8',         action: 'Select track' },
+    { key: 'Shift+1–8',   action: 'Solo track' },
+  ]},
+  { category: 'Pattern', shortcuts: [
+    { key: 'C',           action: 'Copy track steps' },
+    { key: 'V',           action: 'Paste track steps' },
+    { key: 'Ctrl+Z',      action: 'Undo' },
+    { key: 'R',           action: 'Randomize' },
+    { key: 'E',           action: 'Euclid generate' },
+  ]},
+  { category: 'Studio', shortcuts: [
+    { key: 'Ctrl++',      action: 'Zoom in' },
+    { key: 'Ctrl+-',      action: 'Zoom out' },
+    { key: 'Ctrl+0',      action: 'Reset zoom / fit' },
+    { key: 'Space+drag',  action: 'Pan canvas' },
+    { key: 'Mid drag',    action: 'Pan canvas' },
+  ]},
+];
+
+function buildShortcutsSection() {
+  const el = document.createElement('div');
+  el.className = 'settings-section set-shortcuts-section';
+  el.dataset.settingsTab = 'SYSTEM';
+  el.innerHTML = `<div class="settings-label">KEYBOARD SHORTCUTS</div>`;
+
+  const grid = document.createElement('div');
+  grid.className = 'set-shortcuts-grid';
+
+  ALL_SHORTCUTS.forEach(({ category, shortcuts }) => {
+    const catEl = document.createElement('div');
+    catEl.className = 'set-shortcut-category';
+    const catLabel = document.createElement('div');
+    catLabel.className = 'set-shortcut-cat-label';
+    catLabel.textContent = category;
+    catEl.append(catLabel);
+    shortcuts.forEach(({ key, action }) => {
+      const row = document.createElement('div');
+      row.className = 'set-shortcut-row';
+      const kbd = document.createElement('kbd');
+      kbd.className = 'set-kbd';
+      kbd.textContent = key;
+      const span = document.createElement('span');
+      span.className = 'set-shortcut-action';
+      span.textContent = action;
+      row.append(kbd, span);
+      catEl.append(row);
+    });
+    grid.append(catEl);
+  });
+
+  el.append(grid);
+  return el;
+}
+
+// ─── Accent Color Picker ───────────────────────────────────────────────────────
+const ACCENT_COLORS = [
+  { name: 'Lime',   value: '#5add71' },
+  { name: 'Cyan',   value: '#44ccff' },
+  { name: 'Amber',  value: '#f0c640' },
+  { name: 'Orange', value: '#ff8844' },
+  { name: 'Pink',   value: '#ff6eb4' },
+  { name: 'Purple', value: '#c67dff' },
+  { name: 'White',  value: '#e8e8e8' },
+];
+
+function buildAccentSection(state) {
+  const currentAccent = localStorage.getItem('confusynth-accent') ?? '#5add71';
+
+  const el = document.createElement('div');
+  el.className = 'settings-section';
+  el.dataset.settingsTab = 'SYSTEM';
+  el.innerHTML = `<div class="settings-label">ACCENT COLOR</div>`;
+
+  const row = document.createElement('div');
+  row.className = 'set-accent-row';
+
+  ACCENT_COLORS.forEach(({ name, value }) => {
+    const swatch = document.createElement('div');
+    swatch.className = 'set-accent-swatch' + (value.toLowerCase() === currentAccent.toLowerCase() ? ' active' : '');
+    swatch.style.background = value;
+    swatch.title = name;
+    swatch.addEventListener('click', () => {
+      localStorage.setItem('confusynth-accent', value);
+      document.documentElement.style.setProperty('--live', value);
+      row.querySelectorAll('.set-accent-swatch').forEach(s => s.classList.remove('active'));
+      swatch.classList.add('active');
+    });
+    row.append(swatch);
+  });
+
+  el.append(row);
+  return el;
+}
+
 function infoRow(label, value, color) {
   return `<div class="settings-row">
     <label>${label}</label>
@@ -1213,6 +1353,16 @@ export default {
 
       perfMonitorSection.append(perfDiv);
     }
+
+    // ── Accent Color Picker ───────────────────────────────────────────────────
+    container.append(buildAccentSection(state));
+
+    // ── Keyboard Shortcuts Reference ──────────────────────────────────────────
+    container.append(buildShortcutsSection());
+
+    // Apply saved accent color on render
+    const _savedAccent = localStorage.getItem('confusynth-accent');
+    if (_savedAccent) document.documentElement.style.setProperty('--live', _savedAccent);
 
     // ── Presets ──────────────────────────────────────────────────────────────
     const presetsSection = document.createElement('div');
