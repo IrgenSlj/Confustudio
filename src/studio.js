@@ -208,14 +208,62 @@ export function initStudio() {
     clampViewport();
   }
 
-  function placeModuleNearViewportCenter(mod) {
-    const { width: wrapW, height: wrapH } = getWrapSize();
-    const worldX = (wrapW / 2 - panX) / scale;
-    const worldY = (wrapH / 2 - panY) / scale;
-    const existing = canvas.querySelectorAll('.studio-module').length;
-    const jitter = existing * 28;
-    mod.style.left = `${Math.round(worldX - DEFAULT_MODULE_W / 2 + jitter)}px`;
-    mod.style.top = `${Math.round(worldY - DEFAULT_MODULE_H / 2 + jitter)}px`;
+  function getSpawnPosition() {
+    const mods = canvas.querySelectorAll('.studio-module');
+    if (!mods.length) return { x: 40, y: 40 };
+    let maxRight = 0;
+    let bestY = 40;
+    mods.forEach((m) => {
+      const left = parsePx(m.style.left);
+      const w = m.offsetWidth || DEFAULT_MODULE_W;
+      const right = left + w;
+      if (right > maxRight) {
+        maxRight = right;
+        bestY = parsePx(m.style.top) || 40;
+      }
+    });
+    return { x: maxRight + 40, y: bestY };
+  }
+
+  function enableModuleDrag(modEl) {
+    let dragging = false;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    modEl.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button, input, select, textarea, canvas, .knob, [data-param], [data-step], .port, .djm-port, .tb303-knob, .tr909-step-btn, .pad-cell, .qwerty-key, .tab, .fader-master, .channel-strip, .track-selector, [role="slider"], .page-content, .page-tabs, .kbd-panel, .kbd-context, .screen-section, .oscilloscope-strip, .chassis-dup-btn')) return;
+      dragging = true;
+      modEl.classList.add('module-dragging');
+      modEl.setPointerCapture(e.pointerId);
+
+      const rect = modEl.getBoundingClientRect();
+      offsetX = (e.clientX - rect.left) / scale;
+      offsetY = (e.clientY - rect.top) / scale;
+
+      e.preventDefault();
+    });
+
+    modEl.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const canvasRect = canvas.getBoundingClientRect();
+      const newLeft = (e.clientX - canvasRect.left) / scale - offsetX;
+      const newTop = (e.clientY - canvasRect.top) / scale - offsetY;
+      modEl.style.left = `${newLeft}px`;
+      modEl.style.top = `${newTop}px`;
+    });
+
+    modEl.addEventListener('pointerup', () => {
+      if (!dragging) return;
+      dragging = false;
+      modEl.classList.remove('module-dragging');
+      saveLayout();
+      clampViewport();
+    });
+
+    modEl.addEventListener('pointercancel', () => {
+      dragging = false;
+      modEl.classList.remove('module-dragging');
+    });
   }
 
   function closeModulePicker() {
@@ -268,7 +316,11 @@ export function initStudio() {
     mod.className = 'studio-module';
     mod.dataset.moduleType = type;
     mod.id = `module-${Date.now()}`;
-    placeModuleNearViewportCenter(mod);
+    mod.style.position = 'absolute';
+    const pos = getSpawnPosition();
+    mod.style.left = `${pos.x}px`;
+    mod.style.top = `${pos.y}px`;
+    enableModuleDrag(mod);
 
     if (type === 'synth') {
       const original = document.querySelector('#module-0 .chassis');
@@ -347,6 +399,7 @@ export function initStudio() {
     mod.style.top = `${modTop}px`;
     mod.innerHTML = '<div class="module-loading-shell" style="width:320px;height:420px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Mixer…</div>';
     canvas.appendChild(mod);
+    enableModuleDrag(mod);
     saveLayout();
 
     import('./modules/djmixer.js').then((m) => {
@@ -364,6 +417,15 @@ export function initStudio() {
         }
       });
     });
+  }
+
+  // Attach drag to the pre-existing module-0 (main synth)
+  const module0 = canvas.querySelector('#module-0');
+  if (module0) {
+    if (!module0.style.left) module0.style.left = '40px';
+    if (!module0.style.top)  module0.style.top  = '40px';
+    module0.style.position = 'absolute';
+    enableModuleDrag(module0);
   }
 
   const hasLayout = restoreLayout();
@@ -444,15 +506,22 @@ export function initStudio() {
 
   document.addEventListener('keydown', (e) => {
     const tag = e.target.tagName;
-    if (e.code === 'Space' && tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') spaceDown = true;
+    if (e.code === 'Space' && tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') {
+      spaceDown = true;
+      wrap.classList.add('space-held');
+    }
   });
   document.addEventListener('keyup', (e) => {
-    if (e.code === 'Space') spaceDown = false;
+    if (e.code === 'Space') {
+      spaceDown = false;
+      wrap.classList.remove('space-held');
+    }
   });
 
   wrap.addEventListener('mousedown', (e) => {
     const onBackground = e.target === wrap || e.target === canvas || e.target.closest('#studio-cables');
-    if (e.button === 1 || (spaceDown && onBackground) || (e.button === 0 && onBackground && e.altKey)) {
+    // Middle-click pans anywhere; space+drag or alt+drag pans on background
+    if (e.button === 1 || (spaceDown && e.button === 0) || (e.button === 0 && onBackground && e.altKey)) {
       e.preventDefault();
       panning = true;
       _userHasPanned = true;
@@ -461,6 +530,7 @@ export function initStudio() {
       panStartPanX = panX;
       panStartPanY = panY;
       wrap.classList.add('is-panning');
+      wrap.classList.add('panning');
     }
   });
 
@@ -474,34 +544,10 @@ export function initStudio() {
   window.addEventListener('mouseup', () => {
     panning = false;
     wrap.classList.remove('is-panning');
+    wrap.classList.remove('panning');
   });
 
-  canvas.addEventListener('mousedown', (e) => {
-    const mod = e.target.closest('.studio-module');
-    if (!mod) return;
-    const header = e.target.closest('.ports-bar, .chassis-handle, .studio-figure');
-    if (!header) return;
-    e.preventDefault();
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const startLeft = parsePx(mod.style.left);
-    const startTop = parsePx(mod.style.top);
-
-    function onMove(ev) {
-      mod.style.left = `${Math.round(startLeft + (ev.clientX - startX) / scale)}px`;
-      mod.style.top = `${Math.round(startTop + (ev.clientY - startY) / scale)}px`;
-    }
-
-    function onUp() {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      saveLayout();
-      clampViewport();
-    }
-
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  });
+  // Module dragging is handled per-module by enableModuleDrag() using pointer events.
 
   let touchMode = null;
   let touchDist0 = 0;

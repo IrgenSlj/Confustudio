@@ -121,6 +121,7 @@ body {
 .studio-module {
   position: absolute;
   cursor: default;
+  user-select: none;
   /* Hard single-source shadow: light from top-left, casts bottom-right */
   filter: drop-shadow(10px 18px 0px rgba(0,0,0,0.55));
   transition: filter 0.15s;
@@ -132,8 +133,27 @@ body {
   filter: drop-shadow(12px 20px 0px rgba(0,0,0,0.62));
 }
 
-.studio-module:active {
+.studio-module .chassis {
+  cursor: grab;
+}
+
+.studio-module.module-dragging .chassis {
   cursor: grabbing;
+}
+
+/* Don't show grab cursor over interactive areas */
+.studio-module .screen-section,
+.studio-module .page-content,
+.studio-module .kbd-panel,
+.studio-module button,
+.studio-module input,
+.studio-module .channel-strip {
+  cursor: default;
+}
+
+.studio-module.module-dragging {
+  filter: drop-shadow(16px 24px 0px rgba(0,0,0,0.7));
+  z-index: 100;
 }
 
 #studio-controls {
@@ -181,6 +201,14 @@ body {
 
 #studio-wrap.is-panning {
   cursor: grabbing;
+}
+
+#studio-wrap.space-held {
+  cursor: grab !important;
+}
+
+#studio-wrap.space-held.panning {
+  cursor: grabbing !important;
 }
 
 .module-loading-shell {

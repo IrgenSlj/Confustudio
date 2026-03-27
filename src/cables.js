@@ -316,9 +316,15 @@ export function initCables() {
     dragging = null;
   });
 
+  // Expose redraw for external callers (e.g. module drag)
+  function redrawAllCables() {
+    for (const cable of cables) drawCable(cable);
+  }
+  window._redrawCables = redrawAllCables;
+
   // Redraw cables when modules move (on animation frame)
   function tick() {
-    for (const cable of cables) drawCable(cable);
+    redrawAllCables();
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
