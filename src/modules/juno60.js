@@ -11,12 +11,127 @@ export function createJuno60(audioContext) {
     lfoRate: 0.5, lfoDelay: 0, lfoDcoDepth: 0, lfoVcfDepth: 0,
     sawOn: true, subOn: false, noiseOn: false,
     chorusMode: 1, // 0=off, 1=I, 2=II
+    portamento: 0, // 0–1, maps to 0–300ms glide time
+  };
+
+  // ── Patch presets ──────────────────────────────────────────────────────────
+  const PATCHES = {
+    'Strings': {
+      attack: 0.3, decay: 0.4, sustain: 0.8, release: 1.2,
+      cutoff: 5000, resonance: 0.1, envAmount: 0.2, vcaLevel: 0.8,
+      hpfFreq: 20, lfoRate: 3.5, lfoDcoDepth: 8, lfoVcfDepth: 0,
+      sawOn: true, subOn: false, noiseOn: false, chorusMode: 1, portamento: 0.1,
+    },
+    'Brass': {
+      attack: 0.08, decay: 0.3, sustain: 0.7, release: 0.2,
+      cutoff: 9000, resonance: 0.25, envAmount: 0.7, vcaLevel: 0.85,
+      hpfFreq: 60, lfoRate: 0.5, lfoDcoDepth: 0, lfoVcfDepth: 0,
+      sawOn: true, subOn: true, noiseOn: false, chorusMode: 0, portamento: 0,
+    },
+    'Soft Pad': {
+      attack: 0.8, decay: 0.6, sustain: 0.9, release: 1.8,
+      cutoff: 3500, resonance: 0.05, envAmount: 0.15, vcaLevel: 0.75,
+      hpfFreq: 20, lfoRate: 2.0, lfoDcoDepth: 6, lfoVcfDepth: 0,
+      sawOn: true, subOn: false, noiseOn: false, chorusMode: 2, portamento: 0.15,
+    },
+    'Sync Lead': {
+      attack: 0.005, decay: 0.2, sustain: 0.6, release: 0.3,
+      cutoff: 7000, resonance: 0.55, envAmount: 0.5, vcaLevel: 0.9,
+      hpfFreq: 40, lfoRate: 5.0, lfoDcoDepth: 20, lfoVcfDepth: 0,
+      sawOn: true, subOn: false, noiseOn: false, chorusMode: 0, portamento: 0.05,
+    },
+    'Pluck': {
+      attack: 0.002, decay: 0.18, sustain: 0.0, release: 0.12,
+      cutoff: 6000, resonance: 0.3, envAmount: 0.6, vcaLevel: 0.9,
+      hpfFreq: 80, lfoRate: 0.5, lfoDcoDepth: 0, lfoVcfDepth: 0,
+      sawOn: true, subOn: false, noiseOn: false, chorusMode: 0, portamento: 0,
+    },
+    'Organ': {
+      attack: 0.002, decay: 0.1, sustain: 1.0, release: 0.05,
+      cutoff: 18000, resonance: 0, envAmount: 0, vcaLevel: 0.8,
+      hpfFreq: 20, lfoRate: 1.5, lfoDcoDepth: 4, lfoVcfDepth: 0,
+      sawOn: true, subOn: true, noiseOn: false, chorusMode: 1, portamento: 0,
+    },
+    'Bass': {
+      attack: 0.005, decay: 0.4, sustain: 0.3, release: 0.2,
+      cutoff: 1800, resonance: 0.4, envAmount: 0.5, vcaLevel: 0.95,
+      hpfFreq: 20, lfoRate: 0.5, lfoDcoDepth: 0, lfoVcfDepth: 0,
+      sawOn: false, subOn: true, noiseOn: false, chorusMode: 0, portamento: 0,
+    },
+    'Juno Arp': {
+      attack: 0.01, decay: 0.3, sustain: 0.7, release: 0.5,
+      cutoff: 7500, resonance: 0.15, envAmount: 0.45, vcaLevel: 0.82,
+      hpfFreq: 20, lfoRate: 1.8, lfoDcoDepth: 5, lfoVcfDepth: 0,
+      sawOn: true, subOn: true, noiseOn: false, chorusMode: 1, portamento: 0.08,
+    },
   };
 
   let voices = [];
   let lfo, lfoGain, lfoVcfGain;
   let voiceSum, chorusDry, delay1, delay2, chorusLFO, chorus2LFO, depthGain, depth2, outputGain;
   let voiceIdx = 0;
+
+  // ── Hold pedal / Latch ─────────────────────────────────────────────────────
+  let _holdActive = false;
+  let _heldNotes = new Set(); // midi notes currently held by latch
+
+  // ── Arpeggiator ────────────────────────────────────────────────────────────
+  let _arpActive = false;
+  let _arpNotes = [];        // currently arpeggiated note pool
+  let _arpIdx = 0;
+  let _arpDir = 1;           // for UP-DOWN mode
+  let _arpMode = 'UP';       // UP | DOWN | UP-DOWN | RANDOM
+  let _arpRate = '1/8';      // 1/4 | 1/8 | 1/16
+  let _arpTimer = null;
+  let _arpClockBPM = 120;
+  let _arpClockActive = false; // true when clock events are driving arp
+
+  function _arpNextNote() {
+    if (_arpNotes.length === 0) return;
+    const sorted = [..._arpNotes].sort((a, b) => a - b);
+    let note;
+    if (_arpMode === 'UP') {
+      note = sorted[_arpIdx % sorted.length];
+      _arpIdx = (_arpIdx + 1) % sorted.length;
+    } else if (_arpMode === 'DOWN') {
+      const rev = [...sorted].reverse();
+      note = rev[_arpIdx % rev.length];
+      _arpIdx = (_arpIdx + 1) % rev.length;
+    } else if (_arpMode === 'UP-DOWN') {
+      const full = sorted.length > 1
+        ? [...sorted, ...sorted.slice(1, -1).reverse()]
+        : sorted;
+      note = full[_arpIdx % full.length];
+      _arpIdx = (_arpIdx + 1) % full.length;
+    } else {
+      note = sorted[Math.floor(Math.random() * sorted.length)];
+    }
+    // Stop any sounding arp voice, then trigger new one
+    voices.forEach(v => {
+      if (v.arpNote && v.arpNote !== note) {
+        _releaseVoice(v);
+        v.arpNote = null;
+      }
+    });
+    _triggerNoteOn(note, 90);
+    // Track which voice is playing the arp note for release
+    const av = [...voices].filter(v => v.note === note).pop();
+    if (av) av.arpNote = note;
+  }
+
+  function _startArpTimer() {
+    if (_arpTimer) clearInterval(_arpTimer);
+    const rateMap = { '1/4': 1, '1/8': 0.5, '1/16': 0.25 };
+    const beats = rateMap[_arpRate] ?? 0.5;
+    const ms = (60000 / _arpClockBPM) * beats;
+    _arpTimer = setInterval(_arpNextNote, ms);
+  }
+
+  function _stopArpTimer() {
+    if (_arpTimer) { clearInterval(_arpTimer); _arpTimer = null; }
+    // Release all arp voices
+    voices.forEach(v => { if (v.arpNote) { _releaseVoice(v); v.arpNote = null; } });
+  }
 
   function makeVoice(actx) {
     const saw = actx.createOscillator(); saw.type = 'sawtooth';
@@ -47,7 +162,7 @@ export function createJuno60(audioContext) {
     saw.start(); sub.start(); noise.start();
 
     return { saw, sub, noise, sawGain, subGain, noiseGain, dcoSum, hpf, vcf1, vcf2, vca,
-             active: false, note: -1, startTime: 0 };
+             active: false, note: -1, startTime: 0, lastFreq: 0, arpNote: null };
   }
 
   if (ctx) {
@@ -113,31 +228,89 @@ export function createJuno60(audioContext) {
   function _applyChorusMode(mode) {
     if (!ctx) return;
     if (mode === 0) {
-      // off: dry only
       chorusDry.gain.setTargetAtTime(1.0, ctx.currentTime, 0.02);
       depthGain.gain.setTargetAtTime(0, ctx.currentTime, 0.02);
       depth2.gain.setTargetAtTime(0, ctx.currentTime, 0.02);
     } else if (mode === 1) {
-      // I: subtle
       chorusDry.gain.setTargetAtTime(0.6, ctx.currentTime, 0.02);
       depthGain.gain.setTargetAtTime(0.003, ctx.currentTime, 0.02);
       depth2.gain.setTargetAtTime(0.002, ctx.currentTime, 0.02);
     } else {
-      // II: lush
       chorusDry.gain.setTargetAtTime(0.4, ctx.currentTime, 0.02);
       depthGain.gain.setTargetAtTime(0.006, ctx.currentTime, 0.02);
       depth2.gain.setTargetAtTime(0.004, ctx.currentTime, 0.02);
     }
   }
 
-  function noteOn(midi, vel = 100) {
+  function _applyPatch(patchName) {
+    const p = PATCHES[patchName];
+    if (!p) return;
+    Object.assign(params, p);
+
+    // Sync sliders to new param values
+    Object.entries(p).forEach(([k, v]) => {
+      if (typeof v === 'boolean') return;
+      const sl = el.querySelector(`.juno60-slider[data-param="${k}"]`);
+      if (sl) sl.value = v;
+    });
+
+    // DCO source buttons
+    el.querySelectorAll('[data-dco]').forEach(btn => {
+      const src = btn.dataset.dco;
+      const on = src === 'saw' ? p.sawOn : src === 'sub' ? p.subOn : p.noiseOn;
+      btn.classList.toggle('juno60-sw--on', !!on);
+    });
+
+    // Chorus
+    el.querySelectorAll('.juno60-chorus-btn').forEach(btn => {
+      const match = parseInt(btn.dataset.chorus) === p.chorusMode;
+      btn.classList.toggle('juno60-chorus-btn--active', match);
+    });
+    _applyChorusMode(p.chorusMode);
+
+    // HPF: find closest preset freq
+    const HPF_FREQS = [20, 240, 800, 3000];
+    const hpfIdx = HPF_FREQS.reduce((best, f, i) =>
+      Math.abs(f - p.hpfFreq) < Math.abs(HPF_FREQS[best] - p.hpfFreq) ? i : best, 0);
+    el.querySelectorAll('.juno60-hpf-btn').forEach(btn => {
+      btn.classList.toggle('juno60-hpf-btn--active', parseInt(btn.dataset.hpf) === hpfIdx);
+    });
+    if (ctx) {
+      voices.forEach(v => v.hpf.frequency.setTargetAtTime(p.hpfFreq, ctx.currentTime, 0.02));
+    }
+
+    // Portamento slider
+    const portSl = el.querySelector('.juno60-slider[data-param="portamento"]');
+    if (portSl) portSl.value = p.portamento;
+
+    _updateADSRCanvas();
+    _updateVoiceDots();
+  }
+
+  function _triggerNoteOn(midi, vel = 100) {
     if (!ctx) return;
     const v = voices[voiceIdx++ % 6];
     const freq = 440 * Math.pow(2, (midi - 69) / 12);
     const t = ctx.currentTime;
+    const glideMs = params.portamento * 300; // 0–300ms
 
-    v.saw.frequency.setValueAtTime(freq, t);
-    v.sub.frequency.setValueAtTime(freq / 2, t);
+    // Portamento: glide from last freq to new freq via exponential ramp
+    if (glideMs > 0 && v.lastFreq > 0) {
+      const glideTime = glideMs / 1000;
+      v.saw.frequency.cancelScheduledValues(t);
+      v.sub.frequency.cancelScheduledValues(t);
+      v.saw.frequency.setValueAtTime(Math.max(20, v.lastFreq), t);
+      v.sub.frequency.setValueAtTime(Math.max(20, v.lastFreq / 2), t);
+      v.saw.frequency.exponentialRampToValueAtTime(Math.max(20, freq), t + glideTime);
+      v.sub.frequency.exponentialRampToValueAtTime(Math.max(20, freq / 2), t + glideTime);
+    } else {
+      v.saw.frequency.cancelScheduledValues(t);
+      v.sub.frequency.cancelScheduledValues(t);
+      v.saw.frequency.setValueAtTime(freq, t);
+      v.sub.frequency.setValueAtTime(freq / 2, t);
+    }
+    v.lastFreq = freq;
+
     v.sawGain.gain.setValueAtTime(params.sawOn   ? 1   : 0,   t);
     v.subGain.gain.setValueAtTime(params.subOn   ? 0.5 : 0,   t);
     v.noiseGain.gain.setValueAtTime(params.noiseOn ? 0.3 : 0, t);
@@ -164,26 +337,117 @@ export function createJuno60(audioContext) {
     );
 
     v.active = true; v.note = midi; v.startTime = t;
+    _updateVoiceDots();
+  }
+
+  function _releaseVoice(v) {
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    v.vca.gain.cancelScheduledValues(t);
+    v.vca.gain.setValueAtTime(v.vca.gain.value, t);
+    v.vca.gain.exponentialRampToValueAtTime(0.001, t + params.release);
+    v.active = false; v.note = -1;
+    _updateVoiceDots();
+  }
+
+  function noteOn(midi, vel = 100) {
+    if (!ctx) return;
+
+    if (_arpActive) {
+      // Add to arp pool
+      if (!_arpNotes.includes(midi)) _arpNotes.push(midi);
+      if (!_arpClockActive && !_arpTimer) _startArpTimer();
+      return;
+    }
+
+    if (_holdActive) _heldNotes.add(midi);
+    _triggerNoteOn(midi, vel);
   }
 
   function noteOff(midi) {
     if (!ctx) return;
-    const t = ctx.currentTime;
-    voices.filter(v => v.note === midi && v.active).forEach(v => {
-      v.vca.gain.cancelScheduledValues(t);
-      v.vca.gain.setValueAtTime(v.vca.gain.value, t);
-      v.vca.gain.exponentialRampToValueAtTime(0.001, t + params.release);
-      v.active = false; v.note = -1;
-    });
+
+    if (_arpActive) {
+      _arpNotes = _arpNotes.filter(n => n !== midi);
+      if (_arpNotes.length === 0 && !_holdActive) _stopArpTimer();
+      return;
+    }
+
+    if (_holdActive) return; // sustain: don't release while hold is on
+
+    voices.filter(v => v.note === midi && v.active).forEach(v => _releaseVoice(v));
   }
 
   // Listen for global note events
   document.addEventListener('confusynth:note:on',  e => noteOn(e.detail.note,  e.detail.velocity * 127));
   document.addEventListener('confusynth:note:off', e => noteOff(e.detail.note));
 
+  // Clock sync for arp
+  document.addEventListener('confusynth:clock', e => {
+    const { step, bpm } = e.detail ?? {};
+    if (bpm) { _arpClockBPM = bpm; }
+    if (!_arpActive) return;
+    _arpClockActive = true;
+    if (_arpTimer) { clearInterval(_arpTimer); _arpTimer = null; }
+
+    const rateMap = { '1/4': 4, '1/8': 2, '1/16': 1 };
+    const divisor = rateMap[_arpRate] ?? 2;
+    if ((step ?? 0) % divisor === 0) {
+      _arpNextNote();
+    }
+  });
+
+  // ── ADSR canvas helper ──────────────────────────────────────────────────────
+  function _updateADSRCanvas() {
+    const canvas = el.querySelector('.juno60-adsr-canvas');
+    if (!canvas) return;
+    const cw = canvas.width, ch = canvas.height;
+    const gc = canvas.getContext('2d');
+    if (!gc) return;
+    gc.clearRect(0, 0, cw, ch);
+
+    const A = Math.min(params.attack / 4, 1);   // 0–1 of total width
+    const D = Math.min(params.decay  / 4, 1);
+    const S = params.sustain;                   // 0–1 height
+    const R = Math.min(params.release / 6, 1);
+
+    const totalSeg = A + D + 0.25 + R;
+    const scale = cw / totalSeg;
+    const pad = 3;
+
+    const xA = pad + A * scale;
+    const xD = xA + D * scale;
+    const xS = xD + 0.25 * scale;
+    const xR = xS + R * scale;
+
+    const yTop = pad;
+    const yBot = ch - pad;
+    const yS = yTop + (1 - S) * (yBot - yTop);
+
+    gc.strokeStyle = '#e07030';
+    gc.lineWidth = 1.5;
+    gc.beginPath();
+    gc.moveTo(pad, yBot);
+    gc.lineTo(xA, yTop);
+    gc.lineTo(xD, yS);
+    gc.lineTo(xS, yS);
+    gc.lineTo(xR, yBot);
+    gc.stroke();
+  }
+
+  // ── Voice indicator ─────────────────────────────────────────────────────────
+  function _updateVoiceDots() {
+    const dots = el.querySelectorAll('.juno60-voice-dot');
+    voices.forEach((v, i) => {
+      if (dots[i]) dots[i].classList.toggle('active', v.active);
+    });
+  }
+
   // ── DOM ─────────────────────────────────────────────────────────────────────
   const el = document.createElement('div');
   el.className = 'juno60-chassis';
+
+  const portaMs = () => Math.round(params.portamento * 300);
 
   el.innerHTML = `
     <div class="juno60-ports-bar">
@@ -279,30 +543,44 @@ export function createJuno60(audioContext) {
         </div>
       </div>
 
-      <!-- ENV -->
+      <!-- ENV with ADSR canvas -->
       <div class="juno60-section juno60-section--wide">
         <div class="juno60-section-header">ENV</div>
-        <div class="juno60-section-body">
-          <div class="juno60-knob-col">
-            <input type="range" class="juno60-slider" data-param="attack"
-              min="0.001" max="4" step="0.001" value="0.01" orient="vertical" />
-            <span class="juno60-label">A</span>
+        <div class="juno60-section-body" style="flex-direction:column; gap:4px; align-items:center;">
+          <canvas class="juno60-adsr-canvas" width="80" height="40"></canvas>
+          <div style="display:flex; flex-direction:row; gap:4px; align-items:flex-end;">
+            <div class="juno60-knob-col">
+              <input type="range" class="juno60-slider" data-param="attack"
+                min="0.001" max="4" step="0.001" value="0.01" orient="vertical" />
+              <span class="juno60-label">A</span>
+            </div>
+            <div class="juno60-knob-col">
+              <input type="range" class="juno60-slider" data-param="decay"
+                min="0.01" max="4" step="0.001" value="0.3" orient="vertical" />
+              <span class="juno60-label">D</span>
+            </div>
+            <div class="juno60-knob-col">
+              <input type="range" class="juno60-slider" data-param="sustain"
+                min="0" max="1" step="0.01" value="0.7" orient="vertical" />
+              <span class="juno60-label">S</span>
+            </div>
+            <div class="juno60-knob-col">
+              <input type="range" class="juno60-slider" data-param="release"
+                min="0.01" max="6" step="0.001" value="0.5" orient="vertical" />
+              <span class="juno60-label">R</span>
+            </div>
           </div>
-          <div class="juno60-knob-col">
-            <input type="range" class="juno60-slider" data-param="decay"
-              min="0.01" max="4" step="0.001" value="0.3" orient="vertical" />
-            <span class="juno60-label">D</span>
-          </div>
-          <div class="juno60-knob-col">
-            <input type="range" class="juno60-slider" data-param="sustain"
-              min="0" max="1" step="0.01" value="0.7" orient="vertical" />
-            <span class="juno60-label">S</span>
-          </div>
-          <div class="juno60-knob-col">
-            <input type="range" class="juno60-slider" data-param="release"
-              min="0.01" max="6" step="0.001" value="0.5" orient="vertical" />
-            <span class="juno60-label">R</span>
-          </div>
+        </div>
+      </div>
+
+      <!-- PORTAMENTO -->
+      <div class="juno60-section">
+        <div class="juno60-section-header">PORTA</div>
+        <div class="juno60-section-body" style="flex-direction:column; align-items:center; gap:3px;">
+          <input type="range" class="juno60-slider" data-param="portamento"
+            min="0" max="1" step="0.01" value="0" orient="vertical" />
+          <span class="juno60-label">GLIDE</span>
+          <span class="juno60-porta-val">0ms</span>
         </div>
       </div>
 
@@ -316,16 +594,51 @@ export function createJuno60(audioContext) {
         </div>
       </div>
 
+      <!-- HOLD + ARP -->
+      <div class="juno60-section juno60-section--wide">
+        <div class="juno60-section-header">PERFORM</div>
+        <div class="juno60-section-body" style="flex-direction:column; gap:5px; align-items:stretch; padding:6px;">
+          <button class="juno60-hold-btn">HOLD</button>
+
+          <div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
+            <button class="juno60-arp-btn">ARP</button>
+            <select class="juno60-arp-rate">
+              <option value="1/4">1/4</option>
+              <option value="1/8" selected>1/8</option>
+              <option value="1/16">1/16</option>
+            </select>
+            <button class="juno60-arp-mode">UP</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PATCH PRESETS -->
+      <div class="juno60-section juno60-section--wide">
+        <div class="juno60-section-header">PATCH</div>
+        <div class="juno60-section-body" style="flex-direction:column; gap:5px; align-items:stretch; padding:6px;">
+          <select class="juno60-patch-select">
+            ${Object.keys(PATCHES).map(n => `<option value="${n}">${n}</option>`).join('')}
+          </select>
+          <button class="juno60-load-patch">LOAD</button>
+        </div>
+      </div>
+
     </div>
 
-    <!-- Mini keyboard C3–C5 -->
-    <div class="juno60-keyboard"></div>
+    <!-- Voice indicator + keyboard row -->
+    <div class="juno60-lower-bar">
+      <div class="juno60-voice-dots">
+        ${Array.from({length:6}, (_,i) => `<div class="juno60-voice-dot" title="Voice ${i+1}"></div>`).join('')}
+        <span class="juno60-voice-label">VOICES</span>
+      </div>
+      <div class="juno60-keyboard"></div>
+    </div>
 
     <style>
       .juno60-chassis {
         background: #1a1810;
         border-radius: 6px 6px 4px 4px;
-        width: 860px;
+        width: 920px;
         min-height: 240px;
         box-sizing: border-box;
         font-family: monospace;
@@ -397,6 +710,7 @@ export function createJuno60(audioContext) {
         position: relative;
         z-index: 2;
         flex: 1;
+        flex-wrap: wrap;
       }
 
       .juno60-section {
@@ -538,13 +852,163 @@ export function createJuno60(audioContext) {
         background: #e07030;
         color: #fff;
         border-color: #e07030;
+        box-shadow: 0 0 6px rgba(224,112,48,0.6);
+      }
+
+      /* ADSR canvas */
+      .juno60-adsr-canvas {
+        display: block;
+        background: #0e0e08;
+        border: 1px solid #333;
+        border-radius: 2px;
+      }
+
+      /* Portamento value display */
+      .juno60-porta-val {
+        font-size: 8px;
+        color: #e07030;
+        font-family: monospace;
+        letter-spacing: 0.05em;
+      }
+
+      /* HOLD button */
+      .juno60-hold-btn {
+        font-family: monospace;
+        font-size: 9px;
+        padding: 4px 8px;
+        background: #2a2818;
+        color: #888;
+        border: 1px solid #555;
+        border-radius: 3px;
+        cursor: pointer;
+        letter-spacing: 0.08em;
+        transition: background 0.1s, color 0.1s;
+        width: 100%;
+      }
+      .juno60-hold-btn.active {
+        background: #8040e0;
+        color: #fff;
+        border-color: #a060ff;
+        box-shadow: 0 0 6px rgba(128,64,224,0.6);
+      }
+
+      /* ARP buttons */
+      .juno60-arp-btn {
+        font-family: monospace;
+        font-size: 9px;
+        padding: 3px 6px;
+        background: #2a2818;
+        color: #888;
+        border: 1px solid #555;
+        border-radius: 3px;
+        cursor: pointer;
+        letter-spacing: 0.07em;
+        transition: background 0.1s, color 0.1s;
+        white-space: nowrap;
+      }
+      .juno60-arp-btn.active {
+        background: #20a060;
+        color: #fff;
+        border-color: #40c880;
+        box-shadow: 0 0 6px rgba(32,160,96,0.6);
+      }
+      .juno60-arp-rate {
+        font-family: monospace;
+        font-size: 9px;
+        background: #1a1a10;
+        color: #ccc;
+        border: 1px solid #444;
+        border-radius: 3px;
+        padding: 2px 3px;
+        cursor: pointer;
+      }
+      .juno60-arp-mode {
+        font-family: monospace;
+        font-size: 8px;
+        padding: 3px 5px;
+        background: #2a2020;
+        color: #aaa;
+        border: 1px solid #555;
+        border-radius: 3px;
+        cursor: pointer;
+        letter-spacing: 0.06em;
+        transition: background 0.1s;
+        white-space: nowrap;
+      }
+      .juno60-arp-mode:hover { background: #444; }
+
+      /* Patch controls */
+      .juno60-patch-select {
+        font-family: monospace;
+        font-size: 9px;
+        background: #1a1a10;
+        color: #e07030;
+        border: 1px solid #555;
+        border-radius: 3px;
+        padding: 2px 4px;
+        cursor: pointer;
+        width: 100%;
+      }
+      .juno60-load-patch {
+        font-family: monospace;
+        font-size: 9px;
+        padding: 3px 6px;
+        background: #333;
+        color: #e07030;
+        border: 1px solid #555;
+        border-radius: 3px;
+        cursor: pointer;
+        letter-spacing: 0.06em;
+        transition: background 0.1s;
+        width: 100%;
+      }
+      .juno60-load-patch:hover { background: #555; }
+
+      /* Lower bar with voice dots + keyboard */
+      .juno60-lower-bar {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
+        padding: 0 24px;
+        z-index: 2;
+        position: relative;
+      }
+
+      /* Voice indicator dots */
+      .juno60-voice-dots {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 0;
+        flex-shrink: 0;
+      }
+      .juno60-voice-label {
+        font-size: 7px;
+        color: #666;
+        letter-spacing: 0.06em;
+        margin-left: 3px;
+      }
+      .juno60-voice-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #2a2818;
+        border: 1px solid #444;
+        transition: background 0.08s, box-shadow 0.08s;
+      }
+      .juno60-voice-dot.active {
+        background: #e07030;
+        border-color: #ff9050;
+        box-shadow: 0 0 5px rgba(224,112,48,0.7);
       }
 
       /* Keyboard */
       .juno60-keyboard {
         position: relative;
         height: 54px;
-        margin: 0 24px 0 24px;
+        flex: 1;
         display: flex;
         z-index: 2;
         margin-bottom: 6px;
@@ -559,6 +1023,16 @@ export function createJuno60(audioContext) {
         position: relative;
         transition: background 0.06s;
         min-width: 0;
+      }
+      .juno60-key-white .juno60-key-label {
+        position: absolute;
+        bottom: 2px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 6px;
+        color: #888;
+        font-family: monospace;
+        pointer-events: none;
       }
       .juno60-key-white:active,
       .juno60-key-white.pressed {
@@ -586,15 +1060,12 @@ export function createJuno60(audioContext) {
 
   // ── Build mini keyboard C3–C5 (25 keys, MIDI 48–72) ─────────────────────
   const kbEl = el.querySelector('.juno60-keyboard');
-  const WHITE_PATTERN = [0, 2, 4, 5, 7, 9, 11]; // semitones of white keys in an octave
-  // BLACK key positions: placed between whites. Index within octave white set: after 0,2,4 → positions 1,2 and after 5,7,9 → positions 4,5,6 (layout: C D E F G A B)
-  // Black key semitones: 1,3,  6,8,10
-  const BLACK_IN_OCT = [1, 3, null, 6, 8, 10, null]; // null = gap
-  // Build all white keys first, then overlay black keys
+  const WHITE_PATTERN = [0, 2, 4, 5, 7, 9, 11];
   const MIDI_START = 48; // C3
-  const MIDI_END   = 72; // C5 (25 notes inclusive)
+  const MIDI_END   = 72; // C5
 
-  // Collect white and black key info
+  const NOTE_LABELS = ['C', '', 'D', '', 'E', 'F', '', 'G', '', 'A', '', 'B'];
+
   const whiteKeys = [];
   const blackKeys = [];
   for (let midi = MIDI_START; midi <= MIDI_END; midi++) {
@@ -606,25 +1077,27 @@ export function createJuno60(audioContext) {
     }
   }
 
-  // Render white keys
+  // Render white keys — show C labels
   whiteKeys.forEach(midi => {
     const k = document.createElement('div');
     k.className = 'juno60-key-white';
     k.dataset.midi = midi;
+    if (midi % 12 === 0) {
+      const lbl = document.createElement('span');
+      lbl.className = 'juno60-key-label';
+      lbl.textContent = `C${Math.floor(midi / 12) - 1}`;
+      k.appendChild(lbl);
+    }
     kbEl.appendChild(k);
   });
 
-  // Overlay black keys: compute left% based on white key position
-  // White key width = 100% / whiteKeys.length
   const wkW = 100 / whiteKeys.length;
   blackKeys.forEach(midi => {
-    // Find which white key is immediately to the left
     const prevWhiteIdx = whiteKeys.findIndex(w => w > midi) - 1;
-    if (prevWhiteIdx < 0) return; // safety
+    if (prevWhiteIdx < 0) return;
     const k = document.createElement('div');
     k.className = 'juno60-key-black';
     k.dataset.midi = midi;
-    // Position: right edge of prevWhite key (center of the gap)
     const leftPct = (prevWhiteIdx + 1) * wkW;
     k.style.left = `${leftPct}%`;
     kbEl.appendChild(k);
@@ -692,6 +1165,18 @@ export function createJuno60(audioContext) {
       case 'hpfFreq':
         voices.forEach(vv => vv.hpf.frequency.setTargetAtTime(v, t, 0.02));
         break;
+      case 'portamento': {
+        const ms = Math.round(v * 300);
+        const portaValEl = el.querySelector('.juno60-porta-val');
+        if (portaValEl) portaValEl.textContent = `${ms}ms`;
+        break;
+      }
+      case 'attack':
+      case 'decay':
+      case 'sustain':
+      case 'release':
+        _updateADSRCanvas();
+        break;
     }
   }
 
@@ -729,12 +1214,60 @@ export function createJuno60(audioContext) {
     });
   });
 
+  // ── HOLD button ────────────────────────────────────────────────────────
+  el.querySelector('.juno60-hold-btn')?.addEventListener('click', (e) => {
+    _holdActive = !_holdActive;
+    e.currentTarget.classList.toggle('active', _holdActive);
+    if (!_holdActive) {
+      // Release all held notes with release envelope
+      _heldNotes.forEach(midi => {
+        voices.filter(v => v.note === midi && v.active).forEach(v => _releaseVoice(v));
+      });
+      _heldNotes.clear();
+    }
+  });
+
+  // ── ARP button ─────────────────────────────────────────────────────────
+  const ARP_MODES = ['UP', 'DOWN', 'UP-DOWN', 'RANDOM'];
+  let _arpModeIdx = 0;
+
+  el.querySelector('.juno60-arp-btn')?.addEventListener('click', (e) => {
+    _arpActive = !_arpActive;
+    e.currentTarget.classList.toggle('active', _arpActive);
+    if (!_arpActive) {
+      _stopArpTimer();
+      _arpNotes = [];
+      _arpIdx = 0;
+    }
+  });
+
+  el.querySelector('.juno60-arp-mode')?.addEventListener('click', (e) => {
+    _arpModeIdx = (_arpModeIdx + 1) % ARP_MODES.length;
+    _arpMode = ARP_MODES[_arpModeIdx];
+    e.currentTarget.textContent = _arpMode;
+    _arpIdx = 0;
+  });
+
+  el.querySelector('.juno60-arp-rate')?.addEventListener('change', (e) => {
+    _arpRate = e.target.value;
+    if (_arpTimer) _startArpTimer(); // restart with new rate
+  });
+
+  // ── Patch preset load ──────────────────────────────────────────────────
+  el.querySelector('.juno60-load-patch')?.addEventListener('click', () => {
+    const name = el.querySelector('.juno60-patch-select')?.value;
+    if (name) _applyPatch(name);
+  });
+
   // ── Audio port export ──────────────────────────────────────────────────
   if (ctx && outputGain) {
     el._juno60Audio = { output: outputGain, context: ctx };
     const outPort = el.querySelector('.port[data-port="audio-out"]');
     if (outPort) outPort._audioNode = outputGain;
   }
+
+  // Initialize ADSR canvas
+  _updateADSRCanvas();
 
   return el;
 }

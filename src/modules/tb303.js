@@ -16,7 +16,82 @@ export function createTB303(audioContext) {
   let _running = false;
   let _currentStep = -1;
   let _prevFreq = 110;
+  let _slideActive = false;   // true when the previous step had slide=true
   let _waveform = 'sawtooth';
+  let _currentScale = 'CHROMATIC';
+  let _syncBPM = null; // last received BPM from clock
+  let _vuTimeout = null;
+
+  // ── Scale definitions (semitone offsets from root) ─────────────────────────
+  const SCALES = {
+    CHROMATIC:   [0,1,2,3,4,5,6,7,8,9,10,11],
+    MAJOR:       [0,2,4,5,7,9,11],
+    MINOR:       [0,2,3,5,7,8,10],
+    PHRYGIAN:    [0,1,3,5,7,8,10],
+    DORIAN:      [0,2,3,5,7,9,10],
+    PENTATONIC:  [0,2,4,7,9],
+    BLUES:       [0,3,5,6,7,10],
+  };
+
+  // ── Preset patterns ────────────────────────────────────────────────────────
+  const PRESETS = {
+    'Classic Acid': () => {
+      _steps.forEach((s,i) => { s.active=false; s.accent=false; s.slide=false; s.octave=0; });
+      [0,2,4,7,8,10,12,14].forEach(i => { _steps[i].active=true; });
+      _steps[0].note=48; _steps[2].note=48; _steps[4].note=55; _steps[7].note=60;
+      _steps[8].note=48; _steps[8].slide=true; _steps[10].note=51; _steps[12].note=55;
+      _steps[14].note=53; _steps[14].accent=true;
+    },
+    'Funk Acid': () => {
+      _steps.forEach(s => { s.active=false; s.accent=false; s.slide=false; s.octave=0; });
+      [1,3,5,7,9,11,13,15].forEach(i => { _steps[i].active=true; });
+      const funk = [48,51,48,55,48,53,48,56];
+      [1,3,5,7,9,11,13,15].forEach((si,n) => { _steps[si].note=funk[n]; });
+      _steps[7].accent=true; _steps[7].slide=true; _steps[15].accent=true;
+    },
+    'Techno Acid': () => {
+      _steps.forEach(s => { s.active=false; s.accent=false; s.slide=false; s.octave=0; });
+      [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].forEach(i => { _steps[i].active=true; });
+      const notes=[48,48,51,48,55,48,53,51,48,48,51,55,58,55,53,51];
+      _steps.forEach((s,i) => { s.note=notes[i]; });
+      _steps[3].accent=true; _steps[7].accent=true; _steps[11].accent=true; _steps[15].accent=true;
+      _steps[3].slide=true; _steps[11].slide=true;
+    },
+    'Minimal': () => {
+      _steps.forEach(s => { s.active=false; s.accent=false; s.slide=false; s.octave=0; });
+      [0,4,8,12].forEach(i => { _steps[i].active=true; _steps[i].note=48; });
+      _steps[8].accent=true;
+    },
+    'Arpeggio Up': () => {
+      _steps.forEach(s => { s.active=false; s.accent=false; s.slide=false; s.octave=0; });
+      const arp=[48,51,55,58,60,63,67,70,72,70,67,63,60,58,55,51];
+      _steps.forEach((s,i) => { s.active=true; s.note=arp[i]; });
+    },
+    'Arpeggio Down': () => {
+      _steps.forEach(s => { s.active=false; s.accent=false; s.slide=false; s.octave=0; });
+      const arp=[72,70,67,63,60,58,55,51,48,51,55,58,60,63,67,70];
+      _steps.forEach((s,i) => { s.active=true; s.note=arp[i]; });
+    },
+    'Pentatonic Run': () => {
+      _steps.forEach(s => { s.active=false; s.accent=false; s.slide=false; s.octave=0; });
+      const pent=[48,50,52,55,57,60,62,64,67,69,67,64,62,60,57,55];
+      _steps.forEach((s,i) => { s.active=true; s.note=pent[i]; });
+      _steps[7].accent=true; _steps[7].slide=true;
+    },
+    'Random Acid': () => {
+      _steps.forEach(s => { s.active=false; s.accent=false; s.slide=false; s.octave=0; });
+      // Seeded pseudo-random
+      let seed=42;
+      const rand=()=>{ seed=(seed*1664525+1013904223)&0xffffffff; return (seed>>>0)/0xffffffff; };
+      const rootNotes=[48,50,51,53,55,56,58,60];
+      _steps.forEach((s,i) => {
+        s.active = rand()>0.3;
+        s.note = rootNotes[Math.floor(rand()*rootNotes.length)];
+        s.accent = rand()>0.75;
+        s.slide = rand()>0.7;
+      });
+    },
+  };
 
   // Knob values (0–1 normalized)
   const _params = {
@@ -105,7 +180,9 @@ export function createTB303(audioContext) {
   }
 
   function _midiFromStep(step) {
-    return step.note + step.octave * 12;
+    // Apply global tune offset: ±12 semitones around center
+    const tuneOffset = Math.round((_params.tune - 0.5) * 24);
+    return step.note + step.octave * 12 + tuneOffset;
   }
 
   function _getCutoffHz() {
@@ -156,6 +233,14 @@ export function createTB303(audioContext) {
     return curve;
   }
 
+  function _triggerVU() {
+    const vuBar = el.querySelector('.tb303-vu-bar');
+    if (!vuBar) return;
+    vuBar.classList.add('active');
+    if (_vuTimeout) clearTimeout(_vuTimeout);
+    _vuTimeout = setTimeout(() => vuBar.classList.remove('active'), 120);
+  }
+
   function _playStep(stepIdx) {
     if (!ctx) return;
     const step = _steps[stepIdx];
@@ -165,29 +250,42 @@ export function createTB303(audioContext) {
     _updateStepLEDs(stepIdx);
 
     if (!step.active) {
-      // Gate off
+      // Gate off — keep slide state for next step
       vcaGain.gain.cancelScheduledValues(now);
       vcaGain.gain.setTargetAtTime(0, now, 0.01);
+      _slideActive = false;
       return;
     }
 
     const midi = _midiFromStep(step);
-    const freq = _midiToFreq(midi);
+    const freq = _midiToFreq(Math.max(24, Math.min(96, midi)));
     const cutHz = _getCutoffHz();
     const decayTime = _getDecayTime();
     const isAccent = step.accent;
     const isSlide = step.slide;
+    const SLIDE_TIME = 0.06; // 60ms — real 303 lag processor feel
 
-    // Set oscillator frequency (with or without slide)
-    if (isSlide && _prevFreq !== freq) {
+    // Improved slide: exponential ramp (lag processor behaviour)
+    if (_slideActive && _prevFreq > 0 && _prevFreq !== freq) {
+      // Gliding INTO this step from a previous slide
       osc.frequency.cancelScheduledValues(now);
       osc.frequency.setValueAtTime(_prevFreq, now);
-      osc.frequency.linearRampToValueAtTime(freq, now + 0.05);
+      const safeTarget = Math.max(20, freq);
+      osc.frequency.exponentialRampToValueAtTime(safeTarget, now + SLIDE_TIME);
+    } else if (isSlide && _prevFreq > 0 && _prevFreq !== freq) {
+      // This step has slide — start gliding toward this note's freq
+      osc.frequency.cancelScheduledValues(now);
+      osc.frequency.setValueAtTime(_prevFreq, now);
+      const safeTarget = Math.max(20, freq);
+      osc.frequency.exponentialRampToValueAtTime(safeTarget, now + SLIDE_TIME);
     } else {
+      // No slide — snap immediately
       osc.frequency.cancelScheduledValues(now);
       osc.frequency.setValueAtTime(freq, now);
     }
+
     _prevFreq = freq;
+    _slideActive = isSlide; // carry slide state to next step
 
     // VCA gate envelope
     const accentBoost = isAccent ? 1.4 : 1.0;
@@ -199,7 +297,6 @@ export function createTB303(audioContext) {
     vcaGain.gain.cancelScheduledValues(now);
     vcaGain.gain.setValueAtTime(0, now);
     vcaGain.gain.linearRampToValueAtTime(vcaPeak, now + 0.001); // 1ms attack
-    // Hold for step duration then decay
     vcaGain.gain.setTargetAtTime(0, now + 0.08, 0.05);
 
     // Gate the oscillator through oscGain
@@ -207,7 +304,7 @@ export function createTB303(audioContext) {
     oscGain.gain.setValueAtTime(0.8, now);
 
     // Filter envelope (AHD)
-    const envAttack = isAccent ? 0.0005 : 0.004; // 0.5ms or 4ms
+    const envAttack = isAccent ? 0.0005 : 0.004;
     const envDecay = isAccent ? decayTime * 0.5 : decayTime;
     const envPeak = cutHz * (1 + _params.envMod * 3);
     const envPeakClamped = Math.min(envPeak, 14000);
@@ -218,12 +315,18 @@ export function createTB303(audioContext) {
       f.frequency.linearRampToValueAtTime(envPeakClamped, now + envAttack);
       f.frequency.setTargetAtTime(cutHz, now + envAttack, envDecay * 0.3);
     });
+
+    // VU meter pulse
+    _triggerVU();
   }
 
   function _updateStepLEDs(activeIdx) {
     el.querySelectorAll('.tb303-step').forEach((btn, i) => {
       btn.classList.toggle('playing', i === activeIdx);
     });
+    // Update TEMPO SYNC BPM display
+    const syncEl = el.querySelector('.tb303-tempo-sync-val');
+    if (syncEl && _syncBPM) syncEl.textContent = `${Math.round(_syncBPM)} BPM`;
   }
 
   // ── DOM ───────────────────────────────────────────────────────────────────
@@ -242,7 +345,7 @@ export function createTB303(audioContext) {
       return `
         <div class="tb303-step-wrap" data-step="${i}">
           <div class="tb303-step-led"></div>
-          <button class="tb303-step ${s.active ? 'active' : ''}" data-step="${i}" title="Step ${i + 1}">
+          <button class="tb303-step ${s.active ? 'active' : ''}" data-step="${i}" title="Left-click: select  Right-click: open note picker  Dbl-click: toggle active">
             <span class="tb303-step-num">${i + 1}</span>
             <span class="tb303-step-note">${_noteLabel(s)}</span>
           </button>
@@ -255,10 +358,22 @@ export function createTB303(audioContext) {
     }).join('');
   }
 
+  // SVG waveform previews
+  const SVG_SAW = `<svg width="40" height="20" viewBox="0 0 40 20" xmlns="http://www.w3.org/2000/svg">
+    <polyline points="0,18 20,2 20,18 40,2" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  </svg>`;
+  const SVG_SQR = `<svg width="40" height="20" viewBox="0 0 40 20" xmlns="http://www.w3.org/2000/svg">
+    <polyline points="0,18 0,2 20,2 20,18 40,18 40,2" fill="none" stroke="currentColor" stroke-width="1.5"/>
+  </svg>`;
+
   el.innerHTML = `
     <div class="tb303-ports-bar">
       <span class="port" data-port="clock-in">CLK IN</span>
       <span class="tb303-brand">ROLAND  TB-303</span>
+      <div class="tb303-tempo-sync">
+        <span class="tb303-tempo-sync-label">SYNC</span>
+        <span class="tb303-tempo-sync-val">-- BPM</span>
+      </div>
       <span class="port" data-port="audio-out">AUDIO OUT</span>
     </div>
 
@@ -301,10 +416,16 @@ export function createTB303(audioContext) {
       <!-- Middle controls -->
       <div class="tb303-middle">
         <div class="tb303-wave-group">
-          <span class="tb303-section-label">WAVEFORM</span>
+          <span class="tb303-section-label">WAVE</span>
           <div class="tb303-wave-btns">
-            <button class="tb303-wave-btn active" data-wave="sawtooth">SAW ⋀</button>
-            <button class="tb303-wave-btn" data-wave="square">SQR ⊓</button>
+            <button class="tb303-wave-btn active" data-wave="sawtooth">
+              <span class="tb303-wave-icon tb303-wave-icon--saw">${SVG_SAW}</span>
+              SAW
+            </button>
+            <button class="tb303-wave-btn" data-wave="square">
+              <span class="tb303-wave-icon tb303-wave-icon--sqr">${SVG_SQR}</span>
+              SQR
+            </button>
           </div>
         </div>
 
@@ -319,11 +440,37 @@ export function createTB303(audioContext) {
             <div class="tb303-knob tb303-knob--sm" data-param="volume" tabindex="0"></div>
             <span class="tb303-knob-val" data-param-val="volume">75%</span>
           </div>
+          <div class="tb303-vu-wrap">
+            <span class="tb303-knob-label">VU</span>
+            <div class="tb303-vu-bar"></div>
+          </div>
         </div>
 
         <div class="tb303-transport">
-          <button class="tb303-run-btn" id="tb303-run">▶ RUN</button>
-          <button class="tb303-stop-btn" id="tb303-stop">■ STOP</button>
+          <button class="tb303-run-btn" id="tb303-run">&#9654; RUN</button>
+          <button class="tb303-stop-btn" id="tb303-stop">&#9632; STOP</button>
+        </div>
+      </div>
+
+      <!-- Pattern controls row: PRESET + SCALE + OCT TRANSPOSE -->
+      <div class="tb303-pattern-controls">
+        <div class="tb303-ctrl-group">
+          <span class="tb303-section-label">PRESET</span>
+          <select class="tb303-preset-select">
+            ${Object.keys(PRESETS).map(n => `<option value="${n}">${n}</option>`).join('')}
+          </select>
+          <button class="tb303-load-preset">LOAD</button>
+        </div>
+        <div class="tb303-ctrl-group">
+          <span class="tb303-section-label">SCALE</span>
+          <select class="tb303-scale-select">
+            ${Object.keys(SCALES).map(n => `<option value="${n}" ${n==='CHROMATIC'?'selected':''}>${n}</option>`).join('')}
+          </select>
+        </div>
+        <div class="tb303-ctrl-group">
+          <span class="tb303-section-label">TRANSPOSE</span>
+          <button class="tb303-oct-transpose" data-dir="-1">OCT-</button>
+          <button class="tb303-oct-transpose" data-dir="1">OCT+</button>
         </div>
       </div>
 
@@ -341,15 +488,227 @@ export function createTB303(audioContext) {
           </div>
           <div class="tb303-octave-picker">
             <span class="tb303-section-label">OCT</span>
-            <button class="tb303-oct-btn" data-oct="-1">−</button>
+            <button class="tb303-oct-btn" data-oct="-1">&#8722;</button>
             <span class="tb303-oct-val">0</span>
             <button class="tb303-oct-btn" data-oct="1">+</button>
           </div>
-          <span class="tb303-sel-label">— select a step —</span>
+          <span class="tb303-sel-label">&#8212; select a step &#8212;</span>
         </div>
       </div>
 
     </div>
+
+    <!-- Note picker popup (right-click on step) -->
+    <div class="tb303-notepicker-popup" style="display:none">
+      <div class="tb303-notepicker-title">PICK NOTE</div>
+      <div class="tb303-notepicker-piano"></div>
+    </div>
+
+    <style>
+      .tb303-tempo-sync {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-left: auto;
+        margin-right: 8px;
+      }
+      .tb303-tempo-sync-label {
+        font-size: 8px;
+        color: #4f4;
+        letter-spacing: 0.1em;
+      }
+      .tb303-tempo-sync-val {
+        font-size: 9px;
+        color: #4f4;
+        font-family: monospace;
+        letter-spacing: 0.05em;
+      }
+
+      .tb303-vu-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+      }
+      .tb303-vu-bar {
+        width: 8px;
+        height: 36px;
+        background: #1a1a10;
+        border: 1px solid #444;
+        border-radius: 2px;
+        position: relative;
+        overflow: hidden;
+        transition: box-shadow 0.05s;
+      }
+      .tb303-vu-bar::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 0%;
+        background: linear-gradient(0deg, #f60 0%, #ff0 60%, #0f0 100%);
+        transition: height 0.04s ease-out;
+        border-radius: 1px;
+      }
+      .tb303-vu-bar.active::after {
+        height: 100%;
+      }
+      .tb303-vu-bar.active {
+        box-shadow: 0 0 6px rgba(255,120,0,0.6);
+      }
+
+      .tb303-pattern-controls {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 16px;
+        padding: 4px 8px 4px 12px;
+        background: rgba(0,0,0,0.2);
+        border-top: 1px solid rgba(255,255,255,0.05);
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        flex-wrap: wrap;
+      }
+      .tb303-ctrl-group {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 5px;
+      }
+      .tb303-preset-select,
+      .tb303-scale-select {
+        font-family: monospace;
+        font-size: 10px;
+        background: #1a1a10;
+        color: #e8c060;
+        border: 1px solid #555;
+        border-radius: 3px;
+        padding: 2px 4px;
+        cursor: pointer;
+        letter-spacing: 0.04em;
+      }
+      .tb303-load-preset {
+        font-family: monospace;
+        font-size: 9px;
+        background: #333;
+        color: #e8c060;
+        border: 1px solid #555;
+        border-radius: 3px;
+        padding: 2px 6px;
+        cursor: pointer;
+        letter-spacing: 0.06em;
+        transition: background 0.1s;
+      }
+      .tb303-load-preset:hover { background: #555; }
+      .tb303-oct-transpose {
+        font-family: monospace;
+        font-size: 9px;
+        background: #2a2a18;
+        color: #e8c060;
+        border: 1px solid #555;
+        border-radius: 3px;
+        padding: 2px 7px;
+        cursor: pointer;
+        letter-spacing: 0.05em;
+        transition: background 0.1s;
+      }
+      .tb303-oct-transpose:hover { background: #444; }
+
+      /* Wave buttons with SVG preview */
+      .tb303-wave-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+      }
+      .tb303-wave-icon {
+        display: block;
+        width: 40px;
+        height: 20px;
+        color: #888;
+        transition: color 0.1s;
+      }
+      .tb303-wave-btn.active .tb303-wave-icon { color: #e8c060; }
+
+      /* More distinct Accent and Slide flags */
+      .tb303-acc-btn {
+        background: #2a1400;
+        color: #a04000;
+        border-color: #a04000;
+      }
+      .tb303-acc-btn.on {
+        background: #ff6000;
+        color: #fff;
+        border-color: #ff8020;
+        box-shadow: 0 0 5px rgba(255,96,0,0.7);
+        font-weight: bold;
+      }
+      .tb303-slide-btn {
+        background: #001425;
+        color: #004488;
+        border-color: #004488;
+      }
+      .tb303-slide-btn.on {
+        background: #0088ff;
+        color: #fff;
+        border-color: #44aaff;
+        box-shadow: 0 0 5px rgba(0,136,255,0.7);
+        font-weight: bold;
+      }
+
+      /* Note picker popup */
+      .tb303-notepicker-popup {
+        position: fixed;
+        z-index: 9999;
+        background: #1a1a10;
+        border: 1px solid #666;
+        border-radius: 5px;
+        padding: 6px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.8);
+        min-width: 130px;
+      }
+      .tb303-notepicker-title {
+        font-family: monospace;
+        font-size: 9px;
+        color: #e8c060;
+        letter-spacing: 0.1em;
+        margin-bottom: 5px;
+        text-align: center;
+      }
+      .tb303-notepicker-piano {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        gap: 2px;
+      }
+      .tb303-pp-key {
+        font-family: monospace;
+        font-size: 7px;
+        padding: 3px 1px;
+        border-radius: 2px;
+        cursor: pointer;
+        text-align: center;
+        border: 1px solid #444;
+        transition: background 0.08s;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+      .tb303-pp-key.natural {
+        background: #e8e0c0;
+        color: #222;
+      }
+      .tb303-pp-key.natural:hover { background: #fff; }
+      .tb303-pp-key.sharp {
+        background: #222;
+        color: #888;
+        border-color: #333;
+      }
+      .tb303-pp-key.sharp:hover { background: #444; color: #fff; }
+      .tb303-pp-key.out-of-scale {
+        opacity: 0.28;
+        cursor: not-allowed;
+      }
+      .tb303-pp-key.out-of-scale:hover { background: inherit; }
+    </style>
   `;
 
   // ── Knob interaction ───────────────────────────────────────────────────────
@@ -388,12 +747,7 @@ export function createTB303(audioContext) {
     _params[param] = v;
     switch (param) {
       case 'tune':
-        if (osc && ctx) {
-          // Apply tuning offset: ±12 semitones around center
-          // Will be applied on next note trigger; for live preview, update osc freq if osc has a base
-          // (no-op here — applied at trigger time via _midiToFreq with tuning offset)
-        }
-        break;
+        break; // applied at trigger time
       case 'cutoff':
       case 'resonance':
       case 'envMod':
@@ -443,54 +797,132 @@ export function createTB303(audioContext) {
     });
   });
 
+  // ── Scale selector ─────────────────────────────────────────────────────────
+  el.querySelector('.tb303-scale-select')?.addEventListener('change', e => {
+    _currentScale = e.target.value;
+  });
+
+  // ── Preset controls ────────────────────────────────────────────────────────
+  el.querySelector('.tb303-load-preset')?.addEventListener('click', () => {
+    const name = el.querySelector('.tb303-preset-select')?.value;
+    if (name && PRESETS[name]) {
+      PRESETS[name]();
+      _rebuildStepButtons();
+    }
+  });
+
+  // ── Transpose controls ─────────────────────────────────────────────────────
+  el.querySelectorAll('.tb303-oct-transpose').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const dir = parseInt(btn.dataset.dir);
+      _steps.forEach(s => {
+        if (!s.active) return;
+        const midi = s.note + s.octave * 12;
+        const shifted = Math.max(24, Math.min(96, midi + dir * 12));
+        // Redistribute back: keep octave offset at 0, encode in note
+        s.note = shifted;
+        s.octave = 0;
+      });
+      _rebuildStepButtons();
+    });
+  });
+
+  function _rebuildStepButtons() {
+    const grid = el.querySelector('.tb303-seq-grid');
+    if (!grid) return;
+    grid.innerHTML = _buildStepButtons();
+    // Re-attach events
+    _attachStepEvents();
+    if (_selectedStep !== null) _updateNoteEditorDisplay(_selectedStep);
+  }
+
   // ── Step sequencer interaction ─────────────────────────────────────────────
   let _selectedStep = null;
 
-  el.querySelectorAll('.tb303-step').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const i = parseInt(btn.dataset.step);
-      if (_selectedStep === i) {
-        // Deselect
-        _selectedStep = null;
-        el.querySelectorAll('.tb303-step').forEach(b => b.classList.remove('selected'));
-        _updateNoteEditorDisplay(null);
-      } else {
-        _selectedStep = i;
-        el.querySelectorAll('.tb303-step').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-        _updateNoteEditorDisplay(i);
-      }
+  // Note picker popup
+  const _popup = el.querySelector('.tb303-notepicker-popup');
+  let _popupStep = null;
+
+  function _showNotePicker(stepIdx, x, y) {
+    _popupStep = stepIdx;
+    const piano = _popup.querySelector('.tb303-notepicker-piano');
+    const scaleIntervals = SCALES[_currentScale];
+    piano.innerHTML = NOTE_NAMES.map((n, i) => {
+      const inScale = scaleIntervals.includes(i);
+      const isSharp = n.includes('#');
+      return `<button class="tb303-pp-key ${isSharp?'sharp':'natural'} ${inScale?'':'out-of-scale'}" data-note-offset="${i}" title="${n}">${n}</button>`;
+    }).join('');
+
+    // Click handler for popup keys
+    piano.querySelectorAll('.tb303-pp-key:not(.out-of-scale)').forEach(k => {
+      k.addEventListener('click', () => {
+        const offset = parseInt(k.dataset.noteOffset);
+        const step = _steps[_popupStep];
+        const octaveBase = Math.floor((step.note - 12) / 12) * 12 + 12;
+        step.note = octaveBase + offset;
+        const noteEl = el.querySelector(`.tb303-step[data-step="${_popupStep}"] .tb303-step-note`);
+        if (noteEl) noteEl.textContent = _noteLabel(step);
+        _popup.style.display = 'none';
+        if (_selectedStep === _popupStep) _updateNoteEditorDisplay(_popupStep);
+      });
     });
 
-    btn.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      const i = parseInt(btn.dataset.step);
-      _steps[i].active = !_steps[i].active;
-      btn.classList.toggle('active', _steps[i].active);
-    });
+    _popup.style.display = 'block';
+    _popup.style.left = `${Math.min(x, window.innerWidth - 160)}px`;
+    _popup.style.top  = `${Math.min(y, window.innerHeight - 80)}px`;
+  }
+
+  // Dismiss popup on outside click
+  document.addEventListener('click', (e) => {
+    if (_popup && !_popup.contains(e.target)) {
+      _popup.style.display = 'none';
+    }
   });
 
-  // Double-click to toggle active
-  el.querySelectorAll('.tb303-step').forEach(btn => {
-    btn.addEventListener('dblclick', (e) => {
-      e.preventDefault();
-      const i = parseInt(btn.dataset.step);
-      _steps[i].active = !_steps[i].active;
-      btn.classList.toggle('active', _steps[i].active);
-    });
-  });
+  function _attachStepEvents() {
+    el.querySelectorAll('.tb303-step').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const i = parseInt(btn.dataset.step);
+        if (_selectedStep === i) {
+          _selectedStep = null;
+          el.querySelectorAll('.tb303-step').forEach(b => b.classList.remove('selected'));
+          _updateNoteEditorDisplay(null);
+        } else {
+          _selectedStep = i;
+          el.querySelectorAll('.tb303-step').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          _updateNoteEditorDisplay(i);
+        }
+      });
 
-  // Accent/Slide toggle buttons
-  el.querySelectorAll('.tb303-flag-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const i = parseInt(btn.dataset.step);
-      const flag = btn.dataset.flag;
-      _steps[i][flag] = !_steps[i][flag];
-      btn.classList.toggle('on', _steps[i][flag]);
+      btn.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const i = parseInt(btn.dataset.step);
+        _showNotePicker(i, e.clientX, e.clientY);
+      });
+
+      btn.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        const i = parseInt(btn.dataset.step);
+        _steps[i].active = !_steps[i].active;
+        btn.classList.toggle('active', _steps[i].active);
+      });
     });
-  });
+
+    // Accent/Slide toggle buttons
+    el.querySelectorAll('.tb303-flag-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const i = parseInt(btn.dataset.step);
+        const flag = btn.dataset.flag;
+        _steps[i][flag] = !_steps[i][flag];
+        btn.classList.toggle('on', _steps[i][flag]);
+      });
+    });
+  }
+
+  _attachStepEvents();
 
   // Note editor
   function _updateNoteEditorDisplay(stepIdx) {
@@ -505,8 +937,14 @@ export function createTB303(audioContext) {
     const step = _steps[stepIdx];
     if (labelEl) labelEl.textContent = `Step ${stepIdx + 1}: ${_noteLabel(step)}`;
     if (octValEl) octValEl.textContent = step.octave;
+
+    const scaleIntervals = SCALES[_currentScale];
     el.querySelectorAll('.tb303-note-btn').forEach(b => {
-      b.classList.toggle('active', parseInt(b.dataset.noteOffset) === (step.note % 12));
+      const noteOff = parseInt(b.dataset.noteOffset);
+      const inScale = scaleIntervals.includes(noteOff);
+      b.classList.toggle('active', noteOff === (step.note % 12));
+      b.classList.toggle('out-of-scale', !inScale);
+      b.disabled = !inScale;
     });
   }
 
@@ -515,16 +953,12 @@ export function createTB303(audioContext) {
       if (_selectedStep === null) return;
       const noteOffset = parseInt(btn.dataset.noteOffset);
       const step = _steps[_selectedStep];
-      // Keep same octave range: C4 = 60, so base = 48 + octave*12
-      const baseNote = 48 + Math.floor(step.note / 12) * 12 - 48 + 48; // keep octave from current note
-      const octaveBase = Math.floor((step.note - 12) / 12) * 12 + 12; // C of current octave
+      const octaveBase = Math.floor((step.note - 12) / 12) * 12 + 12;
       step.note = octaveBase + noteOffset;
-      // Update the step button label
       const stepBtn = el.querySelector(`.tb303-step[data-step="${_selectedStep}"] .tb303-step-note`);
       if (stepBtn) stepBtn.textContent = _noteLabel(step);
       _updateNoteEditorDisplay(_selectedStep);
 
-      // Highlight selected note
       el.querySelectorAll('.tb303-note-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
     });
@@ -571,7 +1005,7 @@ export function createTB303(audioContext) {
     _running = true;
     el.querySelector('#tb303-run')?.classList.add('active');
     el.querySelector('#tb303-stop')?.classList.remove('active');
-    if (!ctx) return; // no audio, just visual
+    if (!ctx) return;
     if (ctx.state === 'suspended') ctx.resume();
     _startStandalone();
   });
@@ -587,9 +1021,9 @@ export function createTB303(audioContext) {
   document.addEventListener('confusynth:clock', (e) => {
     const { step, bpm } = e.detail ?? {};
     if (!_running) return;
-    if (bpm && _standaloneBPM !== bpm) {
+    if (bpm) {
+      _syncBPM = bpm;
       _standaloneBPM = bpm;
-      if (_standaloneTimer) _startStandalone(); // restart with new BPM
     }
     _stopStandalone(); // stop internal timer when external clock is driving
     _playStep((step ?? 0) % 16);
