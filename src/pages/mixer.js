@@ -366,8 +366,13 @@ export default {
       fader.value = track.volume;
       fader.style.cssText = 'writing-mode:vertical-lr;direction:rtl;height:70px;width:20px;accent-color:var(--track-color,var(--accent));flex-shrink:0';
       fader.style.setProperty('accent-color', TRACK_COLORS[ti]);
+      const faderReadout = document.createElement('span');
+      faderReadout.style.cssText = 'font-family:var(--font-mono);font-size:0.42rem;color:var(--muted);text-align:center;display:block;min-width:24px';
+      faderReadout.textContent = parseFloat(fader.value).toFixed(2);
+
       fader.addEventListener('input', () => {
         const v = parseFloat(fader.value);
+        faderReadout.textContent = v.toFixed(2);
         emit('track:change', { trackIndex: ti, param: 'volume', value: v });
         // Fader link: if this track is linked to an adjacent track, mirror the change
         const links = state.faderLinks ?? [];
@@ -381,7 +386,7 @@ export default {
           }
         }
       });
-      stripBody.append(fader);
+      stripBody.append(fader, faderReadout);
 
       // ── Fader link button (links this strip with the next) ───────────────
       if (ti < tracks.length - 1) {

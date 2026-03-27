@@ -205,6 +205,10 @@ function drawEQCanvas(canvas, low, mid, high, midFreq) {
 
 let _eqDrag = null;  // { dot: 'low'|'mid'|'high', canvas, track, state, emit, onUpdate }
 
+// ─── FX bypass state (module-level) ──────────────────────────────────────────
+let _bypassed = false;
+let _bypassStore = {}; // stores pre-bypass values
+
 function _eqPointerDown(e, canvas, track, state, emit, onUpdate) {
   const dpr  = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
@@ -630,6 +634,50 @@ export default {
     const firstCard = container.querySelector('.page-card');
     if (firstCard) firstCard.insertAdjacentElement('beforebegin', stutterRow);
     else container.prepend(stutterRow);
+
+    // ── BYPASS ALL FX toggle ──────────────────────────────────────────────────
+    const bypassRow = document.createElement('div');
+    bypassRow.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-shrink:0';
+
+    const bypassBtn = document.createElement('button');
+    bypassBtn.className = 'seq-btn' + (_bypassed ? ' active' : '');
+    bypassBtn.textContent = _bypassed ? '⚡ FX BYPASSED' : 'BYPASS ALL FX';
+    bypassBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;' + (_bypassed ? 'border-color:var(--record);color:var(--record)' : '');
+    bypassBtn.title = 'Bypass all global FX (reverb, delay, chorus)';
+
+    bypassBtn.addEventListener('click', () => {
+      const eng = window._confusynthEngine ?? state.engine;
+      _bypassed = !_bypassed;
+      if (_bypassed) {
+        // Store current values and mute wet signals
+        _bypassStore = {
+          reverbMix:   state.reverbMix   ?? 0.22,
+          delayWet:    state.delayWet    ?? 0.3,
+          chorusMix:   state.chorusMix   ?? 0,
+        };
+        if (eng?.setReverbMix)   eng.setReverbMix(0);
+        if (eng?.setDelayMix)    eng.setDelayMix(0);
+        if (eng?.setChorusMix)   eng.setChorusMix(0);
+        bypassBtn.textContent = '⚡ FX BYPASSED';
+        bypassBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;border-color:var(--record);color:var(--record)';
+        bypassBtn.classList.add('active');
+      } else {
+        // Restore saved values
+        const rv = _bypassStore.reverbMix ?? state.reverbMix ?? 0.22;
+        const dw = _bypassStore.delayWet  ?? state.delayWet  ?? 0.3;
+        const cm = _bypassStore.chorusMix ?? state.chorusMix ?? 0;
+        if (eng?.setReverbMix)   eng.setReverbMix(rv);
+        if (eng?.setDelayMix)    eng.setDelayMix(dw);
+        if (eng?.setChorusMix)   eng.setChorusMix(cm);
+        bypassBtn.textContent = 'BYPASS ALL FX';
+        bypassBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem';
+        bypassBtn.classList.remove('active');
+      }
+    });
+
+    bypassRow.append(bypassBtn);
+    if (firstCard) firstCard.insertAdjacentElement('beforebegin', bypassRow);
+    else container.prepend(bypassRow);
 
     // ── Compressor gain-reduction meter ──────────────────────────────────────
     const compCard = container.querySelector('[data-card="compressor"]');

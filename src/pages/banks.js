@@ -281,6 +281,18 @@ export default {
         btn.append(num, name, density);
       }
 
+      // Mini dot preview — first 8 steps of track 1
+      const preview = document.createElement('div');
+      preview.style.cssText = 'display:flex;gap:1px;justify-content:center;margin-top:2px';
+      const track0 = pat?.kit?.tracks?.[0];
+      for (let si = 0; si < 8; si++) {
+        const dot = document.createElement('div');
+        const on = track0?.steps?.[si]?.active ?? false;
+        dot.style.cssText = `width:4px;height:4px;border-radius:50%;background:${on ? 'var(--accent)' : 'rgba(255,255,255,0.12)'}`;
+        preview.append(dot);
+      }
+      btn.append(preview);
+
       // Follow action badge
       const followAction = pat.followAction ?? 'next';
       const followIcons = { next: '→', loop: '↺', stop: '■', random: '?' };

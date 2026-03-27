@@ -258,10 +258,11 @@ export default {
         }
       });
 
-      // Scene label (colored)
+      // Scene label (colored) — show scene name if available
       const sceneLabel = document.createElement('span');
       sceneLabel.style.cssText = `font-family:var(--font-mono);font-size:0.65rem;color:${sceneColorFull};min-width:18px;font-weight:700`;
-      sceneLabel.textContent   = String.fromCharCode(65 + (section.sceneIdx ?? 0));
+      const _sceneName = (scenes ?? [])[section.sceneIdx]?.name ?? `Scene ${(section.sceneIdx ?? 0) + 1}`;
+      sceneLabel.textContent   = _sceneName;
 
       // Bar count display
       const barsLabel = document.createElement('span');
