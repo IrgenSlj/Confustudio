@@ -1674,7 +1674,12 @@ function initSignalMeter() {
 let _meterRaf = null;
 function startMeterAnimation() {
   if (_meterRaf || !el.signalMeter) return;
-  const dataArr = new Uint8Array(32);
+  const dataArr = new Uint8Array(256);
+  // Cache segment refs once — avoids querySelectorAll every frame
+  const segs = Array.from(el.signalMeter.querySelectorAll('.seg'));
+  let _smoothedLit = 0;
+  let _peakLit = 0;
+  let _peakHold = 0;
   function tick() {
     if (!el.signalMeter?.isConnected) {
       _meterRaf = null;
@@ -1684,22 +1689,34 @@ function startMeterAnimation() {
     const analyser = state.engine?.analyser;
     if (!analyser) return;
     analyser.getByteTimeDomainData(dataArr);
-    // RMS
+    // RMS over full buffer
     let sum = 0;
     for (let i = 0; i < dataArr.length; i++) {
       const s = (dataArr[i] - 128) / 128;
       sum += s * s;
     }
     const rms = Math.sqrt(sum / dataArr.length);
-    const lit = Math.round(rms * 80); // 0-16 range
-    el.signalMeter.querySelectorAll('.seg').forEach(seg => {
-      const n = Number(seg.dataset.seg);
-      if (n <= lit) {
-        seg.className = n <= 8 ? 'seg lit green' : n <= 12 ? 'seg lit orange' : 'seg lit red';
+    // Map to 0–16 segments: multiply by 160 to give responsive range
+    // typical RMS 0.05 → lit=8, 0.1 → lit=16 (full)
+    const rawLit = Math.min(16, Math.round(rms * 160));
+    // Smooth: fast attack, slow decay
+    _smoothedLit = rawLit > _smoothedLit
+      ? rawLit
+      : Math.max(rawLit, _smoothedLit - 0.4);
+    const lit = Math.round(_smoothedLit);
+    // Peak hold: stays for ~45 frames (~750ms at 60fps) then decays
+    if (lit >= _peakLit) { _peakLit = lit; _peakHold = 45; }
+    else if (_peakHold > 0) { _peakHold--; }
+    else { _peakLit = Math.max(0, _peakLit - 1); }
+    for (let i = 0; i < segs.length; i++) {
+      const n = i + 1; // seg data-seg is 1-indexed
+      const isPeak = n === _peakLit && _peakLit > 0;
+      if (n <= lit || isPeak) {
+        segs[i].className = n <= 10 ? 'seg lit green' : n <= 14 ? 'seg lit orange' : 'seg lit red';
       } else {
-        seg.className = 'seg';
+        segs[i].className = 'seg';
       }
-    });
+    }
   }
   tick();
 }

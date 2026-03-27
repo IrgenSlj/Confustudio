@@ -90,6 +90,33 @@ const MIXER_CSS = `
 .mx-meter-wrap { width: 100%; height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; margin-top: 1px; }
 .mx-meter-bar { height: 100%; width: 0%; background: var(--tc, #5add71); border-radius: 2px; transition: width 0.05s; }
 
+/* VU bars */
+.mx-vu-bar {
+  width: 100%; height: 4px; background: rgba(255,255,255,0.08);
+  border-radius: 2px; position: relative; overflow: visible; margin-top: 2px;
+}
+.mx-vu-fill {
+  height: 100%; border-radius: 2px; width: 0%;
+  transition: width 0.05s ease-out;
+  background: #5add71;
+}
+.mx-vu-peak {
+  position: absolute; top: -1px; width: 2px; height: 6px;
+  background: white; border-radius: 1px; left: 0%;
+  transition: opacity 0.3s;
+}
+
+/* Master VU bar next to master fader */
+.mx-master-vu {
+  width: 2px; height: 100%; position: absolute; right: -4px; top: 0;
+  background: rgba(255,255,255,0.06); border-radius: 1px; overflow: hidden;
+}
+.mx-master-vu-fill {
+  position: absolute; bottom: 0; width: 100%;
+  background: #5add71; height: 0%; border-radius: 1px;
+  transition: height 0.05s ease-out;
+}
+
 /* Groups */
 .mx-groups-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
 .mx-group-row {
@@ -277,14 +304,17 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
   faderWrap.append(fader);
   strip.append(faderWrap, volReadout);
 
-  // Level meter (horizontal bar at bottom)
-  const meterWrap = document.createElement('div');
-  meterWrap.className = 'mx-meter-wrap';
-  const meterBar = document.createElement('div');
-  meterBar.className = 'mx-meter-bar';
-  meterWrap.append(meterBar);
-  strip.append(meterWrap);
-  meterEls.push({ bar: meterBar, track });
+  // VU bar (peak-decay meter, driven by confusynth:note:on events)
+  const vuBar = document.createElement('div');
+  vuBar.className = 'mx-vu-bar';
+  vuBar.dataset.vuTrack = ti;
+  const vuFill = document.createElement('div');
+  vuFill.className = 'mx-vu-fill';
+  const vuPeak = document.createElement('div');
+  vuPeak.className = 'mx-vu-peak';
+  vuBar.append(vuFill, vuPeak);
+  strip.append(vuBar);
+  meterEls.push({ bar: vuFill, peak: vuPeak, track, ti });
 
   // Mute + Solo
   const msRow = document.createElement('div');
@@ -572,31 +602,102 @@ export default {
 
     renderExtModules();
 
-    // ── rAF meter loop ───────────────────────────────────────────────────────
-    const meterData = new Uint8Array(32);
-    const _peakLevels = new Array(8).fill(0);
-    const _peakDecay  = new Array(8).fill(0);
+    // ── Per-track peak state (survives re-renders) ───────────────────────────
+    window._trackPeaks     = window._trackPeaks     ?? Array(8).fill(0);
+    window._trackPeakTimes = window._trackPeakTimes ?? Array(8).fill(0);
 
-    (function updateMeters() {
-      if (!page.isConnected) return;
-      if (state.engine?.analyser) {
-        state.engine.analyser.getByteTimeDomainData(meterData);
+    // Listen for trigger events — AbortController cleans up on page change
+    const mixerAbortController = new AbortController();
+    window.addEventListener('confusynth:note:on', (e) => {
+      const { trackIndex, velocity = 1 } = e.detail ?? {};
+      if (trackIndex >= 0 && trackIndex < 8) {
+        window._trackPeaks[trackIndex]     = Math.max(0.4, velocity);
+        window._trackPeakTimes[trackIndex] = performance.now();
+      }
+    }, { signal: mixerAbortController.signal });
+
+    // ── Master VU bar (2px strip alongside master fader) ─────────────────────
+    // Inject into the .fader-master wrapper if present and not already done
+    const masterFaderEl = document.getElementById('master-volume');
+    let masterVuFill = null;
+    if (masterFaderEl && !masterFaderEl.parentElement?.querySelector('.mx-master-vu')) {
+      const masterVuWrap = document.createElement('div');
+      masterVuWrap.className = 'mx-master-vu';
+      masterVuFill = document.createElement('div');
+      masterVuFill.className = 'mx-master-vu-fill';
+      masterVuWrap.append(masterVuFill);
+      masterFaderEl.parentElement.style.position = 'relative';
+      masterFaderEl.parentElement.appendChild(masterVuWrap);
+    } else if (masterFaderEl) {
+      masterVuFill = masterFaderEl.parentElement?.querySelector('.mx-master-vu-fill') ?? null;
+    }
+
+    // ── rAF VU animation loop ─────────────────────────────────────────────────
+    let _vuRaf = null;
+    const _masterData = new Uint8Array(256);
+
+    function _animateVU() {
+      if (!page.isConnected) {
+        cancelAnimationFrame(_vuRaf);
+        mixerAbortController.abort();
+        return;
+      }
+      const now = performance.now();
+
+      // Per-track VU
+      for (let ti = 0; ti < meterEls.length; ti++) {
+        const { bar: fill, peak, track: t, ti: trackIdx } = meterEls[ti];
+        if (!fill) continue;
+        const elapsed = now - (window._trackPeakTimes[trackIdx] ?? 0);
+        const decay   = Math.max(0, 1 - elapsed / 800);
+        const vol     = t.mute ? 0 : (t.volume ?? 0.8);
+        const level   = (window._trackPeaks[trackIdx] ?? 0) * decay * vol;
+
+        const color = level > 0.85 ? '#f05b52' : level > 0.6 ? '#f0c640' : '#5add71';
+        fill.style.width      = (level * 100) + '%';
+        fill.style.background = color;
+
+        // Peak hold: stays for 1.2s then fades
+        if (peak) {
+          if (elapsed < 1200) {
+            peak.style.left    = (level * 100) + '%';
+            peak.style.opacity = '1';
+          } else {
+            const peakDecay = Math.max(0, 1 - (elapsed - 1200) / 400);
+            peak.style.opacity = String(peakDecay);
+          }
+        }
+      }
+
+      // Master VU bar from analyser RMS
+      if (masterVuFill && state.engine?.analyser) {
+        state.engine.analyser.getByteTimeDomainData(_masterData);
         let sum = 0;
-        for (let i = 0; i < meterData.length; i++) {
-          const s = (meterData[i] - 128) / 128;
+        for (let i = 0; i < _masterData.length; i++) {
+          const s = (_masterData[i] - 128) / 128;
           sum += s * s;
         }
-        const rms = Math.sqrt(sum / meterData.length);
-        meterEls.forEach(({ bar, track: t }, i) => {
-          const level = t.mute ? 0 : Math.min(1, rms * 1.4 * ((t.volume ?? 0.8) + 0.15));
-          bar.style.width = Math.round(level * 100) + '%';
-          if (level > _peakLevels[i]) { _peakLevels[i] = level; _peakDecay[i] = 60; }
-          else if (_peakDecay[i] > 0) { _peakDecay[i]--; }
-          else { _peakLevels[i] = Math.max(0, _peakLevels[i] - 0.005); }
-        });
+        const rms = Math.sqrt(sum / _masterData.length);
+        const pct = Math.min(100, Math.round(rms * 800));
+        masterVuFill.style.height     = pct + '%';
+        masterVuFill.style.background = pct > 85 ? '#f05b52' : pct > 60 ? '#f0c640' : '#5add71';
       }
-      requestAnimationFrame(updateMeters);
-    })();
+
+      _vuRaf = requestAnimationFrame(_animateVU);
+    }
+    _animateVU();
+
+    // Watch parent for removal to cancel RAF
+    const _vuObserver = new MutationObserver(() => {
+      if (!container.isConnected) {
+        cancelAnimationFrame(_vuRaf);
+        mixerAbortController.abort();
+        _vuObserver.disconnect();
+      }
+    });
+    if (container.parentElement) {
+      _vuObserver.observe(container.parentElement, { childList: true });
+    }
 
     // ── Cable connect listener ───────────────────────────────────────────────
     const cableHandler = e => {
