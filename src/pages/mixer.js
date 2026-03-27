@@ -281,7 +281,10 @@ export default {
       revSlider.addEventListener('input', () => {
         const v = parseFloat(revSlider.value);
         revVal.textContent = Math.round(v * 100) + '%';
+        track.reverbSend = v;
         emit('track:change', { trackIndex: ti, param: 'reverbSend', value: v });
+        // Wire into convolution reverb send bus
+        if (state.engine?.setTrackReverbSend) state.engine.setTrackReverbSend(ti, v);
       });
       const revMuteBtn = document.createElement('button');
       revMuteBtn.className = 'mix-send-mute' + (track.sendMuted?.[0] ? ' active' : '');
@@ -311,7 +314,10 @@ export default {
       dlySlider.addEventListener('input', () => {
         const v = parseFloat(dlySlider.value);
         dlyVal.textContent = Math.round(v * 100) + '%';
+        track.delaySend = v;
         emit('track:change', { trackIndex: ti, param: 'delaySend', value: v });
+        // Wire into send/return delay bus
+        if (state.engine?.setTrackDelaySend) state.engine.setTrackDelaySend(ti, v);
       });
       const dlyMuteBtn = document.createElement('button');
       dlyMuteBtn.className = 'mix-send-mute' + (track.sendMuted?.[1] ? ' active' : '');
@@ -387,6 +393,60 @@ export default {
         }
       });
       stripBody.append(fader, faderReadout);
+
+      // ── Mini send knobs (R = reverb conv, D = delay) ─────────────────────
+      const miniSendRow = document.createElement('div');
+      miniSendRow.style.cssText = 'display:flex;gap:4px;justify-content:center;margin-top:2px';
+
+      function makeMiniKnob(label, initVal, color, onChange) {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:1px';
+
+        const lbl = document.createElement('span');
+        lbl.style.cssText = `font-family:var(--font-mono);font-size:0.38rem;color:${color};letter-spacing:0.04em`;
+        lbl.textContent = label;
+
+        const knob = document.createElement('input');
+        knob.type  = 'range';
+        knob.min   = 0; knob.max = 1; knob.step = 0.01;
+        knob.value = initVal;
+        knob.style.cssText = `width:24px;height:24px;writing-mode:vertical-lr;direction:rtl;accent-color:${color};cursor:pointer;-webkit-appearance:slider-vertical`;
+        knob.title = `${label} send level`;
+
+        const val = document.createElement('span');
+        val.style.cssText = `font-family:var(--font-mono);font-size:0.38rem;color:${color}`;
+        val.textContent = Math.round(initVal * 100) + '%';
+
+        knob.addEventListener('input', () => {
+          const v = parseFloat(knob.value);
+          val.textContent = Math.round(v * 100) + '%';
+          onChange(v);
+        });
+
+        wrap.append(lbl, knob, val);
+        return wrap;
+      }
+
+      const revKnob = makeMiniKnob('R', track.reverbSend ?? 0, '#67d7ff', v => {
+        track.reverbSend = v;
+        emit('track:change', { trackIndex: ti, param: 'reverbSend', value: v });
+        if (state.engine?.setTrackReverbSend) state.engine.setTrackReverbSend(ti, v);
+        // Sync the full-width send slider above
+        revSlider.value = v;
+        revVal.textContent = Math.round(v * 100) + '%';
+      });
+
+      const dlyKnob = makeMiniKnob('D', track.delaySend ?? 0, '#f0c640', v => {
+        track.delaySend = v;
+        emit('track:change', { trackIndex: ti, param: 'delaySend', value: v });
+        if (state.engine?.setTrackDelaySend) state.engine.setTrackDelaySend(ti, v);
+        // Sync the full-width send slider above
+        dlySlider.value = v;
+        dlyVal.textContent = Math.round(v * 100) + '%';
+      });
+
+      miniSendRow.append(revKnob, dlyKnob);
+      stripBody.append(miniSendRow);
 
       // ── Fader link button (links this strip with the next) ───────────────
       if (ti < tracks.length - 1) {

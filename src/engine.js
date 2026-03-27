@@ -108,13 +108,46 @@ export class AudioEngine {
     this.analyser.fftSize = 1024;
     this.analyser.smoothingTimeConstant = 0.6;
 
-    // Delay line
+    // Delay line (legacy send path — tracks still route here via delaySend param)
     this.delay = context.createDelay(1.4);
     this.delay.delayTime.value = 0.28;
     this.delayFeedback = context.createGain();
     this.delayFeedback.gain.value = 0.38;
     this.delayWet = context.createGain();
     this.delayWet.gain.value = 0.28;
+
+    // ── Send/return delay bus ─────────────────────────────────────────────────
+    // delaySendBus → delayNode → delayFilter → delayFeedback2 → delayNode (loop)
+    // delayNode also taps → delayWet2 → analyser
+    this.delaySendBus   = context.createGain();
+    this.delaySendBus.gain.value = 1;
+    this.delayNode      = context.createDelay(1.4);
+    this.delayNode.delayTime.value = 0.28;
+    this.delayFilter    = context.createBiquadFilter();
+    this.delayFilter.type = 'lowpass';
+    this.delayFilter.frequency.value = 6000;
+    this.delayFilter.Q.value = 0.5;
+    this.delayFeedback2 = context.createGain();
+    this.delayFeedback2.gain.value = 0.38;
+    this.delayWet2      = context.createGain();
+    this.delayWet2.gain.value = 0.28;
+
+    // ── Convolution reverb ────────────────────────────────────────────────────
+    this.reverbConvolver = context.createConvolver();
+    this.reverbDry       = context.createGain();
+    this.reverbDry.gain.value = 1;
+    this.reverbConvWet   = context.createGain();  // wet level for convolution path
+    this.reverbConvWet.gain.value = 0.3;
+    this.reverbPreset    = 'room';
+    this._irCache        = new Map();
+
+    // Send bus: tracks' reverbSend feeds here → convolver
+    this.reverbSendBus   = context.createGain();
+    this.reverbSendBus.gain.value = 1;
+
+    // Per-track send gain nodes — index matches track index, created on first use
+    this._trackReverbSendGains = [];
+    this._trackDelaySendGains  = [];
 
     // Freeverb-inspired Schroeder-Moorer reverb (pure Web Audio node graph)
     this.reverbRoomSize = 0.84; // comb feedback gain (0–0.98)
@@ -151,12 +184,26 @@ export class AudioEngine {
     this._cloudsReady  = false;
     this._ringsReady   = false;
 
-    // Routing
+    // Routing — legacy delay send bus
     this.delay.connect(this.delayFeedback);
     this.delayFeedback.connect(this.delay);
     this.delay.connect(this.delayWet);
     this.delayWet.connect(this.master);
+
+    // Routing — new send/return delay bus
+    this.delaySendBus.connect(this.delayNode);
+    this.delayNode.connect(this.delayFilter);
+    this.delayFilter.connect(this.delayFeedback2);
+    this.delayFeedback2.connect(this.delayNode);
+    this.delayNode.connect(this.delayWet2);
+    this.delayWet2.connect(this.master);
+
+    // Freeverb wet to master
     this.reverbWet.connect(this.master);
+
+    // Convolution reverb send bus routing — connected after masterLimiter is wired below
+    this.reverbSendBus.connect(this.reverbConvolver);
+    this.reverbConvolver.connect(this.reverbConvWet);
 
     // Master limiter — hard brickwall compressor, bypassed by default
     this.masterLimiter = context.createDynamicsCompressor();
@@ -233,12 +280,22 @@ export class AudioEngine {
     this.masterEQHigh.connect(this.masterPan);
     this.masterPan.connect(this.analyser);
 
-    // Master chain: masterGain → masterCompressor → masterSaturator → masterLimiter → masterEQLow → … → masterPan → analyser → destination
+    // Master chain: masterGain → masterCompressor → masterSaturator → masterLimiter
+    //   → reverbDry → masterEQLow → … → masterPan → analyser → destination (dry path)
+    //   → reverbConvWet → masterEQLow (wet tap from convolution reverb)
     this.master.connect(this.masterCompressor);
     this.masterCompressor.connect(this.masterSaturator);
     this.masterSaturator.connect(this.masterLimiter);
-    this.masterLimiter.connect(this.masterEQLow);
+    // Parallel dry/wet after limiter
+    this.masterLimiter.connect(this.reverbDry);
+    this.reverbDry.connect(this.masterEQLow);
+    this.reverbConvWet.connect(this.masterEQLow);
     this.analyser.connect(context.destination);
+
+    // Seed the convolution reverb with a default IR (room) — deferred to avoid
+    // AudioContext creation race; called lazily on first setReverbConvPreset().
+    // Build room IR immediately so it is ready for playback.
+    this._buildConvIR('room');
 
     // CUE output — pre-fader listen bus, sums to master
     this.cueOutput = context.createGain();
@@ -337,6 +394,127 @@ export class AudioEngine {
 
     // Final allpass output → reverbWet → master
     allpassIn.connect(this.reverbWet);
+  }
+
+  // ——————————————————————————————————————————————
+  // Convolution Reverb — IR generation + preset switching
+  // ——————————————————————————————————————————————
+
+  _buildIR(name) {
+    const ctx = this.context;
+    const sampleRate = ctx.sampleRate;
+    const durations = { room: 1.2, hall: 3.5, plate: 2.0, spring: 1.8, cave: 4.5, studio: 0.6 };
+    const dur = durations[name] ?? 2.0;
+    const len = Math.floor(sampleRate * dur);
+    const buf = ctx.createBuffer(2, len, sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < len; i++) {
+        const t = i / sampleRate;
+        const decay = Math.exp(-t * (6 / dur));
+        let v = (Math.random() * 2 - 1) * decay;
+        if (t < 0.08) v *= 1.5 + Math.sin(i * 0.3) * 0.5;
+        if (name === 'spring') v *= 1 + Math.sin(i * 0.05) * 0.3;
+        if (name === 'plate')  v *= 1 + Math.sin(i * 0.12) * 0.1;
+        d[i] = v;
+      }
+    }
+    // Normalize
+    let peak = 0;
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
+    }
+    if (peak > 0) {
+      for (let ch = 0; ch < 2; ch++) {
+        const d = buf.getChannelData(ch);
+        for (let i = 0; i < d.length; i++) d[i] /= peak;
+      }
+    }
+    return buf;
+  }
+
+  // Build (or retrieve cached) IR and assign it to the convolver.
+  _buildConvIR(name) {
+    if (!this._irCache.has(name)) {
+      this._irCache.set(name, this._buildIR(name));
+    }
+    this.reverbConvolver.buffer = this._irCache.get(name);
+    this.reverbPreset = name;
+  }
+
+  // Switch convolution reverb preset.
+  setReverbConvPreset(name) {
+    const VALID = ['room', 'hall', 'plate', 'spring', 'cave', 'studio'];
+    const n = VALID.includes(name) ? name : 'room';
+    this._buildConvIR(n);
+  }
+
+  // Set convolution reverb wet/dry mix. wet: 0–1.
+  setReverbConvMix(wet) {
+    const w = Math.max(0, Math.min(1, wet));
+    this.reverbConvWet.gain.setTargetAtTime(w, this.context.currentTime, 0.05);
+    // Dry path compensates slightly to avoid over-boosting at high wet
+    this.reverbDry.gain.setTargetAtTime(1 - w * 0.3, this.context.currentTime, 0.05);
+  }
+
+  // ——————————————————————————————————————————————
+  // Per-track send levels
+  // ——————————————————————————————————————————————
+
+  // Set how much track[trackIndex]'s voice bus feeds into reverbSendBus.
+  // Creates a persistent gain node for the track the first time it's called.
+  setTrackReverbSend(trackIndex, amount) {
+    if (!this._trackReverbSendGains[trackIndex]) {
+      const g = this.context.createGain();
+      g.gain.value = 0;
+      this._trackReverbSendGains[trackIndex] = g;
+      g.connect(this.reverbSendBus);
+    }
+    this._trackReverbSendGains[trackIndex].gain.setTargetAtTime(
+      Math.max(0, Math.min(1, amount)), this.context.currentTime, 0.01
+    );
+  }
+
+  // Set how much track[trackIndex]'s voice bus feeds into delaySendBus.
+  setTrackDelaySend(trackIndex, amount) {
+    if (!this._trackDelaySendGains[trackIndex]) {
+      const g = this.context.createGain();
+      g.gain.value = 0;
+      this._trackDelaySendGains[trackIndex] = g;
+      g.connect(this.delaySendBus);
+    }
+    this._trackDelaySendGains[trackIndex].gain.setTargetAtTime(
+      Math.max(0, Math.min(1, amount)), this.context.currentTime, 0.01
+    );
+  }
+
+  // ——————————————————————————————————————————————
+  // Send/return delay bus controls
+  // ——————————————————————————————————————————————
+
+  setDelayTime2(s) {
+    this.delayNode.delayTime.setTargetAtTime(
+      Math.max(0.001, Math.min(1.3, s)), this.context.currentTime, 0.01
+    );
+  }
+
+  setDelayFeedback2(v) {
+    this.delayFeedback2.gain.setTargetAtTime(
+      Math.max(0, Math.min(0.85, v)), this.context.currentTime, 0.01
+    );
+  }
+
+  setDelayFilter2(freq) {
+    this.delayFilter.frequency.setTargetAtTime(
+      Math.max(500, Math.min(20000, freq)), this.context.currentTime, 0.01
+    );
+  }
+
+  setDelayMix2(v) {
+    this.delayWet2.gain.setTargetAtTime(
+      Math.max(0, Math.min(1, v)), this.context.currentTime, 0.01
+    );
   }
 
   // Update all comb feedback gains (roomSize 0–0.98)
@@ -933,6 +1111,17 @@ export class AudioEngine {
     reverbSend.gain.value = params.reverbSend;
     saturator.connect(reverbSend);
     reverbSend.connect(this.reverb); // this.reverb === this.reverbInput
+
+    // Per-track send buses — feed into convolution reverb and send/return delay.
+    // Connect the ephemeral saturator directly to the persistent send gain nodes;
+    // Web Audio will disconnect/GC the source automatically once all references drop.
+    const trackIdx = options.trackIndex;
+    if (trackIdx != null) {
+      const convSendGain = this._trackReverbSendGains[trackIdx];
+      if (convSendGain) saturator.connect(convSendGain);
+      const dly2SendGain = this._trackDelaySendGains[trackIdx];
+      if (dly2SendGain) saturator.connect(dly2SendGain);
+    }
 
     // ADSR-lite: attack → hold → decay
     output.gain.setValueAtTime(0.0001, when);

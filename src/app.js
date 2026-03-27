@@ -1479,6 +1479,32 @@ async function ensureAudio() {
     state.engine.setReverbPreset(state.reverbType);
   }
 
+  // Restore convolution reverb preset and mix
+  if (state.engine?.setReverbConvPreset) {
+    state.engine.setReverbConvPreset(state.convReverbPreset ?? 'room');
+  }
+  if (state.engine?.setReverbConvMix) {
+    state.engine.setReverbConvMix(state.convReverbMix ?? 0.3);
+  }
+
+  // Restore per-track send bus levels
+  {
+    const _initPattern = state.project.banks[state.activeBank].patterns[state.activePattern];
+    _initPattern.kit.tracks.forEach((t, ti) => {
+      if ((t.reverbSend ?? 0) > 0 && state.engine?.setTrackReverbSend) {
+        state.engine.setTrackReverbSend(ti, t.reverbSend);
+      }
+      if ((t.delaySend ?? 0) > 0 && state.engine?.setTrackDelaySend) {
+        state.engine.setTrackDelaySend(ti, t.delaySend);
+      }
+    });
+  }
+
+  // Restore delay filter frequency
+  if (state.engine?.setDelayFilter2 && state.delayFilterFreq) {
+    state.engine.setDelayFilter2(state.delayFilterFreq);
+  }
+
   // Restore sidechain state from saved track data
   const _activPattern = state.project.banks[state.activeBank].patterns[state.activePattern];
   const _scTrack = _activPattern.kit.tracks.find(t => t.isSidechainSource);

@@ -5,6 +5,19 @@ import { getActiveTrack, saveState } from '../state.js';
 const FILTER_TYPES = ['lowpass', 'bandpass', 'highpass'];
 const FILTER_LABELS = { lowpass: 'LP', bandpass: 'BP', highpass: 'HP' };
 
+// Convolution reverb presets (6 types — used by ConvolverNode-based reverb)
+const CONV_REVERB_TYPES  = ['room', 'hall', 'plate', 'spring', 'cave', 'studio'];
+const CONV_REVERB_LABELS = { room: 'Room', hall: 'Hall', plate: 'Plate', spring: 'Spring', cave: 'Cave', studio: 'Studio' };
+const CONV_REVERB_PRESETS = {
+  room:   { mix: 0.25, preDelay: 0  },
+  hall:   { mix: 0.30, preDelay: 20 },
+  plate:  { mix: 0.28, preDelay: 5  },
+  spring: { mix: 0.32, preDelay: 0  },
+  cave:   { mix: 0.35, preDelay: 30 },
+  studio: { mix: 0.18, preDelay: 0  },
+};
+
+// Legacy Freeverb presets (kept for the Schroeder-Moorer reverb fallback path)
 const REVERB_TYPES = ['room', 'hall', 'plate', 'spring', 'cathedral'];
 const REVERB_LABELS = { room: 'Room', hall: 'Hall', plate: 'Plate', spring: 'Spring', cathedral: 'Cathedral' };
 const REVERB_PRESETS = {
@@ -15,6 +28,12 @@ const REVERB_PRESETS = {
   cathedral: { roomSize: 0.95, damping: 0.1, preDelay: 0.04,  wet: 0.32 },
 };
 function _reverbPresetInfo(type) {
+  // Check convolution preset first, then legacy
+  if (CONV_REVERB_PRESETS[type]) {
+    const p = CONV_REVERB_PRESETS[type];
+    const pre = p.preDelay > 0 ? ` pre:${p.preDelay}ms` : '';
+    return `conv:${type} mix:${Math.round(p.mix * 100)}%${pre}`;
+  }
   const p = REVERB_PRESETS[type] ?? REVERB_PRESETS.room;
   const pre = p.preDelay > 0 ? ` pre:${Math.round(p.preDelay * 1000)}ms` : '';
   return `size:${p.roomSize.toFixed(2)} damp:${p.damping.toFixed(1)}${pre}`;
@@ -413,17 +432,31 @@ export default {
           </div>
 
           ${cardHTML('REVERB', `
-            <div class="fx-type-row" data-group="reverb-type">
-              ${REVERB_TYPES.map(t => `
-                <button class="fx-type-btn${(state.reverbType ?? 'room') === t ? ' active' : ''}"
-                        data-reverb-type="${t}">${REVERB_LABELS[t]}</button>
+            <div style="font-family:var(--font-mono);font-size:0.5rem;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Convolution</div>
+            <div class="fx-type-row" data-group="conv-reverb-preset">
+              ${CONV_REVERB_TYPES.map(t => `
+                <button class="fx-type-btn${(state.convReverbPreset ?? 'room') === t ? ' active' : ''}"
+                        data-conv-reverb-preset="${t}">${CONV_REVERB_LABELS[t]}</button>
               `).join('')}
             </div>
-            <div class="fx-preset-info" data-reverb-preset-info style="font-size:0.68rem;opacity:0.55;margin:-2px 0 4px;letter-spacing:0.03em;">${_reverbPresetInfo(state.reverbType ?? 'room')}</div>
-            ${sliderHTML('ROOM',  'reverbSize',     'global', 0.1,  0.98, 0.01, state.reverbSize     ?? 0.5)}
-            ${sliderHTML('DAMP',  'reverbDamping',  'global', 0,    1,    0.01, state.reverbDamping  ?? 0.5)}
-            ${sliderHTML('MIX',   'reverbMix',      'global', 0,    1,    0.01, state.reverbMix      ?? 0.22)}
-            ${sliderHTML('PRE',   'reverbPreDelay', 'global', 0,    100,  1,    state.reverbPreDelay ?? 0)}
+            <div class="fx-preset-info" data-reverb-preset-info style="font-size:0.68rem;opacity:0.55;margin:-2px 0 4px;letter-spacing:0.03em;">${_reverbPresetInfo(state.convReverbPreset ?? 'room')}</div>
+            ${sliderHTML('MIX',   'convReverbMix',      'global', 0,   1,   0.01, state.convReverbMix      ?? 0.3)}
+            ${sliderHTML('PRE',   'convReverbPreDelay', 'global', 0,   100, 1,    state.convReverbPreDelay ?? 0)}
+            <details style="margin-top:4px">
+              <summary style="font-family:var(--font-mono);font-size:0.5rem;color:var(--muted);cursor:pointer;user-select:none">FREEVERB (LEGACY)</summary>
+              <div style="margin-top:4px">
+                <div class="fx-type-row" data-group="reverb-type">
+                  ${REVERB_TYPES.map(t => `
+                    <button class="fx-type-btn${(state.reverbType ?? 'room') === t ? ' active' : ''}"
+                            data-reverb-type="${t}">${REVERB_LABELS[t]}</button>
+                  `).join('')}
+                </div>
+                ${sliderHTML('ROOM',  'reverbSize',     'global', 0.1,  0.98, 0.01, state.reverbSize     ?? 0.5)}
+                ${sliderHTML('DAMP',  'reverbDamping',  'global', 0,    1,    0.01, state.reverbDamping  ?? 0.5)}
+                ${sliderHTML('MIX',   'reverbMix',      'global', 0,    1,    0.01, state.reverbMix      ?? 0.22)}
+                ${sliderHTML('PRE',   'reverbPreDelay', 'global', 0,    100,  1,    state.reverbPreDelay ?? 0)}
+              </div>
+            </details>
           `)}
 
           ${cardHTML('DELAY', `
@@ -434,7 +467,7 @@ export default {
             </div>
             <div data-delay-time-row>
               ${!(state.delaySyncEnabled ?? false) ? `
-                ${sliderHTML('', 'delayTime', 'global', 0.01, 1.4, 0.01, state.delayTime ?? 0.28)}
+                ${sliderHTML('', 'delayTime', 'global', 0.001, 1.0, 0.001, state.delayTime ?? 0.28)}
               ` : `
                 <div class="fx-type-row fx-sync-divs" data-group="delay-sync-div">
                   ${DELAY_SYNC_DIVS.map(d => `
@@ -444,8 +477,9 @@ export default {
                 </div>
               `}
             </div>
-            ${sliderHTML('FDBK', 'delayFeedback', 'global', 0,    0.95, 0.01, state.delayFeedback ?? 0.38)}
-            ${sliderHTML('MIX',  'delayWet',      'global', 0,    1,    0.01, state.delayWet      ?? 0.3)}
+            ${sliderHTML('FDBK',   'delayFeedback',  'global', 0,   0.85,   0.01,  state.delayFeedback  ?? 0.38)}
+            ${sliderHTML('FILT',   'delayFilterFreq','global', 500, 10000,  100,   state.delayFilterFreq ?? 6000)}
+            ${sliderHTML('MIX',    'delayWet',        'global', 0,  1,      0.01,  state.delayWet       ?? 0.3)}
           `)}
 
           ${cardHTML('CHORUS', `
@@ -651,31 +685,48 @@ export default {
       if (_bypassed) {
         // Store current values and mute wet signals
         _bypassStore = {
-          reverbMix:   state.reverbMix   ?? 0.22,
-          delayWet:    state.delayWet    ?? 0.3,
-          chorusMix:   state.chorusMix   ?? 0,
+          reverbMix:     state.reverbMix     ?? 0.22,
+          delayWet:      state.delayWet      ?? 0.3,
+          chorusMix:     state.chorusMix     ?? 0,
+          convReverbMix: state.convReverbMix ?? 0.3,
         };
-        if (eng?.setReverbMix)   eng.setReverbMix(0);
-        if (eng?.setDelayMix)    eng.setDelayMix(0);
-        if (eng?.setChorusMix)   eng.setChorusMix(0);
-        bypassBtn.textContent = '⚡ FX BYPASSED';
+        if (eng?.setReverbMix)     eng.setReverbMix(0);
+        if (eng?.setDelayMix)      eng.setDelayMix(0);
+        if (eng?.setChorusMix)     eng.setChorusMix(0);
+        if (eng?.setReverbConvMix) eng.setReverbConvMix(0);
+        if (eng?.setDelayMix2)     eng.setDelayMix2(0);
+        bypassBtn.textContent = 'FX BYPASSED';
         bypassBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;border-color:var(--record);color:var(--record)';
         bypassBtn.classList.add('active');
       } else {
         // Restore saved values
-        const rv = _bypassStore.reverbMix ?? state.reverbMix ?? 0.22;
-        const dw = _bypassStore.delayWet  ?? state.delayWet  ?? 0.3;
-        const cm = _bypassStore.chorusMix ?? state.chorusMix ?? 0;
-        if (eng?.setReverbMix)   eng.setReverbMix(rv);
-        if (eng?.setDelayMix)    eng.setDelayMix(dw);
-        if (eng?.setChorusMix)   eng.setChorusMix(cm);
+        const rv  = _bypassStore.reverbMix     ?? state.reverbMix     ?? 0.22;
+        const dw  = _bypassStore.delayWet      ?? state.delayWet      ?? 0.3;
+        const cm  = _bypassStore.chorusMix     ?? state.chorusMix     ?? 0;
+        const crv = _bypassStore.convReverbMix ?? state.convReverbMix ?? 0.3;
+        if (eng?.setReverbMix)     eng.setReverbMix(rv);
+        if (eng?.setDelayMix)      eng.setDelayMix(dw);
+        if (eng?.setChorusMix)     eng.setChorusMix(cm);
+        if (eng?.setReverbConvMix) eng.setReverbConvMix(crv);
+        if (eng?.setDelayMix2)     eng.setDelayMix2(state.delayWet ?? 0.3);
         bypassBtn.textContent = 'BYPASS ALL FX';
         bypassBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem';
         bypassBtn.classList.remove('active');
       }
     });
 
-    bypassRow.append(bypassBtn);
+    // Status bar — shows current reverb preset and delay time
+    const statusBar = document.createElement('div');
+    statusBar.style.cssText = 'font-family:var(--font-mono);font-size:0.5rem;color:var(--muted);letter-spacing:0.04em;display:flex;gap:10px;align-items:center';
+    const _cvPreset = state.convReverbPreset ?? 'room';
+    const _dtSec    = state.delayTime ?? 0.28;
+    const _dtMs     = Math.round(_dtSec * 1000);
+    statusBar.innerHTML =
+      `<span>REV: <span style="color:var(--screen-text)">${_cvPreset.toUpperCase()}</span></span>` +
+      `<span>DLY: <span style="color:var(--screen-text)">${_dtMs}ms</span></span>` +
+      `<span>CONV MIX: <span style="color:var(--screen-text)">${Math.round((state.convReverbMix ?? 0.3) * 100)}%</span></span>`;
+
+    bypassRow.append(bypassBtn, statusBar);
     if (firstCard) firstCard.insertAdjacentElement('beforebegin', bypassRow);
     else container.prepend(bypassRow);
 
@@ -838,6 +889,28 @@ export default {
         return;
       }
 
+      // ── Convolution reverb preset ────────────────────────────────────────────
+      const convReverbBtn = e.target.closest('[data-conv-reverb-preset]');
+      if (convReverbBtn) {
+        const cp = convReverbBtn.dataset.convReverbPreset;
+        state.convReverbPreset = cp;
+        container.querySelectorAll('[data-conv-reverb-preset]').forEach(b =>
+          b.classList.toggle('active', b.dataset.convReverbPreset === cp)
+        );
+        const eng = window._confusynthEngine ?? state.engine;
+        if (eng?.setReverbConvPreset) eng.setReverbConvPreset(cp);
+        // Apply default mix for this preset
+        const defaultMix = CONV_REVERB_PRESETS[cp]?.mix ?? 0.3;
+        if (eng?.setReverbConvMix) eng.setReverbConvMix(defaultMix);
+        state.convReverbMix = defaultMix;
+        // Update preset info label
+        const infoEl = container.querySelector('[data-reverb-preset-info]');
+        if (infoEl) infoEl.textContent = _reverbPresetInfo(cp);
+        emit('state:change', { param: 'convReverbPreset', value: cp });
+        saveState(state);
+        return;
+      }
+
       // ── Reverb type ─────────────────────────────────────────────────────────
       const reverbBtn = e.target.closest('[data-reverb-type]');
       if (reverbBtn) {
@@ -944,13 +1017,16 @@ function _syncEQSliderDisplays(container, track) {
 function _applyGlobal(param, v, state) {
   const eng = state.engine;
   if (!eng) return;
-  if (param === 'reverbSize'     && eng.setReverbRoomSize)  eng.setReverbRoomSize(v);
-  if (param === 'reverbDamping'  && eng.setReverbDamping)   eng.setReverbDamping(v);
-  if (param === 'reverbPreDelay' && eng.setReverbPreDelay)  eng.setReverbPreDelay(v);
-  if (param === 'delayTime'      && eng.setDelayTime)       eng.setDelayTime(v);
-  if (param === 'delayFeedback'  && eng.setDelayFeedback)   eng.setDelayFeedback(v);
-  if (param === 'delayWet'       && eng.setDelayMix)        eng.setDelayMix(v);
-  if (param === 'masterLevel'    && eng.setMasterLevel)     eng.setMasterLevel(v);
-  if (param === 'reverbMix'      && eng.setReverbMix)       eng.setReverbMix(v);
-  if (param === 'masterDrive'    && eng.setMasterDrive)     eng.setMasterDrive(v);
+  if (param === 'reverbSize'        && eng.setReverbRoomSize)   eng.setReverbRoomSize(v);
+  if (param === 'reverbDamping'     && eng.setReverbDamping)    eng.setReverbDamping(v);
+  if (param === 'reverbPreDelay'    && eng.setReverbPreDelay)   eng.setReverbPreDelay(v);
+  if (param === 'delayTime'         && eng.setDelayTime)        { eng.setDelayTime(v); eng.setDelayTime2?.(v); }
+  if (param === 'delayFeedback'     && eng.setDelayFeedback)    { eng.setDelayFeedback(v); eng.setDelayFeedback2?.(v); }
+  if (param === 'delayFilterFreq'   && eng.setDelayFilter2)     eng.setDelayFilter2(v);
+  if (param === 'delayWet'          && eng.setDelayMix)         { eng.setDelayMix(v); eng.setDelayMix2?.(v); }
+  if (param === 'masterLevel'       && eng.setMasterLevel)      eng.setMasterLevel(v);
+  if (param === 'reverbMix'         && eng.setReverbMix)        eng.setReverbMix(v);
+  if (param === 'convReverbMix'     && eng.setReverbConvMix)    eng.setReverbConvMix(v);
+  if (param === 'convReverbPreDelay'&& eng.setReverbPreDelay)   eng.setReverbPreDelay(v);
+  if (param === 'masterDrive'       && eng.setMasterDrive)      eng.setMasterDrive(v);
 }
