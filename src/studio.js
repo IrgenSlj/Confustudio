@@ -240,6 +240,8 @@ export function initStudio() {
         <button data-module="tb303">TB-303</button>
         <button data-module="juno60">Juno-60</button>
         <button data-module="tr909">TR-909</button>
+        <button data-module="fm_synth">FM Synth</button>
+        <button data-module="moog">Moog D</button>
       </div>
       <div class="mp-section-label">MIXING</div>
       <div class="mp-grid">
@@ -304,6 +306,18 @@ export function initStudio() {
       import('./modules/tr909.js').then(m => {
         mod.innerHTML = '';
         mod.appendChild(m.createTr909(window._confusynthEngine?.context ?? null));
+      });
+    } else if (type === 'fm_synth') {
+      mod.innerHTML = '<div class="module-loading-shell" style="width:980px;height:280px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading FM Synth…</div>';
+      import('./modules/fm_synth.js').then(m => {
+        mod.innerHTML = '';
+        mod.appendChild(m.createFMSynth(window._confusynthEngine?.context ?? null));
+      });
+    } else if (type === 'moog') {
+      mod.innerHTML = '<div class="module-loading-shell" style="width:1000px;height:300px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Moog D…</div>';
+      import('./modules/moog.js').then(m => {
+        mod.innerHTML = '';
+        mod.appendChild(m.createMoog(window._confusynthEngine?.context ?? null));
       });
     } else if (type.startsWith('figure-')) {
       const emoji = {
