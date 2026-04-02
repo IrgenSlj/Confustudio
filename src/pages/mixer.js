@@ -79,7 +79,7 @@ const MIXER_CSS = `
   font-variant-numeric: tabular-nums; font-family: var(--font-mono);
 }
 .mx-ms-row { display: flex; gap: 3px; }
-.mx-mute, .mx-solo {
+.mx-mute, .mx-solo, .mx-cue {
   width: 22px; height: 16px; font-size: 0.5rem; font-weight: 700;
   border-radius: 2px; border: 1px solid rgba(255,255,255,0.15);
   background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.5); cursor: pointer;
@@ -87,6 +87,7 @@ const MIXER_CSS = `
 }
 .mx-mute.on { background: rgba(240,91,82,0.3); color: #f05b52; border-color: #f05b52; }
 .mx-solo.on { background: rgba(240,198,64,0.3); color: #f0c640; border-color: #f0c640; }
+.mx-cue.on { background: rgba(103,215,255,0.24); color: #67d7ff; border-color: #67d7ff; }
 .mx-meter-wrap { width: 100%; height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; margin-top: 1px; }
 .mx-meter-bar { height: 100%; width: 0%; background: var(--tc, #5add71); border-radius: 2px; transition: width 0.05s; }
 
@@ -115,6 +116,20 @@ const MIXER_CSS = `
   position: absolute; bottom: 0; width: 100%;
   background: #5add71; height: 0%; border-radius: 1px;
   transition: height 0.05s ease-out;
+}
+
+/* Master spectrum analyzer */
+.mx-spectrum-wrap {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  margin-top: 6px;
+}
+.mx-spectrum-lbl {
+  font-size: 0.46rem; color: rgba(255,255,255,0.3); font-family: var(--font-mono);
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.mx-spectrum-canvas {
+  display: block; border-radius: 2px;
+  background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06);
 }
 
 /* Groups */
@@ -173,6 +188,9 @@ function injectCSS() {
 
 // ── Track strip builder ───────────────────────────────────────────────────────
 function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
+  // Canonical send-level source: top-level state.tracks[ti] (persisted store).
+  // Fall back to the kit track object, then 0.
+  const stTrack = (state.tracks ?? [])[ti] ?? track;
   const color = TRACK_COLORS[ti] ?? '#888';
 
   const strip = document.createElement('div');
@@ -244,15 +262,17 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
     return { wrap, knob };
   }
 
-  const { wrap: revWrap, knob: revKnob } = makeSendKnob('R', track.reverbSend ?? 0, v => {
-    track.reverbSend = v;
-    emit('track:change', { trackIndex: ti, param: 'reverbSend', value: v });
-    if (state.engine?.setTrackReverbSend) state.engine.setTrackReverbSend(ti, v);
+  const { wrap: revWrap, knob: revKnob } = makeSendKnob('R', stTrack.reverbSend ?? 0, v => {
+    stTrack.reverbSend = v;
+    track.reverbSend   = v;
+    state.engine?.setTrackReverbSend?.(ti, v);
+    emit('state:change', { path: `tracks.${ti}.reverbSend`, value: v });
   });
-  const { wrap: dlyWrap, knob: dlyKnob } = makeSendKnob('D', track.delaySend ?? 0, v => {
-    track.delaySend = v;
-    emit('track:change', { trackIndex: ti, param: 'delaySend', value: v });
-    if (state.engine?.setTrackDelaySend) state.engine.setTrackDelaySend(ti, v);
+  const { wrap: dlyWrap, knob: dlyKnob } = makeSendKnob('D', stTrack.delaySend ?? 0, v => {
+    stTrack.delaySend = v;
+    track.delaySend   = v;
+    state.engine?.setTrackDelaySend?.(ti, v);
+    emit('state:change', { path: `tracks.${ti}.delaySend`, value: v });
   });
   sendsRow.append(revWrap, dlyWrap);
   strip.append(sendsRow);
@@ -350,7 +370,18 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
     });
   });
 
-  msRow.append(muteBtn, soloBtn);
+  const cueBtn = document.createElement('button');
+  cueBtn.className = 'mx-cue' + (track.cue ? ' on' : '');
+  cueBtn.textContent = 'C';
+  cueBtn.title = 'Cue / pre-fader listen';
+  cueBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    track.cue = !track.cue;
+    cueBtn.classList.toggle('on', track.cue);
+    emit('track:change', { trackIndex: ti, param: 'cue', value: track.cue });
+  });
+
+  msRow.append(muteBtn, soloBtn, cueBtn);
   strip.append(msRow);
 
   return strip;
@@ -631,6 +662,60 @@ export default {
     } else if (masterFaderEl) {
       masterVuFill = masterFaderEl.parentElement?.querySelector('.mx-master-vu-fill') ?? null;
     }
+
+    // ── Master spectrum analyzer ──────────────────────────────────────────────
+    // Build a 200×40 canvas bar-spectrum and append it at the bottom of the
+    // mixer page (inside the page div so isConnected self-terminates the RAF).
+    const specWrap = document.createElement('div');
+    specWrap.className = 'mx-spectrum-wrap mx-section';
+    const specLbl = document.createElement('div');
+    specLbl.className = 'mx-spectrum-lbl';
+    specLbl.textContent = 'Master Spectrum';
+    const specCanvas = document.createElement('canvas');
+    specCanvas.className = 'mx-spectrum-canvas';
+    specCanvas.width  = 200;
+    specCanvas.height = 40;
+    specWrap.append(specLbl, specCanvas);
+    page.append(specWrap);
+
+    const specCtx = specCanvas.getContext('2d');
+    const FFT_BINS = 256; // we'll read 256 bins (fftSize 512)
+
+    // Ensure the analyser node has fftSize 512 if accessible
+    const _analyserNode = window._confusynthEngine?.analyser ?? state.engine?.analyser ?? null;
+    if (_analyserNode && _analyserNode.fftSize < 512) {
+      try { _analyserNode.fftSize = 512; } catch (_) {}
+    }
+    const _specData = new Uint8Array(FFT_BINS);
+
+    function _drawSpectrum() {
+      if (!specCanvas.isConnected) return; // self-terminate
+      const analyser = window._confusynthEngine?.analyser ?? state.engine?.analyser ?? null;
+      if (!analyser) {
+        // no analyser yet — clear and reschedule
+        specCtx.clearRect(0, 0, specCanvas.width, specCanvas.height);
+        requestAnimationFrame(_drawSpectrum);
+        return;
+      }
+      analyser.getByteFrequencyData(_specData);
+      const W = specCanvas.width;
+      const H = specCanvas.height;
+      specCtx.clearRect(0, 0, W, H);
+      const barW = W / FFT_BINS;
+      for (let i = 0; i < FFT_BINS; i++) {
+        const norm = _specData[i] / 255; // 0..1
+        const barH = Math.round(norm * H);
+        if (barH === 0) continue;
+        // Color: green → yellow → red by amplitude
+        const r = norm > 0.6 ? 255 : Math.round(norm / 0.6 * 200);
+        const g = norm > 0.8 ? Math.round((1 - (norm - 0.8) / 0.2) * 210) : 210;
+        const b = 40;
+        specCtx.fillStyle = `rgb(${r},${g},${b})`;
+        specCtx.fillRect(Math.floor(i * barW), H - barH, Math.max(1, Math.ceil(barW) - 1), barH);
+      }
+      requestAnimationFrame(_drawSpectrum);
+    }
+    _drawSpectrum();
 
     // ── rAF VU animation loop ─────────────────────────────────────────────────
     let _vuRaf = null;

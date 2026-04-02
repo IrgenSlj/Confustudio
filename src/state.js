@@ -1,6 +1,12 @@
 // CONFUsynth v3 — state.js
 // Central state module: project structure, accessors, persistence
 
+import {
+  ensureProjectAssetId,
+  queuePersistAssets,
+  scheduleAssetHydration,
+} from './asset-store.js';
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 export const STORAGE_KEY   = "confusynth-v3";
@@ -45,6 +51,7 @@ function createRecorderSlotMeta(index) {
     trackIndex: null,
     durationSec: 0,
     createdAt: null,
+    assetId: null,
   };
 }
 
@@ -179,6 +186,8 @@ export function createTrack(index) {
 
     // Runtime (not serialized)
     sampleBuffer: null,
+    sampleAssetId: null,
+    sampleSlices: [],
 
     // Scene defaults (crossfader endpoints)
     sceneA: {
@@ -270,11 +279,13 @@ function normalizeScenes(state) {
 // ─── Factory: Project ─────────────────────────────────────────────────────────
 
 export function createProject() {
+  const createdAt = Date.now();
   return {
     name:        "New Project",
     author:      "",
     description: "",
-    createdAt:   Date.now(),
+    createdAt,
+    assetId:     ensureProjectAssetId({ createdAt }),
     banks:       Array.from({ length: BANK_COUNT }, (_, bi) => createBank(bi)),
     scenes:      Array.from({ length: 8 }, (_, i) => createScene(i)),
   };
@@ -313,6 +324,8 @@ export function createAppState() {
     defaultProb:   1,
     trigMode:      0,
     masterLevel:   0.82,
+    cueLevel:      1,
+    cueMonitorEnabled: true,
     bus1Level:     1.0,
     bus2Level:     1.0,
     bus1EqLow: 0, bus1EqMid: 0, bus1EqHigh: 0,
@@ -358,7 +371,9 @@ export function createAppState() {
     activeKeyboardKey: null,
     keyboardVelocity:  1.0,
     velocityCurve:     'linear',
-    chordMode:         'off',
+    kbdChordMode:      'off',
+    chordMode:         false,
+    chordVoicing:      'triad',
     humanizeAmount:    0.2,
     scaleLock:         false,
     splitKeyboard:     false,
@@ -503,8 +518,13 @@ export function interpolateScenes(state) {
 
 function stripRuntime(state) {
   // Deep-clone the serializable parts; exclude AudioBuffers and runtime refs.
+  const {
+    _assetHydrationPending,
+    _assetHydrationComplete,
+    ...runtimeSafeState
+  } = state;
   const plain = {
-    ...state,
+    ...runtimeSafeState,
     audioContext: null,
     engine:       null,
     recorderBuffers: Array.isArray(state.recorderBuffers)
@@ -527,10 +547,60 @@ function stripRuntime(state) {
       })),
     },
   };
-  return plain;
+  return sparsifyState(plain, getDefaultStateTemplate()) ?? {};
 }
 
 let _saveTimer = null;
+let _defaultStateTemplate = null;
+
+function getDefaultStateTemplate() {
+  if (!_defaultStateTemplate) {
+    _defaultStateTemplate = createAppState();
+  }
+  return _defaultStateTemplate;
+}
+
+function isPlainObject(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function sparsifyState(value, baseline) {
+  if (Array.isArray(value)) {
+    const baseArray = Array.isArray(baseline) ? baseline : [];
+    const out = [];
+    let lastDefined = -1;
+
+    for (let i = 0; i < value.length; i++) {
+      const next = sparsifyState(value[i], baseArray[i]);
+      if (next !== undefined) {
+        out[i] = next;
+        lastDefined = i;
+      } else if (baseArray[i] !== undefined) {
+        out[i] = null;
+        lastDefined = i;
+      }
+    }
+
+    if (lastDefined < 0) return undefined;
+    out.length = lastDefined + 1;
+    return out;
+  }
+
+  if (isPlainObject(value)) {
+    const baseObject = isPlainObject(baseline) ? baseline : {};
+    const out = {};
+    for (const key of Object.keys(value)) {
+      const next = sparsifyState(value[key], baseObject[key]);
+      if (next !== undefined) {
+        out[key] = next;
+      }
+    }
+    return Object.keys(out).length > 0 ? out : undefined;
+  }
+
+  if (Object.is(value, baseline)) return undefined;
+  return value;
+}
 
 /**
  * Debounced (400 ms) localStorage write.
@@ -545,8 +615,20 @@ export function saveState(state) {
       state._lastSaveTime = Date.now();
       const serializable = stripRuntime(state);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
+      void queuePersistAssets(state);
     } catch (err) {
-      console.warn("[CONFUsynth] saveState failed:", err);
+      if (err?.name === 'QuotaExceededError') {
+        try {
+          const serializable = sparsifyState(stripRuntime(state), getDefaultStateTemplate()) ?? {};
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
+          void queuePersistAssets(state);
+          return;
+        } catch (fallbackErr) {
+          console.warn("[CONFUsynth] saveState failed after sparse fallback:", fallbackErr);
+        }
+      } else {
+        console.warn("[CONFUsynth] saveState failed:", err);
+      }
     }
   }, 400);
 }
@@ -607,7 +689,9 @@ export function loadState() {
       }
       // Merge into a fresh appState so any new fields are present
       const fresh = createAppState();
-      return normalizeScenes(deepMerge(fresh, parsed));
+      const next = normalizeScenes(deepMerge(fresh, parsed));
+      scheduleAssetHydration(next);
+      return next;
     }
   } catch (err) {
     console.warn("[CONFUsynth] loadState v3 failed:", err);
@@ -627,7 +711,9 @@ export function loadState() {
           Object.assign(target[i], lt, { sampleBuffer: null });
         });
       }
-      return normalizeScenes(state);
+      const next = normalizeScenes(state);
+      scheduleAssetHydration(next);
+      return next;
     }
   } catch (err) {
     console.warn("[CONFUsynth] loadState v2 legacy import failed:", err);
@@ -639,6 +725,14 @@ export function loadState() {
 // ─── Utility: deep merge (plain objects only) ─────────────────────────────────
 
 function deepMerge(target, source) {
+  if (Array.isArray(target) && Array.isArray(source)) {
+    const len = Math.max(target.length, source.length);
+    return Array.from({ length: len }, (_, index) => {
+      const srcVal = source[index];
+      if (srcVal === undefined || srcVal === null) return target[index];
+      return deepMerge(target[index], srcVal);
+    });
+  }
   if (!source || typeof source !== "object" || Array.isArray(source)) {
     return source !== undefined ? source : target;
   }

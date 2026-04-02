@@ -743,21 +743,25 @@ function makeSampleLoader(track, ti, emit, machCard, state) {
     const src = track.sampleBuffer;
     if (!src) return;
     const n = parseInt(sliceSelect.value, 10);
-    const sliceLen = Math.floor(src.length / n);
-    const slices = [];
+    const sliceMarkers = [];
+    const activeSteps = track.steps.filter(step => step.active);
     for (let s = 0; s < n; s++) {
-      const ctx = new OfflineAudioContext(src.numberOfChannels, sliceLen, src.sampleRate);
-      const buf = ctx.createBuffer(src.numberOfChannels, sliceLen, src.sampleRate);
-      for (let ch = 0; ch < src.numberOfChannels; ch++) {
-        const srcData = src.getChannelData(ch).subarray(s * sliceLen, s * sliceLen + sliceLen);
-        buf.copyToChannel(srcData, ch);
+      const start = s / n;
+      const end = Math.min(1, (s + 1) / n);
+      sliceMarkers.push({ index: s, start, end });
+      const step = activeSteps[s];
+      if (step) {
+        step.paramLocks = {
+          ...(step.paramLocks || {}),
+          sampleStart: start,
+          sampleEnd: end,
+        };
       }
-      slices.push(buf);
     }
-    track.sampleSlices = slices;
+    track.sampleSlices = sliceMarkers;
     track.sampleStart = 0;
     track.sampleEnd = 1;
-    emit('state:change', { path: 'tracks', value: state.tracks });
+    emit('track:change', { trackIndex: ti, param: 'sampleSlices', value: sliceMarkers });
   });
 
   audioToolsRow.append(normalizeBtn, reverseBtn, sliceSelect, sliceBtn);
@@ -1475,12 +1479,10 @@ export default {
           loadSlotBtn.title = 'Load this recorder slot into track sample';
           loadSlotBtn.disabled = !buf;
           loadSlotBtn.addEventListener('click', () => {
-            const buffer = buf ?? state.recorderBuffers?.[si];
-            if (!buffer) return;
-            track.sampleBuffer = buffer;
-            track.machine = 'sample';
-            emit('track:change', { trackIndex: state.selectedTrackIndex, param: 'machine', value: 'sample' });
-            emit('state:change', { path: 'tracks', value: state.tracks });
+            emit('state:change', {
+              path: 'action_assignRecorderSlot',
+              value: { slot: si, trackIndex: state.selectedTrackIndex },
+            });
           });
 
           row.append(slotLabel, slotInfo, previewBtn, loadSlotBtn);

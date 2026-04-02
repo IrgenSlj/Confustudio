@@ -144,6 +144,27 @@ body {
   flex-direction: column;
 }
 
+.studio-module.selected {
+  filter: drop-shadow(0 8px 20px rgba(0,0,0,0.65))
+          drop-shadow(0 0 0 rgba(0,0,0,0))
+          drop-shadow(0 0 0 2px rgba(240,198,64,0.45));
+}
+
+.studio-module.module-selected .chassis {
+  box-shadow:
+    0 0 0 1px rgba(90,221,113,0.8),
+    0 0 0 4px rgba(90,221,113,0.12),
+    0 20px 60px rgba(0,0,0,0.7),
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    0 0 0 1px rgba(0,0,0,0.4),
+    0 2px 0 rgba(255,255,255,0.06) inset,
+    0 -2px 0 rgba(0,0,0,0.3) inset;
+}
+
+.studio-module.module-selected .ports-bar {
+  background: rgba(90,221,113,0.08);
+}
+
 .studio-module:hover {
   filter: drop-shadow(0 6px 16px rgba(0,0,0,0.6))
           drop-shadow(0 2px 4px rgba(0,0,0,0.9));
@@ -230,6 +251,21 @@ body {
   background: rgba(90,221,113,0.22) !important;
 }
 
+#remove-module {
+  background: rgba(255,96,96,0.12) !important;
+  border-color: rgba(255,96,96,0.28) !important;
+  color: rgba(255,160,160,0.9) !important;
+}
+
+#remove-module:hover:not(:disabled) {
+  background: rgba(255,96,96,0.22) !important;
+}
+
+#remove-module:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 #studio-wrap.is-panning {
   cursor: grabbing;
 }
@@ -261,6 +297,57 @@ body {
     0 20px 60px rgba(0,0,0,0.7),
     0 2px 0 rgba(255,255,255,0.06) inset,
     0 -2px 0 rgba(0,0,0,0.3) inset;
+}
+
+.module-tools {
+  position: absolute;
+  top: -30px;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 12;
+  pointer-events: auto;
+}
+
+.module-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(8,12,8,0.92);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.68);
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.module-remove-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(8,12,8,0.92);
+  color: rgba(255,255,255,0.72);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.module-remove-btn:hover:not(:disabled) {
+  color: #fff;
+  border-color: rgba(240,91,82,0.55);
+  background: rgba(60,12,12,0.95);
+}
+
+.module-remove-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 button,
@@ -311,6 +398,7 @@ button {
 .chassis {
   width: 860px;
   height: 860px;
+  aspect-ratio: 1 / 1;
   flex-shrink: 0;  /* fixed size — never grows past 860×860 */
   background-color: var(--chassis-bg);
   background-image:
@@ -349,6 +437,33 @@ button {
   min-height: 24px;
   flex-wrap: nowrap;
   overflow: hidden;
+}
+
+.module-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.45);
+  font-size: 0.7rem;
+  line-height: 1;
+  letter-spacing: -0.18em;
+  cursor: grab;
+  user-select: none;
+}
+
+.module-drag-handle:hover {
+  color: rgba(255,255,255,0.8);
+  background: rgba(255,255,255,0.08);
+}
+
+.studio-module.module-dragging .module-drag-handle {
+  cursor: grabbing;
 }
 
 .port {
@@ -402,12 +517,13 @@ button {
 
 .machine-grid {
   display: grid;
-  grid-template-columns: 72px 1fr 120px;
+  grid-template-columns: 72px minmax(0, 1fr) 120px;
   grid-template-rows: 1fr;
   flex: 1;
   min-height: 0;
   overflow: hidden;
   gap: 0;
+  align-items: stretch;
 }
 
 /* ============================================================
@@ -549,6 +665,7 @@ button {
 .t-btn--audio.active     { color: var(--accent); }
 .t-btn--panic            { color: #ff4444; font-weight: bold; }
 .t-btn--panic:hover      { background: rgba(255,68,68,0.15); }
+.t-btn.tap-flash         { background: var(--accent); color: #000; border-color: var(--accent); transition: background 0.15s, color 0.15s; }
 
 /* BPM edit */
 .bpm-edit {
@@ -1046,8 +1163,8 @@ button {
 
 .oscilloscope-strip {
   width: 100%;
-  height: 36px;
-  min-height: 36px;
+  height: 30px;
+  min-height: 30px;
   display: block;
   flex-shrink: 0;
   cursor: pointer;
@@ -1152,6 +1269,10 @@ button {
   gap: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+  touch-action: pan-y;
   min-height: 0;
 }
 
@@ -1163,6 +1284,10 @@ button {
   width: 100%;
   align-content: start;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+  touch-action: pan-y;
   min-height: 0;
 }
 
@@ -1433,7 +1558,8 @@ button {
 }
 
 .step-btn:active {
-  transform: translateY(2px);
+  transform: translateY(2px) scale(0.92);
+  filter: brightness(1.35);
   box-shadow:
     inset 0 2px 4px rgba(0,0,0,0.4),
     0 1px 0 rgba(0,0,0,0.5);
@@ -4791,11 +4917,7 @@ input[type=range] {
   }
 
   .knob-bar {
-    display: none; /* hide knob bar on very small screens */
-  }
-
-  .kbd-panel {
-    display: none; /* hide keyboard panel on small screens */
+    display: none;
   }
 
   .mtg-label-wrap {
@@ -4804,6 +4926,10 @@ input[type=range] {
   }
 
   .fader-section {
+    display: none;
+  }
+
+  .kbd-panel {
     display: none;
   }
 
@@ -5529,80 +5655,6 @@ input[type=range] {
   background: rgba(240,198,64,0.03);
 }
 
-/* ── Mobile / Tablet responsive tweaks ──────────────────────────── */
-@media (max-width: 900px) {
-  .machine-grid {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .left-col,
-  .right-col {
-    flex-direction: row;
-    width: 100%;
-    max-width: 100%;
-    height: auto;
-    overflow-x: auto;
-    overflow-y: hidden;
-    flex-shrink: 0;
-    align-items: center;
-  }
-
-  .left-col {
-    padding: 4px 8px;
-    gap: 8px;
-    border-right: none;
-    border-bottom: 1px solid rgba(0,0,0,0.35);
-  }
-
-  .right-col {
-    padding: 4px 8px;
-    gap: 4px;
-    border-left: none;
-    border-top: 1px solid rgba(0,0,0,0.35);
-  }
-
-  .transport-buttons {
-    flex-direction: row;
-  }
-
-  .sig-vol-row {
-    flex-shrink: 0;
-  }
-
-  .chassis {
-    width: 100%;
-    height: auto;
-    min-height: 100vh;
-    border-radius: 0;
-  }
-
-  body {
-    font-size: 0.9em;
-  }
-
-  .tab {
-    font-size: 0.48rem;
-    padding: 3px 5px;
-  }
-}
-
-@media (max-width: 600px) {
-  .kbd-panel {
-    display: none;
-  }
-
-  .tab {
-    font-size: 0.44rem;
-    padding: 2px 4px;
-  }
-
-  .step-btn,
-  .step-sm {
-    height: 22px !important;
-  }
-}
-
 /* ═══════════════════════════════════════════════════════════════════════════
    MACRO KNOBS — chassis left column
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -6161,4 +6213,172 @@ input[type=range] {
 
 .mm-popup-remove:hover {
   background: rgba(255,80,80,0.2);
+}
+
+/* ============================================================
+   MICRO-ANIMATIONS & POLISH
+   ============================================================ */
+
+/* Page content fade-in on tab switch */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-enter {
+  animation: page-enter 150ms ease-out both;
+}
+
+/* Module entrance animation */
+@keyframes module-appear {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.studio-module {
+  animation: module-appear 200ms ease-out both;
+}
+/* Don't re-animate while dragging */
+.studio-module.module-dragging {
+  animation: none;
+}
+
+/* Step flash keyframe (applied by JS on clock tick) */
+@keyframes step-flash {
+  0%   { background: #fff !important; box-shadow: 0 0 10px 4px rgba(255,255,255,0.8) !important; }
+  100% { background: inherit; box-shadow: inherit; }
+}
+.step-flash {
+  animation: step-flash 80ms ease-out both !important;
+}
+
+/* Button hover lift + sink */
+button:not(:disabled):not(.step-btn):not(.tab):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  transition: transform 0.08s, box-shadow 0.08s, background 0.1s;
+}
+button:not(:disabled):not(.step-btn):not(.tab):active {
+  transform: translateY(1px) !important;
+  box-shadow: none !important;
+}
+
+/* Knob glow on hover */
+.knob:hover,
+.knob-wrap:hover .knob {
+  filter: drop-shadow(0 0 4px rgba(90,221,113,0.45));
+}
+
+/* Range thumb scale on hover */
+input[type=range]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  transition: transform 0.1s;
+}
+input[type=range]::-moz-range-thumb:hover {
+  transform: scale(1.2);
+  transition: transform 0.1s;
+}
+
+/* Port pulse invite-to-connect */
+@keyframes port-invite {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.25); }
+}
+.port:not(.connected):hover::before {
+  animation: port-invite 0.7s ease-in-out infinite;
+}
+
+/* Shortcut overlay */
+#shortcut-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.82);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#shortcut-overlay.hidden { display: none; }
+.shortcut-overlay-inner {
+  background: var(--bg2, #141414);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  padding: 24px 32px;
+  max-width: 640px;
+  width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  color: var(--text, #eee);
+}
+.shortcut-overlay-inner h2 {
+  margin: 0 0 16px;
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--live, #5add71);
+}
+.shortcut-overlay-inner h3 {
+  margin: 12px 0 6px;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.45);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding-bottom: 4px;
+}
+.shortcut-overlay-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+}
+.shortcut-overlay-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.6rem;
+  padding: 2px 0;
+}
+.shortcut-overlay-row kbd {
+  font-size: 0.55rem;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: var(--font-mono, monospace);
+  white-space: nowrap;
+}
+.shortcut-overlay-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.4);
+  font-size: 1.2rem;
+  cursor: pointer;
+  line-height: 1;
+}
+.shortcut-overlay-close:hover { color: #fff; }
+
+/* Undo/redo toast */
+#undo-toast {
+  position: fixed;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: rgba(30,30,30,0.92);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 20px;
+  padding: 5px 16px;
+  font-size: 0.62rem;
+  font-family: var(--font-mono, monospace);
+  color: var(--live, #5add71);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s, transform 0.15s;
+  z-index: 9998;
+  white-space: nowrap;
+}
+#undo-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }

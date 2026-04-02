@@ -204,6 +204,60 @@ export const CHORD_VOICINGS = {
   min7: [3, 7, 10],
 };
 
+// ─── Scale-aware chord construction ───────────────────────────────────────────
+// Returns an array of MIDI notes for the chord starting at rootMidi.
+// voicing: 'triad' | '7th' | '9th' | 'power'
+// scaleIndex: index into SCALE_INTERVALS (0 = chromatic / no scale)
+
+const CHORD_DEGREE_COUNTS = { triad: 3, '7th': 4, '9th': 5, power: 2 };
+
+function buildChordNotes(rootMidi, voicing, scaleIndex) {
+  const intervals = SCALE_INTERVALS[scaleIndex ?? 0];
+
+  if (voicing === 'power') {
+    // Root + perfect 5th (7 semitones), always chromatic
+    return [rootMidi, rootMidi + 7].filter(n => n >= 0 && n <= 127);
+  }
+
+  const degreeCount = CHORD_DEGREE_COUNTS[voicing] ?? 3;
+
+  if (!intervals) {
+    // Chromatic: use generic major scale degree intervals
+    const chromaDeg = [0, 4, 7, 10, 14]; // 1, 3, 5, b7, 9
+    return chromaDeg.slice(0, degreeCount)
+      .map(iv => rootMidi + iv)
+      .filter(n => n >= 0 && n <= 127);
+  }
+
+  // Find the position of rootMidi's pitch class in the scale
+  const rootPc = ((rootMidi % 12) + 12) % 12;
+  const rootOct = rootMidi - rootPc; // MIDI base for the octave containing the root
+
+  // Locate root degree index in scale (snap to nearest if not in scale)
+  let rootDegIdx = intervals.indexOf(rootPc);
+  if (rootDegIdx === -1) {
+    // Not in scale — snap to nearest scale degree
+    let best = 0, bestDist = 12;
+    for (let i = 0; i < intervals.length; i++) {
+      const d = Math.min(Math.abs(intervals[i] - rootPc), 12 - Math.abs(intervals[i] - rootPc));
+      if (d < bestDist) { bestDist = d; best = i; }
+    }
+    rootDegIdx = best;
+  }
+
+  const notes = [];
+  for (let d = 0; d < degreeCount; d++) {
+    // Scale degrees: 1st(0), 3rd(2), 5th(4), 7th(6), 9th(8) → index steps of 2
+    const degIdx = rootDegIdx + d * 2;
+    const octOffset = Math.floor(degIdx / intervals.length);
+    const normIdx   = degIdx % intervals.length;
+    const semitone  = intervals[normIdx] + octOffset * 12;
+    const midi      = rootOct + semitone;
+    if (midi >= 0 && midi <= 127) notes.push(midi);
+  }
+  return notes;
+}
+
 // ─── Note name helper ─────────────────────────────────────────────────────────
 
 function noteToName(midi) {
@@ -487,10 +541,10 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
     chordBar.className = 'kbd-chord-bar';
     Object.keys(CHORD_VOICINGS).forEach(mode => {
       const btn = document.createElement('button');
-      btn.className = 'kbd-chord-btn' + ((state.chordMode ?? 'off') === mode ? ' active' : '');
+      btn.className = 'kbd-chord-btn' + ((state.kbdChordMode ?? 'off') === mode ? ' active' : '');
       btn.textContent = mode.toUpperCase();
       btn.addEventListener('click', () => {
-        state.chordMode = mode;
+        state.kbdChordMode = mode;
         renderKbdContext(containerEl, page, activeKeys, state, getActiveTrackFn);
       });
       chordBar.append(btn);
@@ -948,7 +1002,7 @@ export function initPianoTouch(pianoContainerEl, state, emit) {
     if (midi == null) return;
     const rawVel = _getVelocityFromTouch(touch, keyEl);
     const velocity = applyVelocityCurve(rawVel, state.velocityCurve ?? 'linear');
-    const voicing = CHORD_VOICINGS[state.chordMode ?? 'off'] ?? [];
+    const voicing = CHORD_VOICINGS[state.kbdChordMode ?? 'off'] ?? [];
     const trackOverride = _resolveTrack(midi);
 
     const prevTrack = state.selectedTrackIndex;
@@ -969,7 +1023,7 @@ export function initPianoTouch(pianoContainerEl, state, emit) {
   function _releaseNote(keyEl) {
     const midi = _midiFromEl(keyEl);
     if (midi == null) return;
-    const voicing = CHORD_VOICINGS[state.chordMode ?? 'off'] ?? [];
+    const voicing = CHORD_VOICINGS[state.kbdChordMode ?? 'off'] ?? [];
     emit('note:off', { note: midi });
     voicing.forEach(offset => {
       const n = midi + offset;
@@ -1152,7 +1206,7 @@ export function initKeyboard(state, emit, trackColors = []) {
         let midiNote = 60 + (state.octaveShift ?? 0) * 12 + offset;
         if (state.scaleLock) midiNote = snapToScale(midiNote, state.scale ?? 0);
         const velocity = applyVelocityCurve(state.keyboardVelocity ?? 1, state.velocityCurve ?? 'linear');
-        const voicing = CHORD_VOICINGS[state.chordMode ?? 'off'] ?? [];
+        const voicing = CHORD_VOICINGS[state.kbdChordMode ?? 'off'] ?? [];
 
         // Split keyboard: temporarily redirect to appropriate track
         let _splitPrevTrack = null;
@@ -1272,7 +1326,7 @@ export function initKeyboard(state, emit, trackColors = []) {
     const offset = NOTE_KEY_OFFSETS[e.code];
     if (offset != null && !state.keyboardHold) {
       const midiNote = 60 + (state.octaveShift ?? 0) * 12 + offset;
-      const voicing = CHORD_VOICINGS[state.chordMode ?? 'off'] ?? [];
+      const voicing = CHORD_VOICINGS[state.kbdChordMode ?? 'off'] ?? [];
       emit('note:off', { note: midiNote });
       voicing.forEach(chordOffset => {
         const chordNote = midiNote + chordOffset;

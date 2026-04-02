@@ -4,8 +4,8 @@ export function initStudio() {
   const canvas = document.getElementById('studio-canvas');
   if (!wrap || !canvas) return;
 
-  const STUDIO_LAYOUT_KEY = 'confusynth-studio-layout';
-  const STUDIO_VIEW_KEY = 'confusynth-studio-view';
+  const STUDIO_LAYOUT_KEY = 'confusynth-studio-layout-v3';
+  const STUDIO_VIEW_KEY = 'confusynth-studio-view-v3';
   const MIN_SCALE = 0.25;
   const MAX_SCALE = 2.25;
   const FIT_PADDING = 40;
@@ -19,6 +19,8 @@ export function initStudio() {
   let hasRestoredLayout = false;
   let _userHasPanned = false;
   let _autoZoom = true; // when true, viewport auto-fits on resize and new module spawn
+  let _selectedModule = null;
+  let _restoredSelectedModuleId = null;
 
   function getWrapSize() {
     return {
@@ -29,6 +31,52 @@ export function initStudio() {
 
   function parsePx(value) {
     return Number.parseFloat(value || '0') || 0;
+  }
+
+  function isModuleInteractiveTarget(target) {
+    if (!(target instanceof Element)) return false;
+    return Boolean(target.closest([
+      'button',
+      'input',
+      'select',
+      'textarea',
+      'canvas',
+      'a',
+      '.port',
+      '.djm-port',
+      '.chassis-dup-btn',
+      '.knob',
+      '.macro-knob',
+      '.step-btn',
+      '.tab',
+      '.screen-btn',
+      '.t-btn',
+      '.bpm-arrow',
+      '.macro-name',
+      '.macro-name-input',
+      '.kbd-btn',
+      '.page-content',
+      '.right-col',
+      '.channel-strip',
+      '.kbd-panel',
+      '.module-picker',
+    ].join(',')));
+  }
+
+  function isTextEntryTarget(target) {
+    if (!(target instanceof Element)) return false;
+    return Boolean(target.closest('input, textarea, select, option, [contenteditable="true"]'));
+  }
+
+  function shouldStudioCaptureGesture(target) {
+    if (!(target instanceof Element)) return true;
+    if (isTextEntryTarget(target)) return false;
+    if (target.closest('.module-picker')) return false;
+    if (target.closest('.screen-bezel, .chassis, .studio-module, .module-tools, .module-drag-handle, #studio-cables')) {
+      return !isModuleInteractiveTarget(target);
+    }
+    if (target === wrap || target === canvas) return true;
+    return !isModuleInteractiveTarget(target);
   }
 
   function getModuleSize(mod) {
@@ -79,6 +127,7 @@ export function initStudio() {
       type: mod.dataset.moduleType || 'synth',
       left: mod.style.left || '0px',
       top: mod.style.top || '0px',
+      selected: mod === _selectedModule,
     }));
     try {
       localStorage.setItem(STUDIO_LAYOUT_KEY, JSON.stringify(layout));
@@ -105,7 +154,8 @@ export function initStudio() {
     if (force || !hasRestoredView) {
       scale = fitScale;
       panX = (wrapW - bounds.width * scale) / 2 - bounds.left * scale;
-      panY = Math.max(18, (wrapH - bounds.height * scale) / 2 - bounds.top * scale);
+      panY = (wrapH - bounds.height * scale) / 2 - bounds.top * scale;
+      hasRestoredView = true;
       if (force) _userHasPanned = false;
       applyTransform();
     }
@@ -149,6 +199,7 @@ export function initStudio() {
         mod.style.left = item.left || '0px';
         mod.style.top = item.top || '0px';
         if (item.type) mod.dataset.moduleType = item.type;
+        if (item.selected) _restoredSelectedModuleId = item.id;
       });
       hasRestoredLayout = true;
       return true;
@@ -179,7 +230,7 @@ export function initStudio() {
 
     if (scaledHeight + FIT_PADDING * 2 <= wrapH) {
       if (!_userHasPanned && _autoZoom) {
-        panY = Math.max(18, (wrapH - scaledHeight) / 2 - bounds.top * scale);
+        panY = (wrapH - scaledHeight) / 2 - bounds.top * scale;
       } else {
         panY = Math.min(maxY, Math.max(minY, panY));
       }
@@ -208,62 +259,218 @@ export function initStudio() {
     clampViewport();
   }
 
-  function getSpawnPosition() {
-    const mods = canvas.querySelectorAll('.studio-module');
-    if (!mods.length) return { x: 40, y: 40 };
-    let maxRight = 0;
-    let bestY = 40;
-    mods.forEach((m) => {
-      const left = parsePx(m.style.left);
-      const w = m.offsetWidth || DEFAULT_MODULE_W;
-      const right = left + w;
-      if (right > maxRight) {
-        maxRight = right;
-        bestY = parsePx(m.style.top) || 40;
+  function getSpawnPosition(anchorEl = null) {
+    const modules = [...canvas.querySelectorAll('.studio-module')];
+    if (!modules.length) return { x: 40, y: 40 };
+
+    const anchor = anchorEl && anchorEl.isConnected
+      ? anchorEl
+      : getSelectedModule()
+        || canvas.querySelector('#module-0')
+        || modules[0];
+    const gap = 56;
+    const viewportCenter = worldPointFromScreen(getWrapSize().width / 2, getWrapSize().height / 2);
+
+    function getRect(mod) {
+      return {
+        left: parsePx(mod.style.left),
+        top: parsePx(mod.style.top),
+        width: getModuleSize(mod).width,
+        height: getModuleSize(mod).height,
+      };
+    }
+
+    function isClear(x, y, width, height, ignoreEl = null) {
+      const margin = 40;
+      return modules.every((mod) => {
+        if (mod === ignoreEl) return true;
+        const rect = getRect(mod);
+        const overlaps = !(
+          x + width + margin <= rect.left ||
+          x >= rect.left + rect.width + margin ||
+          y + height + margin <= rect.top ||
+          y >= rect.top + rect.height + margin
+        );
+        return !overlaps;
+      });
+    }
+
+    const anchorRect = getRect(anchor);
+    const candidates = [
+      { x: anchorRect.left + anchorRect.width + gap, y: anchorRect.top },
+      { x: anchorRect.left, y: anchorRect.top + anchorRect.height + gap },
+      { x: anchorRect.left - DEFAULT_MODULE_W - gap, y: anchorRect.top },
+      { x: anchorRect.left, y: anchorRect.top - DEFAULT_MODULE_H - gap },
+      { x: anchorRect.left + anchorRect.width + gap, y: anchorRect.top + anchorRect.height + gap },
+      { x: viewportCenter.x - DEFAULT_MODULE_W / 2, y: viewportCenter.y - DEFAULT_MODULE_H / 2 },
+      { x: viewportCenter.x + gap, y: viewportCenter.y + gap },
+    ];
+
+    for (const candidate of candidates) {
+      const x = Math.max(20, Math.round(candidate.x));
+      const y = Math.max(20, Math.round(candidate.y));
+      if (isClear(x, y, DEFAULT_MODULE_W, DEFAULT_MODULE_H, anchor)) {
+        return { x, y };
       }
+    }
+
+    const baseX = Math.max(20, Math.round(viewportCenter.x - DEFAULT_MODULE_W / 2));
+    const baseY = Math.max(20, Math.round(viewportCenter.y - DEFAULT_MODULE_H / 2));
+    for (let ring = 1; ring <= 6; ring += 1) {
+      const offset = ring * (DEFAULT_MODULE_W * 0.25 + gap);
+      const ringCandidates = [
+        { x: baseX + offset, y: baseY },
+        { x: baseX, y: baseY + offset },
+        { x: baseX - offset, y: baseY },
+        { x: baseX, y: baseY - offset },
+        { x: baseX + offset, y: baseY + offset },
+        { x: baseX - offset, y: baseY + offset },
+      ];
+      for (const candidate of ringCandidates) {
+        const x = Math.max(20, Math.round(candidate.x));
+        const y = Math.max(20, Math.round(candidate.y));
+        if (isClear(x, y, DEFAULT_MODULE_W, DEFAULT_MODULE_H, anchor)) {
+          return { x, y };
+        }
+      }
+    }
+
+    return { x: baseX, y: baseY };
+  }
+
+  function getSelectedModule() {
+    return _selectedModule && _selectedModule.isConnected ? _selectedModule : null;
+  }
+
+  function getModuleLabel(modEl) {
+    if (!modEl) return 'No module selected';
+    const type = (modEl.dataset.moduleType || 'module').replace(/_/g, ' ');
+    if (modEl.id === 'module-0') return 'CONFUsynth (primary)';
+    return `${type} (${modEl.id})`;
+  }
+
+  function updateSelectionUi() {
+    const label = document.getElementById('module-selection');
+    const removeBtn = document.getElementById('remove-module');
+    const selected = getSelectedModule();
+    if (label) label.textContent = selected ? getModuleLabel(selected) : 'No module selected';
+    if (removeBtn) {
+      const removable = Boolean(selected && selected.id !== 'module-0');
+      removeBtn.disabled = !removable;
+      removeBtn.title = removable ? `Remove ${getModuleLabel(selected)}` : 'Primary module cannot be removed';
+    }
+  }
+
+  function selectModule(modEl, { focus = true } = {}) {
+    _selectedModule = modEl && modEl.isConnected ? modEl : null;
+    canvas.querySelectorAll('.studio-module').forEach((mod) => {
+      mod.classList.toggle('module-selected', mod === _selectedModule);
     });
-    return { x: maxRight + 40, y: bestY };
+    updateSelectionUi();
+    saveLayout();
+    if (focus && _selectedModule && typeof _selectedModule.scrollIntoView === 'function') {
+      _selectedModule.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+  }
+
+  function removeModule(modEl, { force = false } = {}) {
+    if (!modEl || (!force && modEl.id === 'module-0')) return false;
+    const wasSelected = modEl === _selectedModule;
+    const fallback = wasSelected
+      ? [...canvas.querySelectorAll('.studio-module')].find((module) => module !== modEl && module.id !== 'module-0')
+        || canvas.querySelector('#module-0')
+        || null
+      : _selectedModule;
+
+    document.dispatchEvent(new CustomEvent('module:removed', { detail: { moduleEl: modEl, moduleId: modEl.id } }));
+    modEl.remove();
+
+    if (wasSelected) {
+      selectModule(fallback, { focus: false });
+    } else {
+      updateSelectionUi();
+      saveLayout();
+    }
+
+    if (_autoZoom) {
+      _userHasPanned = false;
+      fitToWindow({ force: true });
+    } else {
+      clampViewport();
+    }
+    return true;
+  }
+
+  function attachModuleChrome(modEl) {
+    if (!modEl || modEl.querySelector(':scope > .module-tools')) return;
+    const tools = document.createElement('div');
+    tools.className = 'module-tools';
+    tools.innerHTML = `
+      <span class="module-badge">${(modEl.dataset.moduleType || 'module').replace(/_/g, ' ')}</span>
+      <button class="module-remove-btn" type="button" title="Remove module">×</button>
+    `;
+    const removeBtn = tools.querySelector('.module-remove-btn');
+    if (modEl.id === 'module-0') {
+      removeBtn.disabled = true;
+      removeBtn.title = 'Primary module cannot be removed';
+    } else {
+      removeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeModule(modEl);
+      });
+    }
+    modEl.prepend(tools);
+    modEl.addEventListener('pointerdown', () => selectModule(modEl, { focus: false }));
   }
 
   function enableModuleDrag(modEl) {
     let dragging = false;
     let offsetX = 0;
     let offsetY = 0;
+    let dragPointerId = null;
+
+    function canStartDrag(target) {
+      if (!(target instanceof Element)) return false;
+      if (isModuleInteractiveTarget(target)) return false;
+      return Boolean(target.closest('.studio-module'));
+    }
 
     modEl.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('button, input, select, textarea, canvas, .knob, [data-param], [data-step], .port, .djm-port, .tb303-knob, .tr909-step-btn, .pad-cell, .qwerty-key, .tab, .fader-master, .channel-strip, .track-selector, [role="slider"], .page-content, .page-tabs, .kbd-panel, .kbd-context, .screen-section, .oscilloscope-strip, .chassis-dup-btn')) return;
+      if (!canStartDrag(e.target)) return;
+      selectModule(modEl, { focus: false });
       dragging = true;
+      dragPointerId = e.pointerId;
       modEl.classList.add('module-dragging');
       modEl.setPointerCapture(e.pointerId);
+      _userHasPanned = true;
 
-      const rect = modEl.getBoundingClientRect();
-      offsetX = (e.clientX - rect.left) / scale;
-      offsetY = (e.clientY - rect.top) / scale;
+      const pointerWorld = worldPointFromScreen(e.clientX, e.clientY);
+      offsetX = pointerWorld.x - parsePx(modEl.style.left);
+      offsetY = pointerWorld.y - parsePx(modEl.style.top);
 
       e.preventDefault();
     });
 
     modEl.addEventListener('pointermove', (e) => {
-      if (!dragging) return;
-      const canvasRect = canvas.getBoundingClientRect();
-      const newLeft = (e.clientX - canvasRect.left) / scale - offsetX;
-      const newTop = (e.clientY - canvasRect.top) / scale - offsetY;
+      if (!dragging || e.pointerId !== dragPointerId) return;
+      const pointerWorld = worldPointFromScreen(e.clientX, e.clientY);
+      const newLeft = pointerWorld.x - offsetX;
+      const newTop = pointerWorld.y - offsetY;
       modEl.style.left = `${newLeft}px`;
       modEl.style.top = `${newTop}px`;
     });
 
-    modEl.addEventListener('pointerup', () => {
-      if (!dragging) return;
+    function stopDrag(pointerId) {
+      if (!dragging || (pointerId != null && pointerId !== dragPointerId)) return;
       dragging = false;
+      dragPointerId = null;
       modEl.classList.remove('module-dragging');
       saveLayout();
       clampViewport();
-    });
+    }
 
-    modEl.addEventListener('pointercancel', () => {
-      dragging = false;
-      modEl.classList.remove('module-dragging');
-    });
+    modEl.addEventListener('pointerup', (e) => stopDrag(e.pointerId));
+    modEl.addEventListener('pointercancel', (e) => stopDrag(e.pointerId));
   }
 
   function closeModulePicker() {
@@ -303,7 +510,9 @@ export function initStudio() {
       </div>
     `;
     picker.addEventListener('click', (e) => {
-      const type = e.target.dataset.module;
+      e.stopPropagation();
+      const target = e.target.closest('button[data-module]');
+      const type = target?.dataset.module;
       if (!type) return;
       addModule(type);
       closeModulePicker();
@@ -321,6 +530,7 @@ export function initStudio() {
     mod.style.left = `${pos.x}px`;
     mod.style.top = `${pos.y}px`;
     enableModuleDrag(mod);
+    attachModuleChrome(mod);
 
     if (type === 'synth') {
       const original = document.querySelector('#module-0 .chassis');
@@ -332,6 +542,8 @@ export function initStudio() {
         mod.appendChild(clone);
       } else {
         mod.innerHTML = '<div class="module-loading-shell">CONFUsynth</div>';
+        attachModuleChrome(mod);
+        if (mod === getSelectedModule()) updateSelectionUi();
       }
     } else if (type === 'djmixer') {
       mod.innerHTML = '<div class="module-loading-shell">Loading Mixer</div>';
@@ -339,6 +551,8 @@ export function initStudio() {
         const ctx = window._confusynthEngine?.context ?? null;
         mod.innerHTML = '';
         mod.appendChild(m.createDJMixer(ctx));
+        attachModuleChrome(mod);
+        if (mod === getSelectedModule()) updateSelectionUi();
       });
     } else if (type === 'tb303') {
       mod.innerHTML = '<div class="module-loading-shell" style="width:680px;height:340px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading TB-303…</div>';
@@ -346,30 +560,40 @@ export function initStudio() {
         const ctx = window._confusynthEngine?.context ?? null;
         mod.innerHTML = '';
         mod.appendChild(m.createTB303(ctx));
+        attachModuleChrome(mod);
+        if (mod === getSelectedModule()) updateSelectionUi();
       });
     } else if (type === 'juno60') {
       mod.innerHTML = '<div class="module-loading-shell" style="width:860px;height:240px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Juno-60…</div>';
       import('./modules/juno60.js').then(m => {
         mod.innerHTML = '';
         mod.appendChild(m.createJuno60(window._confusynthEngine?.context ?? null));
+        attachModuleChrome(mod);
+        if (mod === getSelectedModule()) updateSelectionUi();
       });
     } else if (type === 'tr909') {
       mod.innerHTML = '<div class="module-loading-shell" style="width:920px;height:320px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading TR-909…</div>';
       import('./modules/tr909.js').then(m => {
         mod.innerHTML = '';
         mod.appendChild(m.createTr909(window._confusynthEngine?.context ?? null));
+        attachModuleChrome(mod);
+        if (mod === getSelectedModule()) updateSelectionUi();
       });
     } else if (type === 'fm_synth') {
       mod.innerHTML = '<div class="module-loading-shell" style="width:980px;height:280px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading FM Synth…</div>';
       import('./modules/fm_synth.js').then(m => {
         mod.innerHTML = '';
         mod.appendChild(m.createFMSynth(window._confusynthEngine?.context ?? null));
+        attachModuleChrome(mod);
+        if (mod === getSelectedModule()) updateSelectionUi();
       });
     } else if (type === 'moog') {
       mod.innerHTML = '<div class="module-loading-shell" style="width:1000px;height:300px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Moog D…</div>';
       import('./modules/moog.js').then(m => {
         mod.innerHTML = '';
         mod.appendChild(m.createMoog(window._confusynthEngine?.context ?? null));
+        attachModuleChrome(mod);
+        if (mod === getSelectedModule()) updateSelectionUi();
       });
     } else if (type.startsWith('figure-')) {
       const emoji = {
@@ -378,15 +602,22 @@ export function initStudio() {
         'figure-cactus': '🌵',
       }[type] || '🎵';
       mod.innerHTML = `<div class="studio-figure">${emoji}</div>`;
+      attachModuleChrome(mod);
+      if (mod === getSelectedModule()) updateSelectionUi();
     }
 
     canvas.appendChild(mod);
-    clampViewport();
+    selectModule(mod, { focus: false });
+    if (_autoZoom) {
+      _userHasPanned = false;
+      fitToWindow({ force: true });
+    } else {
+      clampViewport();
+    }
     saveLayout();
   }
 
   function _spawnDefaultMixer() {
-    const { width: wrapW } = getWrapSize();
     const existingModule = canvas.querySelector('#module-0');
     const modRight = existingModule ? (parsePx(existingModule.style.left) + DEFAULT_MODULE_W + 80) : 100;
     const modTop = existingModule ? parsePx(existingModule.style.top) : 50;
@@ -397,16 +628,18 @@ export function initStudio() {
     mod.id = 'module-djm-default';
     mod.style.left = `${modRight}px`;
     mod.style.top = `${modTop}px`;
+    mod.style.position = 'absolute';
     mod.innerHTML = '<div class="module-loading-shell" style="width:320px;height:420px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Mixer…</div>';
     canvas.appendChild(mod);
     enableModuleDrag(mod);
+    attachModuleChrome(mod);
     saveLayout();
 
     import('./modules/djmixer.js').then((m) => {
       const ctx = window._confusynthEngine?.context ?? null;
       mod.innerHTML = '';
       mod.appendChild(m.createDJMixer(ctx));
-      // After mixer loads, draw the cable
+      attachModuleChrome(mod);
       requestAnimationFrame(() => {
         const audioOutPort = document.querySelector('#module-0 .port[data-port="audio-out"]');
         const ch1Port = mod.querySelector('.djm-port[data-port="ch1-in"]');
@@ -426,13 +659,18 @@ export function initStudio() {
     if (!module0.style.top)  module0.style.top  = '40px';
     module0.style.position = 'absolute';
     enableModuleDrag(module0);
+    attachModuleChrome(module0);
   }
 
   const hasLayout = restoreLayout();
+  const hasView = restoreView();
+  const initialSelection = (_restoredSelectedModuleId && canvas.querySelector(`#${_restoredSelectedModuleId}`))
+    || canvas.querySelector('#module-0')
+    || canvas.querySelector('.studio-module');
+  if (initialSelection) selectModule(initialSelection, { focus: false });
   requestAnimationFrame(() => requestAnimationFrame(() => {
     fitToWindow({ force: true });
     if (!hasLayout) {
-      // First run: spawn DJ mixer to the right of the synth
       _spawnDefaultMixer();
     }
   }));
@@ -469,8 +707,18 @@ export function initStudio() {
     }
   });
   document.getElementById('add-module')?.addEventListener('click', showModulePicker);
+  document.getElementById('remove-module')?.addEventListener('click', () => {
+    const selected = getSelectedModule();
+    if (selected && selected.id !== 'module-0') {
+      removeModule(selected);
+    }
+  });
 
   canvas.addEventListener('click', (e) => {
+    const clickedModule = e.target.closest('.studio-module');
+    if (clickedModule) {
+      selectModule(clickedModule, { focus: false });
+    }
     if (e.target.closest('.chassis-dup-btn')) {
       e.preventDefault();
       addModule('synth');
@@ -479,21 +727,72 @@ export function initStudio() {
 
   document.addEventListener('click', (e) => {
     if (!e.target.closest('#studio-controls')) closeModulePicker();
+    if (!e.target.closest('.studio-module') && !e.target.closest('#studio-controls')) {
+      selectModule(null, { focus: false });
+    }
   });
 
+  document.addEventListener('keydown', (e) => {
+    const target = e.target instanceof Element ? e.target : null;
+    if (target && (target.matches('input, textarea, select') || target.isContentEditable)) return;
+    if ((e.key === 'Delete' || e.key === 'Backspace') && getSelectedModule() && getSelectedModule().id !== 'module-0') {
+      e.preventDefault();
+      removeModule(getSelectedModule());
+    }
+  });
+
+  function getScrollableAncestor(startNode, deltaY, deltaX = 0) {
+    if (!(startNode instanceof Element)) return null;
+    let node = startNode;
+    const verticalDirection = Math.sign(deltaY);
+    const horizontalDirection = Math.sign(deltaX);
+
+    while (node && node !== wrap) {
+      const style = getComputedStyle(node);
+      const overflowY = style.overflowY;
+      const overflowX = style.overflowX;
+      const canScrollY = /(auto|scroll|overlay)/.test(overflowY) && node.scrollHeight > node.clientHeight;
+      const canScrollX = /(auto|scroll|overlay)/.test(overflowX) && node.scrollWidth > node.clientWidth;
+
+      if (canScrollY) {
+        const maxScrollTop = node.scrollHeight - node.clientHeight;
+        if ((verticalDirection < 0 && node.scrollTop > 0) || (verticalDirection > 0 && node.scrollTop < maxScrollTop)) {
+          return node;
+        }
+      }
+
+      if (canScrollX) {
+        const maxScrollLeft = node.scrollWidth - node.clientWidth;
+        if ((horizontalDirection < 0 && node.scrollLeft > 0) || (horizontalDirection > 0 && node.scrollLeft < maxScrollLeft)) {
+          return node;
+        }
+      }
+
+      node = node.parentElement;
+    }
+
+    return null;
+  }
+
   wrap.addEventListener('wheel', (e) => {
-    e.preventDefault();
     if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
       // ctrl+scroll or meta+scroll → zoom
       const rect = wrap.getBoundingClientRect();
       zoomBy(e.deltaY > 0 ? 0.92 : 1.08, e.clientX - rect.left, e.clientY - rect.top);
     } else {
-      // Two-finger pan: use deltaX and deltaY directly
+      const studioGesture = shouldStudioCaptureGesture(e.target);
+      const scrollable = studioGesture ? null : getScrollableAncestor(e.target, e.deltaY, e.deltaX);
+      if (!studioGesture && scrollable) {
+        return;
+      }
+      e.preventDefault();
+      // Two-finger trackpad scroll pans the studio unless the gesture started in
+      // a scrollable editor/control that should own the movement.
       _userHasPanned = true;
       panX -= e.deltaX;
       panY -= e.deltaY;
       clampViewport();
-      applyTransform();
     }
   }, { passive: false });
 
@@ -520,8 +819,8 @@ export function initStudio() {
 
   wrap.addEventListener('mousedown', (e) => {
     const onBackground = e.target === wrap || e.target === canvas || e.target.closest('#studio-cables');
-    // Middle-click pans anywhere; space+drag or alt+drag pans on background
-    if (e.button === 1 || (spaceDown && e.button === 0) || (e.button === 0 && onBackground && e.altKey)) {
+    // Left-drag on empty studio space pans by default. Middle-click and space+drag also pan.
+    if ((e.button === 0 && onBackground) || e.button === 1 || (spaceDown && e.button === 0)) {
       e.preventDefault();
       panning = true;
       _userHasPanned = true;

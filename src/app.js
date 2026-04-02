@@ -47,6 +47,16 @@ function showToast(msg, duration = 1200) {
   toast._t = setTimeout(() => { toast.style.opacity = '0'; }, duration);
 }
 
+// ─────────────────────────────────────────────
+// MIDI CC LEARN FRAMEWORK
+// ─────────────────────────────────────────────
+window._midiLearnTarget = null;
+
+window.startMidiLearn = function startMidiLearn(param, setter) {
+  window._midiLearnTarget = { param, setter };
+  showToast('Wiggle a knob…', 4000);
+};
+
 function resetRecorderSlotMeta(slotIndex) {
   return {
     name: `Slot ${slotIndex + 1}`,
@@ -233,6 +243,7 @@ let _trackStepIdx  = Array(8).fill(0); // per-track step counters for polyrhythm
 let _schedRafId    = null;
 let _oscAnimRef    = { id: null };
 let _saveTimer     = null;
+let _lastRenderedPage = null;
 
 // Fill mode
 state._fillActive = false;
@@ -790,10 +801,27 @@ function renderFillBtn() {
   if (btn) btn.classList.toggle('active', state._fillActive);
 }
 
+function publishLinkBpmToServer(bpm) {
+  if (!state.abletonLink || state._linkSuppressPublish) return;
+  const value = Math.max(40, Math.min(240, Number(bpm) || 120));
+  const sourceId = state._linkClientId || 'confusynth-app';
+  fetch('/api/link/state', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      bpm: value,
+      sourceId,
+      clockSource: state.clockSource || 'internal',
+    }),
+  }).catch(() => {});
+}
+
 function handleStateChange(path, value, pattern) {
   if (path === 'bpm') {
     state.bpm = Math.max(40, Math.min(240, parseFloat(value)));
     if (state.engine?.setBpm) state.engine.setBpm(state.bpm);
+    publishLinkBpmToServer(state.bpm);
+    state._linkSuppressPublish = false;
     updateTopbar();
     scheduleSave();
     return;
@@ -1172,6 +1200,13 @@ function emit(type, payload = {}) {
             eng.tracks[tIdx].inputGain.gain.setTargetAtTime(payload.value, eng.context.currentTime, 0.02);
           }
         }
+        if (payload.param === 'cue' && state.engine) {
+          const anyCue = pattern.kit.tracks.some((track) => track.cue);
+          if (state.engine.setCueGain) state.engine.setCueGain(state.cueLevel ?? 1);
+          if (state.engine.setCueMonitorEnabled) {
+            state.engine.setCueMonitorEnabled((state.cueMonitorEnabled ?? true) && anyCue);
+          }
+        }
         // legato is read per-trigger from track.legato — no engine call needed
         // Arp/scale params affect keyboard context (shows/hides arp visualizer)
         if (['arpEnabled','arpMode','arpRange','arpSpeed','arpHold'].includes(payload.param)) {
@@ -1324,15 +1359,18 @@ function emit(type, payload = {}) {
 
     // ── Sample load ──
     case 'sample:load':
-      if (state.audioContext) {
-        state.audioContext.decodeAudioData(payload.buffer, decoded => {
+      ensureAudio().then(() => {
+        state.audioContext.decodeAudioData(payload.buffer.slice(0), decoded => {
           const t = getActiveTrack(state);
           t.sampleBuffer = decoded;
           t.machine = 'sample';
           scheduleSave();
           renderAll();
         });
-      }
+      }).catch((error) => {
+        console.warn('[CONFUsynth] Sample load failed:', error);
+        showToast('Sample load failed');
+      });
       break;
 
     // ── Knob change ──
@@ -1475,6 +1513,13 @@ async function ensureAudio() {
   const ctx = new AudioContext();
   state.audioContext = ctx;
   state.engine = new AudioEngine(ctx);
+  if (state._assetHydrationPending) {
+    const hydrationWatch = setInterval(() => {
+      if (!state._assetHydrationComplete) return;
+      clearInterval(hydrationWatch);
+      renderAll();
+    }, 250);
+  }
   window._confusynthEngine = state.engine;
   state.engine.setBpm(state.bpm ?? 120);
   state.engine.initWorklets(); // async — loads cs-resampler worklet in background
@@ -1520,7 +1565,10 @@ async function ensureAudio() {
   // Restore cue bus state
   const _activPat = state.project.banks[state.activeBank].patterns[state.activePattern];
   const hasCue = _activPat.kit.tracks.some(t => t.cue);
-  if (hasCue && state.engine?.setCueGain) state.engine.setCueGain(1);
+  if (state.engine?.setCueGain) state.engine.setCueGain(state.cueLevel ?? 1);
+  if (state.engine?.setCueMonitorEnabled) {
+    state.engine.setCueMonitorEnabled((state.cueMonitorEnabled ?? true) && hasCue);
+  }
   if (el.masterVolume) el.masterVolume.value = state.masterLevel;
   el.btnAudio.classList.add('active');
   drawOscilloscope(el.oscilloscope, state.engine, _oscAnimRef, state);
@@ -1563,7 +1611,21 @@ async function ensureAudio() {
   if (typeof state.engine.setupMidiInput === 'function') {
     state.engine.setupMidiInput((cc, value) => {
       const map = state.midiLearnMap ?? {};
-      // If in learn mode, assign the last-touched param
+
+      // New window._midiLearnTarget learn system
+      if (window._midiLearnTarget) {
+        const { param, setter } = window._midiLearnTarget;
+        state.midiLearnMap = state.midiLearnMap ?? {};
+        state.midiLearnMap[cc] = { param, setter: null }; // functions not serializable
+        const normalized = value / 127;
+        if (typeof setter === 'function') setter(normalized);
+        window._midiLearnTarget = null;
+        saveState(state);
+        showToast(`CC ${cc} → ${param}`);
+        return;
+      }
+
+      // Legacy learn mode (last-touched knob)
       if (state.midiLearnMode && state.midiLearnTarget) {
         map[cc] = state.midiLearnTarget;
         state.midiLearnMap = map;
@@ -1572,7 +1634,26 @@ async function ensureAudio() {
         renderPage();
         return;
       }
-      // Route CC to mapped param
+
+      // Route CC via new-style map (object entries with { param })
+      const newStyleEntry = state.midiLearnMap?.[cc];
+      if (newStyleEntry && typeof newStyleEntry === 'object' && newStyleEntry.param) {
+        const normalized = value / 127;
+        const { param } = newStyleEntry;
+        if (param === 'bpm') {
+          // Scale normalized 0–1 to 40–240 BPM range
+          state.bpm = Math.round(40 + normalized * 200);
+          state.engine?.setBpm?.(state.bpm);
+          updateTopbar();
+          saveState(state);
+        } else {
+          state[param] = normalized;
+          emit('knob:change', { param, value: normalized });
+        }
+        return;
+      }
+
+      // Route CC via legacy map (string param name)
       const param = map[cc];
       if (!param) return;
       emit('knob:change', { param, value });
@@ -1781,7 +1862,7 @@ function scheduleLoop() {
         const sceneOverride = sceneParams[ti] || {};
 
         // Micro-timing offset: fraction of one step duration, range -0.5 to +0.5
-        // Per-track swing: if track has swing override, use it; else fall back to global state.swing
+        // Per-track swing overrides global; fall back to state.swing if not set on track.
         const trackSwing = track.swing ?? state.swing ?? 0;
         const trackSwingOffset = (_trackStepIdx[ti] % 2 !== 0 ? 1 : -1) * trackSwing * secsPerStep;
         const microOffset = (step.microTime ?? 0) * secsPerStep + trackSwingOffset;
@@ -2221,8 +2302,12 @@ function tapTempo() {
     const tapBtn = document.getElementById('btn-tap');
     if (tapBtn) {
       tapBtn.textContent = clamped + ' BPM';
+      tapBtn.classList.add('tap-flash');
       clearTimeout(state._tapBtnTimer);
-      state._tapBtnTimer = setTimeout(() => { tapBtn.textContent = 'Tap'; }, 1500);
+      state._tapBtnTimer = setTimeout(() => {
+        tapBtn.textContent = 'Tap';
+        tapBtn.classList.remove('tap-flash');
+      }, 1500);
     }
   }
 }
@@ -2248,6 +2333,14 @@ function renderPage() {
   el.pageContent._cleanup?.();
   el.pageContent._cleanup = null;
   page.render(el.pageContent, state, emit);
+  if (_lastRenderedPage !== state.currentPage) {
+    el.pageContent.scrollTop = 0;
+    el.pageContent.scrollLeft = 0;
+    _lastRenderedPage = state.currentPage;
+  }
+  // Page fade-in animation
+  el.pageContent.classList.remove('page-enter');
+  requestAnimationFrame(() => el.pageContent.classList.add('page-enter'));
   // Keep topbar page label in sync regardless of what triggered re-render
   const pageLabel = document.getElementById('topbar-page-label');
   if (pageLabel) {
@@ -2973,10 +3066,43 @@ function bindUI() {
   }
   if (el.bpmDisplay) {
     el.bpmDisplay.style.cursor = 'pointer';
-    el.bpmDisplay.title = 'Double-click to edit BPM';
+    el.bpmDisplay.title = 'Double-click to edit BPM | Right-click for MIDI Learn';
     el.bpmDisplay.addEventListener('dblclick', () => {
       const inp = document.getElementById('bpm-input');
       if (inp) { inp.focus(); inp.select(); }
+    });
+    el.bpmDisplay.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      // Remove any existing context menu
+      document.getElementById('bpm-ctx-menu')?.remove();
+      const menu = document.createElement('div');
+      menu.id = 'bpm-ctx-menu';
+      menu.style.cssText = [
+        'position:fixed', `left:${e.clientX}px`, `top:${e.clientY}px`,
+        'background:#1a1e14', 'border:1px solid var(--accent)', 'border-radius:4px',
+        'padding:4px 0', 'z-index:3000', 'font-family:var(--font-mono)',
+        'font-size:0.65rem', 'color:var(--screen-text)', 'min-width:140px',
+        'box-shadow:0 4px 12px rgba(0,0,0,0.6)'
+      ].join(';');
+      const item = document.createElement('div');
+      item.textContent = 'MIDI Learn BPM';
+      item.style.cssText = 'padding:5px 12px; cursor:pointer;';
+      item.addEventListener('mouseenter', () => { item.style.background = 'var(--accent)'; item.style.color = '#000'; });
+      item.addEventListener('mouseleave', () => { item.style.background = ''; item.style.color = 'var(--screen-text)'; });
+      item.addEventListener('click', () => {
+        menu.remove();
+        window.startMidiLearn('bpm', normalized => {
+          state.bpm = Math.round(40 + normalized * 200);
+          state.engine?.setBpm?.(state.bpm);
+          updateTopbar();
+          saveState(state);
+        });
+      });
+      menu.append(item);
+      document.body.append(menu);
+      // Dismiss on next click anywhere
+      const dismiss = ev => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('mousedown', dismiss); } };
+      setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
     });
   }
   if (el.bpmDec) el.bpmDec.addEventListener('click', () => {
@@ -3416,6 +3542,67 @@ function bindUI() {
           return;
         }
       }
+    }
+  });
+
+  // ── ? shortcut overlay ───────────────────────────────────────────────────
+  const shortcutOverlay = document.createElement('div');
+  shortcutOverlay.id = 'shortcut-overlay';
+  shortcutOverlay.className = 'hidden';
+  shortcutOverlay.innerHTML = `
+    <div class="shortcut-overlay-inner" style="position:relative">
+      <button class="shortcut-overlay-close" title="Close">✕</button>
+      <h2>Keyboard Shortcuts</h2>
+      <h3>Transport</h3>
+      <div class="shortcut-overlay-grid">
+        <div class="shortcut-overlay-row"><span>Play / Stop</span><kbd>Space</kbd></div>
+        <div class="shortcut-overlay-row"><span>Record</span><kbd>R</kbd></div>
+        <div class="shortcut-overlay-row"><span>Metronome</span><kbd>M</kbd></div>
+        <div class="shortcut-overlay-row"><span>BPM –1 / +1</span><kbd>-</kbd> / <kbd>=</kbd></div>
+        <div class="shortcut-overlay-row"><span>Undo</span><kbd>Ctrl+Z</kbd></div>
+        <div class="shortcut-overlay-row"><span>Redo</span><kbd>Ctrl+Y</kbd></div>
+      </div>
+      <h3>Navigation</h3>
+      <div class="shortcut-overlay-grid">
+        <div class="shortcut-overlay-row"><span>Next/Prev Page</span><kbd>Tab</kbd></div>
+        <div class="shortcut-overlay-row"><span>Pattern</span><kbd>F1</kbd></div>
+        <div class="shortcut-overlay-row"><span>Piano Roll</span><kbd>F2</kbd></div>
+        <div class="shortcut-overlay-row"><span>Mixer</span><kbd>F3</kbd></div>
+        <div class="shortcut-overlay-row"><span>FX</span><kbd>F4</kbd></div>
+        <div class="shortcut-overlay-row"><span>Select Track 1–8</span><kbd>1</kbd>–<kbd>8</kbd></div>
+      </div>
+      <h3>Pattern</h3>
+      <div class="shortcut-overlay-grid">
+        <div class="shortcut-overlay-row"><span>Clear Pattern</span><kbd>Ctrl+Del</kbd></div>
+        <div class="shortcut-overlay-row"><span>Copy Pattern</span><kbd>Ctrl+C</kbd></div>
+        <div class="shortcut-overlay-row"><span>Paste Pattern</span><kbd>Ctrl+V</kbd></div>
+        <div class="shortcut-overlay-row"><span>Select All Notes</span><kbd>Ctrl+A</kbd></div>
+        <div class="shortcut-overlay-row"><span>Randomize</span><kbd>Ctrl+R</kbd></div>
+        <div class="shortcut-overlay-row"><span>Step Record</span><kbd>Shift+R</kbd></div>
+      </div>
+      <h3>Studio</h3>
+      <div class="shortcut-overlay-grid">
+        <div class="shortcut-overlay-row"><span>Perf Overlay</span><kbd>\`</kbd></div>
+        <div class="shortcut-overlay-row"><span>This help</span><kbd>?</kbd></div>
+        <div class="shortcut-overlay-row"><span>Checkpoint</span><kbd>Ctrl+Shift+M</kbd></div>
+        <div class="shortcut-overlay-row"><span>Panic (all notes off)</span><kbd>9</kbd></div>
+      </div>
+    </div>
+  `;
+  document.body.append(shortcutOverlay);
+  shortcutOverlay.querySelector('.shortcut-overlay-close').addEventListener('click', () => {
+    shortcutOverlay.classList.add('hidden');
+  });
+  shortcutOverlay.addEventListener('click', e => {
+    if (e.target === shortcutOverlay) shortcutOverlay.classList.add('hidden');
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.target.matches('input,select,textarea')) {
+      e.preventDefault();
+      shortcutOverlay.classList.toggle('hidden');
+    }
+    if (e.key === 'Escape' && !shortcutOverlay.classList.contains('hidden')) {
+      shortcutOverlay.classList.add('hidden');
     }
   });
 

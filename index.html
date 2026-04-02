@@ -17,6 +17,7 @@
 
           <!-- TOP PORTS BAR -->
           <div class="ports-bar">
+            <span class="module-drag-handle" title="Drag module">⋮⋮</span>
             <span class="port" data-port="audio-in">Audio In</span>
             <span class="port" data-port="audio-out">Audio Out</span>
             <span class="port" data-port="midi-in">MIDI In</span>
@@ -153,9 +154,51 @@
       <span id="zoom-level" style="font-family:monospace;font-size:0.6rem;color:rgba(255,255,255,0.5);padding:0 6px;line-height:36px">100%</span>
       <button id="auto-zoom" title="Toggle auto-fit on resize (currently ON)" style="font-size:0.6rem;padding:0 8px">⊡ Auto</button>
       <button id="fit-all" title="Fit all modules in view">⊞ Fit</button>
+      <span id="module-selection" title="Selected module" style="font-family:monospace;font-size:0.56rem;color:rgba(255,255,255,0.45);padding:0 6px;line-height:36px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">No module selected</span>
+      <button id="remove-module" title="Remove selected module" disabled style="font-size:0.6rem;padding:0 8px">－ Module</button>
       <button id="add-module" title="Add a new module (synth or mixer)">＋ Module</button>
     </div>
   </div>
   <script type="module" src="/src/app.js"></script>
+  <script type="module" src="/src/assistant-client.js"></script>
+  <script>
+    const isLoopbackHost = ['127.0.0.1', 'localhost', '::1'].includes(window.location.hostname);
+    const DEV_SHELL_VERSION = 'confusynth-shell-v4';
+
+    async function resetLocalDevShellState() {
+      try {
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map((reg) => reg.unregister()));
+        }
+        if (window.caches?.keys) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((key) => caches.delete(key)));
+        }
+      } catch (error) {
+        console.warn('[CONFUsynth] Local shell reset failed:', error);
+      }
+    }
+
+    window.addEventListener('load', () => {
+      if (isLoopbackHost) {
+        const previous = localStorage.getItem('confusynth-dev-shell-version');
+        if (previous !== DEV_SHELL_VERSION) {
+          localStorage.setItem('confusynth-dev-shell-version', DEV_SHELL_VERSION);
+          resetLocalDevShellState().then(() => {
+            window.location.reload();
+          });
+          return;
+        }
+        return;
+      }
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch((error) => {
+          console.warn('[CONFUsynth] Service worker registration failed:', error);
+        });
+      }
+    });
+  </script>
 </body>
 </html>

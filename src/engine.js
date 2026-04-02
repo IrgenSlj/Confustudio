@@ -180,6 +180,7 @@ export class AudioEngine {
 
     // AudioWorklet readiness flags — set true after initWorklets() resolves
     this._workletReady = false;
+    this._bitcrusherReady = false;
     this._plaitsReady  = false;
     this._cloudsReady  = false;
     this._ringsReady   = false;
@@ -290,17 +291,26 @@ export class AudioEngine {
     this.masterLimiter.connect(this.reverbDry);
     this.reverbDry.connect(this.masterEQLow);
     this.reverbConvWet.connect(this.masterEQLow);
-    this.analyser.connect(context.destination);
+    this.mainOutput = context.createGain();
+    this.mainOutput.gain.value = 1;
+    this.analyser.connect(this.mainOutput);
+    this.mainOutput.connect(context.destination);
 
     // Seed the convolution reverb with a default IR (room) — deferred to avoid
     // AudioContext creation race; called lazily on first setReverbConvPreset().
     // Build room IR immediately so it is ready for playback.
     this._buildConvIR('room');
 
-    // CUE output — pre-fader listen bus, sums to master
+    // CUE output — pre-fader listen bus, monitored independently from the main master chain.
     this.cueOutput = context.createGain();
     this.cueOutput.gain.value = 1;
-    this.cueOutput.connect(this.master);
+    this.cueMonitor = context.createGain();
+    this.cueMonitor.gain.value = 1;
+    this.cueMonitorGate = context.createGain();
+    this.cueMonitorGate.gain.value = 1;
+    this.cueOutput.connect(this.cueMonitor);
+    this.cueMonitor.connect(this.cueMonitorGate);
+    this.cueMonitorGate.connect(context.destination);
 
     // Shared noise buffer — pre-created once, looped per trigger (not per-note allocation)
     this._noiseBuffer = this.createNoiseBuffer(2);
@@ -732,7 +742,12 @@ export class AudioEngine {
   }
 
   setCueGain(v) {
-    this.cueOutput.gain.setTargetAtTime(Math.max(0, Math.min(2, v)), this.context.currentTime, 0.01);
+    const next = Math.max(0, Math.min(2, v));
+    this.cueMonitor.gain.setTargetAtTime(next, this.context.currentTime, 0.01);
+  }
+
+  setCueMonitorEnabled(enabled) {
+    this.cueMonitorGate.gain.setTargetAtTime(enabled ? 1 : 0, this.context.currentTime, 0.01);
   }
 
   // Set the global maximum voice ceiling (absolute cap across all per-track maxVoices)
@@ -797,6 +812,7 @@ export class AudioEngine {
     };
     await Promise.all([
       load('/src/worklets/resampler-worklet.js', '_workletReady'),
+      load('/src/worklets/bitcrusher-worklet.js', '_bitcrusherReady'),
       load('/src/worklets/plaits-worklet.js',    '_plaitsReady'),
       load('/src/worklets/clouds-worklet.js',    '_cloudsReady'),
       load('/src/worklets/rings-worklet.js',     '_ringsReady'),
@@ -1101,25 +1117,45 @@ export class AudioEngine {
     let eqTail = output;
 
     if (needsCrusher) {
-      const crusher = this.context.createScriptProcessor(256, 1, 1);
-      const step = Math.pow(2, bitDepth);
-      let held = 0;
-      let sampleCount = 0;
-
-      crusher.onaudioprocess = (e) => {
-        const input = e.inputBuffer.getChannelData(0);
-        const outBuf = e.outputBuffer.getChannelData(0);
-        for (let i = 0; i < input.length; i++) {
-          if (sampleCount % srDiv === 0) {
-            held = Math.round(input[i] * step) / step;
-          }
-          outBuf[i] = held;
-          sampleCount++;
+      if (this._bitcrusherReady && typeof AudioWorkletNode === 'function') {
+        try {
+          const crusher = new AudioWorkletNode(this.context, 'cs-bitcrusher', {
+            numberOfInputs: 1,
+            numberOfOutputs: 1,
+          });
+          crusher.port.postMessage({ type: 'config', bitDepth, srDiv });
+          output.connect(crusher);
+          eqTail = crusher;
+        } catch (error) {
+          console.warn('[CONFUsynth] Bitcrusher worklet failed, falling back to ScriptProcessorNode:', error);
         }
-      };
+      }
 
-      output.connect(crusher);
-      eqTail = crusher;
+      if (eqTail === output) {
+        const crusher = this.context.createScriptProcessor(256, 2, 2);
+        const step = Math.pow(2, bitDepth);
+        const held = [0, 0];
+        let sampleCount = 0;
+
+        crusher.onaudioprocess = (e) => {
+          const inputL = e.inputBuffer.numberOfChannels > 0 ? e.inputBuffer.getChannelData(0) : null;
+          const inputR = e.inputBuffer.numberOfChannels > 1 ? e.inputBuffer.getChannelData(1) : inputL;
+          const outL = e.outputBuffer.getChannelData(0);
+          const outR = e.outputBuffer.numberOfChannels > 1 ? e.outputBuffer.getChannelData(1) : outL;
+          for (let i = 0; i < outL.length; i++) {
+            if (sampleCount % srDiv === 0) {
+              held[0] = Math.round((inputL?.[i] ?? 0) * step) / step;
+              held[1] = Math.round((inputR?.[i] ?? held[0]) * step) / step;
+            }
+            outL[i] = held[0];
+            if (outR !== outL) outR[i] = held[1];
+            sampleCount++;
+          }
+        };
+
+        output.connect(crusher);
+        eqTail = crusher;
+      }
     }
 
     if (needsEQ) {
@@ -1193,11 +1229,11 @@ export class AudioEngine {
     filter.connect(saturator);
     saturator.connect(busTarget);
 
-    // CUE pre-fader listen — tap from output (before volume envelope reaches saturator)
+    // CUE pre-fader listen — tap after insert processing but before the master bus.
     if (params.cue) {
       const cueSend = this.context.createGain();
       cueSend.gain.value = 1;
-      output.connect(cueSend);
+      saturator.connect(cueSend);
       cueSend.connect(this.cueOutput);
     }
 
@@ -1402,20 +1438,48 @@ export class AudioEngine {
 
       if (this._workletReady) {
         // High-quality 4-point Hermite resampler via AudioWorklet
-        const node = new AudioWorkletNode(this.context, 'cs-resampler');
-        const channelData = params.sampleBuffer.getChannelData(0);
+        const channelCount = Math.max(1, Math.min(2, params.sampleBuffer.numberOfChannels || 1));
+        const node = new AudioWorkletNode(this.context, 'cs-resampler', {
+          outputChannelCount: [channelCount],
+        });
+        const leftData = params.sampleBuffer.getChannelData(0);
+        const rightData = channelCount > 1
+          ? params.sampleBuffer.getChannelData(1)
+          : null;
         const sr = params.sampleBuffer.sampleRate;
         const ctxRate = this.context.sampleRate;
         const startSample = Math.floor(offsetSec * sr);
-        const endSample   = Math.min(channelData.length, Math.floor((bufDur * sampleEnd) * sr));
-        const slice = channelData.buffer.slice(
-          startSample * Float32Array.BYTES_PER_ELEMENT,
-          endSample   * Float32Array.BYTES_PER_ELEMENT
-        );
-        const duration = clipDur / samplePlaybackRate;
+        const endSample   = Math.min(leftData.length, Math.floor((bufDur * sampleEnd) * sr));
+        const leftSlice = params.loopEnabled
+          ? leftData.buffer.slice(0)
+          : leftData.buffer.slice(
+              startSample * Float32Array.BYTES_PER_ELEMENT,
+              endSample   * Float32Array.BYTES_PER_ELEMENT
+            );
+        const rightSlice = rightData
+          ? (params.loopEnabled
+            ? rightData.buffer.slice(0)
+            : rightData.buffer.slice(
+                startSample * Float32Array.BYTES_PER_ELEMENT,
+                endSample   * Float32Array.BYTES_PER_ELEMENT
+              ))
+          : null;
+        const loopEnabled = !!params.loopEnabled;
+        const loopStart = Math.max(0, Math.min(bufDur, (params.loopStart ?? 0) * bufDur));
+        const loopEnd = Math.max(loopStart + 0.001, Math.min(bufDur, (params.loopEnd ?? 1) * bufDur));
         node.port.postMessage(
-          { type: 'load', buffer: slice, playbackRate: samplePlaybackRate, sampleRate: sr, ctxRate },
-          [slice]
+          {
+            type: 'load',
+            channels: rightSlice ? [leftSlice, rightSlice] : [leftSlice],
+            playbackRate: samplePlaybackRate,
+            sampleRate: sr,
+            ctxRate,
+            loopEnabled,
+            loopStart: loopEnabled ? loopStart : 0,
+            loopEnd: loopEnabled ? loopEnd : 0,
+            position: loopEnabled ? startSample : 0,
+          },
+          rightSlice ? [leftSlice, rightSlice] : [leftSlice]
         );
         node.connect(output);
         const voiceHandle = {

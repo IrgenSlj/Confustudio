@@ -557,6 +557,65 @@ export default {
       `)}
     `;
 
+    // ── Sidechain card (appended to right column after innerHTML is set) ──────
+    const sc = state.sidechainConfig ?? {};
+    const scSource    = sc.source    ?? -1;
+    const scTarget    = sc.target    ?? -1;
+    const scThreshold = sc.threshold ?? -18;
+    const scRatio     = sc.ratio     ?? 4;
+    const scAttack    = sc.attack    ?? 10;
+    const scRelease   = sc.release   ?? 100;
+    const scEnabled   = sc.enabled   ?? false;
+
+    const scCard = document.createElement('div');
+    scCard.className = 'page-card';
+    scCard.dataset.card = 'sidechain';
+    scCard.style.marginTop = '6px';
+    scCard.innerHTML = `
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+        <h4 style="margin:0">SIDECHAIN</h4>
+        <button class="ctx-btn${scEnabled ? ' active' : ''}" data-sc-enable style="margin-left:auto;font-size:0.52rem">
+          ${scEnabled ? 'ON' : 'OFF'}
+        </button>
+        <div data-sc-duck style="width:10px;height:10px;border-radius:50%;background:${scEnabled ? 'var(--record)' : 'rgba(255,255,255,0.1)'};transition:background 0.05s;flex-shrink:0" title="Duck indicator"></div>
+      </div>
+      <div class="fx-row" style="align-items:center;gap:6px;margin-bottom:4px">
+        <span style="min-width:52px;font-size:0.52rem;color:var(--muted)">SOURCE</span>
+        <select data-sc-param="source" style="flex:1;font-family:var(--font-mono);font-size:0.52rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px">
+          <option value="-1"${scSource === -1 ? ' selected' : ''}>None</option>
+          ${[0,1,2,3,4,5,6,7].map(i => `<option value="${i}"${scSource === i ? ' selected' : ''}>T${i+1}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fx-row" style="align-items:center;gap:6px;margin-bottom:6px">
+        <span style="min-width:52px;font-size:0.52rem;color:var(--muted)">TARGET</span>
+        <select data-sc-param="target" style="flex:1;font-family:var(--font-mono);font-size:0.52rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px">
+          <option value="-1"${scTarget === -1 ? ' selected' : ''}>All Tracks</option>
+          ${[0,1,2,3,4,5,6,7].map(i => `<option value="${i}"${scTarget === i ? ' selected' : ''}>Group ${i+1}</option>`).join('')}
+        </select>
+      </div>
+      <label class="fx-row">
+        <span>THRESH</span>
+        <output data-sc-out="threshold">${scThreshold} dB</output>
+        <input type="range" min="-40" max="0" step="1" value="${scThreshold}" data-sc-param="threshold">
+      </label>
+      <label class="fx-row">
+        <span>RATIO</span>
+        <output data-sc-out="ratio">${scRatio}:1</output>
+        <input type="range" min="1" max="20" step="0.5" value="${scRatio}" data-sc-param="ratio">
+      </label>
+      <label class="fx-row">
+        <span>ATTACK</span>
+        <output data-sc-out="attack">${scAttack} ms</output>
+        <input type="range" min="1" max="100" step="1" value="${scAttack}" data-sc-param="attack">
+      </label>
+      <label class="fx-row">
+        <span>RELEASE</span>
+        <output data-sc-out="release">${scRelease} ms</output>
+        <input type="range" min="50" max="500" step="5" value="${scRelease}" data-sc-param="release">
+      </label>
+    `;
+    rightCol.appendChild(scCard);
+
     cols.appendChild(leftCol);
     cols.appendChild(rightCol);
     scrollArea.appendChild(cols);
@@ -981,7 +1040,89 @@ export default {
         saveState(state);
         return;
       }
+
+      // ── Sidechain enable toggle ───────────────────────────────────────────────
+      const scEnableBtn = e.target.closest('[data-sc-enable]');
+      if (scEnableBtn) {
+        if (!state.sidechainConfig) state.sidechainConfig = {};
+        state.sidechainConfig.enabled = !state.sidechainConfig.enabled;
+        scEnableBtn.classList.toggle('active', state.sidechainConfig.enabled);
+        scEnableBtn.textContent = state.sidechainConfig.enabled ? 'ON' : 'OFF';
+        const duckDot = container.querySelector('[data-sc-duck]');
+        if (duckDot) duckDot.style.background = state.sidechainConfig.enabled ? 'var(--record)' : 'rgba(255,255,255,0.1)';
+        const scSrc = state.sidechainConfig.source ?? -1;
+        const eng4 = window._confusynthEngine ?? state.engine;
+        if (state.sidechainConfig.enabled) {
+          eng4?.setSidechainSource?.(scSrc);
+          eng4?.setSidechainConfig?.({
+            threshold: state.sidechainConfig.threshold ?? -18,
+            ratio:     state.sidechainConfig.ratio     ?? 4,
+            attack:    state.sidechainConfig.attack    ?? 10,
+            release:   state.sidechainConfig.release   ?? 100,
+          });
+        } else {
+          eng4?.setSidechainSource?.(-1);
+        }
+        saveState(state);
+        return;
+      }
     });
+
+    // ── Sidechain knob/select changes ─────────────────────────────────────────
+    const scCard2 = container.querySelector('[data-card="sidechain"]');
+    if (scCard2) {
+      scCard2.addEventListener('input', e => {
+        const el = e.target;
+        const param = el.dataset.scParam;
+        if (!param) return;
+        if (!state.sidechainConfig) state.sidechainConfig = {};
+        const v = (el.tagName === 'SELECT') ? parseInt(el.value, 10) : parseFloat(el.value);
+        state.sidechainConfig[param] = v;
+        // Update output label
+        const out = scCard2.querySelector(`[data-sc-out="${param}"]`);
+        if (out) {
+          if (param === 'threshold') out.textContent = `${v} dB`;
+          else if (param === 'ratio')   out.textContent = `${v}:1`;
+          else if (param === 'attack' || param === 'release') out.textContent = `${v} ms`;
+        }
+        const eng5 = window._confusynthEngine ?? state.engine;
+        if (param === 'source') {
+          eng5?.setSidechainSource?.(v);
+        } else {
+          eng5?.setSidechainConfig?.({
+            threshold: state.sidechainConfig.threshold ?? -18,
+            ratio:     state.sidechainConfig.ratio     ?? 4,
+            attack:    state.sidechainConfig.attack    ?? 10,
+            release:   state.sidechainConfig.release   ?? 100,
+          });
+        }
+        saveState(state);
+      });
+    }
+
+    // ── Sidechain duck indicator: pulse on note:on for the source track ────────
+    {
+      const _scNoteListener = (e) => {
+        const cfg = state.sidechainConfig;
+        if (!cfg?.enabled) return;
+        const src = cfg.source ?? -1;
+        if (src === -1 || e.detail?.trackIndex !== src) return;
+        const duckDot = container.querySelector('[data-sc-duck]');
+        if (!duckDot) return;
+        duckDot.style.background = '#fff';
+        clearTimeout(duckDot._scTimer);
+        duckDot._scTimer = setTimeout(() => {
+          duckDot.style.background = 'var(--record)';
+        }, 120);
+      };
+      window.addEventListener('confusynth:note:on', _scNoteListener);
+      // Clean up when container is replaced
+      const _prevCleanupFx = container._cleanup;
+      container._cleanup = () => {
+        window.removeEventListener('confusynth:note:on', _scNoteListener);
+        _prevCleanupFx?.();
+      };
+    }
   },
 
   knobMap: [

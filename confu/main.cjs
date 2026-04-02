@@ -86,7 +86,7 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.cjs'),
-      webSecurity: false,
+      webSecurity: true,
     },
   });
 

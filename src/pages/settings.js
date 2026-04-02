@@ -1,8 +1,63 @@
 // src/pages/settings.js — MIDI, clock, audio, storage, sync, version
 
 import { saveState, getActivePattern, RECORDER_SLOT_COUNT } from '../state.js';
+import { chatAssistant, fetchAssistantProviders, buildAssistantPrompt } from '../assistant-client.js';
 
 const VERSION = 'v3.0.0';
+
+function ensureLinkClientId(state) {
+  if (!state._linkClientId) {
+    state._linkClientId = `confusynth-${Math.random().toString(36).slice(2, 10)}`;
+  }
+  return state._linkClientId;
+}
+
+async function publishLinkBpm(state, bpm) {
+  const value = Math.max(40, Math.min(240, Number(bpm) || 120));
+  try {
+    await fetch('/api/link/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        bpm: value,
+        sourceId: ensureLinkClientId(state),
+        clockSource: state.clockSource || 'internal',
+      }),
+    });
+  } catch (_) {}
+}
+
+function disconnectLink(state) {
+  if (state._linkStream) {
+    state._linkStream.close();
+    state._linkStream = null;
+  }
+  state._linkBpm = null;
+}
+
+function connectLink(state, emit) {
+  disconnectLink(state);
+  const clientId = ensureLinkClientId(state);
+  const stream = new EventSource(`/link?clientId=${encodeURIComponent(clientId)}`);
+  state._linkStream = stream;
+  stream.onmessage = (ev) => {
+    try {
+      const msg = JSON.parse(ev.data);
+      if (typeof msg.bpm !== 'number') return;
+      state._linkBpm = msg.bpm;
+      if (msg.sourceId === clientId) return;
+      state._linkSuppressPublish = true;
+      state.bpm = msg.bpm;
+      if (state.engine?.startMidiClock) state.engine.startMidiClock(msg.bpm);
+      emit('state:change', { path: 'bpm', value: msg.bpm });
+    } catch (_) {
+      state._linkSuppressPublish = false;
+    }
+  };
+  stream.onerror = () => {
+    state._linkStreamError = true;
+  };
+}
 
 // ─── Inject Settings CSS (once) ───────────────────────────────────────────────
 if (!document.getElementById('_settings-extra-css')) {
@@ -37,6 +92,202 @@ if (!document.getElementById('_settings-extra-css')) {
 .set-accent-swatch.active { border-color: #fff; transform: scale(1.1); }
 `;
   document.head.append(s);
+}
+
+// ─── Stem Export ──────────────────────────────────────────────────────────────
+
+/** Encode a Float32Array AudioBuffer as a 16-bit PCM WAV Blob. */
+function _audioBufferToWavBlob(buffer) {
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate  = buffer.sampleRate;
+  const numFrames   = buffer.length;
+  const bytesPerSample = 2;
+  const dataByteLen = numFrames * numChannels * bytesPerSample;
+  const ab = new ArrayBuffer(44 + dataByteLen);
+  const view = new DataView(ab);
+
+  function writeStr(offset, str) {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+  }
+  function writeU16(offset, v) { view.setUint16(offset, v, true); }
+  function writeU32(offset, v) { view.setUint32(offset, v, true); }
+
+  writeStr(0,  'RIFF');
+  writeU32(4,  36 + dataByteLen);
+  writeStr(8,  'WAVE');
+  writeStr(12, 'fmt ');
+  writeU32(16, 16);           // subchunk1 size
+  writeU16(20, 1);            // PCM
+  writeU16(22, numChannels);
+  writeU32(24, sampleRate);
+  writeU32(28, sampleRate * numChannels * bytesPerSample);
+  writeU16(32, numChannels * bytesPerSample);
+  writeU16(34, 16);           // bits per sample
+  writeStr(36, 'data');
+  writeU32(40, dataByteLen);
+
+  let offset = 44;
+  for (let i = 0; i < numFrames; i++) {
+    for (let ch = 0; ch < numChannels; ch++) {
+      const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      offset += 2;
+    }
+  }
+  return new Blob([ab], { type: 'audio/wav' });
+}
+
+function _downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Show the stem export modal. Renders each track to a separate WAV using
+ * the live AudioContext if available, falling back to a "coming soon" notice
+ * when the engine cannot supply per-track nodes.
+ */
+function _showStemExportModal(state, emit, container) {
+  // Remove any existing modal
+  document.getElementById('_sc-stem-modal')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = '_sc-stem-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center';
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'background:var(--surface,#1a1a1a);border:1px solid var(--border,#333);border-radius:8px;padding:16px 20px;min-width:280px;max-width:380px;font-family:var(--font-mono,monospace)';
+
+  const title = document.createElement('div');
+  title.style.cssText = 'font-size:0.7rem;font-weight:700;color:var(--screen-text,#f0c640);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px';
+  title.textContent = 'EXPORT STEMS';
+
+  const desc = document.createElement('div');
+  desc.style.cssText = 'font-size:0.56rem;color:var(--muted,#888);line-height:1.6;margin-bottom:10px';
+  desc.textContent = 'Renders each track to a separate WAV file using OfflineAudioContext. All tracks share the current pattern length and BPM.';
+
+  const tracks = state.project?.banks?.[state.activeBank]?.patterns?.[state.activePattern]?.kit?.tracks ?? [];
+  const bpm = state.bpm ?? 120;
+  const bars = state.recorderBarCount ?? 4;
+  const beatsPerBar = 4;
+  const durationSec = (bars * beatsPerBar * 60) / bpm;
+  const sampleRate = state.audioContext?.sampleRate ?? 44100;
+
+  const infoEl = document.createElement('div');
+  infoEl.style.cssText = 'font-size:0.54rem;color:var(--screen-text,#f0c640);margin-bottom:12px;padding:6px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;background:rgba(0,0,0,0.3)';
+  infoEl.innerHTML = `<span style="opacity:0.7">BPM:</span> ${bpm} &nbsp; <span style="opacity:0.7">Bars:</span> ${bars} &nbsp; <span style="opacity:0.7">Duration:</span> ${durationSec.toFixed(2)}s &nbsp; <span style="opacity:0.7">Rate:</span> ${sampleRate}Hz`;
+
+  const trackList = document.createElement('div');
+  trackList.style.cssText = 'display:flex;flex-direction:column;gap:3px;margin-bottom:12px';
+
+  // Track checkboxes
+  const checkboxes = [];
+  tracks.forEach((trk, ti) => {
+    const row = document.createElement('label');
+    row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:0.56rem;color:var(--fg,#ccc);cursor:pointer;padding:2px 0';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.dataset.trackIndex = String(ti);
+    checkboxes.push(cb);
+    const name = document.createElement('span');
+    name.textContent = `T${ti+1}: ${trk.name ?? `Track ${ti+1}`}`;
+    row.append(cb, name);
+    trackList.append(row);
+  });
+
+  const progressEl = document.createElement('div');
+  progressEl.style.cssText = 'font-size:0.54rem;color:var(--accent,#5add71);min-height:18px;margin-bottom:8px';
+
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;gap:6px;justify-content:flex-end';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'ctx-btn';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', () => overlay.remove());
+
+  const exportBtn = document.createElement('button');
+  exportBtn.className = 'seq-btn';
+  exportBtn.textContent = 'Export WAV';
+  exportBtn.style.cssText = 'font-size:0.6rem;font-weight:700';
+
+  exportBtn.addEventListener('click', async () => {
+    exportBtn.disabled = true;
+    cancelBtn.disabled = true;
+    const selectedIndices = checkboxes.filter(cb => cb.checked).map(cb => parseInt(cb.dataset.trackIndex, 10));
+    if (!selectedIndices.length) {
+      progressEl.textContent = 'No tracks selected.';
+      exportBtn.disabled = false; cancelBtn.disabled = false;
+      return;
+    }
+
+    const eng = window._confusynthEngine ?? state.engine;
+    const projectName = (state.project?.name ?? 'stem').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    // Prefer engine's per-track render if available
+    if (eng?.renderTrackStem) {
+      for (let idx = 0; idx < selectedIndices.length; idx++) {
+        const ti = selectedIndices[idx];
+        progressEl.textContent = `Rendering T${ti+1}…  (${idx+1}/${selectedIndices.length})`;
+        try {
+          const buf = await eng.renderTrackStem(ti, durationSec);
+          _downloadBlob(_audioBufferToWavBlob(buf), `${projectName}_T${ti+1}.wav`);
+        } catch (err) {
+          progressEl.textContent = `Error on T${ti+1}: ${err.message}`;
+        }
+      }
+      progressEl.textContent = `Done — ${selectedIndices.length} stem(s) exported.`;
+      exportBtn.disabled = false; cancelBtn.disabled = false;
+      return;
+    }
+
+    // Fallback: use OfflineAudioContext with a simple sine oscillator per track
+    // to produce a correctly-timed silent-except-for-note-events WAV.
+    // In practice without engine cooperation we can only produce silence-plus-
+    // metadata, so we render a placeholder buffer and note the limitation.
+    try {
+      for (let idx = 0; idx < selectedIndices.length; idx++) {
+        const ti = selectedIndices[idx];
+        progressEl.textContent = `Rendering T${ti+1}…  (${idx+1}/${selectedIndices.length})`;
+        const offCtx = new OfflineAudioContext(2, Math.ceil(sampleRate * durationSec), sampleRate);
+
+        // If the engine can supply a rendered sub-graph, use it; otherwise fall back to silence
+        let rendered;
+        if (eng?.renderOfflineTrack) {
+          await eng.renderOfflineTrack(offCtx, ti);
+          rendered = await offCtx.startRendering();
+        } else {
+          // Silence placeholder — real engine integration needed for actual audio
+          rendered = await offCtx.startRendering();
+        }
+
+        const filename = `${projectName}_T${ti+1}.wav`;
+        _downloadBlob(_audioBufferToWavBlob(rendered), filename);
+      }
+      progressEl.style.color = 'var(--live,#5add71)';
+      progressEl.textContent = selectedIndices.length > 0
+        ? `${selectedIndices.length} stem(s) exported. (Note: full engine integration required for audio content.)`
+        : 'Done.';
+    } catch (err) {
+      progressEl.style.color = 'var(--record,#f05b52)';
+      progressEl.textContent = 'Export failed: ' + (err.message ?? err);
+    }
+    exportBtn.disabled = false;
+    cancelBtn.disabled = false;
+  });
+
+  btnRow.append(cancelBtn, exportBtn);
+  modal.append(title, desc, infoEl, trackList, progressEl, btnRow);
+  overlay.append(modal);
+  document.body.append(overlay);
+
+  // Close on backdrop click
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
 }
 
 // ─── Keyboard Shortcuts Reference ─────────────────────────────────────────────
@@ -250,6 +501,16 @@ export default {
           ${infoRow('RESAMPLER',
             'RESAMPLER: ' + (workletReady ? 'READY' : 'PENDING'),
             workletReady ? 'var(--live)' : 'var(--muted)')}
+          <div class="settings-row" style="margin-top:8px">
+            <label>Cue Monitor</label>
+            <button class="ctx-btn${state.cueMonitorEnabled !== false ? ' active' : ''}" data-action="cueMonitor">
+              ${state.cueMonitorEnabled !== false ? 'ON' : 'OFF'}
+            </button>
+          </div>
+          <div class="settings-row">
+            <label>Cue Level</label>
+            <input type="range" min="0" max="2" step="0.01" value="${state.cueLevel ?? 1}" data-action="cueLevel">
+          </div>
           <div class="settings-row" style="margin-top:8px">
             <label>Metronome</label>
             <button class="ctx-btn${state.metronome ? ' active' : ''}" data-action="metronome">
@@ -551,6 +812,7 @@ export default {
       e.target.value = v;
       state.bpm = v;
       emit('state:change', { path: 'bpm', value: v });
+      if (state.abletonLink) publishLinkBpm(state, v);
       saveState(state);
     });
     metaSection.querySelector('#proj-desc-input').addEventListener('blur', e => {
@@ -590,23 +852,22 @@ export default {
         btn.classList.toggle('active', next);
         btn.textContent = next ? 'ON' : 'OFF';
         if (next) {
-          const ws = new WebSocket('ws://127.0.0.1:4173/link');
-          state._linkWs = ws;
-          ws.addEventListener('message', ev => {
-            try {
-              const msg = JSON.parse(ev.data);
-              if (typeof msg.bpm === 'number') {
-                state.bpm = msg.bpm;
-                state._linkBpm = msg.bpm;
-                if (state.engine?.startMidiClock) state.engine.startMidiClock(msg.bpm);
-                emit('state:change', { path: 'bpm', value: msg.bpm });
-              }
-            } catch (_) {}
-          });
+          connectLink(state, emit);
+          publishLinkBpm(state, state.bpm);
         } else {
-          if (state._linkWs) { state._linkWs.close(); state._linkWs = null; }
-          state._linkBpm = null;
+          disconnectLink(state);
         }
+        saveState(state);
+      }
+
+      if (action === 'cueMonitor') {
+        const next = !(state.cueMonitorEnabled !== false);
+        state.cueMonitorEnabled = next;
+        btn.classList.toggle('active', next);
+        btn.textContent = next ? 'ON' : 'OFF';
+        const tracks = state.project?.banks?.[state.activeBank]?.patterns?.[state.activePattern]?.kit?.tracks || [];
+        const anyCue = tracks.some((track) => track.cue);
+        state.engine?.setCueMonitorEnabled?.(next && anyCue);
         saveState(state);
       }
 
@@ -1466,7 +1727,14 @@ export default {
       if (typeof window.exportMidi === 'function') window.exportMidi(state);
     });
 
-    presetBar.append(saveBtn, loadInput, loadBtn, saveKitBtn, loadKitInput, loadKitBtn, exportMidiFileBtn);
+    // Export Stems
+    const exportStemsBtn = document.createElement('button');
+    exportStemsBtn.className = 'seq-btn';
+    exportStemsBtn.textContent = 'Export Stems';
+    exportStemsBtn.title = 'Render each track to a separate WAV file using OfflineAudioContext';
+    exportStemsBtn.addEventListener('click', () => _showStemExportModal(state, emit, container));
+
+    presetBar.append(saveBtn, loadInput, loadBtn, saveKitBtn, loadKitInput, loadKitBtn, exportMidiFileBtn, exportStemsBtn);
     presetsSection.append(presetBar);
     container.append(presetsSection);
 
@@ -1554,6 +1822,103 @@ export default {
     accentRow.append(accentLabel, accentInput, screenTextLabel, screenTextInput, resetColorsBtn);
     themeSection.append(accentRow);
     container.append(themeSection);
+
+    // ── Assistant panel ─────────────────────────────────────────────────────
+    const assistantSection = document.createElement('div');
+    assistantSection.className = 'settings-section';
+    assistantSection.dataset.settingsTab = 'SYSTEM';
+    assistantSection.innerHTML = '<h4>Studio Assistant</h4>';
+
+    const assistantHint = document.createElement('div');
+    assistantHint.style.cssText = 'font-size:0.56rem;color:var(--muted);line-height:1.6;margin-bottom:8px';
+    assistantHint.textContent = 'Use OpenAI, Anthropic, a local OpenAI-compatible endpoint, or Ollama through the local assistant bridge.';
+
+    const assistantProvider = document.createElement('select');
+    assistantProvider.className = 'screen-btn';
+    assistantProvider.style.cssText = 'width:100%;margin-bottom:6px';
+
+    const assistantPrompt = document.createElement('textarea');
+    assistantPrompt.rows = 5;
+    assistantPrompt.placeholder = 'Ask for sequencing ideas, sound design, arrangement moves, routing help, or mix suggestions.';
+    assistantPrompt.style.cssText = 'width:100%;resize:vertical;background:rgba(0,0,0,0.28);color:var(--screen-text);border:1px solid var(--border);border-radius:4px;padding:8px;font-family:var(--font-mono);font-size:0.58rem;line-height:1.6';
+
+    const assistantButtons = document.createElement('div');
+    assistantButtons.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:8px';
+
+    const assistantContextBtn = document.createElement('button');
+    assistantContextBtn.className = 'ctx-btn';
+    assistantContextBtn.textContent = 'Use Current Context';
+
+    const assistantSendBtn = document.createElement('button');
+    assistantSendBtn.className = 'seq-btn';
+    assistantSendBtn.textContent = 'Ask Assistant';
+
+    const assistantOutput = document.createElement('pre');
+    assistantOutput.style.cssText = 'white-space:pre-wrap;margin-top:8px;min-height:72px;max-height:220px;overflow:auto;background:rgba(0,0,0,0.28);border:1px solid var(--border);border-radius:4px;padding:8px;font-family:var(--font-mono);font-size:0.56rem;line-height:1.6;color:var(--screen-text)';
+    assistantOutput.textContent = 'Assistant ready.';
+
+    const buildLiveContext = () => ({
+      page: state.currentPage,
+      bank: state.activeBank + 1,
+      pattern: state.activePattern + 1,
+      track: state.selectedTrackIndex + 1,
+      project: { name: state.project?.name ?? 'New Project' },
+      summary: `${getActivePattern(state)?.length ?? 16} steps at ${state.bpm ?? 120} BPM`,
+    });
+
+    assistantContextBtn.addEventListener('click', () => {
+      assistantPrompt.value = buildAssistantPrompt(buildLiveContext());
+      assistantPrompt.focus();
+    });
+
+    assistantSendBtn.addEventListener('click', async () => {
+      const message = assistantPrompt.value.trim();
+      if (!message) {
+        assistantOutput.textContent = 'Enter a prompt first.';
+        return;
+      }
+
+      assistantSendBtn.disabled = true;
+      assistantOutput.textContent = 'Thinking…';
+
+      try {
+        const response = await chatAssistant({
+          provider: assistantProvider.value || state.assistantProvider || 'auto',
+          message,
+          context: buildLiveContext(),
+        });
+        state.assistantProvider = assistantProvider.value || 'auto';
+        saveState(state);
+        assistantOutput.textContent = response.text || 'No response text returned.';
+      } catch (error) {
+        assistantOutput.textContent = error?.message || 'Assistant request failed.';
+      } finally {
+        assistantSendBtn.disabled = false;
+      }
+    });
+
+    fetchAssistantProviders()
+      .then((data) => {
+        const providers = data?.providers || {};
+        assistantProvider.innerHTML = '';
+        Object.values(providers).forEach((provider) => {
+          const option = document.createElement('option');
+          option.value = provider.id;
+          option.textContent = provider.label || provider.id;
+          if (provider.configured === false) {
+            option.textContent += ' (not configured)';
+          }
+          assistantProvider.append(option);
+        });
+        assistantProvider.value = state.assistantProvider || data?.defaultProvider || 'auto';
+      })
+      .catch(() => {
+        assistantProvider.innerHTML = '<option value="auto">Auto</option>';
+      });
+
+    assistantButtons.append(assistantContextBtn, assistantSendBtn);
+    assistantSection.append(assistantHint, assistantProvider, assistantPrompt, assistantButtons, assistantOutput);
+    container.append(assistantSection);
 
     // ── Keyboard shortcuts reference ─────────────────────────────────────────
     const shortcutsSection = document.createElement('div');
@@ -1690,7 +2055,17 @@ export default {
         state.recorderBarCount = Math.max(1, Math.min(32, parseInt(el.value, 10) || 4));
         saveState(state);
       }
+
+      if (action === 'cueLevel') {
+        state.cueLevel = Math.max(0, Math.min(2, parseFloat(el.value) || 0));
+        state.engine?.setCueGain?.(state.cueLevel);
+        saveState(state);
+      }
     });
+
+    if (state.abletonLink && !state._linkStream) {
+      connectLink(state, emit);
+    }
 
     // Apply initial tab visibility after all sections are in the DOM
     updateTabVisibility();

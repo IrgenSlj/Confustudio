@@ -27,6 +27,57 @@ const SCALES = [
   { name: 'Blues',     intervals: [0,3,5,6,7,10] },
 ];
 
+// ─── Chord construction helper ────────────────────────────────────────────────
+// Returns array of MIDI notes for the chord rooted at rootMidi.
+// voicing: 'triad' | '7th' | '9th' | 'power'
+// scaleIdx: index into SCALES array (0 = Chromatic)
+
+const CHORD_DEGREE_COUNTS_PR = { triad: 3, '7th': 4, '9th': 5, power: 2 };
+
+function buildChordNotesPR(rootMidi, voicing, scaleIdx) {
+  const scaleDef = SCALES[Math.max(0, Math.min(SCALES.length - 1, scaleIdx ?? 0))];
+  const intervals = scaleDef.intervals; // null for Chromatic
+
+  if (voicing === 'power') {
+    return [rootMidi, rootMidi + 7].filter(n => n >= 0 && n <= 127);
+  }
+
+  const degreeCount = CHORD_DEGREE_COUNTS_PR[voicing] ?? 3;
+
+  if (!intervals) {
+    // Chromatic fallback: major-chord intervals
+    const chromaDeg = [0, 4, 7, 10, 14];
+    return chromaDeg.slice(0, degreeCount)
+      .map(iv => rootMidi + iv)
+      .filter(n => n >= 0 && n <= 127);
+  }
+
+  const rootPc  = ((rootMidi % 12) + 12) % 12;
+  const rootOct = rootMidi - rootPc;
+
+  // Find scale degree index for root pitch class (snap to nearest if not in scale)
+  let rootDegIdx = intervals.indexOf(rootPc);
+  if (rootDegIdx === -1) {
+    let best = 0, bestDist = 12;
+    for (let i = 0; i < intervals.length; i++) {
+      const d = Math.min(Math.abs(intervals[i] - rootPc), 12 - Math.abs(intervals[i] - rootPc));
+      if (d < bestDist) { bestDist = d; best = i; }
+    }
+    rootDegIdx = best;
+  }
+
+  const notes = [];
+  for (let d = 0; d < degreeCount; d++) {
+    const degIdx   = rootDegIdx + d * 2;
+    const octOff   = Math.floor(degIdx / intervals.length);
+    const normIdx  = degIdx % intervals.length;
+    const semitone = intervals[normIdx] + octOff * 12;
+    const midi     = rootOct + semitone;
+    if (midi >= 0 && midi <= 127) notes.push(midi);
+  }
+  return notes;
+}
+
 const TOTAL_NOTE_MIN = 24;  // C1
 const TOTAL_NOTE_MAX = 96;  // C7
 const TOTAL_RANGE    = TOTAL_NOTE_MAX - TOTAL_NOTE_MIN + 1; // 73, but we use 72 steps
@@ -103,6 +154,10 @@ export default {
       if (step.active) {
         const note = step.paramLocks?.note ?? step.note;
         activeSet.add(`${note}_${si}`);
+        // Also show chord tones stored by chord mode
+        if (step._chordNotes) {
+          step._chordNotes.forEach(cn => activeSet.add(`${cn}_${si}`));
+        }
       }
     });
 
@@ -226,6 +281,41 @@ export default {
       toolbar.append(btn);
     });
 
+    // Chord mode divider
+    const chordDivider = document.createElement('span');
+    chordDivider.style.cssText = 'width:1px;height:12px;background:rgba(255,255,255,0.12);flex-shrink:0;margin:0 2px';
+    toolbar.append(chordDivider);
+
+    // CHORD toggle button
+    const chordBtn = document.createElement('button');
+    chordBtn.className = 'pr-toolbar-btn' + (state.chordMode ? ' active' : '');
+    chordBtn.textContent = 'CHORD';
+    chordBtn.title = 'Chord mode: clicking a cell writes a full chord voicing';
+    chordBtn.addEventListener('click', () => {
+      state.chordMode = !state.chordMode;
+      chordBtn.classList.toggle('active', state.chordMode);
+      voicingSelect.style.opacity = state.chordMode ? '1' : '0.4';
+      voicingSelect.style.pointerEvents = state.chordMode ? '' : 'none';
+    });
+    toolbar.append(chordBtn);
+
+    // Voicing selector dropdown
+    const voicingSelect = document.createElement('select');
+    voicingSelect.title = 'Chord voicing';
+    voicingSelect.style.cssText = 'font-size:0.5rem;font-family:var(--font-mono);background:var(--bg2,#1a1a1a);color:var(--screen-text,#e0d8c8);border:1px solid var(--muted,#888);border-radius:2px;padding:1px 3px;cursor:pointer;opacity:' + (state.chordMode ? '1' : '0.4');
+    voicingSelect.style.pointerEvents = state.chordMode ? '' : 'none';
+    [['triad','Triad'], ['7th','7th'], ['9th','9th'], ['power','Power']].forEach(([val, label]) => {
+      const opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = label;
+      if ((state.chordVoicing ?? 'triad') === val) opt.selected = true;
+      voicingSelect.append(opt);
+    });
+    voicingSelect.addEventListener('change', e => {
+      state.chordVoicing = e.target.value;
+    });
+    toolbar.append(voicingSelect);
+
     container.append(toolbar);
 
     // Piano roll view
@@ -326,6 +416,15 @@ export default {
     // Drag-to-draw state
     state._rollDragging  = false;
     state._rollDrawNote  = null;
+
+    // Rubber-band select state
+    let rbActive    = false;
+    let rbStartX    = 0;
+    let rbStartY    = 0;
+    let rbRect      = null; // { x1, y1, x2, y2 } in gridCol-relative coords
+    const rbOverlay = document.createElement('div');
+    rbOverlay.style.cssText = 'position:absolute;border:1px solid rgba(255,255,255,0.6);background:rgba(255,255,255,0.08);pointer-events:none;display:none;z-index:10';
+    // Will be appended to gridView after it's created
 
     function onWindowPointerMove(e) {
       if (!dragCell) return;
@@ -484,6 +583,24 @@ export default {
             cell.classList.add('active');
             cell.style.cursor = 'ns-resize';
             activeSet.add(key);
+            // Chord mode: also write chord tones
+            if (state.chordMode) {
+              const chordNotes = buildChordNotesPR(midi, state.chordVoicing ?? 'triad', scaleIdx);
+              step._chordNotes = chordNotes.filter(n => n !== midi);
+              step._chordNotes.forEach(chordMidi => {
+                activeSet.add(`${chordMidi}_${si}`);
+                const rowIdx = ROWS.findIndex(r => r.midi === chordMidi);
+                if (rowIdx >= 0) {
+                  const rows = gridCol.querySelectorAll('.roll-row');
+                  const targetRow = rows[rowIdx];
+                  if (targetRow) {
+                    const targetCell = targetRow.querySelectorAll('.piano-cell')[si];
+                    if (targetCell) { targetCell.classList.add('active'); targetCell.style.opacity = '0.7'; }
+                  }
+                }
+              });
+              emit('track:change', { param: 'steps', value: track.steps });
+            }
             return;
           }
 
@@ -522,6 +639,30 @@ export default {
             cell.classList.add('active');
             cell.style.cursor = 'ns-resize';
             activeSet.add(key);
+
+            // Chord mode: write remaining chord tones to _chordNotes on this step
+            if (state.chordMode) {
+              const chordNotes = buildChordNotesPR(midi, state.chordVoicing ?? 'triad', scaleIdx);
+              step._chordNotes = chordNotes.filter(n => n !== midi);
+              // Visually activate sibling rows for chord tones
+              step._chordNotes.forEach(chordMidi => {
+                const chordKey = `${chordMidi}_${si}`;
+                activeSet.add(chordKey);
+                const rowIdx = ROWS.findIndex(r => r.midi === chordMidi);
+                if (rowIdx >= 0) {
+                  const rows = gridCol.querySelectorAll('.roll-row');
+                  const targetRow = rows[rowIdx];
+                  if (targetRow) {
+                    const targetCell = targetRow.querySelectorAll('.piano-cell')[si];
+                    if (targetCell) {
+                      targetCell.classList.add('active');
+                      targetCell.style.opacity = '0.7';
+                    }
+                  }
+                }
+              });
+              emit('track:change', { param: 'steps', value: track.steps });
+            }
           }
         });
 
@@ -551,14 +692,25 @@ export default {
           }
         });
 
-        // Right-click to delete an active note
+        // Right-click to delete an active note (and its chord tones)
         cell.addEventListener('contextmenu', (e) => {
           e.preventDefault();
-          if (!activeSet.has(`${midi}_${si}`)) return;
           const step = track.steps[si];
-          step.active = false;
-          if (step.paramLocks) delete step.paramLocks.note;
-          activeSet.delete(`${midi}_${si}`);
+          const isRoot = activeSet.has(`${midi}_${si}`) &&
+            (step.paramLocks?.note === midi || (step.note === midi && !step.paramLocks?.note));
+          const isChordTone = step._chordNotes?.includes(midi);
+          if (!isRoot && !isChordTone) return;
+          if (isRoot) {
+            step.active = false;
+            if (step.paramLocks) delete step.paramLocks.note;
+            // Also clear chord tones from activeSet
+            if (step._chordNotes) { step._chordNotes = []; }
+            activeSet.delete(`${midi}_${si}`);
+          } else if (isChordTone) {
+            // Remove just this chord tone
+            step._chordNotes = step._chordNotes.filter(n => n !== midi);
+            activeSet.delete(`${midi}_${si}`);
+          }
           emit('track:change', { param: 'steps', value: track.steps });
           emit('state:change', { path: 'rollScroll', value: state.rollScroll });
         });
@@ -569,10 +721,206 @@ export default {
       gridCol.append(row);
     });
 
+    // Rubber-band overlay sits inside gridView (position:relative needed)
+    gridView.style.position = 'relative';
     gridView.append(gridCol);
+    gridView.append(rbOverlay);
     scrollContainer.append(gridView);
     view.append(keysCol, scrollContainer);
     container.append(view);
+
+    // ── Rubber-band select ────────────────────────────────────────────────────
+    // Pointerdown on empty gridCol area (not on a cell) starts rubber-band
+    gridCol.addEventListener('pointerdown', e => {
+      // Only fire when clicking directly on a row/grid background — not on a cell
+      const target = e.target;
+      const isCell = target.classList.contains('piano-cell') || target.closest('.piano-cell');
+      if (isCell) return;
+      if (e.button !== 0) return;
+
+      e.preventDefault();
+      rbActive = true;
+      const gridRect = gridCol.getBoundingClientRect();
+      rbStartX = e.clientX - gridRect.left;
+      rbStartY = e.clientY - gridRect.top;
+      rbRect   = { x1: rbStartX, y1: rbStartY, x2: rbStartX, y2: rbStartY };
+
+      rbOverlay.style.display = 'block';
+      rbOverlay.style.left    = rbStartX + 'px';
+      rbOverlay.style.top     = rbStartY + 'px';
+      rbOverlay.style.width   = '0px';
+      rbOverlay.style.height  = '0px';
+
+      // If not shift-key, clear existing selection
+      if (!e.shiftKey) {
+        state.rollSelected.clear();
+        gridCol.querySelectorAll('.piano-cell-selected').forEach(c => c.classList.remove('piano-cell-selected'));
+      }
+
+      function onRbMove(me) {
+        if (!rbActive) return;
+        const gridRect2 = gridCol.getBoundingClientRect();
+        const cx = me.clientX - gridRect2.left;
+        const cy = me.clientY - gridRect2.top;
+        rbRect.x2 = cx;
+        rbRect.y2 = cy;
+
+        const lx = Math.min(rbRect.x1, rbRect.x2);
+        const ly = Math.min(rbRect.y1, rbRect.y2);
+        const rw = Math.abs(rbRect.x2 - rbRect.x1);
+        const rh = Math.abs(rbRect.y2 - rbRect.y1);
+
+        rbOverlay.style.left   = lx + 'px';
+        rbOverlay.style.top    = ly + 'px';
+        rbOverlay.style.width  = rw + 'px';
+        rbOverlay.style.height = rh + 'px';
+
+        // Hit-test each active cell
+        allCells.forEach(cell => {
+          if (!cell.classList.contains('active')) return;
+          const cr = cell.getBoundingClientRect();
+          const cellLx = cr.left - gridRect2.left;
+          const cellLy = cr.top  - gridRect2.top;
+          const cellRx = cellLx + cr.width;
+          const cellRy = cellLy + cr.height;
+          const overlaps = cellLx < lx + rw && cellRx > lx && cellLy < ly + rh && cellRy > ly;
+          const col  = Number(cell.dataset.col);
+          const rowEl = cell.parentElement;
+          const rowIdx = Array.from(gridCol.children).indexOf(rowEl);
+          if (rowIdx < 0 || rowIdx >= ROWS.length) return;
+          const midi = ROWS[rowIdx].midi;
+          const key  = `${midi}_${col}`;
+          if (overlaps) {
+            state.rollSelected.add(key);
+            cell.classList.add('piano-cell-selected');
+          } else if (!e.shiftKey) {
+            state.rollSelected.delete(key);
+            cell.classList.remove('piano-cell-selected');
+          }
+        });
+      }
+
+      function onRbUp() {
+        rbActive = false;
+        rbOverlay.style.display = 'none';
+        window.removeEventListener('pointermove', onRbMove);
+        window.removeEventListener('pointerup', onRbUp);
+      }
+
+      window.addEventListener('pointermove', onRbMove);
+      window.addEventListener('pointerup', onRbUp);
+    });
+
+    // ── Keyboard: nudge and delete ────────────────────────────────────────────
+    function onKeyDown(e) {
+      // Only act when the piano roll is in the DOM
+      if (!container.isConnected) {
+        document.removeEventListener('keydown', onKeyDown);
+        return;
+      }
+      // Don't steal keys when user is typing in an input
+      if (document.activeElement && ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
+
+      const sel = state.rollSelected;
+      if (!sel || sel.size === 0) return;
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        sel.forEach(key => {
+          const [midiStr, siStr] = key.split('_');
+          const si   = Number(siStr);
+          const step = track.steps[si];
+          if (!step) return;
+          const midi = Number(midiStr);
+          const stepMidi = step.paramLocks?.note ?? step.note;
+          if (stepMidi === midi) {
+            step.active = false;
+            if (step.paramLocks) delete step.paramLocks.note;
+          }
+        });
+        sel.clear();
+        emit('track:change', { param: 'steps', value: track.steps });
+        emit('state:change', { path: 'rollScroll', value: state.rollScroll });
+        return;
+      }
+
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        const delta = e.key === 'ArrowLeft' ? -1 : 1;
+        const keys  = Array.from(sel);
+        // Sort so we don't overwrite: move left→ascending, right→descending
+        keys.sort((a, b) => {
+          const siA = Number(a.split('_')[1]);
+          const siB = Number(b.split('_')[1]);
+          return delta < 0 ? siA - siB : siB - siA;
+        });
+        const newSel = new Set();
+        keys.forEach(key => {
+          const [midiStr, siStr] = key.split('_');
+          const si   = Number(siStr);
+          const midi = Number(midiStr);
+          const newSi = si + delta;
+          if (newSi < 0 || newSi >= steps) { newSel.add(key); return; } // clamp — keep in place
+          const step    = track.steps[si];
+          const newStep = track.steps[newSi];
+          if (!step) return;
+          const stepMidi = step.paramLocks?.note ?? step.note;
+          if (stepMidi !== midi) return;
+          // Copy to destination
+          newStep.active   = true;
+          newStep.note     = step.note;
+          newStep.velocity = step.velocity ?? 1;
+          newStep.gate     = step.gate ?? 0.5;
+          newStep.paramLocks = newStep.paramLocks ?? {};
+          newStep.paramLocks.note = midi;
+          // Clear source (only if destination != source)
+          step.active = false;
+          if (step.paramLocks) delete step.paramLocks.note;
+          newSel.add(`${midi}_${newSi}`);
+        });
+        sel.clear();
+        newSel.forEach(k => sel.add(k));
+        emit('track:change', { param: 'steps', value: track.steps });
+        emit('state:change', { path: 'rollScroll', value: state.rollScroll });
+        return;
+      }
+
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        const delta = e.key === 'ArrowUp' ? 1 : -1;
+        const keys  = Array.from(sel);
+        const newSel = new Set();
+        keys.forEach(key => {
+          const [midiStr, siStr] = key.split('_');
+          const si   = Number(siStr);
+          const midi = Number(midiStr);
+          const newMidi = midi + delta;
+          if (newMidi < 0 || newMidi > 127) { newSel.add(key); return; }
+          const step = track.steps[si];
+          if (!step) return;
+          const stepMidi = step.paramLocks?.note ?? step.note;
+          if (stepMidi !== midi) return;
+          step.paramLocks = step.paramLocks ?? {};
+          step.paramLocks.note = newMidi;
+          newSel.add(`${newMidi}_${si}`);
+        });
+        sel.clear();
+        newSel.forEach(k => sel.add(k));
+        emit('track:change', { param: 'steps', value: track.steps });
+        emit('state:change', { path: 'rollScroll', value: state.rollScroll });
+        return;
+      }
+    }
+
+    document.addEventListener('keydown', onKeyDown);
+    // Clean up keyboard listener when container is removed
+    const cleanupObs = new MutationObserver(() => {
+      if (!container.isConnected) {
+        document.removeEventListener('keydown', onKeyDown);
+        cleanupObs.disconnect();
+      }
+    });
+    cleanupObs.observe(document.body, { childList: true, subtree: true });
 
     // Ctrl+scroll horizontal zoom on the roll grid
     const rollContainer = container.querySelector('.roll-grid') ?? gridCol;

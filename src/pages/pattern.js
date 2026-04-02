@@ -216,8 +216,34 @@ function injectPatternCSS() {
   flex-wrap: nowrap;
 }
 .euclid-canvas {
-  width: 52px !important;
-  height: 52px !important;
+  width: 80px !important;
+  height: 80px !important;
+}
+/* ── Step trigger flash ── */
+@keyframes _step-flash-anim { 0%,100% { box-shadow: none; } 50% { box-shadow: 0 0 6px 2px #fff9; } }
+.step-flash {
+  background: #fff !important;
+  color: #000 !important;
+  box-shadow: 0 0 8px 3px rgba(255,255,255,0.7) !important;
+}
+/* ── Track name rename input ── */
+.mtg-label-input {
+  font-size: 0.54rem;
+  font-family: var(--font-mono);
+  background: var(--surface, #1a1a1a);
+  color: var(--fg, #eee);
+  border: 1px solid var(--accent, #f0c640);
+  border-radius: 2px;
+  padding: 0 2px;
+  width: 100%;
+  min-width: 0;
+  outline: none;
+}
+/* ── Track color picker popover ── */
+.track-color-popover div[title]:hover {
+  transform: scale(1.2);
+  border-color: #fff !important;
+  transition: transform 0.08s;
 }
   `;
   document.head.append(style);
@@ -285,6 +311,33 @@ export default {
       emit('state:change', { path: 'patternLength', value: parseInt(stepCountSel.value) });
     });
     header.append(stepCountSel);
+
+    // ── Pattern length lock ────────────────────────────────────────────────────
+    const patLockBtn = document.createElement('button');
+    const _patLocked = !!state.patternLengthLocked;
+    patLockBtn.style.cssText = `font-size:0.65rem;background:transparent;border:1px solid ${_patLocked ? 'var(--accent)' : '#444'};border-radius:3px;padding:1px 4px;cursor:pointer;line-height:1;color:${_patLocked ? 'var(--accent)' : 'var(--muted)'}`;
+    patLockBtn.textContent = _patLocked ? '🔒' : '🔓';
+    patLockBtn.title = _patLocked ? 'Pattern length locked — click to unlock' : 'Click to lock pattern length';
+    if (_patLocked) {
+      globalStepSel.disabled = true;
+      stepCountSel.disabled  = true;
+      globalStepSel.style.opacity = '0.4';
+      stepCountSel.style.opacity  = '0.4';
+    }
+    patLockBtn.addEventListener('click', () => {
+      state.patternLengthLocked = !state.patternLengthLocked;
+      const locked = state.patternLengthLocked;
+      patLockBtn.textContent = locked ? '🔒' : '🔓';
+      patLockBtn.title = locked ? 'Pattern length locked — click to unlock' : 'Click to lock pattern length';
+      patLockBtn.style.borderColor = locked ? 'var(--accent)' : '#444';
+      patLockBtn.style.color       = locked ? 'var(--accent)' : 'var(--muted)';
+      globalStepSel.disabled = locked;
+      stepCountSel.disabled  = locked;
+      globalStepSel.style.opacity = locked ? '0.4' : '1';
+      stepCountSel.style.opacity  = locked ? '0.4' : '1';
+      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+    });
+    header.append(patLockBtn);
 
     container.append(header);
 
@@ -546,7 +599,7 @@ export default {
 
       const row = document.createElement('div');
       row.className = 'mtg-row' + (isSelected ? ' active' : '') + (trk.mute ? ' muted' : '');
-      row.style.setProperty('--track-color', TRACK_COLORS[ti]);
+      row.style.setProperty('--track-color', trk.color ?? TRACK_COLORS[ti]);
       if (trkStepCount > 16) row.style.overflowX = 'auto';
 
       // Track label — compact layout: name + machine badge on row 1, buttons on row 2
@@ -671,7 +724,8 @@ export default {
       const labelTextEl = labelWrap.querySelector('.mtg-label');
       if (labelTextEl) {
         labelTextEl.style.cursor = 'pointer';
-        labelTextEl.title = 'Click to expand/collapse step details';
+        labelTextEl.title = 'Click to expand/collapse · Double-click to rename';
+        labelTextEl.textContent = trk.name || `T${ti + 1}`;
         labelTextEl.addEventListener('click', e => {
           e.stopPropagation();
           if (!state._expandedTracks) state._expandedTracks = new Set();
@@ -682,6 +736,80 @@ export default {
           }
           // Re-render the step row to show/hide velocity bars
           emit('state:change', { param: 'velocity' });
+        });
+        labelTextEl.addEventListener('dblclick', e => {
+          e.stopPropagation();
+          const input = document.createElement('input');
+          input.className = 'mtg-label-input';
+          input.value = trk.name || `T${ti + 1}`;
+          input.maxLength = 12;
+          labelTextEl.replaceWith(input);
+          input.focus();
+          input.select();
+          const commit = () => {
+            const newName = input.value.trim() || `T${ti + 1}`;
+            trk.name = newName;
+            input.replaceWith(labelTextEl);
+            labelTextEl.textContent = newName;
+            emit('state:change', { param: 'trackName' });
+          };
+          input.addEventListener('blur', commit);
+          input.addEventListener('keydown', ev => {
+            if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+            if (ev.key === 'Escape') {
+              input.removeEventListener('blur', commit);
+              input.replaceWith(labelTextEl);
+            }
+          });
+        });
+
+        // Right-click label = color picker popover
+        labelTextEl.addEventListener('contextmenu', e => {
+          e.preventDefault();
+          e.stopPropagation();
+          document.querySelectorAll('.track-color-popover').forEach(p => p.remove());
+          const PALETTE = ['#ff4444','#ff8844','#ffdd44','#aaff44','#44ff88','#44ffdd',
+                           '#44aaff','#4466ff','#aa44ff','#ff44dd','#ff4488','#ffffff'];
+          const popover = document.createElement('div');
+          popover.className = 'track-color-popover';
+          popover.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:1200;
+            background:#1a1e14;border:1px solid var(--accent);border-radius:5px;padding:6px;
+            display:grid;grid-template-columns:repeat(6,1fr);gap:4px;width:136px`;
+          PALETTE.forEach(hex => {
+            const swatch = document.createElement('div');
+            swatch.style.cssText = `width:18px;height:18px;border-radius:3px;background:${hex};
+              cursor:pointer;border:2px solid ${hex === (trk.color ?? '') ? '#fff' : 'transparent'};
+              box-sizing:border-box`;
+            swatch.title = hex;
+            swatch.addEventListener('click', ev => {
+              ev.stopPropagation();
+              trk.color = hex;
+              row.style.setProperty('--track-color', hex);
+              popover.remove();
+              emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+            });
+            popover.append(swatch);
+          });
+          // "Reset" swatch using original TRACK_COLORS default
+          const resetSwatch = document.createElement('div');
+          resetSwatch.style.cssText = `width:18px;height:18px;border-radius:3px;background:${TRACK_COLORS[ti]};
+            cursor:pointer;border:2px solid ${!trk.color ? '#fff' : 'transparent'};
+            box-sizing:border-box;position:relative`;
+          resetSwatch.title = 'Reset to default color';
+          const resetX = document.createElement('span');
+          resetX.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:0.5rem;color:#0008;font-weight:bold;pointer-events:none';
+          resetX.textContent = '↺';
+          resetSwatch.append(resetX);
+          resetSwatch.addEventListener('click', ev => {
+            ev.stopPropagation();
+            delete trk.color;
+            row.style.setProperty('--track-color', TRACK_COLORS[ti]);
+            popover.remove();
+            emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+          });
+          popover.append(resetSwatch);
+          document.body.append(popover);
+          setTimeout(() => document.addEventListener('click', () => popover.remove(), { once: true }), 0);
         });
       }
 
@@ -1233,6 +1361,27 @@ export default {
     };
     _playheadRafId = requestAnimationFrame(runPlayheadHighlight);
 
+    // ── Step trigger flash on confusynth:clock ────────────────────────────────
+    // Brief white flash on active step buttons when they fire during playback.
+    const flashAbort = new AbortController();
+    document.addEventListener('confusynth:clock', e => {
+      if (!multiGrid.isConnected) return;
+      const { step } = e.detail;
+      multiGrid.querySelectorAll(`.step-btn[data-step="${step}"].active`).forEach(btn => {
+        btn.classList.remove('step-flash');
+        // Force reflow so the animation restarts even if already on
+        void btn.offsetWidth;
+        btn.classList.add('step-flash');
+        setTimeout(() => btn.classList.remove('step-flash'), 90);
+      });
+    }, { signal: flashAbort.signal });
+    // Cleanup when page re-renders
+    const prevCleanup = container._cleanup;
+    container._cleanup = () => {
+      flashAbort.abort();
+      prevCleanup?.();
+    };
+
     // ── Toolbar ───────────────────────────────────────────────────────────────
     const toolbar = document.createElement('div');
     toolbar.className = 'seq-toolbar';
@@ -1270,26 +1419,28 @@ export default {
 
     // ── Euclid canvas visualizer ───────────────────────────────────────────
     const euclidCanvas = document.createElement('canvas');
-    euclidCanvas.width  = 52;
-    euclidCanvas.height = 52;
+    euclidCanvas.width  = 80;
+    euclidCanvas.height = 80;
     euclidCanvas.className = 'euclid-canvas';
     euclidCanvas.title = 'Euclidean pattern preview';
 
     function drawEuclidCircle(canvas, beats, steps, offset, activeSteps) {
       const ctx = canvas.getContext('2d');
       const W = canvas.width, H = canvas.height;
-      const cx = W / 2, cy = H / 2, r = W / 2 - 8;
+      const cx = W / 2, cy = H / 2, r = W / 2 - 10;
       ctx.clearRect(0, 0, W, H);
       // Resolve CSS variables from the document root (canvas cannot use var())
       const cs = getComputedStyle(document.documentElement);
       const colorAccent  = cs.getPropertyValue('--accent').trim()      || '#f0c640';
       const colorLive    = cs.getPropertyValue('--live').trim()         || '#5add71';
-      // Outer circle
-      ctx.strokeStyle = '#333';
+      // Outer ring — faint guide circle
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.stroke();
+      // Dot radius: scale so dots don't overlap when there are many steps
+      const dotR = Math.max(2, Math.min(5, Math.floor(r * Math.PI / steps * 0.55)));
       // Generate base euclid pattern then rotate
       const base = euclidean(beats, steps);
       const off  = ((offset % steps) + steps) % steps;
@@ -1300,21 +1451,27 @@ export default {
         const y = cy + r * Math.sin(angle);
         const isActive   = pat[i];
         const isCurrent  = activeSteps ? activeSteps[i] : false;
-        // Colour priority: both active = accent, current-only = live (green), euclid-only = accent (dim), inactive = dark
-        let fill;
-        if (isCurrent && isActive) {
-          fill = colorAccent;
-        } else if (isCurrent) {
-          fill = colorLive;
-        } else if (isActive) {
-          fill = colorAccent;
-        } else {
-          fill = '#444';
-        }
         ctx.beginPath();
-        ctx.arc(x, y, isActive ? 4 : 2, 0, Math.PI * 2);
-        ctx.fillStyle = fill;
-        ctx.fill();
+        ctx.arc(x, y, dotR, 0, Math.PI * 2);
+        if (isActive) {
+          // Filled circle — euclidean beat on
+          const fill = (isCurrent && isActive) ? colorAccent
+                     : isActive                ? colorAccent
+                                               : '#666';
+          ctx.fillStyle = fill;
+          ctx.fill();
+        } else {
+          // Empty circle — euclidean beat off; use current-track overlay for colour
+          const strokeColor = isCurrent ? colorLive : 'rgba(255,255,255,0.22)';
+          ctx.strokeStyle = strokeColor;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          if (isCurrent) {
+            // Faint fill for currently-active steps that aren't in the euclid pattern
+            ctx.fillStyle = 'rgba(90,221,113,0.18)';
+            ctx.fill();
+          }
+        }
       }
     }
 
@@ -1355,6 +1512,35 @@ export default {
       <input type="number" min="0" max="63" value="${euclidOffsetDefault}" style="width:40px" title="rotation offset (steps to shift)">
     `;
 
+    // Shift arrows: rotate euclid pattern left/right by 1 step
+    const shiftLeftBtn = document.createElement('button');
+    shiftLeftBtn.className = 'seq-btn';
+    shiftLeftBtn.textContent = '◀';
+    shiftLeftBtn.title = 'Shift euclid pattern left (decrement offset)';
+    shiftLeftBtn.style.cssText = 'padding:2px 5px;font-size:0.65rem';
+    shiftLeftBtn.addEventListener('click', () => {
+      const steps = parseInt(euclidStepsInput.value, 10) || euclidStepDefault;
+      let off = parseInt(euclidOffsetInput.value, 10) || 0;
+      off = ((off - 1) + steps) % steps;
+      euclidOffsetInput.value = String(off);
+      state.euclidOffset = off;
+      refreshCanvas();
+    });
+
+    const shiftRightBtn = document.createElement('button');
+    shiftRightBtn.className = 'seq-btn';
+    shiftRightBtn.textContent = '▶';
+    shiftRightBtn.title = 'Shift euclid pattern right (increment offset)';
+    shiftRightBtn.style.cssText = 'padding:2px 5px;font-size:0.65rem';
+    shiftRightBtn.addEventListener('click', () => {
+      const steps = parseInt(euclidStepsInput.value, 10) || euclidStepDefault;
+      let off = parseInt(euclidOffsetInput.value, 10) || 0;
+      off = (off + 1) % steps;
+      euclidOffsetInput.value = String(off);
+      state.euclidOffset = off;
+      refreshCanvas();
+    });
+
     const genBtn = document.createElement('button');
     genBtn.className = 'seq-btn';
     genBtn.textContent = 'Gen';
@@ -1365,7 +1551,7 @@ export default {
     allBtn.textContent = 'All';
     allBtn.title = 'Apply euclid to all 8 tracks (evenly spaced offsets)';
 
-    euclidRow2.append(genBtn, allBtn);
+    euclidRow2.append(shiftLeftBtn, shiftRightBtn, genBtn, allBtn);
 
     euclidInputsWrap.append(euclidRow1, euclidRow2);
     euclidDiv.append(euclidInputsWrap);

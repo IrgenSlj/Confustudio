@@ -47,7 +47,7 @@ export function initCables() {
   svg.appendChild(defs);
 
   const cables = []; // { id, fromEl, toEl, color, group }
-  let dragging = null; // { fromEl, color, tempPath, tempDot }
+  let dragging = null; // { fromEl, color, tempPath, tempDot, pointerId }
 
   // Get center of a port element in studio-wrap coordinates
   function portCenter(el) {
@@ -252,15 +252,19 @@ export function initCables() {
     // Right-click on body to remove cable
     layers.body.addEventListener('contextmenu', e => {
       e.preventDefault();
-      // Undo audio routing if this cable had routed audio
-      if (cable._audioRouted && cable._engine) {
-        try { cable._engine.master.disconnect(); } catch(e) {}
-        cable._engine.master.connect(cable._engine.context.destination);
-      }
-      group.remove();
-      const idx = cables.indexOf(cable);
-      if (idx >= 0) cables.splice(idx, 1);
+      removeCable(cable);
     });
+  }
+
+  function removeCable(cable) {
+    if (!cable) return;
+    if (cable._audioRouted && cable._engine) {
+      try { cable._engine.master.disconnect(); } catch (e) {}
+      cable._engine.master.connect(cable._engine.context.destination);
+    }
+    cable.group?.remove();
+    const idx = cables.indexOf(cable);
+    if (idx >= 0) cables.splice(idx, 1);
   }
 
   // Port hover: add glow class
@@ -273,7 +277,7 @@ export function initCables() {
 
   // Port mousedown: start dragging a cable
   function onPortDown(e) {
-    if (e.button !== 0) return;
+    if (e.button !== undefined && e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
     const NS = 'http://www.w3.org/2000/svg';
@@ -295,27 +299,25 @@ export function initCables() {
     svg.appendChild(tempPath);
     svg.appendChild(tempPlug);
 
-    dragging = { fromEl, color, tempPath, tempPlug };
+    dragging = { fromEl, color, tempPath, tempPlug, pointerId: e.pointerId ?? null };
   }
 
-  // Mousemove: update dragging cable
-  window.addEventListener('mousemove', e => {
+  function updateDraggingCable(clientX, clientY) {
     if (!dragging) return;
     const wr = studioWrap.getBoundingClientRect();
-    const mx = e.clientX - wr.left;
-    const my = e.clientY - wr.top;
+    const mx = clientX - wr.left;
+    const my = clientY - wr.top;
     const a  = portCenter(dragging.fromEl);
     dragging.tempPath.setAttribute('d', makeBezier(a.x, a.y, mx, my));
     dragging.tempPlug.setAttribute('transform', `translate(${a.x},${a.y})`);
-  });
+  }
 
-  // Mouseup: if over a port (different module), connect; else cancel
-  window.addEventListener('mouseup', e => {
+  function finishDraggingCable(clientX, clientY) {
     if (!dragging) return;
     dragging.tempPath.remove();
     dragging.tempPlug.remove();
 
-    const toEl = document.elementFromPoint(e.clientX, e.clientY)?.closest('.port');
+    const toEl = document.elementFromPoint(clientX, clientY)?.closest('.port, .djm-port');
     if (toEl && toEl !== dragging.fromEl) {
       // Don't allow connecting a port to itself on the same module
       const fromMod = dragging.fromEl.closest('.studio-module');
@@ -325,6 +327,24 @@ export function initCables() {
       }
     }
     dragging = null;
+  }
+
+  window.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    if (dragging.pointerId != null && e.pointerId !== dragging.pointerId) return;
+    updateDraggingCable(e.clientX, e.clientY);
+  });
+
+  window.addEventListener('pointerup', e => {
+    if (!dragging) return;
+    if (dragging.pointerId != null && e.pointerId !== dragging.pointerId) return;
+    finishDraggingCable(e.clientX, e.clientY);
+  });
+
+  window.addEventListener('pointercancel', e => {
+    if (!dragging) return;
+    if (dragging.pointerId != null && e.pointerId !== dragging.pointerId) return;
+    finishDraggingCable(e.clientX, e.clientY);
   });
 
   // Expose redraw for external callers (e.g. module drag)
@@ -347,7 +367,7 @@ export function initCables() {
     port.style.cursor = 'crosshair';
     port.addEventListener('mouseenter', onPortEnter);
     port.addEventListener('mouseleave', onPortLeave);
-    port.addEventListener('mousedown', onPortDown);
+    port.addEventListener('pointerdown', onPortDown);
   }
 
   // Observe for new ports (when modules are added dynamically)
@@ -361,5 +381,13 @@ export function initCables() {
   document.addEventListener('cable:autoconnect', (e) => {
     const { fromEl, toEl } = e.detail;
     if (fromEl && toEl) addCable(fromEl, toEl);
+  });
+
+  document.addEventListener('module:removed', (e) => {
+    const moduleEl = e.detail?.moduleEl;
+    if (!moduleEl) return;
+    cables
+      .filter((cable) => moduleEl.contains(cable.fromEl) || moduleEl.contains(cable.toEl))
+      .forEach(removeCable);
   });
 }
