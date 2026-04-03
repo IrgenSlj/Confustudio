@@ -126,7 +126,7 @@ export default {
     clearBtn.addEventListener('click', () => {
       if (!confirm('Clear arranger? All sections will be lost.')) return;
       state.arranger.length = 0;
-      state.arranger.push({ sceneIdx: 0, bars: 4, name: 'Section 1', repeat: 1, muted: false, followAction: 'next' });
+      state.arranger.push({ sceneIdx: 0, bars: 4, name: 'Section 1', repeat: 1, muted: false, followAction: 'next', trackMutes: Array(8).fill(false) });
       state.arrangementCursor = 0;
       state._arrSection = 0;
       state._arrSectionBars = 0;

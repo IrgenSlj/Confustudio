@@ -694,6 +694,11 @@ function handleAction(path, value, pattern) {
       state.arranger.push({
         sceneIdx: Math.max(0, Math.min(7, Number(value?.sceneIdx ?? 0))),
         bars: Math.max(1, Math.min(64, Number(value?.bars ?? 2))),
+        name: `Section ${state.arranger.length + 1}`,
+        repeat: 1,
+        muted: false,
+        followAction: 'next',
+        trackMutes: Array(8).fill(false),
       });
       state.arrangementCursor = state.arranger.length - 1;
       scheduleSave();
@@ -2091,9 +2096,9 @@ function scheduleLoop() {
                 updateTopbar();
               }
               // Apply per-section track mutes to engine
-              if (Array.isArray(nowSection.trackMutes) && state.engine?.setTrackMute) {
+              if (Array.isArray(nowSection.trackMutes) && state.engine?.setGroupMute) {
                 nowSection.trackMutes.forEach((muted, ti) => {
-                  state.engine.setTrackMute(ti, muted || false);
+                  state.engine.setGroupMute(ti, muted || false);
                 });
               }
             }
@@ -2277,10 +2282,10 @@ function stopPlay() {
     detail: { playing: false, bpm: state.bpm, time: state.audioContext?.currentTime ?? 0 }
   }));
   // Restore per-track mutes to their global state after arrangement play
-  if (state.arrangementMode && state.engine?.setTrackMute) {
+  if (state.arrangementMode && state.engine?.setGroupMute) {
     const pattern = getActivePattern(state);
     if (pattern?.kit?.tracks) {
-      pattern.kit.tracks.forEach((t, ti) => state.engine.setTrackMute(ti, t.mute || false));
+      pattern.kit.tracks.forEach((t, ti) => state.engine.setGroupMute(ti, t.mute || false));
     }
   }
   // Restore any randomized fill steps when stopping
