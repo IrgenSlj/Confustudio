@@ -2352,7 +2352,12 @@ function renderPage() {
   // Run any cleanup registered by the previous page (e.g. clear intervals/rAFs)
   el.pageContent._cleanup?.();
   el.pageContent._cleanup = null;
-  page.render(el.pageContent, state, emit);
+  try {
+    page.render(el.pageContent, state, emit);
+  } catch (err) {
+    console.error('[renderPage] Error rendering page "' + state.currentPage + '":', err);
+    el.pageContent.innerHTML = `<div style="padding:20px;color:#f05b52;font-family:monospace;font-size:0.6rem;white-space:pre-wrap">Error rendering ${state.currentPage}:\n${err?.message ?? err}</div>`;
+  }
   if (_lastRenderedPage !== state.currentPage) {
     el.pageContent.scrollTop = 0;
     el.pageContent.scrollLeft = 0;

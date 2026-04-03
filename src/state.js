@@ -646,10 +646,13 @@ export function loadState() {
       const parsed = JSON.parse(raw);
       // Restore sampleBuffer = null on all tracks (was stripped on save)
       // Also forward-fill any new track fields added after this save was made
-      if (parsed.project && parsed.project.banks) {
+      if (parsed.project && Array.isArray(parsed.project.banks)) {
         for (const bank of parsed.project.banks) {
+          if (!bank || !Array.isArray(bank.patterns)) continue; // null = sparse/unchanged bank
           for (const pat of bank.patterns) {
+            if (!pat || !pat.kit || !Array.isArray(pat.kit.tracks)) continue; // null = sparse/unchanged pattern
             pat.kit.tracks.forEach((track, ti) => {
+              if (!track || typeof track !== 'object') return;
               track.sampleBuffer = null;
               const defaults = createTrack(ti);
               // Apply any missing fields from the current track schema
@@ -660,7 +663,7 @@ export function loadState() {
             });
             // Forward-fill step-level fields from createStep() defaults
             pat.kit.tracks.forEach((track, ti) => {
-              if (!Array.isArray(track.steps)) return;
+              if (!track || !Array.isArray(track.steps)) return;
               const stepDefaults = createStep(0, ti);
               track.steps.forEach((step, si) => {
                 if (!step || typeof step !== 'object') return;
