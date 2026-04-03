@@ -22,7 +22,7 @@ export function initCables() {
 
   // Create SVG overlay that covers the entire studio-wrap
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.id = 'cable-svg';
+  svg.id = 'studio-cables';
   svg.style.cssText = `
     position: absolute;
     top: 0; left: 0;
