@@ -973,7 +973,7 @@ export default {
         // Update preset info label
         const infoEl = container.querySelector('[data-reverb-preset-info]');
         if (infoEl) infoEl.textContent = _reverbPresetInfo(cp);
-        emit('state:change', { param: 'convReverbPreset', value: cp });
+        emit('state:change', { path: 'convReverbPreset', value: cp });
         saveState(state);
         return;
       }
@@ -992,7 +992,7 @@ export default {
         // Update preset info label
         const infoEl = container.querySelector('[data-reverb-preset-info]');
         if (infoEl) infoEl.textContent = _reverbPresetInfo(rt);
-        emit('state:change', { param: 'reverbType', value: rt });
+        emit('state:change', { path: 'reverbType', value: rt });
         saveState(state);
         return;
       }
@@ -1164,7 +1164,7 @@ function _syncEQSliderDisplays(container, track) {
 // ─── Global parameter application ────────────────────────────────────────────
 
 function _applyGlobal(param, v, state) {
-  const eng = state.engine;
+  const eng = window._confusynthEngine ?? state.engine;
   if (!eng) return;
   if (param === 'reverbSize'        && eng.setReverbRoomSize)   eng.setReverbRoomSize(v);
   if (param === 'reverbDamping'     && eng.setReverbDamping)    eng.setReverbDamping(v);

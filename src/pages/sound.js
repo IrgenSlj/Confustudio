@@ -1449,14 +1449,16 @@ export default {
           slotInfo.style.cssText = 'font-family:var(--font-mono);font-size:0.58rem;color:var(--screen-text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
           if (buf) {
             const dur = (buf.duration ?? (buf.length / buf.sampleRate)).toFixed(2);
-            const ch  = buf.numberOfChannels === 1 ? 'MONO' : 'STEREO';
-            slotInfo.textContent = `${meta.name ?? `Slot ${si + 1}`} · ${dur}s · ${ch}`;
+            const ch  = buf.numberOfChannels === 1 ? 'MONO' : 'ST';
+            const hz  = buf.sampleRate ? `${(buf.sampleRate / 1000).toFixed(1)}k` : '';
+            slotInfo.textContent = `${meta.name ?? `Slot ${si + 1}`} · ${dur}s · ${ch} · ${hz}`;
           } else {
             slotInfo.textContent = 'Empty';
             slotInfo.style.color = 'var(--muted)';
             slotInfo.style.opacity = '0.5';
           }
 
+          let _slotSrc = null;
           const previewBtn = document.createElement('button');
           previewBtn.className = 'seq-btn';
           previewBtn.style.cssText = 'font-size:0.52rem;padding:2px 6px;opacity:' + (buf ? '1' : '0.3');
@@ -1464,12 +1466,27 @@ export default {
           previewBtn.title = 'Preview recorder slot';
           previewBtn.disabled = !buf;
           previewBtn.addEventListener('click', () => {
+            if (_slotSrc) {
+              try { _slotSrc.stop(); } catch (_) {}
+              _slotSrc = null;
+              previewBtn.textContent = '▶';
+              previewBtn.classList.remove('active');
+              return;
+            }
             const buffer = buf ?? state.recorderBuffers?.[si];
             if (!buffer || !state.engine?.context) return;
             const src = state.engine.context.createBufferSource();
             src.buffer = buffer;
             src.connect(state.engine.context.destination);
             src.start();
+            _slotSrc = src;
+            previewBtn.textContent = '■';
+            previewBtn.classList.add('active');
+            src.onended = () => {
+              _slotSrc = null;
+              previewBtn.textContent = '▶';
+              previewBtn.classList.remove('active');
+            };
           });
 
           const loadSlotBtn = document.createElement('button');
@@ -1484,6 +1501,11 @@ export default {
               value: { slot: si, trackIndex: state.selectedTrackIndex },
             });
           });
+
+          // Stop preview on page leave via cleanup chain
+          const _slotStop = () => { try { _slotSrc?.stop(); } catch (_) {} _slotSrc = null; };
+          const _prev = container._cleanup;
+          container._cleanup = () => { _slotStop(); _prev?.(); };
 
           row.append(slotLabel, slotInfo, previewBtn, loadSlotBtn);
           recCard.append(row);

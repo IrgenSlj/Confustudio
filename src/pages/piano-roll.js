@@ -912,15 +912,10 @@ export default {
       }
     }
 
-    document.addEventListener('keydown', onKeyDown);
-    // Clean up keyboard listener when container is removed
-    const cleanupObs = new MutationObserver(() => {
-      if (!container.isConnected) {
-        document.removeEventListener('keydown', onKeyDown);
-        cleanupObs.disconnect();
-      }
-    });
-    cleanupObs.observe(document.body, { childList: true, subtree: true });
+    const kbdAbort = new AbortController();
+    document.addEventListener('keydown', onKeyDown, { signal: kbdAbort.signal });
+    const prevCleanup = container._cleanup;
+    container._cleanup = () => { kbdAbort.abort(); prevCleanup?.(); };
 
     // Ctrl+scroll horizontal zoom on the roll grid
     const rollContainer = container.querySelector('.roll-grid') ?? gridCol;

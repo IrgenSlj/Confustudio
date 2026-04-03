@@ -2059,9 +2059,11 @@ function scheduleLoop() {
                 case 'stop':
                   emit('transport:stop');
                   break;
-                case 'jump':
-                  state._arrSection = 0;
+                case 'jump': {
+                  const jumpTo = section.jumpTarget ?? 0;
+                  state._arrSection = Math.max(0, Math.min(state.arranger.length - 1, jumpTo));
                   break;
+                }
                 case 'next':
                 default: {
                   const nextIdx = currentArrIdx + 1;
@@ -2087,6 +2089,12 @@ function scheduleLoop() {
               if (state.bpmOverride && nowSection.bpmOverride != null) {
                 state.bpm = nowSection.bpmOverride;
                 updateTopbar();
+              }
+              // Apply per-section track mutes to engine
+              if (Array.isArray(nowSection.trackMutes) && state.engine?.setTrackMute) {
+                nowSection.trackMutes.forEach((muted, ti) => {
+                  state.engine.setTrackMute(ti, muted || false);
+                });
               }
             }
           }
@@ -2268,6 +2276,13 @@ function stopPlay() {
   document.dispatchEvent(new CustomEvent('confusynth:transport', {
     detail: { playing: false, bpm: state.bpm, time: state.audioContext?.currentTime ?? 0 }
   }));
+  // Restore per-track mutes to their global state after arrangement play
+  if (state.arrangementMode && state.engine?.setTrackMute) {
+    const pattern = getActivePattern(state);
+    if (pattern?.kit?.tracks) {
+      pattern.kit.tracks.forEach((t, ti) => state.engine.setTrackMute(ti, t.mute || false));
+    }
+  }
   // Restore any randomized fill steps when stopping
   if (state._preFillSnapshot) {
     state._fillActive = false;
@@ -2345,8 +2360,8 @@ function renderPage() {
   const pageLabel = document.getElementById('topbar-page-label');
   if (pageLabel) {
     const PAGE_LABELS = {
-      'pattern': 'PATTERN', 'piano-roll': 'PIANO ROLL', 'sound': 'SOUND',
-      'mixer': 'MIXER', 'fx': 'FX', 'scenes': 'SCENES',
+      'pattern': 'PATTERN', 'pad': 'PADS', 'piano-roll': 'PIANO ROLL', 'sound': 'SOUND',
+      'mixer': 'MIXER', 'fx': 'FX', 'modmatrix': 'MOD MATRIX', 'scenes': 'SCENES',
       'banks': 'BANKS', 'arranger': 'ARR', 'settings': 'SETTINGS',
     };
     pageLabel.textContent = PAGE_LABELS[state.currentPage] ?? '';
@@ -2761,8 +2776,8 @@ function updateTopbar() {
     el.statusPill?.insertAdjacentElement('beforebegin', pageLabel);
   }
   const PAGE_LABELS = {
-    'pattern': 'PATTERN', 'piano-roll': 'PIANO ROLL', 'sound': 'SOUND',
-    'mixer': 'MIXER', 'fx': 'FX', 'scenes': 'SCENES',
+    'pattern': 'PATTERN', 'pad': 'PADS', 'piano-roll': 'PIANO ROLL', 'sound': 'SOUND',
+    'mixer': 'MIXER', 'fx': 'FX', 'modmatrix': 'MOD MATRIX', 'scenes': 'SCENES',
     'banks': 'BANKS', 'arranger': 'ARR', 'settings': 'SETTINGS',
   };
   pageLabel.textContent = PAGE_LABELS[state.currentPage] ?? '';
@@ -3372,6 +3387,7 @@ function bindUI() {
     const F_KEY_PAGES = {
       F1: 'settings', F2: 'pattern', F3: 'sound', F4: 'mixer',
       F5: 'piano-roll', F6: 'fx', F7: 'arranger', F8: 'scenes', F9: 'banks',
+      F10: 'pad', F11: 'modmatrix',
     };
     if (F_KEY_PAGES[e.key]) {
       e.preventDefault();
@@ -3976,7 +3992,7 @@ function initMacros() {
 // SWIPE PAGE NAVIGATION
 // ─────────────────────────────────────────────
 function setupSwipe() {
-  const PAGE_ORDER = ['pattern', 'pad', 'piano-roll', 'sound', 'mixer', 'fx', 'modmatrix', 'arranger', 'scenes', 'banks', 'settings'];
+  const PAGE_ORDER = ['pattern', 'pad', 'piano-roll', 'sound', 'mixer', 'fx', 'modmatrix', 'scenes', 'banks', 'arranger', 'settings'];
   const content = document.getElementById('main-content') ?? document.querySelector('.page-content') ?? document.querySelector('main');
   if (!content) return;
 

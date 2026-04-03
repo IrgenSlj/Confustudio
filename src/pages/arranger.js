@@ -300,13 +300,15 @@ export default {
             }),
             menuItem('Duplicate', '⧉', () => {
               const clone = JSON.parse(JSON.stringify(section));
+              clone.name = (section.name ?? `Section ${idx + 1}`) + ' (copy)';
               state.arranger.splice(idx + 1, 0, clone);
-              emit('state:change', { path: 'scale', value: state.scale });
+              emit('state:change', { path: 'arranger', value: state.arranger });
             }),
             menuItem('Insert Before', '↑+', () => {
-              const newSec = { sceneIdx: section.sceneIdx ?? 0, bars: section.bars ?? 4, name: `Section ${state.arranger.length + 1}`, repeat: 1, muted: false, followAction: 'next' };
+              const newName = `Section ${state.arranger.length + 1}`;
+              const newSec = { sceneIdx: section.sceneIdx ?? 0, bars: section.bars ?? 4, name: newName, repeat: 1, muted: false, followAction: 'next', trackMutes: Array(8).fill(false) };
               state.arranger.splice(idx, 0, newSec);
-              emit('state:change', { path: 'scale', value: state.scale });
+              emit('state:change', { path: 'arranger', value: state.arranger });
             }),
             ...faOptions.map(({ value, label }) => menuItem(
               (value === (section.followAction ?? 'next') ? '✓ ' : '') + 'Follow: ' + label,
@@ -477,9 +479,33 @@ export default {
       });
       followSelect2.addEventListener('change', () => {
         selSection.followAction = followSelect2.value;
+        jumpTargetWrap.style.display = followSelect2.value === 'jump' ? 'flex' : 'none';
         emit('state:change', { path: 'arranger', value: state.arranger });
       });
       detailPanel.append(followSelect2);
+
+      // Jump target selector (visible only when follow action is "jump")
+      const jumpTargetWrap = document.createElement('div');
+      jumpTargetWrap.style.cssText = 'display:' + (selSection.followAction === 'jump' ? 'flex' : 'none') + ';align-items:center;gap:3px';
+      const jumpLabel = document.createElement('span');
+      jumpLabel.style.cssText = 'color:var(--muted);font-size:0.52rem';
+      jumpLabel.textContent = '→';
+      const jumpSelect = document.createElement('select');
+      jumpSelect.title = 'Jump to section';
+      jumpSelect.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 2px;cursor:pointer;max-width:80px';
+      arranger.forEach((sec, idx) => {
+        const opt = document.createElement('option');
+        opt.value = String(idx);
+        opt.textContent = `${idx + 1}: ${(sec.name ?? 'Section').slice(0, 8)}`;
+        if (idx === (selSection.jumpTarget ?? 0)) opt.selected = true;
+        jumpSelect.append(opt);
+      });
+      jumpSelect.addEventListener('change', () => {
+        selSection.jumpTarget = parseInt(jumpSelect.value, 10);
+        emit('state:change', { path: 'arranger', value: state.arranger });
+      });
+      jumpTargetWrap.append(jumpLabel, jumpSelect);
+      detailPanel.append(jumpTargetWrap);
 
       // BPM override
       const bpmLabel2 = document.createElement('span');
@@ -574,7 +600,7 @@ export default {
       colorPick2.addEventListener('change', () => {
         selSection.color = colorPick2.value;
         colorSwatch2.style.background = colorPick2.value;
-        emit('state:change', { param: 'arranger' });
+        emit('state:change', { path: 'arranger', value: state.arranger });
       });
       colorSwatch2.append(colorPick2);
       detailPanel.append(colorSwatch2);

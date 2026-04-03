@@ -1,0 +1,123 @@
+{
+  "schemaVersion": "1.0.0",
+  "app": {
+    "name": "CONFUsynth",
+    "description": "Browser-first open-source digital music studio for sequencing, sampling, synthesis, routing, mixing, mastering, and live performance.",
+    "targets": ["browser", "PWA", "Electron desktop", "future Tauri", "future CLAP/VST host shells"],
+    "runtime": "plain ES modules, custom Node HTTP server, Web Audio API, AudioWorklet"
+  },
+  "assistant": {
+    "defaultRole": "studio assistant and music co-pilot",
+    "systemPrompt": "You are the CONFUsynth studio assistant. Help with sequencing, sampling, synth design, routing, mixing, mastering, scene morphing, and workflow decisions. Keep answers actionable, concise, and grounded in the app's current capabilities. Do not propose changes that require audio-thread blocking work. Prefer browser-first and host-neutral solutions. When asked to play music the user likes, help with pattern, scene, and arrangement choices that capture the vibe.",
+    "contextSummary": "CONFUsynth is an original browser-first digital music studio. It currently provides a pattern sequencer, pad and piano-roll editing, sample/synth tracks, mixer and FX pages, scene morphing, banks, arranger, MIDI I/O, local persistence, and an Electron shell. AI should stay outside realtime audio code and operate through explicit API boundaries.",
+    "skills": [
+      {
+        "id": "studio-assistant",
+        "purpose": "Explain workflows, troubleshoot settings, and suggest production steps for sequencing, sound design, routing, and mix decisions."
+      },
+      {
+        "id": "pattern-generator",
+        "purpose": "Create or vary drum, bass, melodic, and arrangement ideas that fit the user's taste or a reference track."
+      },
+      {
+        "id": "sound-designer",
+        "purpose": "Suggest synth, sampler, modulation, FX, and mastering settings for a target timbre."
+      },
+      {
+        "id": "performance-operator",
+        "purpose": "Plan fills, scene morphs, transitions, and live performance moves."
+      },
+      {
+        "id": "music-taste-guide",
+        "purpose": "Translate a user preference into pattern, groove, harmony, tempo, and texture recommendations."
+      }
+    ],
+    "toolSurface": [
+      {
+        "name": "getAssistantContext",
+        "method": "GET",
+        "path": "/api/assistant/context",
+        "returns": "machine-readable manual and capability catalog"
+      },
+      {
+        "name": "listProviders",
+        "method": "GET",
+        "path": "/api/assistant/providers",
+        "returns": "supported provider metadata and current defaults"
+      },
+      {
+        "name": "chat",
+        "method": "POST",
+        "path": "/api/assistant/chat",
+        "request": {
+          "provider": "auto | openai | anthropic | local-openai | ollama",
+          "message": "string",
+          "messages": "array of role/content objects",
+          "context": "object",
+          "model": "string",
+          "baseUrl": "string",
+          "temperature": "number",
+          "maxTokens": "number"
+        }
+      }
+    ]
+  },
+  "manual": {
+    "pages": [
+      { "id": "pattern", "title": "Pattern", "purpose": "Step sequencer, trig conditions, probability, fills, and per-step editing." },
+      { "id": "pad", "title": "Pads", "purpose": "Performance pads and drum-style triggering." },
+      { "id": "piano-roll", "title": "Roll", "purpose": "Note editing and piano-roll sequencing." },
+      { "id": "sound", "title": "Sound", "purpose": "Per-track synthesis, sample, and voice shaping controls." },
+      { "id": "mixer", "title": "Mixer", "purpose": "Track volume, panning, routing, cue, and grouping controls." },
+      { "id": "fx", "title": "FX", "purpose": "Delay, reverb, saturation, and send/master effects." },
+      { "id": "modmatrix", "title": "Mod", "purpose": "Modulation routing and control assignment." },
+      { "id": "scenes", "title": "Scenes", "purpose": "Scene A/B morphing and performance snapshots." },
+      { "id": "banks", "title": "Banks", "purpose": "Pattern banks, song organization, import/export, and MIDI export." },
+      { "id": "arranger", "title": "Arr", "purpose": "Song/arrangement view and block-based sequencing." },
+      { "id": "settings", "title": "Set", "purpose": "Transport, MIDI, assistant, export, and system-level controls." }
+    ],
+    "modules": [
+      { "id": "state", "path": "src/state.js", "summary": "Project schema, defaults, serialization, and persistence." },
+      { "id": "engine", "path": "src/engine.js", "summary": "Web Audio graph, tracks, voices, effects, transport-adjacent scheduling, and MIDI output." },
+      { "id": "app", "path": "src/app.js", "summary": "Bootstrap, routing, scheduling, UI wiring, MIDI learn, and transport control." },
+      { "id": "studio", "path": "src/studio.js", "summary": "Studio canvas, module layout, and workspace controls." },
+      { "id": "keyboard", "path": "src/keyboard.js", "summary": "Keyboard context, live feedback, and page help strips." },
+      { "id": "pages", "path": "src/pages/*", "summary": "Page-specific editor UIs." },
+      { "id": "worklets", "path": "src/worklets/*", "summary": "Low-latency AudioWorklet processors for resampling and special synth engines." },
+      { "id": "server", "path": "server.mjs", "summary": "Static file host, assistant API, and sample file serving." },
+      { "id": "electron", "path": "confu/main.cjs", "summary": "Optional Electron desktop shell." }
+    ],
+    "audioAndControl": {
+      "trackCount": 8,
+      "patternLengthRange": "1-64 steps",
+      "routing": ["main stereo out", "cue out", "delay send", "reverb send", "midi out", "sample import", "microphone capture"],
+      "timeModel": ["BPM transport", "swing", "tap tempo", "step scheduling", "scene morphing", "MIDI clock in/out"],
+      "renderingRules": ["Keep the assistant off the audio thread.", "Treat realtime audio paths as deterministic and low-latency.", "Prefer explicit state changes through the server or UI boundary." ]
+    },
+    "persistence": {
+      "metadataStore": "localStorage",
+      "assetStoreGoal": "IndexedDB or filesystem-backed project assets for samples and recorder buffers",
+      "warning": "Do not assume saved projects contain embedded audio assets unless the asset layer is explicitly implemented."
+    },
+    "assistantGuardrails": [
+      "Use the manual and provider catalog before proposing changes.",
+      "Prefer browser-first flows and explicit API boundaries.",
+      "Do not route AI logic through the audio thread.",
+      "When music playback is requested, suggest patterns, scenes, arrangement moves, or references rather than trying to synthesize audio in the assistant layer."
+    ]
+  },
+  "api": {
+    "endpoints": [
+      { "method": "GET", "path": "/api/assistant/context" },
+      { "method": "GET", "path": "/api/assistant/providers" },
+      { "method": "POST", "path": "/api/assistant/chat" },
+      { "method": "GET", "path": "/api/samples" }
+    ],
+    "providerNotes": [
+      "OpenAI uses the Responses API by default.",
+      "Anthropic uses the Messages API.",
+      "Local OpenAI-compatible providers can be pointed at LM Studio, local gateways, or other compatible endpoints.",
+      "Ollama support is available for its native chat endpoint."
+    ]
+  }
+}
