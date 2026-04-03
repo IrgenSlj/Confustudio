@@ -64,13 +64,12 @@ export function initCables() {
     const dy = y2 - y1;
     const dist = Math.hypot(dx, dy);
 
-    // More pronounced sag — cables drop heavily due to gravity
-    // Minimum sag is significant even for short cables
-    const sag = Math.max(80, dist * 0.6 + 80);
+    // Natural cable sag — capped so long cables don't droop over the chassis UI
+    const sag = Math.min(120, Math.max(30, dist * 0.2 + 30));
 
     // Control points: both hang below their respective endpoints
     // Add lateral spread so cables fan out naturally
-    const spread = Math.min(80, dist * 0.15);
+    const spread = Math.min(40, dist * 0.08);
 
     const cp1x = x1 + dx * 0.25 - spread;
     const cp1y = y1 + sag;
