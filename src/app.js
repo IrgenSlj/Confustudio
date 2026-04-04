@@ -2349,6 +2349,14 @@ function renderAll() {
 function renderPage() {
   const page = PAGES[state.currentPage];
   if (!page) return;
+  if (!el.pageContent) { console.error('[renderPage] el.pageContent is null'); return; }
+  // Clamp navigation indices so page renders never throw on out-of-range access
+  const bankCount    = state.project?.banks?.length ?? 0;
+  const patternCount = bankCount > 0 ? (state.project.banks[0]?.patterns?.length ?? 0) : 0;
+  const trackCount   = patternCount > 0 ? (state.project.banks[0].patterns[0]?.kit?.tracks?.length ?? 0) : 0;
+  if (bankCount > 0)    state.activeBank         = Math.max(0, Math.min(bankCount - 1,    state.activeBank    ?? 0));
+  if (patternCount > 0) state.activePattern       = Math.max(0, Math.min(patternCount - 1, state.activePattern ?? 0));
+  if (trackCount > 0)   state.selectedTrackIndex  = Math.max(0, Math.min(trackCount - 1,   state.selectedTrackIndex ?? 0));
   // Run any cleanup registered by the previous page (e.g. clear intervals/rAFs)
   el.pageContent._cleanup?.();
   el.pageContent._cleanup = null;
@@ -2356,7 +2364,9 @@ function renderPage() {
     page.render(el.pageContent, state, emit);
   } catch (err) {
     console.error('[renderPage] Error rendering page "' + state.currentPage + '":', err);
-    el.pageContent.innerHTML = `<div style="padding:20px;color:#f05b52;font-family:monospace;font-size:0.6rem;white-space:pre-wrap">Error rendering ${state.currentPage}:\n${err?.message ?? err}</div>`;
+    if (el.pageContent) {
+      el.pageContent.innerHTML = `<div style="padding:20px;color:#f05b52;font-family:monospace;font-size:0.6rem;white-space:pre-wrap">Render error (${state.currentPage}):\n${err?.message ?? err}</div>`;
+    }
   }
   if (_lastRenderedPage !== state.currentPage) {
     el.pageContent.scrollTop = 0;

@@ -675,12 +675,16 @@ export function initStudio() {
     }
   }));
 
-  document.getElementById('zoom-in')?.addEventListener('click', () => {
+  const zoomInBtn  = document.getElementById('zoom-in');
+  const zoomOutBtn = document.getElementById('zoom-out');
+  if (!zoomInBtn)  console.warn('[studio] #zoom-in button not found');
+  if (!zoomOutBtn) console.warn('[studio] #zoom-out button not found');
+  zoomInBtn?.addEventListener('click', () => {
     _userHasPanned = true;
     const { width, height } = getWrapSize();
     zoomBy(1.2, width / 2, height / 2);
   });
-  document.getElementById('zoom-out')?.addEventListener('click', () => {
+  zoomOutBtn?.addEventListener('click', () => {
     _userHasPanned = true;
     const { width, height } = getWrapSize();
     zoomBy(1 / 1.2, width / 2, height / 2);
