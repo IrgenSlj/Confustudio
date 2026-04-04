@@ -4,8 +4,17 @@ export function initStudio() {
   const canvas = document.getElementById('studio-canvas');
   if (!wrap || !canvas) return;
 
-  const STUDIO_LAYOUT_KEY = 'confusynth-studio-layout-v3';
+  const STUDIO_LAYOUT_KEY = 'confusynth-studio-layout-v4';
   const STUDIO_VIEW_KEY = 'confusynth-studio-view-v3';
+  const MODULE_LABELS = {
+    synth: 'CONFUsynth',
+    acid_machine: 'Acid Machine',
+    polysynth: 'Polysynth',
+    drum_machine: 'Drum Machine',
+    fm_synth: 'FM Synth',
+    monosynth: 'Monosynth',
+    djmixer: 'DJ Mixer',
+  };
   const MIN_SCALE = 0.25;
   const MAX_SCALE = 2.25;
   const FIT_PADDING = 40;
@@ -60,6 +69,7 @@ export function initStudio() {
       '.channel-strip',
       '.kbd-panel',
       '.module-picker',
+      '.module-resize-handle',
     ].join(',')));
   }
 
@@ -127,6 +137,7 @@ export function initStudio() {
       type: mod.dataset.moduleType || 'synth',
       left: mod.style.left || '0px',
       top: mod.style.top || '0px',
+      zoom: parseFloat(mod.style.zoom) || 1,
       selected: mod === _selectedModule,
     }));
     try {
@@ -198,6 +209,7 @@ export function initStudio() {
         if (!mod) return;
         mod.style.left = item.left || '0px';
         mod.style.top = item.top || '0px';
+        if (item.zoom && item.zoom !== 1) mod.style.zoom = item.zoom;
         if (item.type) mod.dataset.moduleType = item.type;
         if (item.selected) _restoredSelectedModuleId = item.id;
       });
@@ -344,9 +356,10 @@ export function initStudio() {
 
   function getModuleLabel(modEl) {
     if (!modEl) return 'No module selected';
-    const type = (modEl.dataset.moduleType || 'module').replace(/_/g, ' ');
     if (modEl.id === 'module-0') return 'CONFUsynth (primary)';
-    return `${type} (${modEl.id})`;
+    const type = modEl.dataset.moduleType || 'module';
+    const label = MODULE_LABELS[type] || type.replace(/_/g, ' ');
+    return `${label} (${modEl.id})`;
   }
 
   function updateSelectionUi() {
@@ -403,10 +416,12 @@ export function initStudio() {
 
   function attachModuleChrome(modEl) {
     if (!modEl || modEl.querySelector(':scope > .module-tools')) return;
+    const type = modEl.dataset.moduleType || 'module';
+    const label = MODULE_LABELS[type] || type.replace(/_/g, ' ');
     const tools = document.createElement('div');
     tools.className = 'module-tools';
     tools.innerHTML = `
-      <span class="module-badge">${(modEl.dataset.moduleType || 'module').replace(/_/g, ' ')}</span>
+      <span class="module-badge">${label}</span>
       <button class="module-remove-btn" type="button" title="Remove module">×</button>
     `;
     const removeBtn = tools.querySelector('.module-remove-btn');
@@ -420,6 +435,13 @@ export function initStudio() {
       });
     }
     modEl.prepend(tools);
+    // Add corner resize handles
+    ['nw', 'ne', 'sw', 'se'].forEach((corner) => {
+      const handle = document.createElement('div');
+      handle.className = `module-resize-handle module-resize-${corner}`;
+      modEl.appendChild(handle);
+    });
+    enableModuleResize(modEl);
     modEl.addEventListener('pointerdown', () => selectModule(modEl, { focus: false }));
   }
 
@@ -473,6 +495,55 @@ export function initStudio() {
     modEl.addEventListener('pointercancel', (e) => stopDrag(e.pointerId));
   }
 
+  function enableModuleResize(modEl) {
+    const cornerDirs = { nw: [-1, -1], ne: [1, -1], sw: [-1, 1], se: [1, 1] };
+    modEl.querySelectorAll('.module-resize-handle').forEach((handle) => {
+      const corner = [...handle.classList].find((c) => c.startsWith('module-resize-') && c !== 'module-resize-handle')?.replace('module-resize-', '');
+      if (!corner || !cornerDirs[corner]) return;
+      const [xDir, yDir] = cornerDirs[corner];
+
+      let resizing = false;
+      let startX = 0, startY = 0;
+      let startZoom = 1;
+      let naturalW = 0, naturalH = 0;
+      let pointerId = null;
+
+      handle.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        resizing = true;
+        pointerId = e.pointerId;
+        handle.setPointerCapture(e.pointerId);
+        startX = e.clientX;
+        startY = e.clientY;
+        startZoom = parseFloat(modEl.style.zoom) || 1;
+        const rect = modEl.getBoundingClientRect();
+        naturalW = rect.width / startZoom / Math.max(scale, 0.001);
+        naturalH = rect.height / startZoom / Math.max(scale, 0.001);
+      });
+
+      handle.addEventListener('pointermove', (e) => {
+        if (!resizing || e.pointerId !== pointerId) return;
+        const dx = (e.clientX - startX) * xDir / Math.max(scale, 0.001);
+        const dy = (e.clientY - startY) * yDir / Math.max(scale, 0.001);
+        const diag = Math.sqrt(naturalW ** 2 + naturalH ** 2) || 1;
+        const delta = (dx + dy) / 2;
+        const newZoom = Math.max(0.3, Math.min(3, startZoom + (delta / diag) * startZoom));
+        modEl.style.zoom = newZoom;
+      });
+
+      const stopResize = (e) => {
+        if (!resizing || e.pointerId !== pointerId) return;
+        resizing = false;
+        pointerId = null;
+        saveLayout();
+      };
+
+      handle.addEventListener('pointerup', stopResize);
+      handle.addEventListener('pointercancel', stopResize);
+    });
+  }
+
   function closeModulePicker() {
     document.getElementById('module-picker')?.remove();
   }
@@ -492,11 +563,11 @@ export function initStudio() {
       <div class="mp-section-label">INSTRUMENTS</div>
       <div class="mp-grid">
         <button data-module="synth">CONFUsynth</button>
-        <button data-module="tb303">TB-303</button>
-        <button data-module="juno60">Juno-60</button>
-        <button data-module="tr909">TR-909</button>
+        <button data-module="acid_machine">Acid Machine</button>
+        <button data-module="polysynth">Polysynth</button>
+        <button data-module="drum_machine">Drum Machine</button>
         <button data-module="fm_synth">FM Synth</button>
-        <button data-module="moog">Moog D</button>
+        <button data-module="monosynth">Monosynth</button>
       </div>
       <div class="mp-section-label">MIXING</div>
       <div class="mp-grid">
@@ -554,28 +625,28 @@ export function initStudio() {
         attachModuleChrome(mod);
         if (mod === getSelectedModule()) updateSelectionUi();
       });
-    } else if (type === 'tb303') {
-      mod.innerHTML = '<div class="module-loading-shell" style="width:680px;height:340px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading TB-303…</div>';
-      import('./modules/tb303.js').then((m) => {
+    } else if (type === 'acid_machine') {
+      mod.innerHTML = '<div class="module-loading-shell" style="width:680px;height:340px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Acid Machine…</div>';
+      import('./modules/acid_machine.js').then((m) => {
         const ctx = window._confusynthEngine?.context ?? null;
         mod.innerHTML = '';
-        mod.appendChild(m.createTB303(ctx));
+        mod.appendChild(m.createAcidMachine(ctx));
         attachModuleChrome(mod);
         if (mod === getSelectedModule()) updateSelectionUi();
       });
-    } else if (type === 'juno60') {
-      mod.innerHTML = '<div class="module-loading-shell" style="width:860px;height:240px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Juno-60…</div>';
-      import('./modules/juno60.js').then(m => {
+    } else if (type === 'polysynth') {
+      mod.innerHTML = '<div class="module-loading-shell" style="width:860px;height:240px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Polysynth…</div>';
+      import('./modules/polysynth.js').then(m => {
         mod.innerHTML = '';
-        mod.appendChild(m.createJuno60(window._confusynthEngine?.context ?? null));
+        mod.appendChild(m.createPolysynth(window._confusynthEngine?.context ?? null));
         attachModuleChrome(mod);
         if (mod === getSelectedModule()) updateSelectionUi();
       });
-    } else if (type === 'tr909') {
-      mod.innerHTML = '<div class="module-loading-shell" style="width:920px;height:320px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading TR-909…</div>';
-      import('./modules/tr909.js').then(m => {
+    } else if (type === 'drum_machine') {
+      mod.innerHTML = '<div class="module-loading-shell" style="width:920px;height:320px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Drum Machine…</div>';
+      import('./modules/drum_machine.js').then(m => {
         mod.innerHTML = '';
-        mod.appendChild(m.createTr909(window._confusynthEngine?.context ?? null));
+        mod.appendChild(m.createDrumMachine(window._confusynthEngine?.context ?? null));
         attachModuleChrome(mod);
         if (mod === getSelectedModule()) updateSelectionUi();
       });
@@ -587,11 +658,11 @@ export function initStudio() {
         attachModuleChrome(mod);
         if (mod === getSelectedModule()) updateSelectionUi();
       });
-    } else if (type === 'moog') {
-      mod.innerHTML = '<div class="module-loading-shell" style="width:1000px;height:300px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Moog D…</div>';
-      import('./modules/moog.js').then(m => {
+    } else if (type === 'monosynth') {
+      mod.innerHTML = '<div class="module-loading-shell" style="width:1000px;height:300px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Monosynth…</div>';
+      import('./modules/monosynth.js').then(m => {
         mod.innerHTML = '';
-        mod.appendChild(m.createMoog(window._confusynthEngine?.context ?? null));
+        mod.appendChild(m.createMonosynth(window._confusynthEngine?.context ?? null));
         attachModuleChrome(mod);
         if (mod === getSelectedModule()) updateSelectionUi();
       });
@@ -682,12 +753,12 @@ export function initStudio() {
   zoomInBtn?.addEventListener('click', () => {
     _userHasPanned = true;
     const { width, height } = getWrapSize();
-    zoomBy(1.2, width / 2, height / 2);
+    zoomBy(1.08, width / 2, height / 2);
   });
   zoomOutBtn?.addEventListener('click', () => {
     _userHasPanned = true;
     const { width, height } = getWrapSize();
-    zoomBy(1 / 1.2, width / 2, height / 2);
+    zoomBy(1 / 1.08, width / 2, height / 2);
   });
   document.getElementById('zoom-reset')?.addEventListener('click', () => {
     hasRestoredView = false;
@@ -783,7 +854,7 @@ export function initStudio() {
       e.preventDefault();
       // ctrl+scroll or meta+scroll → zoom
       const rect = wrap.getBoundingClientRect();
-      zoomBy(e.deltaY > 0 ? 0.92 : 1.08, e.clientX - rect.left, e.clientY - rect.top);
+      zoomBy(e.deltaY > 0 ? 0.96 : 1.04, e.clientX - rect.left, e.clientY - rect.top);
     } else {
       const studioGesture = shouldStudioCaptureGesture(e.target);
       const scrollable = studioGesture ? null : getScrollableAncestor(e.target, e.deltaY, e.deltaX);

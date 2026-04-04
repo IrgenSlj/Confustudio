@@ -1979,7 +1979,7 @@ function scheduleLoop() {
       state.currentStep = _trackStepIdx[0];
       _schedStepIdx = _trackStepIdx[0]; // keep alias in sync
 
-      // Dispatch clock event so external modules (TB-303, TR-909) can sync
+      // Dispatch clock event so external modules (Acid Machine, Drum Machine) can sync
       document.dispatchEvent(new CustomEvent('confusynth:clock', {
         detail: {
           step: state.currentStep,

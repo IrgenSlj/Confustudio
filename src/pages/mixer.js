@@ -588,7 +588,7 @@ export default {
           mod.gain = v;
           const el = mod.el;
           if (el) {
-            const gainNode = el._tr909Audio?.gain ?? el._tb303Audio?.gain ?? el._juno60Audio?.gain;
+            const gainNode = el._drumMachineAudio?.gain ?? el._acidMachineAudio?.gain ?? el._polysynthAudio?.gain;
             if (gainNode) gainNode.value = v;
           }
         });
@@ -604,7 +604,7 @@ export default {
           mod.pan = v;
           const el = mod.el;
           if (el) {
-            const panNode = el._tr909Audio?.pan ?? el._tb303Audio?.pan ?? el._juno60Audio?.pan;
+            const panNode = el._drumMachineAudio?.pan ?? el._acidMachineAudio?.pan ?? el._polysynthAudio?.pan;
             if (panNode) panNode.value = v;
           }
         });
@@ -619,7 +619,7 @@ export default {
           muteBtn.classList.toggle('on', mod.muted);
           const el = mod.el;
           if (el) {
-            const gainNode = el._tr909Audio?.gain ?? el._tb303Audio?.gain ?? el._juno60Audio?.gain;
+            const gainNode = el._drumMachineAudio?.gain ?? el._acidMachineAudio?.gain ?? el._polysynthAudio?.gain;
             if (gainNode) gainNode.value = mod.muted ? 0 : (mod.gain ?? 1);
           }
         });
@@ -793,7 +793,7 @@ export default {
       if (moduleType) {
         const alreadyTracked = window._connectedModules.some(m => m.el === moduleEl);
         if (!alreadyTracked) {
-          const labelMap = { 'tb-303': 'TB-303', 'tr-909': 'TR-909', 'juno-60': 'JUNO-60' };
+          const labelMap = { 'acid_machine': 'Acid Machine', 'drum_machine': 'Drum Machine', 'polysynth': 'Polysynth', 'monosynth': 'Monosynth' };
           window._connectedModules.push({
             el: moduleEl,
             label: labelMap[moduleType] ?? moduleType.toUpperCase(),

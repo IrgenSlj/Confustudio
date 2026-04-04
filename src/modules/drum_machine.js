@@ -1,8 +1,8 @@
-// tr909.js — Roland TR-909 Drum Machine module — enhanced synthesis
+// drum_machine.js — Drum Machine module — enhanced synthesis
 
-export function createTr909(audioContext) {
+export function createDrumMachine(audioContext) {
   const ctx = audioContext;
-  const _id = `module-tr909-${Date.now()}`;
+  const _id = `module-drum-machine-${Date.now()}`;
 
   // ── Voice names and default patterns ───────────────────────────────────────
   const VOICES = ['BD', 'SD', 'LT', 'MT', 'HT', 'RS', 'CP', 'CB', 'OH', 'CH', 'CY'];
@@ -424,7 +424,7 @@ export function createTr909(audioContext) {
     });
   }
 
-  // Shared metallic HH oscillator frequencies (Hz) — authentic TR-909
+  // Shared metallic HH oscillator frequencies (Hz) — authentic DRUM MACHINE
   const HH_FREQS = [205.3, 309.1, 416.7, 522.4, 633.8, 769.2];
 
   function _makeHHOscs(time, decayTime, velScale, destNode) {
@@ -608,7 +608,7 @@ export function createTr909(audioContext) {
     _flashVU(voice);
 
     window.dispatchEvent(new CustomEvent('confusynth:note:on', {
-      detail: { source: 'tr909', voice, velocity: v, time: now },
+      detail: { source: 'drum_machine', voice, velocity: v, time: now },
     }));
 
     switch (voice) {
@@ -700,11 +700,11 @@ export function createTr909(audioContext) {
   });
 
   // ── DOM ───────────────────────────────────────────────────────────────────
-  if (!document.querySelector('#tr909-styles')) {
+  if (!document.querySelector('#drum-machine-styles')) {
     const style = document.createElement('style');
-    style.id = 'tr909-styles';
+    style.id = 'drum-machine-styles';
     style.textContent = `
-      .tr909-chassis {
+      .drum-machine-chassis {
         font-family: 'Helvetica Neue', Arial, sans-serif;
         background: linear-gradient(180deg, #ddd5c2 0%, #cfc5b0 100%);
         border: 2px solid #a89880;
@@ -720,7 +720,7 @@ export function createTr909(audioContext) {
       }
 
       /* Port bar */
-      .tr909-port-bar {
+      .drum-machine-port-bar {
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -728,14 +728,14 @@ export function createTr909(audioContext) {
         padding-bottom: 4px;
         border-bottom: 1px solid #b8a890;
       }
-      .tr909-brand {
+      .drum-machine-brand {
         font-size: 13px;
         font-weight: 700;
         letter-spacing: 3px;
         color: #3a2e1e;
         text-transform: uppercase;
       }
-      .tr909-port-bar .port {
+      .drum-machine-port-bar .port {
         display: inline-block;
         background: #1a1614;
         color: #e8a020;
@@ -748,15 +748,15 @@ export function createTr909(audioContext) {
         cursor: pointer;
         transition: background 0.15s;
       }
-      .tr909-port-bar .port:hover { background: #2e2824; }
+      .drum-machine-port-bar .port:hover { background: #2e2824; }
 
       /* Pattern slot buttons */
-      .tr909-pattern-slots {
+      .drum-machine-pattern-slots {
         display: flex;
         gap: 4px;
         align-items: center;
       }
-      .tr909-slot-btn {
+      .drum-machine-slot-btn {
         background: linear-gradient(180deg, #4a4440 0%, #2e2a28 100%);
         color: #c0a870;
         border: 1px solid #1a1614;
@@ -768,18 +768,18 @@ export function createTr909(audioContext) {
         cursor: pointer;
         text-transform: uppercase;
       }
-      .tr909-slot-btn.active {
+      .drum-machine-slot-btn.active {
         background: linear-gradient(180deg, #e07000 0%, #a04800 100%);
         color: #fff8e8;
         box-shadow: 0 0 6px rgba(255,140,0,0.4);
       }
-      .tr909-slot-btn:hover:not(.active) { background: linear-gradient(180deg, #5a5450 0%, #3e3a38 100%); }
-      .tr909-copy-paste {
+      .drum-machine-slot-btn:hover:not(.active) { background: linear-gradient(180deg, #5a5450 0%, #3e3a38 100%); }
+      .drum-machine-copy-paste {
         display: flex;
         gap: 3px;
         margin-left: 4px;
       }
-      .tr909-copy-paste button {
+      .drum-machine-copy-paste button {
         background: linear-gradient(180deg, #383430 0%, #201e1c 100%);
         color: #a09070;
         border: 1px solid #1a1614;
@@ -790,23 +790,23 @@ export function createTr909(audioContext) {
         letter-spacing: 0.5px;
         cursor: pointer;
       }
-      .tr909-copy-paste button:hover { background: linear-gradient(180deg, #484440 0%, #302e2c 100%); }
+      .drum-machine-copy-paste button:hover { background: linear-gradient(180deg, #484440 0%, #302e2c 100%); }
 
       /* Pads row */
-      .tr909-pads-row {
+      .drum-machine-pads-row {
         display: flex;
         gap: 5px;
         margin-bottom: 6px;
         align-items: flex-end;
       }
-      .tr909-pad-wrap {
+      .drum-machine-pad-wrap {
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 2px;
         flex: 1;
       }
-      .tr909-pad {
+      .drum-machine-pad {
         width: 100%;
         aspect-ratio: 1;
         background: linear-gradient(160deg, #5a5248 0%, #3a3230 100%);
@@ -819,14 +819,14 @@ export function createTr909(audioContext) {
         min-height: 44px;
         position: relative;
       }
-      .tr909-pad:hover {
+      .drum-machine-pad:hover {
         background: linear-gradient(160deg, #6e6460 0%, #4e4a48 100%);
       }
-      .tr909-pad.triggered {
+      .drum-machine-pad.triggered {
         background: linear-gradient(160deg, #ff9010 0%, #e06000 100%);
         box-shadow: 0 0 10px rgba(255,140,0,0.7), inset 0 1px 0 rgba(255,255,200,0.3);
       }
-      .tr909-pad-label {
+      .drum-machine-pad-label {
         font-size: 9px;
         font-weight: 700;
         letter-spacing: 1px;
@@ -835,7 +835,7 @@ export function createTr909(audioContext) {
       }
 
       /* VU meter strip */
-      .tr909-vu {
+      .drum-machine-vu {
         width: 100%;
         height: 4px;
         background: #1a1614;
@@ -843,24 +843,24 @@ export function createTr909(audioContext) {
         overflow: hidden;
         position: relative;
       }
-      .tr909-vu-bar {
+      .drum-machine-vu-bar {
         height: 100%;
         width: 0%;
         background: linear-gradient(90deg, #40c040, #e0e000, #e04000);
         border-radius: 2px;
         transition: width 0.03s ease-out;
       }
-      .tr909-vu-bar.flash {
+      .drum-machine-vu-bar.flash {
         width: 100%;
         transition: none;
       }
-      .tr909-vu-bar.fade {
+      .drum-machine-vu-bar.fade {
         width: 0%;
         transition: width 0.25s ease-out;
       }
 
       /* Mute button */
-      .tr909-mute-btn {
+      .drum-machine-mute-btn {
         font-size: 8px;
         font-weight: 700;
         color: #786858;
@@ -872,37 +872,37 @@ export function createTr909(audioContext) {
         letter-spacing: 0.5px;
         line-height: 1.4;
       }
-      .tr909-mute-btn.muted {
+      .drum-machine-mute-btn.muted {
         background: #602000;
         color: #ff8040;
         border-color: #903020;
       }
-      .tr909-mute-btn.solo {
+      .drum-machine-mute-btn.solo {
         background: #006020;
         color: #40ff80;
         border-color: #209050;
       }
 
       /* Voice knob rows */
-      .tr909-voice-knobs {
+      .drum-machine-voice-knobs {
         display: flex;
         gap: 5px;
         margin-bottom: 6px;
       }
-      .tr909-voice-col {
+      .drum-machine-voice-col {
         flex: 1;
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 3px;
       }
-      .tr909-mini-knob-wrap {
+      .drum-machine-mini-knob-wrap {
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 1px;
       }
-      .tr909-mini-knob {
+      .drum-machine-mini-knob {
         width: 22px;
         height: 22px;
         background: radial-gradient(circle at 40% 35%, #6a6560, #2a2820);
@@ -912,7 +912,7 @@ export function createTr909(audioContext) {
         position: relative;
         box-shadow: 0 1px 3px rgba(0,0,0,0.6);
       }
-      .tr909-mini-knob::after {
+      .drum-machine-mini-knob::after {
         content: '';
         position: absolute;
         top: 2px;
@@ -924,7 +924,7 @@ export function createTr909(audioContext) {
         background: #e8d8b0;
         border-radius: 1px;
       }
-      .tr909-mini-label {
+      .drum-machine-mini-label {
         font-size: 7px;
         font-weight: 700;
         color: #7a6a50;
@@ -933,17 +933,17 @@ export function createTr909(audioContext) {
       }
 
       /* Sequencer steps */
-      .tr909-seq-section {
+      .drum-machine-seq-section {
         display: flex;
         flex-direction: column;
         gap: 3px;
       }
-      .tr909-seq-row {
+      .drum-machine-seq-row {
         display: flex;
         align-items: center;
         gap: 3px;
       }
-      .tr909-seq-voice-label {
+      .drum-machine-seq-voice-label {
         font-size: 9px;
         font-weight: 700;
         color: #5a4e3a;
@@ -952,12 +952,12 @@ export function createTr909(audioContext) {
         flex-shrink: 0;
         letter-spacing: 0.5px;
       }
-      .tr909-steps {
+      .drum-machine-steps {
         display: flex;
         gap: 3px;
         flex: 1;
       }
-      .tr909-step {
+      .drum-machine-step {
         flex: 1;
         height: 22px;
         background: #3a3230;
@@ -968,25 +968,25 @@ export function createTr909(audioContext) {
         position: relative;
         min-width: 0;
       }
-      .tr909-step:nth-child(4n+1) { margin-left: 3px; }
-      .tr909-step.active {
+      .drum-machine-step:nth-child(4n+1) { margin-left: 3px; }
+      .drum-machine-step.active {
         background: #c06000;
         border-color: #ff8c00;
         box-shadow: 0 0 4px rgba(255,140,0,0.5);
       }
-      .tr909-step.active-low  { background: #804000; border-color: #a05000; }
-      .tr909-step.active-mid  { background: #c06000; border-color: #e07000; }
-      .tr909-step.active-high { background: #ff8c00; border-color: #ffaa30; box-shadow: 0 0 5px rgba(255,140,0,0.6); }
-      .tr909-step.playing {
+      .drum-machine-step.active-low  { background: #804000; border-color: #a05000; }
+      .drum-machine-step.active-mid  { background: #c06000; border-color: #e07000; }
+      .drum-machine-step.active-high { background: #ff8c00; border-color: #ffaa30; box-shadow: 0 0 5px rgba(255,140,0,0.6); }
+      .drum-machine-step.playing {
         outline: 2px solid #ffe060;
         outline-offset: 1px;
         background: #ffe060 !important;
         border-color: #ffe060 !important;
       }
-      .tr909-step:hover { filter: brightness(1.2); }
+      .drum-machine-step:hover { filter: brightness(1.2); }
 
       /* Accent dot on step */
-      .tr909-step .accent-dot {
+      .drum-machine-step .accent-dot {
         display: none;
         position: absolute;
         bottom: 2px;
@@ -998,10 +998,10 @@ export function createTr909(audioContext) {
         border-radius: 50%;
         box-shadow: 0 0 3px rgba(255,96,16,0.8);
       }
-      .tr909-step.accented .accent-dot { display: block; }
+      .drum-machine-step.accented .accent-dot { display: block; }
 
       /* Bottom controls */
-      .tr909-bottom {
+      .drum-machine-bottom {
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -1011,13 +1011,13 @@ export function createTr909(audioContext) {
         flex-wrap: wrap;
         gap: 6px;
       }
-      .tr909-transport {
+      .drum-machine-transport {
         display: flex;
         gap: 6px;
         align-items: center;
         flex-wrap: wrap;
       }
-      .tr909-btn {
+      .drum-machine-btn {
         background: linear-gradient(180deg, #4a4440 0%, #2e2a28 100%);
         color: #e8d0a0;
         border: 1px solid #1a1614;
@@ -1031,13 +1031,13 @@ export function createTr909(audioContext) {
         transition: background 0.12s;
         box-shadow: 0 2px 4px rgba(0,0,0,0.4);
       }
-      .tr909-btn:hover { background: linear-gradient(180deg, #5a5450 0%, #3e3a38 100%); }
-      .tr909-btn.active {
+      .drum-machine-btn:hover { background: linear-gradient(180deg, #5a5450 0%, #3e3a38 100%); }
+      .drum-machine-btn.active {
         background: linear-gradient(180deg, #e07000 0%, #a04800 100%);
         color: #fff8e8;
         box-shadow: 0 0 8px rgba(255,140,0,0.4);
       }
-      .tr909-sync-btn {
+      .drum-machine-sync-btn {
         background: linear-gradient(180deg, #3a4040 0%, #202828 100%);
         color: #80b0a0;
         border: 1px solid #1a2020;
@@ -1050,12 +1050,12 @@ export function createTr909(audioContext) {
         text-transform: uppercase;
         transition: background 0.12s;
       }
-      .tr909-sync-btn.active {
+      .drum-machine-sync-btn.active {
         background: linear-gradient(180deg, #205050 0%, #103030 100%);
         color: #40e0d0;
         box-shadow: 0 0 6px rgba(64,224,208,0.3);
       }
-      .tr909-comp-btn {
+      .drum-machine-comp-btn {
         background: linear-gradient(180deg, #3a3040 0%, #201828 100%);
         color: #a080c0;
         border: 1px solid #1a1020;
@@ -1068,18 +1068,18 @@ export function createTr909(audioContext) {
         text-transform: uppercase;
         transition: background 0.12s;
       }
-      .tr909-comp-btn.active {
+      .drum-machine-comp-btn.active {
         background: linear-gradient(180deg, #503070 0%, #301850 100%);
         color: #d0a0ff;
         box-shadow: 0 0 6px rgba(160,80,255,0.3);
       }
-      .tr909-master-knob-wrap {
+      .drum-machine-master-knob-wrap {
         display: flex;
         align-items: center;
         gap: 8px;
         flex-wrap: wrap;
       }
-      .tr909-knob-lg {
+      .drum-machine-knob-lg {
         width: 34px;
         height: 34px;
         background: radial-gradient(circle at 38% 32%, #7a7470, #2a2820);
@@ -1089,7 +1089,7 @@ export function createTr909(audioContext) {
         position: relative;
         box-shadow: 0 2px 6px rgba(0,0,0,0.7);
       }
-      .tr909-knob-lg::after {
+      .drum-machine-knob-lg::after {
         content: '';
         position: absolute;
         top: 3px;
@@ -1101,7 +1101,7 @@ export function createTr909(audioContext) {
         background: #e8d8b0;
         border-radius: 1px;
       }
-      .tr909-bpm-display {
+      .drum-machine-bpm-display {
         background: #0a100a;
         color: #40e040;
         font-family: 'Courier New', monospace;
@@ -1115,7 +1115,7 @@ export function createTr909(audioContext) {
         letter-spacing: 2px;
         cursor: pointer;
       }
-      .tr909-label-sm {
+      .drum-machine-label-sm {
         font-size: 9px;
         font-weight: 700;
         color: #7a6a50;
@@ -1123,7 +1123,7 @@ export function createTr909(audioContext) {
         text-transform: uppercase;
       }
       /* Swing knob row */
-      .tr909-swing-wrap {
+      .drum-machine-swing-wrap {
         display: flex;
         align-items: center;
         gap: 5px;
@@ -1134,17 +1134,17 @@ export function createTr909(audioContext) {
 
   // ── Build DOM ─────────────────────────────────────────────────────────────
   const el = document.createElement('div');
-  el.className = 'studio-module tr909-chassis';
+  el.className = 'studio-module drum-machine-chassis';
   el.id = _id;
-  el.dataset.moduleType = 'tr909';
+  el.dataset.moduleType = 'drum_machine';
 
   // Pad row HTML: each pad gets a VU meter + mute button
   const padsHtml = VOICES.map(v => `
-    <div class="tr909-pad-wrap">
-      <div class="tr909-pad" data-voice="${v}" title="${VOICE_LABELS[v]}"></div>
-      <div class="tr909-vu"><div class="tr909-vu-bar" data-vu="${v}"></div></div>
-      <span class="tr909-pad-label">${v}</span>
-      <button class="tr909-mute-btn" data-mute="${v}" title="Mute/Solo ${v}">M</button>
+    <div class="drum-machine-pad-wrap">
+      <div class="drum-machine-pad" data-voice="${v}" title="${VOICE_LABELS[v]}"></div>
+      <div class="drum-machine-vu"><div class="drum-machine-vu-bar" data-vu="${v}"></div></div>
+      <span class="drum-machine-pad-label">${v}</span>
+      <button class="drum-machine-mute-btn" data-mute="${v}" title="Mute/Solo ${v}">M</button>
     </div>
   `).join('');
 
@@ -1154,27 +1154,27 @@ export function createTr909(audioContext) {
     const knobAngle = (val) => -135 + val * 270;
     const hasSnappy = v === 'SD';
     return `
-      <div class="tr909-voice-col">
-        <div class="tr909-mini-knob-wrap">
-          <div class="tr909-mini-knob" data-voice="${v}" data-param="tune"
+      <div class="drum-machine-voice-col">
+        <div class="drum-machine-mini-knob-wrap">
+          <div class="drum-machine-mini-knob" data-voice="${v}" data-param="tune"
                style="--r: ${knobAngle(p.tune)}deg" title="${v} Tune"></div>
-          <span class="tr909-mini-label">TUN</span>
+          <span class="drum-machine-mini-label">TUN</span>
         </div>
-        <div class="tr909-mini-knob-wrap">
-          <div class="tr909-mini-knob" data-voice="${v}" data-param="decay"
+        <div class="drum-machine-mini-knob-wrap">
+          <div class="drum-machine-mini-knob" data-voice="${v}" data-param="decay"
                style="--r: ${knobAngle(p.decay)}deg" title="${v} Decay"></div>
-          <span class="tr909-mini-label">DEC</span>
+          <span class="drum-machine-mini-label">DEC</span>
         </div>
         ${hasSnappy ? `
-        <div class="tr909-mini-knob-wrap">
-          <div class="tr909-mini-knob" data-voice="${v}" data-param="snappy"
+        <div class="drum-machine-mini-knob-wrap">
+          <div class="drum-machine-mini-knob" data-voice="${v}" data-param="snappy"
                style="--r: ${knobAngle(p.snappy ?? 0.5)}deg" title="${v} Snappy"></div>
-          <span class="tr909-mini-label">SNP</span>
+          <span class="drum-machine-mini-label">SNP</span>
         </div>` : ''}
-        <div class="tr909-mini-knob-wrap">
-          <div class="tr909-mini-knob" data-voice="${v}" data-param="volume"
+        <div class="drum-machine-mini-knob-wrap">
+          <div class="drum-machine-mini-knob" data-voice="${v}" data-param="volume"
                style="--r: ${knobAngle(p.volume)}deg" title="${v} Volume"></div>
-          <span class="tr909-mini-label">VOL</span>
+          <span class="drum-machine-mini-label">VOL</span>
         </div>
       </div>
     `;
@@ -1191,54 +1191,54 @@ export function createTr909(audioContext) {
             : 'active active-high';
       }
       if (step.accent) cls += ' accented';
-      return `<div class="tr909-step ${cls}" data-voice="${v}" data-step="${i}"><span class="accent-dot"></span></div>`;
+      return `<div class="drum-machine-step ${cls}" data-voice="${v}" data-step="${i}"><span class="accent-dot"></span></div>`;
     }).join('');
     return `
-      <div class="tr909-seq-row">
-        <span class="tr909-seq-voice-label">${v}</span>
-        <div class="tr909-steps" data-voice="${v}">${stepsHtml}</div>
+      <div class="drum-machine-seq-row">
+        <span class="drum-machine-seq-voice-label">${v}</span>
+        <div class="drum-machine-steps" data-voice="${v}">${stepsHtml}</div>
       </div>
     `;
   }).join('');
 
   // Pattern slot buttons HTML
   const patternSlotsHtml = PATTERN_SLOTS.map(s =>
-    `<button class="tr909-slot-btn${s === 'A' ? ' active' : ''}" data-slot="${s}">${s}</button>`
+    `<button class="drum-machine-slot-btn${s === 'A' ? ' active' : ''}" data-slot="${s}">${s}</button>`
   ).join('');
 
   el.innerHTML = `
-    <div class="tr909-port-bar">
-      <span class="tr909-brand">TR-909</span>
-      <div class="tr909-pattern-slots">
-        <span class="tr909-label-sm">PAT:</span>
+    <div class="drum-machine-port-bar">
+      <span class="drum-machine-brand">DRUM MACHINE</span>
+      <div class="drum-machine-pattern-slots">
+        <span class="drum-machine-label-sm">PAT:</span>
         ${patternSlotsHtml}
-        <div class="tr909-copy-paste">
+        <div class="drum-machine-copy-paste">
           <button id="${_id}-copy" title="Copy current pattern">CPY</button>
           <button id="${_id}-paste" title="Paste to current pattern">PST</button>
         </div>
       </div>
       <span class="port" data-port="audio-out">AUDIO OUT</span>
     </div>
-    <div class="tr909-pads-row">${padsHtml}</div>
-    <div class="tr909-voice-knobs">${voiceKnobsHtml}</div>
-    <div class="tr909-seq-section">${seqRowsHtml}</div>
-    <div class="tr909-bottom">
-      <div class="tr909-transport">
-        <button class="tr909-btn" id="${_id}-play">&#9654; PLAY</button>
-        <button class="tr909-btn" id="${_id}-stop">&#9632; STOP</button>
-        <button class="tr909-sync-btn" id="${_id}-sync" title="Sync to confusynth:clock">SYNC</button>
-        <button class="tr909-comp-btn${_compEnabled ? ' active' : ''}" id="${_id}-comp" title="Master compressor">COMP</button>
+    <div class="drum-machine-pads-row">${padsHtml}</div>
+    <div class="drum-machine-voice-knobs">${voiceKnobsHtml}</div>
+    <div class="drum-machine-seq-section">${seqRowsHtml}</div>
+    <div class="drum-machine-bottom">
+      <div class="drum-machine-transport">
+        <button class="drum-machine-btn" id="${_id}-play">&#9654; PLAY</button>
+        <button class="drum-machine-btn" id="${_id}-stop">&#9632; STOP</button>
+        <button class="drum-machine-sync-btn" id="${_id}-sync" title="Sync to confusynth:clock">SYNC</button>
+        <button class="drum-machine-comp-btn${_compEnabled ? ' active' : ''}" id="${_id}-comp" title="Master compressor">COMP</button>
       </div>
-      <div class="tr909-master-knob-wrap">
-        <div class="tr909-swing-wrap">
-          <span class="tr909-label-sm">SWING</span>
-          <div class="tr909-knob-lg" id="${_id}-swing" title="Swing (0–100%)"></div>
+      <div class="drum-machine-master-knob-wrap">
+        <div class="drum-machine-swing-wrap">
+          <span class="drum-machine-label-sm">SWING</span>
+          <div class="drum-machine-knob-lg" id="${_id}-swing" title="Swing (0–100%)"></div>
         </div>
-        <span class="tr909-label-sm">MASTER</span>
-        <div class="tr909-knob-lg" id="${_id}-mvol" title="Master Volume"></div>
-        <span class="tr909-label-sm">VOL</span>
-        <div class="tr909-bpm-display" id="${_id}-bpm">120</div>
-        <span class="tr909-label-sm">BPM</span>
+        <span class="drum-machine-label-sm">MASTER</span>
+        <div class="drum-machine-knob-lg" id="${_id}-mvol" title="Master Volume"></div>
+        <span class="drum-machine-label-sm">VOL</span>
+        <div class="drum-machine-bpm-display" id="${_id}-bpm">120</div>
+        <span class="drum-machine-label-sm">BPM</span>
       </div>
     </div>
   `;
@@ -1253,7 +1253,7 @@ export function createTr909(audioContext) {
   }
 
   // Initialize knob rotations
-  el.querySelectorAll('.tr909-mini-knob').forEach(knob => {
+  el.querySelectorAll('.drum-machine-mini-knob').forEach(knob => {
     const voice = knob.dataset.voice;
     const param = knob.dataset.param;
     const val = _voiceParams[voice]?.[param] ?? 0.5;
@@ -1281,7 +1281,7 @@ export function createTr909(audioContext) {
     });
   }
 
-  el.querySelectorAll('.tr909-mini-knob').forEach(knob => {
+  el.querySelectorAll('.drum-machine-mini-knob').forEach(knob => {
     const voice = knob.dataset.voice;
     const param = knob.dataset.param;
     _attachKnobDrag(
@@ -1335,7 +1335,7 @@ export function createTr909(audioContext) {
   });
 
   // ── Pad triggers ─────────────────────────────────────────────────────────
-  el.querySelectorAll('.tr909-pad').forEach(pad => {
+  el.querySelectorAll('.drum-machine-pad').forEach(pad => {
     pad.addEventListener('pointerdown', e => {
       e.preventDefault();
       if (ctx && ctx.state === 'suspended') ctx.resume();
@@ -1344,7 +1344,7 @@ export function createTr909(audioContext) {
   });
 
   // ── Step buttons — left-click cycles velocity, right-click toggles accent ─
-  el.querySelectorAll('.tr909-step').forEach(stepEl => {
+  el.querySelectorAll('.drum-machine-step').forEach(stepEl => {
     stepEl.addEventListener('click', e => {
       e.preventDefault();
       const voice = stepEl.dataset.voice;
@@ -1394,19 +1394,19 @@ export function createTr909(audioContext) {
     _steps = _patternSlots[slot];
 
     // Update slot button highlights
-    el.querySelectorAll('.tr909-slot-btn').forEach(btn => {
+    el.querySelectorAll('.drum-machine-slot-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.slot === slot);
     });
 
     // Refresh all step button visuals
-    el.querySelectorAll('.tr909-step').forEach(stepEl => {
+    el.querySelectorAll('.drum-machine-step').forEach(stepEl => {
       const voice = stepEl.dataset.voice;
       const i     = parseInt(stepEl.dataset.step);
       _updateStepEl(stepEl, _steps[voice][i]);
     });
   }
 
-  el.querySelectorAll('.tr909-slot-btn').forEach(btn => {
+  el.querySelectorAll('.drum-machine-slot-btn').forEach(btn => {
     btn.addEventListener('click', () => _switchSlot(btn.dataset.slot));
   });
 
@@ -1425,7 +1425,7 @@ export function createTr909(audioContext) {
       _patternSlots[_activeSlot][v] = _steps[v];
     });
     // Refresh UI
-    el.querySelectorAll('.tr909-step').forEach(stepEl => {
+    el.querySelectorAll('.drum-machine-step').forEach(stepEl => {
       const voice = stepEl.dataset.voice;
       const i     = parseInt(stepEl.dataset.step);
       _updateStepEl(stepEl, _steps[voice][i]);
@@ -1433,7 +1433,7 @@ export function createTr909(audioContext) {
   });
 
   // ── Mute / Solo buttons ───────────────────────────────────────────────────
-  el.querySelectorAll('.tr909-mute-btn').forEach(btn => {
+  el.querySelectorAll('.drum-machine-mute-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       const voice = btn.dataset.mute;
@@ -1445,7 +1445,7 @@ export function createTr909(audioContext) {
       } else if (e.shiftKey) {
         // Shift+click: solo
         _soloVoice = voice;
-        el.querySelectorAll('.tr909-mute-btn').forEach(b => {
+        el.querySelectorAll('.drum-machine-mute-btn').forEach(b => {
           b.classList.remove('muted', 'solo');
           b.textContent = 'M';
         });
@@ -1510,7 +1510,7 @@ export function createTr909(audioContext) {
 
   // ── Step highlight ─────────────────────────────────────────────────────────
   function _highlightStep(stepIdx) {
-    el.querySelectorAll('.tr909-step').forEach(s => {
+    el.querySelectorAll('.drum-machine-step').forEach(s => {
       s.classList.toggle('playing', parseInt(s.dataset.step) === stepIdx);
     });
   }
@@ -1518,7 +1518,7 @@ export function createTr909(audioContext) {
   // ── Pad flash ─────────────────────────────────────────────────────────────
   const _padFlashTimers = {};
   function _flashPad(voice) {
-    const pad = el.querySelector(`.tr909-pad[data-voice="${voice}"]`);
+    const pad = el.querySelector(`.drum-machine-pad[data-voice="${voice}"]`);
     if (!pad) return;
     if (_padFlashTimers[voice]) clearTimeout(_padFlashTimers[voice]);
     pad.classList.add('triggered');
@@ -1528,7 +1528,7 @@ export function createTr909(audioContext) {
   // ── VU meter flash ────────────────────────────────────────────────────────
   const _vuTimers = {};
   function _flashVU(voice) {
-    const bar = el.querySelector(`.tr909-vu-bar[data-vu="${voice}"]`);
+    const bar = el.querySelector(`.drum-machine-vu-bar[data-vu="${voice}"]`);
     if (!bar) return;
     if (_vuTimers[voice]) clearTimeout(_vuTimers[voice]);
     bar.classList.remove('fade');
@@ -1551,7 +1551,7 @@ export function createTr909(audioContext) {
 
   // ── Audio export ──────────────────────────────────────────────────────────
   if (ctx && outputGain) {
-    el._tr909Audio = outputGain;
+    el._drumMachineAudio = outputGain;
     const outPort = el.querySelector('.port[data-port="audio-out"]');
     if (outPort) outPort._audioNode = outputGain;
   }

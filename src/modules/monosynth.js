@@ -1,6 +1,6 @@
-// moog.js — Moog Model D Monosynth module
+// monosynth.js — Monosynth module
 
-export function createMoog(audioContext) {
+export function createMonosynth(audioContext) {
   const ctx = audioContext;
 
   // ── Params ─────────────────────────────────────────────────────────────────
@@ -175,7 +175,7 @@ export function createMoog(audioContext) {
     vco3Gain.connect(oscSum);
     subGain.connect(oscSum);
 
-    // Moog ladder filter: 4 cascaded lowpass biquads (24dB/oct approx)
+    // Ladder filter: 4 cascaded lowpass biquads (24dB/oct approx)
     filter1 = ctx.createBiquadFilter(); filter1.type = 'lowpass'; filter1.Q.value = 0.6;
     filter2 = ctx.createBiquadFilter(); filter2.type = 'lowpass'; filter2.Q.value = 0.6;
     filter3 = ctx.createBiquadFilter(); filter3.type = 'lowpass'; filter3.Q.value = 0.6;
@@ -369,7 +369,7 @@ export function createMoog(audioContext) {
 
   // ── DOM ────────────────────────────────────────────────────────────────────
   const el = document.createElement('div');
-  el.className = 'moog-chassis';
+  el.className = 'monosynth-chassis';
 
   function _waveIcon(type) {
     if (type === 'sawtooth') return `<svg width="26" height="14" viewBox="0 0 26 14"><polyline points="0,12 13,2 13,12 26,2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>`;
@@ -382,35 +382,35 @@ export function createMoog(audioContext) {
     const wKey = `vco${vcoNum}Wave`, octKey = `vco${vcoNum}Octave`, volKey = `vco${vcoNum}Vol`;
     const w = params[wKey], oct = params[octKey], vol = params[volKey];
     return `
-      <div class="moog-section" data-vco="${vcoNum}">
-        <div class="moog-section-header">VCO ${vcoNum}</div>
-        <div class="moog-section-body moog-vco-body">
-          <div class="moog-wave-row">
+      <div class="monosynth-section" data-vco="${vcoNum}">
+        <div class="monosynth-section-header">VCO ${vcoNum}</div>
+        <div class="monosynth-section-body monosynth-vco-body">
+          <div class="monosynth-wave-row">
             ${WAVEFORMS.map(wf => `
-              <button class="moog-wave-btn ${w === wf ? 'moog-wave-btn--on' : ''}" data-vco="${vcoNum}" data-wave="${wf}" title="${wf}">
+              <button class="monosynth-wave-btn ${w === wf ? 'monosynth-wave-btn--on' : ''}" data-vco="${vcoNum}" data-wave="${wf}" title="${wf}">
                 ${_waveIcon(wf)}
               </button>
             `).join('')}
           </div>
-          <div class="moog-oct-row">
+          <div class="monosynth-oct-row">
             ${OCTAVE_LABELS.map((lbl, i) => `
-              <button class="moog-oct-btn ${i === oct ? 'moog-oct-btn--on' : ''}" data-vco="${vcoNum}" data-oct="${i}">${lbl}</button>
+              <button class="monosynth-oct-btn ${i === oct ? 'monosynth-oct-btn--on' : ''}" data-vco="${vcoNum}" data-oct="${i}">${lbl}</button>
             `).join('')}
           </div>
           ${vcoNum === 2 ? `
-          <div class="moog-knob-row">
-            <span class="moog-label">FINE</span>
-            <input type="range" class="moog-slider moog-hz-slider" data-param="vco2Fine"
+          <div class="monosynth-knob-row">
+            <span class="monosynth-label">FINE</span>
+            <input type="range" class="monosynth-slider monosynth-hz-slider" data-param="vco2Fine"
               min="-7" max="7" step="0.1" value="${params.vco2Fine}" orient="horizontal" />
-            <span class="moog-fine-val">${params.vco2Fine >= 0 ? '+' : ''}${params.vco2Fine.toFixed(1)}</span>
+            <span class="monosynth-fine-val">${params.vco2Fine >= 0 ? '+' : ''}${params.vco2Fine.toFixed(1)}</span>
           </div>` : ''}
           ${vcoNum === 3 ? `
-          <div class="moog-knob-row">
-            <button class="moog-free-btn ${params.vco3Free ? 'moog-free-btn--on' : ''}" data-param="vco3Free">FREE</button>
+          <div class="monosynth-knob-row">
+            <button class="monosynth-free-btn ${params.vco3Free ? 'monosynth-free-btn--on' : ''}" data-param="vco3Free">FREE</button>
           </div>` : ''}
-          <div class="moog-vol-row">
-            <span class="moog-label">VOL</span>
-            <input type="range" class="moog-slider" data-param="${volKey}"
+          <div class="monosynth-vol-row">
+            <span class="monosynth-label">VOL</span>
+            <input type="range" class="monosynth-slider" data-param="${volKey}"
               min="0" max="1" step="0.01" value="${vol}" orient="horizontal" />
           </div>
         </div>
@@ -419,31 +419,31 @@ export function createMoog(audioContext) {
   }
 
   el.innerHTML = `
-    <div class="moog-ports-bar">
+    <div class="monosynth-ports-bar">
       <span class="port" data-port="audio-out">AUDIO OUT</span>
       <span class="port" data-port="midi-in">MIDI IN</span>
-      <span class="moog-title">MOOG MODEL D</span>
+      <span class="monosynth-title">MONOSYNTH</span>
     </div>
 
-    <div class="moog-body">
+    <div class="monosynth-body">
 
       <!-- VCO row -->
-      <div class="moog-vco-row">
+      <div class="monosynth-vco-row">
         ${_buildVcoSection(1)}
         ${_buildVcoSection(2)}
         ${_buildVcoSection(3)}
 
         <!-- Sub osc -->
-        <div class="moog-section">
-          <div class="moog-section-header">SUB</div>
-          <div class="moog-section-body moog-sub-body">
-            <div class="moog-wave-row">
-              <span class="moog-wave-icon">${_waveIcon('square')}</span>
-              <span class="moog-label" style="font-size:7px;">−1 OCT</span>
+        <div class="monosynth-section">
+          <div class="monosynth-section-header">SUB</div>
+          <div class="monosynth-section-body monosynth-sub-body">
+            <div class="monosynth-wave-row">
+              <span class="monosynth-wave-icon">${_waveIcon('square')}</span>
+              <span class="monosynth-label" style="font-size:7px;">−1 OCT</span>
             </div>
-            <div class="moog-vol-row">
-              <span class="moog-label">VOL</span>
-              <input type="range" class="moog-slider" data-param="subVol"
+            <div class="monosynth-vol-row">
+              <span class="monosynth-label">VOL</span>
+              <input type="range" class="monosynth-slider" data-param="subVol"
                 min="0" max="1" step="0.01" value="${params.subVol}" orient="horizontal" />
             </div>
           </div>
@@ -451,180 +451,180 @@ export function createMoog(audioContext) {
       </div>
 
       <!-- Middle row: Filter | Filter ADSR | VCA ADSR -->
-      <div class="moog-mid-row">
+      <div class="monosynth-mid-row">
 
         <!-- Ladder Filter -->
-        <div class="moog-section moog-section--tall">
-          <div class="moog-section-header">LADDER VCF</div>
-          <div class="moog-section-body moog-filter-body">
-            <div class="moog-knob-col">
-              <input type="range" class="moog-slider moog-vert-slider" data-param="cutoff"
+        <div class="monosynth-section monosynth-section--tall">
+          <div class="monosynth-section-header">LADDER VCF</div>
+          <div class="monosynth-section-body monosynth-filter-body">
+            <div class="monosynth-knob-col">
+              <input type="range" class="monosynth-slider monosynth-vert-slider" data-param="cutoff"
                 min="20" max="18000" step="1" value="${params.cutoff}" orient="vertical" />
-              <span class="moog-label">CUTOFF</span>
-              <span class="moog-cutoff-val">${Math.round(params.cutoff)}Hz</span>
+              <span class="monosynth-label">CUTOFF</span>
+              <span class="monosynth-cutoff-val">${Math.round(params.cutoff)}Hz</span>
             </div>
-            <div class="moog-knob-col">
-              <input type="range" class="moog-slider moog-vert-slider" data-param="resonance"
+            <div class="monosynth-knob-col">
+              <input type="range" class="monosynth-slider monosynth-vert-slider" data-param="resonance"
                 min="0" max="1" step="0.01" value="${params.resonance}" orient="vertical" />
-              <span class="moog-label">RES</span>
+              <span class="monosynth-label">RES</span>
             </div>
-            <div class="moog-knob-col">
-              <input type="range" class="moog-slider moog-vert-slider" data-param="filterEnvAmt"
+            <div class="monosynth-knob-col">
+              <input type="range" class="monosynth-slider monosynth-vert-slider" data-param="filterEnvAmt"
                 min="0" max="1" step="0.01" value="${params.filterEnvAmt}" orient="vertical" />
-              <span class="moog-label">ENV AMT</span>
+              <span class="monosynth-label">ENV AMT</span>
             </div>
-            <div class="moog-knob-col">
-              <input type="range" class="moog-slider moog-vert-slider" data-param="keyTrack"
+            <div class="monosynth-knob-col">
+              <input type="range" class="monosynth-slider monosynth-vert-slider" data-param="keyTrack"
                 min="0" max="1" step="0.01" value="${params.keyTrack}" orient="vertical" />
-              <span class="moog-label">KEY TRK</span>
+              <span class="monosynth-label">KEY TRK</span>
             </div>
           </div>
         </div>
 
         <!-- Filter ADSR -->
-        <div class="moog-section moog-section--tall">
-          <div class="moog-section-header">FILTER ENV</div>
-          <div class="moog-section-body moog-adsr-body">
-            <div class="moog-knob-col">
-              <input type="range" class="moog-slider moog-vert-slider" data-param="fAttack"
+        <div class="monosynth-section monosynth-section--tall">
+          <div class="monosynth-section-header">FILTER ENV</div>
+          <div class="monosynth-section-body monosynth-adsr-body">
+            <div class="monosynth-knob-col">
+              <input type="range" class="monosynth-slider monosynth-vert-slider" data-param="fAttack"
                 min="0.001" max="4" step="0.001" value="${params.fAttack}" orient="vertical" />
-              <span class="moog-label">A</span>
+              <span class="monosynth-label">A</span>
             </div>
-            <div class="moog-knob-col">
-              <input type="range" class="moog-slider moog-vert-slider" data-param="fDecay"
+            <div class="monosynth-knob-col">
+              <input type="range" class="monosynth-slider monosynth-vert-slider" data-param="fDecay"
                 min="0.01" max="4" step="0.001" value="${params.fDecay}" orient="vertical" />
-              <span class="moog-label">D</span>
+              <span class="monosynth-label">D</span>
             </div>
-            <div class="moog-knob-col">
-              <input type="range" class="moog-slider moog-vert-slider" data-param="fSustain"
+            <div class="monosynth-knob-col">
+              <input type="range" class="monosynth-slider monosynth-vert-slider" data-param="fSustain"
                 min="0" max="1" step="0.01" value="${params.fSustain}" orient="vertical" />
-              <span class="moog-label">S</span>
+              <span class="monosynth-label">S</span>
             </div>
-            <div class="moog-knob-col">
-              <input type="range" class="moog-slider moog-vert-slider" data-param="fRelease"
+            <div class="monosynth-knob-col">
+              <input type="range" class="monosynth-slider monosynth-vert-slider" data-param="fRelease"
                 min="0.01" max="6" step="0.001" value="${params.fRelease}" orient="vertical" />
-              <span class="moog-label">R</span>
+              <span class="monosynth-label">R</span>
             </div>
           </div>
         </div>
 
         <!-- VCA ADSR -->
-        <div class="moog-section moog-section--tall">
-          <div class="moog-section-header">AMP ENV</div>
-          <div class="moog-section-body moog-adsr-body">
-            <div class="moog-knob-col">
-              <input type="range" class="moog-slider moog-vert-slider" data-param="vAttack"
+        <div class="monosynth-section monosynth-section--tall">
+          <div class="monosynth-section-header">AMP ENV</div>
+          <div class="monosynth-section-body monosynth-adsr-body">
+            <div class="monosynth-knob-col">
+              <input type="range" class="monosynth-slider monosynth-vert-slider" data-param="vAttack"
                 min="0.001" max="4" step="0.001" value="${params.vAttack}" orient="vertical" />
-              <span class="moog-label">A</span>
+              <span class="monosynth-label">A</span>
             </div>
-            <div class="moog-knob-col">
-              <input type="range" class="moog-slider moog-vert-slider" data-param="vDecay"
+            <div class="monosynth-knob-col">
+              <input type="range" class="monosynth-slider monosynth-vert-slider" data-param="vDecay"
                 min="0.01" max="4" step="0.001" value="${params.vDecay}" orient="vertical" />
-              <span class="moog-label">D</span>
+              <span class="monosynth-label">D</span>
             </div>
-            <div class="moog-knob-col">
-              <input type="range" class="moog-slider moog-vert-slider" data-param="vSustain"
+            <div class="monosynth-knob-col">
+              <input type="range" class="monosynth-slider monosynth-vert-slider" data-param="vSustain"
                 min="0" max="1" step="0.01" value="${params.vSustain}" orient="vertical" />
-              <span class="moog-label">S</span>
+              <span class="monosynth-label">S</span>
             </div>
-            <div class="moog-knob-col">
-              <input type="range" class="moog-slider moog-vert-slider" data-param="vRelease"
+            <div class="monosynth-knob-col">
+              <input type="range" class="monosynth-slider monosynth-vert-slider" data-param="vRelease"
                 min="0.01" max="6" step="0.001" value="${params.vRelease}" orient="vertical" />
-              <span class="moog-label">R</span>
+              <span class="monosynth-label">R</span>
             </div>
           </div>
         </div>
 
         <!-- VEL SENS -->
-        <div class="moog-section">
-          <div class="moog-section-header">VCA</div>
-          <div class="moog-section-body" style="flex-direction:column; align-items:center; gap:4px; padding:6px 4px;">
-            <input type="range" class="moog-slider moog-vert-slider" data-param="velSens"
+        <div class="monosynth-section">
+          <div class="monosynth-section-header">VCA</div>
+          <div class="monosynth-section-body" style="flex-direction:column; align-items:center; gap:4px; padding:6px 4px;">
+            <input type="range" class="monosynth-slider monosynth-vert-slider" data-param="velSens"
               min="0" max="1" step="0.01" value="${params.velSens}" orient="vertical" />
-            <span class="moog-label">VEL SENS</span>
+            <span class="monosynth-label">VEL SENS</span>
           </div>
         </div>
 
       </div>
 
       <!-- Bottom row: LFO | Glide | Master Vol | Presets -->
-      <div class="moog-bot-row">
+      <div class="monosynth-bot-row">
 
         <!-- LFO -->
-        <div class="moog-section">
-          <div class="moog-section-header">LFO</div>
-          <div class="moog-section-body moog-lfo-body">
-            <div class="moog-wave-row" style="flex-wrap:wrap; gap:2px;">
+        <div class="monosynth-section">
+          <div class="monosynth-section-header">LFO</div>
+          <div class="monosynth-section-body monosynth-lfo-body">
+            <div class="monosynth-wave-row" style="flex-wrap:wrap; gap:2px;">
               ${['sine','triangle','square'].map(wf => `
-                <button class="moog-lfo-wave-btn ${params.lfoWave === wf ? 'moog-lfo-wave-btn--on' : ''}" data-lfowave="${wf}" title="${wf}">
+                <button class="monosynth-lfo-wave-btn ${params.lfoWave === wf ? 'monosynth-lfo-wave-btn--on' : ''}" data-lfowave="${wf}" title="${wf}">
                   ${_waveIcon(wf)}
                 </button>
               `).join('')}
             </div>
-            <div class="moog-knob-col">
-              <input type="range" class="moog-slider moog-vert-slider" data-param="lfoRate"
+            <div class="monosynth-knob-col">
+              <input type="range" class="monosynth-slider monosynth-vert-slider" data-param="lfoRate"
                 min="0.1" max="20" step="0.01" value="${params.lfoRate}" orient="vertical" />
-              <span class="moog-label">RATE</span>
+              <span class="monosynth-label">RATE</span>
             </div>
-            <div class="moog-knob-col">
-              <input type="range" class="moog-slider moog-vert-slider" data-param="lfoAmount"
+            <div class="monosynth-knob-col">
+              <input type="range" class="monosynth-slider monosynth-vert-slider" data-param="lfoAmount"
                 min="0" max="1" step="0.01" value="${params.lfoAmount}" orient="vertical" />
-              <span class="moog-label">DEPTH</span>
+              <span class="monosynth-label">DEPTH</span>
             </div>
-            <div class="moog-lfo-dest">
-              <button class="moog-dest-btn ${params.lfoToPitch ? 'moog-dest-btn--on' : ''}" data-dest="lfoToPitch">PITCH</button>
-              <button class="moog-dest-btn ${params.lfoToFilter ? 'moog-dest-btn--on' : ''}" data-dest="lfoToFilter">FILT</button>
+            <div class="monosynth-lfo-dest">
+              <button class="monosynth-dest-btn ${params.lfoToPitch ? 'monosynth-dest-btn--on' : ''}" data-dest="lfoToPitch">PITCH</button>
+              <button class="monosynth-dest-btn ${params.lfoToFilter ? 'monosynth-dest-btn--on' : ''}" data-dest="lfoToFilter">FILT</button>
             </div>
           </div>
         </div>
 
         <!-- Glide + Master Vol -->
-        <div class="moog-section">
-          <div class="moog-section-header">MASTER</div>
-          <div class="moog-section-body" style="flex-direction:row; gap:8px; align-items:flex-end; padding:8px;">
-            <div class="moog-knob-col">
-              <input type="range" class="moog-slider moog-vert-slider" data-param="glide"
+        <div class="monosynth-section">
+          <div class="monosynth-section-header">MASTER</div>
+          <div class="monosynth-section-body" style="flex-direction:row; gap:8px; align-items:flex-end; padding:8px;">
+            <div class="monosynth-knob-col">
+              <input type="range" class="monosynth-slider monosynth-vert-slider" data-param="glide"
                 min="0" max="0.5" step="0.001" value="${params.glide}" orient="vertical" />
-              <span class="moog-label">GLIDE</span>
+              <span class="monosynth-label">GLIDE</span>
             </div>
-            <div class="moog-knob-col">
-              <input type="range" class="moog-slider moog-vert-slider" data-param="volume"
+            <div class="monosynth-knob-col">
+              <input type="range" class="monosynth-slider monosynth-vert-slider" data-param="volume"
                 min="0" max="1" step="0.01" value="${params.volume}" orient="vertical" />
-              <span class="moog-label">VOL</span>
+              <span class="monosynth-label">VOL</span>
             </div>
           </div>
         </div>
 
         <!-- Presets -->
-        <div class="moog-section">
-          <div class="moog-section-header">PRESET</div>
-          <div class="moog-section-body" style="flex-direction:column; gap:5px; align-items:stretch; padding:8px;">
-            <select class="moog-preset-select">
+        <div class="monosynth-section">
+          <div class="monosynth-section-header">PRESET</div>
+          <div class="monosynth-section-body" style="flex-direction:column; gap:5px; align-items:stretch; padding:8px;">
+            <select class="monosynth-preset-select">
               ${Object.keys(PRESETS).map(n => `<option value="${n}">${n}</option>`).join('')}
             </select>
-            <button class="moog-load-preset">LOAD</button>
+            <button class="monosynth-load-preset">LOAD</button>
           </div>
         </div>
 
         <!-- Note indicator -->
-        <div class="moog-section">
-          <div class="moog-section-header">STATUS</div>
-          <div class="moog-section-body" style="flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:8px;">
-            <div class="moog-note-led"></div>
-            <span class="moog-label">GATE</span>
+        <div class="monosynth-section">
+          <div class="monosynth-section-header">STATUS</div>
+          <div class="monosynth-section-body" style="flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:8px;">
+            <div class="monosynth-note-led"></div>
+            <span class="monosynth-label">GATE</span>
           </div>
         </div>
 
         <!-- Keyboard -->
-        <div class="moog-keyboard-wrap">
-          <div class="moog-keyboard"></div>
+        <div class="monosynth-keyboard-wrap">
+          <div class="monosynth-keyboard"></div>
         </div>
       </div>
 
     </div>
 
     <style>
-      .moog-chassis {
+      .monosynth-chassis {
         background: #f5f0e8;
         border-radius: 8px 8px 4px 4px;
         width: 1000px;
@@ -640,8 +640,8 @@ export function createMoog(audioContext) {
         color: #2a1a0a;
       }
       /* Wood grain sides */
-      .moog-chassis::before,
-      .moog-chassis::after {
+      .monosynth-chassis::before,
+      .monosynth-chassis::after {
         content: '';
         position: absolute;
         top: 0;
@@ -654,10 +654,10 @@ export function createMoog(audioContext) {
         z-index: 1;
         box-shadow: inset 0 0 6px rgba(0,0,0,0.4);
       }
-      .moog-chassis::before { left: 0; border-radius: 6px 0 0 4px; }
-      .moog-chassis::after  { right: 0; border-radius: 0 6px 4px 0; }
+      .monosynth-chassis::before { left: 0; border-radius: 6px 0 0 4px; }
+      .monosynth-chassis::after  { right: 0; border-radius: 0 6px 4px 0; }
 
-      .moog-ports-bar {
+      .monosynth-ports-bar {
         display: flex;
         align-items: center;
         gap: 10px;
@@ -668,7 +668,7 @@ export function createMoog(audioContext) {
         position: relative;
         z-index: 2;
       }
-      .moog-ports-bar .port {
+      .monosynth-ports-bar .port {
         font-size: 9px;
         color: #ccc;
         letter-spacing: 0.08em;
@@ -680,8 +680,8 @@ export function createMoog(audioContext) {
         user-select: none;
         transition: background 0.15s;
       }
-      .moog-ports-bar .port:hover { background: #4a3a2a; }
-      .moog-title {
+      .monosynth-ports-bar .port:hover { background: #4a3a2a; }
+      .monosynth-title {
         margin-left: auto;
         margin-right: 24px;
         font-size: 16px;
@@ -692,7 +692,7 @@ export function createMoog(audioContext) {
         text-shadow: 0 1px 0 #000, 0 0 8px rgba(245,200,66,0.3);
       }
 
-      .moog-body {
+      .monosynth-body {
         display: flex;
         flex-direction: column;
         gap: 4px;
@@ -702,16 +702,16 @@ export function createMoog(audioContext) {
         flex: 1;
       }
 
-      .moog-vco-row,
-      .moog-mid-row,
-      .moog-bot-row {
+      .monosynth-vco-row,
+      .monosynth-mid-row,
+      .monosynth-bot-row {
         display: flex;
         flex-direction: row;
         gap: 4px;
         align-items: stretch;
       }
 
-      .moog-section {
+      .monosynth-section {
         display: flex;
         flex-direction: column;
         border: 1px solid #8B6914;
@@ -720,9 +720,9 @@ export function createMoog(audioContext) {
         background: #ede8dc;
         box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 1px 2px rgba(0,0,0,0.15);
       }
-      .moog-section--tall { min-height: 90px; }
+      .monosynth-section--tall { min-height: 90px; }
 
-      .moog-section-header {
+      .monosynth-section-header {
         background: #2a1a0a;
         color: #f5c842;
         font-size: 8px;
@@ -734,7 +734,7 @@ export function createMoog(audioContext) {
         text-transform: uppercase;
       }
 
-      .moog-section-body {
+      .monosynth-section-body {
         display: flex;
         flex-direction: row;
         gap: 4px;
@@ -743,28 +743,28 @@ export function createMoog(audioContext) {
         flex: 1;
       }
 
-      .moog-vco-body,
-      .moog-sub-body {
+      .monosynth-vco-body,
+      .monosynth-sub-body {
         flex-direction: column;
         align-items: stretch;
         gap: 4px;
         padding: 5px 6px;
       }
 
-      .moog-wave-row {
+      .monosynth-wave-row {
         display: flex;
         flex-direction: row;
         gap: 2px;
         align-items: center;
       }
 
-      .moog-wave-icon {
+      .monosynth-wave-icon {
         color: #555;
         display: flex;
         align-items: center;
       }
 
-      .moog-wave-btn {
+      .monosynth-wave-btn {
         padding: 2px 3px;
         background: #d8d0c0;
         border: 1px solid #8B6914;
@@ -775,19 +775,19 @@ export function createMoog(audioContext) {
         display: flex;
         align-items: center;
       }
-      .moog-wave-btn:hover { background: #c8c0b0; }
-      .moog-wave-btn--on {
+      .monosynth-wave-btn:hover { background: #c8c0b0; }
+      .monosynth-wave-btn--on {
         background: #c84010;
         color: #fff;
         border-color: #c84010;
       }
 
-      .moog-oct-row {
+      .monosynth-oct-row {
         display: flex;
         flex-direction: row;
         gap: 2px;
       }
-      .moog-oct-btn {
+      .monosynth-oct-btn {
         font-family: monospace;
         font-size: 8px;
         padding: 2px 3px;
@@ -801,22 +801,22 @@ export function createMoog(audioContext) {
         flex: 1;
         text-align: center;
       }
-      .moog-oct-btn:hover { background: #c8c0b0; }
-      .moog-oct-btn--on {
+      .monosynth-oct-btn:hover { background: #c8c0b0; }
+      .monosynth-oct-btn--on {
         background: #c84010;
         color: #fff;
         border-color: #c84010;
       }
 
-      .moog-vol-row,
-      .moog-knob-row {
+      .monosynth-vol-row,
+      .monosynth-knob-row {
         display: flex;
         flex-direction: row;
         align-items: center;
         gap: 4px;
       }
 
-      .moog-label {
+      .monosynth-label {
         font-size: 7px;
         color: #666;
         letter-spacing: 0.06em;
@@ -824,14 +824,14 @@ export function createMoog(audioContext) {
         flex-shrink: 0;
       }
 
-      .moog-slider {
+      .monosynth-slider {
         cursor: pointer;
         accent-color: #c84010;
         flex: 1;
         min-width: 0;
       }
-      .moog-hz-slider { height: 12px; }
-      .moog-vert-slider {
+      .monosynth-hz-slider { height: 12px; }
+      .monosynth-vert-slider {
         -webkit-appearance: slider-vertical;
         appearance: slider-vertical;
         writing-mode: vertical-lr;
@@ -841,7 +841,7 @@ export function createMoog(audioContext) {
         background: transparent;
       }
 
-      .moog-fine-val {
+      .monosynth-fine-val {
         font-size: 8px;
         color: #c84010;
         font-family: monospace;
@@ -849,13 +849,13 @@ export function createMoog(audioContext) {
         flex-shrink: 0;
       }
 
-      .moog-cutoff-val {
+      .monosynth-cutoff-val {
         font-size: 7px;
         color: #c84010;
         font-family: monospace;
       }
 
-      .moog-free-btn {
+      .monosynth-free-btn {
         font-family: monospace;
         font-size: 8px;
         padding: 2px 6px;
@@ -867,28 +867,28 @@ export function createMoog(audioContext) {
         letter-spacing: 0.07em;
         transition: background 0.1s, color 0.1s;
       }
-      .moog-free-btn--on {
+      .monosynth-free-btn--on {
         background: #c84010;
         color: #fff;
         border-color: #c84010;
       }
 
-      .moog-filter-body,
-      .moog-adsr-body {
+      .monosynth-filter-body,
+      .monosynth-adsr-body {
         flex-direction: row;
         align-items: flex-end;
         gap: 6px;
         padding: 6px 6px;
       }
 
-      .moog-knob-col {
+      .monosynth-knob-col {
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 2px;
       }
 
-      .moog-lfo-body {
+      .monosynth-lfo-body {
         flex-direction: row;
         align-items: flex-end;
         gap: 6px;
@@ -896,7 +896,7 @@ export function createMoog(audioContext) {
         padding: 5px 6px;
       }
 
-      .moog-lfo-wave-btn {
+      .monosynth-lfo-wave-btn {
         padding: 2px 3px;
         background: #d8d0c0;
         border: 1px solid #8B6914;
@@ -907,20 +907,20 @@ export function createMoog(audioContext) {
         align-items: center;
         transition: background 0.1s, color 0.1s;
       }
-      .moog-lfo-wave-btn:hover { background: #c8c0b0; }
-      .moog-lfo-wave-btn--on {
+      .monosynth-lfo-wave-btn:hover { background: #c8c0b0; }
+      .monosynth-lfo-wave-btn--on {
         background: #c84010;
         color: #fff;
         border-color: #c84010;
       }
 
-      .moog-lfo-dest {
+      .monosynth-lfo-dest {
         display: flex;
         flex-direction: column;
         gap: 3px;
         justify-content: center;
       }
-      .moog-dest-btn {
+      .monosynth-dest-btn {
         font-family: monospace;
         font-size: 8px;
         padding: 2px 5px;
@@ -932,13 +932,13 @@ export function createMoog(audioContext) {
         letter-spacing: 0.06em;
         transition: background 0.1s, color 0.1s;
       }
-      .moog-dest-btn--on {
+      .monosynth-dest-btn--on {
         background: #c84010;
         color: #fff;
         border-color: #c84010;
       }
 
-      .moog-preset-select {
+      .monosynth-preset-select {
         font-family: monospace;
         font-size: 9px;
         background: #ede8dc;
@@ -949,7 +949,7 @@ export function createMoog(audioContext) {
         cursor: pointer;
         width: 100%;
       }
-      .moog-load-preset {
+      .monosynth-load-preset {
         font-family: monospace;
         font-size: 9px;
         padding: 3px 8px;
@@ -962,9 +962,9 @@ export function createMoog(audioContext) {
         transition: background 0.1s;
         width: 100%;
       }
-      .moog-load-preset:hover { background: #3a2a1a; }
+      .monosynth-load-preset:hover { background: #3a2a1a; }
 
-      .moog-note-led {
+      .monosynth-note-led {
         width: 12px;
         height: 12px;
         border-radius: 50%;
@@ -972,24 +972,24 @@ export function createMoog(audioContext) {
         border: 1px solid #aaa;
         transition: background 0.06s, box-shadow 0.06s;
       }
-      .moog-note-led.active {
+      .monosynth-note-led.active {
         background: #c84010;
         border-color: #e06030;
         box-shadow: 0 0 6px rgba(200,64,16,0.8);
       }
 
-      .moog-keyboard-wrap {
+      .monosynth-keyboard-wrap {
         flex: 1;
         display: flex;
         flex-direction: column;
         justify-content: flex-end;
       }
-      .moog-keyboard {
+      .monosynth-keyboard {
         position: relative;
         height: 56px;
         display: flex;
       }
-      .moog-key-white {
+      .monosynth-key-white {
         flex: 1;
         background: linear-gradient(180deg, #f8f8f5 0%, #eae8e0 100%);
         border: 1px solid #999;
@@ -1000,7 +1000,7 @@ export function createMoog(audioContext) {
         transition: background 0.06s;
         min-width: 0;
       }
-      .moog-key-label {
+      .monosynth-key-label {
         position: absolute;
         bottom: 2px;
         left: 50%;
@@ -1010,10 +1010,10 @@ export function createMoog(audioContext) {
         font-family: monospace;
         pointer-events: none;
       }
-      .moog-key-white:active, .moog-key-white.pressed {
+      .monosynth-key-white:active, .monosynth-key-white.pressed {
         background: linear-gradient(180deg, #c8d0c8 0%, #b0b8b0 100%);
       }
-      .moog-key-black {
+      .monosynth-key-black {
         position: absolute;
         width: 58%;
         height: 60%;
@@ -1026,7 +1026,7 @@ export function createMoog(audioContext) {
         transition: background 0.06s;
         border: 1px solid #000;
       }
-      .moog-key-black:active, .moog-key-black.pressed {
+      .monosynth-key-black:active, .monosynth-key-black.pressed {
         background: linear-gradient(180deg, #2a2a2a 0%, #444 100%);
       }
     </style>
@@ -1034,7 +1034,7 @@ export function createMoog(audioContext) {
 
   // ── Note LED ───────────────────────────────────────────────────────────────
   function _updateNoteLED(on) {
-    const led = el.querySelector('.moog-note-led');
+    const led = el.querySelector('.monosynth-note-led');
     if (led) led.classList.toggle('active', on);
   }
 
@@ -1043,51 +1043,51 @@ export function createMoog(audioContext) {
     // VCO wave buttons
     [1,2,3].forEach(vn => {
       const wKey = `vco${vn}Wave`;
-      el.querySelectorAll(`.moog-wave-btn[data-vco="${vn}"]`).forEach(btn => {
-        btn.classList.toggle('moog-wave-btn--on', btn.dataset.wave === params[wKey]);
+      el.querySelectorAll(`.monosynth-wave-btn[data-vco="${vn}"]`).forEach(btn => {
+        btn.classList.toggle('monosynth-wave-btn--on', btn.dataset.wave === params[wKey]);
       });
       const oKey = `vco${vn}Octave`;
-      el.querySelectorAll(`.moog-oct-btn[data-vco="${vn}"]`).forEach(btn => {
-        btn.classList.toggle('moog-oct-btn--on', parseInt(btn.dataset.oct) === params[oKey]);
+      el.querySelectorAll(`.monosynth-oct-btn[data-vco="${vn}"]`).forEach(btn => {
+        btn.classList.toggle('monosynth-oct-btn--on', parseInt(btn.dataset.oct) === params[oKey]);
       });
-      const volSlider = el.querySelector(`.moog-slider[data-param="vco${vn}Vol"]`);
+      const volSlider = el.querySelector(`.monosynth-slider[data-param="vco${vn}Vol"]`);
       if (volSlider) volSlider.value = params[`vco${vn}Vol`];
     });
     // VCO2 fine
-    const fineSlider = el.querySelector('.moog-slider[data-param="vco2Fine"]');
+    const fineSlider = el.querySelector('.monosynth-slider[data-param="vco2Fine"]');
     if (fineSlider) {
       fineSlider.value = params.vco2Fine;
-      const fv = el.querySelector('.moog-fine-val');
+      const fv = el.querySelector('.monosynth-fine-val');
       if (fv) fv.textContent = `${params.vco2Fine >= 0 ? '+' : ''}${params.vco2Fine.toFixed(1)}`;
     }
     // VCO3 free
-    const freeBtn = el.querySelector('.moog-free-btn');
-    if (freeBtn) freeBtn.classList.toggle('moog-free-btn--on', params.vco3Free);
+    const freeBtn = el.querySelector('.monosynth-free-btn');
+    if (freeBtn) freeBtn.classList.toggle('monosynth-free-btn--on', params.vco3Free);
     // Sub
-    const subSlider = el.querySelector('.moog-slider[data-param="subVol"]');
+    const subSlider = el.querySelector('.monosynth-slider[data-param="subVol"]');
     if (subSlider) subSlider.value = params.subVol;
     // All other numeric sliders
     ['cutoff','resonance','filterEnvAmt','keyTrack',
      'fAttack','fDecay','fSustain','fRelease',
      'vAttack','vDecay','vSustain','vRelease','velSens',
      'lfoRate','lfoAmount','glide','volume'].forEach(p => {
-      const sl = el.querySelector(`.moog-slider[data-param="${p}"]`);
+      const sl = el.querySelector(`.monosynth-slider[data-param="${p}"]`);
       if (sl) sl.value = params[p];
     });
-    const cv = el.querySelector('.moog-cutoff-val');
+    const cv = el.querySelector('.monosynth-cutoff-val');
     if (cv) cv.textContent = `${Math.round(params.cutoff)}Hz`;
     // LFO wave
-    el.querySelectorAll('.moog-lfo-wave-btn').forEach(btn => {
-      btn.classList.toggle('moog-lfo-wave-btn--on', btn.dataset.lfowave === params.lfoWave);
+    el.querySelectorAll('.monosynth-lfo-wave-btn').forEach(btn => {
+      btn.classList.toggle('monosynth-lfo-wave-btn--on', btn.dataset.lfowave === params.lfoWave);
     });
     // LFO dest
-    el.querySelectorAll('.moog-dest-btn').forEach(btn => {
-      btn.classList.toggle('moog-dest-btn--on', !!params[btn.dataset.dest]);
+    el.querySelectorAll('.monosynth-dest-btn').forEach(btn => {
+      btn.classList.toggle('monosynth-dest-btn--on', !!params[btn.dataset.dest]);
     });
   }
 
   // ── Keyboard ───────────────────────────────────────────────────────────────
-  const kbEl = el.querySelector('.moog-keyboard');
+  const kbEl = el.querySelector('.monosynth-keyboard');
   const WHITE_PATTERN = [0,2,4,5,7,9,11];
   const MIDI_START = 48;
   const MIDI_END   = 72;
@@ -1100,11 +1100,11 @@ export function createMoog(audioContext) {
   }
   whiteKeys.forEach(midi => {
     const k = document.createElement('div');
-    k.className = 'moog-key-white';
+    k.className = 'monosynth-key-white';
     k.dataset.midi = midi;
     if (midi % 12 === 0) {
       const lbl = document.createElement('span');
-      lbl.className = 'moog-key-label';
+      lbl.className = 'monosynth-key-label';
       lbl.textContent = `C${Math.floor(midi/12)-1}`;
       k.appendChild(lbl);
     }
@@ -1115,7 +1115,7 @@ export function createMoog(audioContext) {
     const prevWhiteIdx = whiteKeys.findIndex(w => w > midi) - 1;
     if (prevWhiteIdx < 0) return;
     const k = document.createElement('div');
-    k.className = 'moog-key-black';
+    k.className = 'monosynth-key-black';
     k.dataset.midi = midi;
     k.style.left = `${(prevWhiteIdx + 1) * wkW}%`;
     kbEl.appendChild(k);
@@ -1143,7 +1143,7 @@ export function createMoog(audioContext) {
   });
 
   // ── Slider interactions ────────────────────────────────────────────────────
-  el.querySelectorAll('.moog-slider').forEach(slider => {
+  el.querySelectorAll('.monosynth-slider').forEach(slider => {
     slider.addEventListener('input', () => {
       const p = slider.dataset.param;
       const v = parseFloat(slider.value);
@@ -1158,7 +1158,7 @@ export function createMoog(audioContext) {
     switch(p) {
       case 'cutoff':
         _applyFilterCutoff(v);
-        { const cv = el.querySelector('.moog-cutoff-val'); if (cv) cv.textContent = `${Math.round(v)}Hz`; }
+        { const cv = el.querySelector('.monosynth-cutoff-val'); if (cv) cv.textContent = `${Math.round(v)}Hz`; }
         break;
       case 'resonance':
         _applyFilterResonance(v);
@@ -1177,20 +1177,20 @@ export function createMoog(audioContext) {
       case 'vco3Vol': vco3Gain.gain.setTargetAtTime(v, t, 0.02); break;
       case 'subVol':  subGain.gain.setTargetAtTime(v, t, 0.02); break;
       case 'vco2Fine': vco2.detune.setTargetAtTime(v, t, 0.01);
-        { const fv = el.querySelector('.moog-fine-val'); if (fv) fv.textContent = `${v >= 0 ? '+' : ''}${v.toFixed(1)}`; }
+        { const fv = el.querySelector('.monosynth-fine-val'); if (fv) fv.textContent = `${v >= 0 ? '+' : ''}${v.toFixed(1)}`; }
         break;
     }
   }
 
   // ── VCO wave buttons ───────────────────────────────────────────────────────
-  el.querySelectorAll('.moog-wave-btn').forEach(btn => {
+  el.querySelectorAll('.monosynth-wave-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const vn = parseInt(btn.dataset.vco);
       const wf = btn.dataset.wave;
       const wKey = `vco${vn}Wave`;
       params[wKey] = wf;
-      el.querySelectorAll(`.moog-wave-btn[data-vco="${vn}"]`).forEach(b =>
-        b.classList.toggle('moog-wave-btn--on', b.dataset.wave === wf)
+      el.querySelectorAll(`.monosynth-wave-btn[data-vco="${vn}"]`).forEach(b =>
+        b.classList.toggle('monosynth-wave-btn--on', b.dataset.wave === wf)
       );
       if (ctx) {
         if (vn === 1) vco1.type = wf;
@@ -1201,54 +1201,54 @@ export function createMoog(audioContext) {
   });
 
   // ── VCO octave buttons ─────────────────────────────────────────────────────
-  el.querySelectorAll('.moog-oct-btn').forEach(btn => {
+  el.querySelectorAll('.monosynth-oct-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const vn = parseInt(btn.dataset.vco);
       const oi = parseInt(btn.dataset.oct);
       params[`vco${vn}Octave`] = oi;
-      el.querySelectorAll(`.moog-oct-btn[data-vco="${vn}"]`).forEach(b =>
-        b.classList.toggle('moog-oct-btn--on', parseInt(b.dataset.oct) === oi)
+      el.querySelectorAll(`.monosynth-oct-btn[data-vco="${vn}"]`).forEach(b =>
+        b.classList.toggle('monosynth-oct-btn--on', parseInt(b.dataset.oct) === oi)
       );
     });
   });
 
   // ── VCO3 free toggle ───────────────────────────────────────────────────────
-  el.querySelector('.moog-free-btn')?.addEventListener('click', e => {
+  el.querySelector('.monosynth-free-btn')?.addEventListener('click', e => {
     params.vco3Free = !params.vco3Free;
-    e.currentTarget.classList.toggle('moog-free-btn--on', params.vco3Free);
+    e.currentTarget.classList.toggle('monosynth-free-btn--on', params.vco3Free);
   });
 
   // ── LFO wave buttons ───────────────────────────────────────────────────────
-  el.querySelectorAll('.moog-lfo-wave-btn').forEach(btn => {
+  el.querySelectorAll('.monosynth-lfo-wave-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const wf = btn.dataset.lfowave;
       params.lfoWave = wf;
       if (ctx) lfo.type = wf;
-      el.querySelectorAll('.moog-lfo-wave-btn').forEach(b =>
-        b.classList.toggle('moog-lfo-wave-btn--on', b.dataset.lfowave === wf)
+      el.querySelectorAll('.monosynth-lfo-wave-btn').forEach(b =>
+        b.classList.toggle('monosynth-lfo-wave-btn--on', b.dataset.lfowave === wf)
       );
     });
   });
 
   // ── LFO destination buttons ────────────────────────────────────────────────
-  el.querySelectorAll('.moog-dest-btn').forEach(btn => {
+  el.querySelectorAll('.monosynth-dest-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const dest = btn.dataset.dest;
       params[dest] = !params[dest];
-      btn.classList.toggle('moog-dest-btn--on', params[dest]);
+      btn.classList.toggle('monosynth-dest-btn--on', params[dest]);
       _applyLFO();
     });
   });
 
   // ── Preset load ────────────────────────────────────────────────────────────
-  el.querySelector('.moog-load-preset')?.addEventListener('click', () => {
-    const name = el.querySelector('.moog-preset-select')?.value;
+  el.querySelector('.monosynth-load-preset')?.addEventListener('click', () => {
+    const name = el.querySelector('.monosynth-preset-select')?.value;
     if (name) _applyPreset(name);
   });
 
   // ── Audio port export ──────────────────────────────────────────────────────
   if (ctx && outputGain) {
-    el._moogAudio = outputGain;
+    el._monosynthAudio = outputGain;
     const outPort = el.querySelector('.port[data-port="audio-out"]');
     if (outPort) outPort._audioNode = outputGain;
   }

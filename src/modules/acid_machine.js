@@ -1,6 +1,6 @@
-// tb303.js — Roland TB-303 Acid Bass Synthesizer module
+// acid_machine.js — Acid Machine Synthesizer module
 
-export function createTB303(audioContext) {
+export function createAcidMachine(audioContext) {
   // ── State ──────────────────────────────────────────────────────────────────
   const _steps = Array.from({ length: 16 }, () => ({
     note: 60,
@@ -234,7 +234,7 @@ export function createTB303(audioContext) {
   }
 
   function _triggerVU() {
-    const vuBar = el.querySelector('.tb303-vu-bar');
+    const vuBar = el.querySelector('.acid-machine-vu-bar');
     if (!vuBar) return;
     vuBar.classList.add('active');
     if (_vuTimeout) clearTimeout(_vuTimeout);
@@ -321,17 +321,17 @@ export function createTB303(audioContext) {
   }
 
   function _updateStepLEDs(activeIdx) {
-    el.querySelectorAll('.tb303-step').forEach((btn, i) => {
+    el.querySelectorAll('.acid-machine-step').forEach((btn, i) => {
       btn.classList.toggle('playing', i === activeIdx);
     });
     // Update TEMPO SYNC BPM display
-    const syncEl = el.querySelector('.tb303-tempo-sync-val');
+    const syncEl = el.querySelector('.acid-machine-tempo-sync-val');
     if (syncEl && _syncBPM) syncEl.textContent = `${Math.round(_syncBPM)} BPM`;
   }
 
   // ── DOM ───────────────────────────────────────────────────────────────────
   const el = document.createElement('div');
-  el.className = 'tb303-chassis';
+  el.className = 'acid-machine-chassis';
 
   const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -343,15 +343,15 @@ export function createTB303(audioContext) {
     return Array.from({ length: 16 }, (_, i) => {
       const s = _steps[i];
       return `
-        <div class="tb303-step-wrap" data-step="${i}">
-          <div class="tb303-step-led"></div>
-          <button class="tb303-step ${s.active ? 'active' : ''}" data-step="${i}" title="Left-click: select  Right-click: open note picker  Dbl-click: toggle active">
-            <span class="tb303-step-num">${i + 1}</span>
-            <span class="tb303-step-note">${_noteLabel(s)}</span>
+        <div class="acid-machine-step-wrap" data-step="${i}">
+          <div class="acid-machine-step-led"></div>
+          <button class="acid-machine-step ${s.active ? 'active' : ''}" data-step="${i}" title="Left-click: select  Right-click: open note picker  Dbl-click: toggle active">
+            <span class="acid-machine-step-num">${i + 1}</span>
+            <span class="acid-machine-step-note">${_noteLabel(s)}</span>
           </button>
-          <div class="tb303-step-flags">
-            <button class="tb303-flag-btn tb303-acc-btn ${s.accent ? 'on' : ''}" data-step="${i}" data-flag="accent" title="Accent">A</button>
-            <button class="tb303-flag-btn tb303-slide-btn ${s.slide ? 'on' : ''}" data-step="${i}" data-flag="slide" title="Slide">S</button>
+          <div class="acid-machine-step-flags">
+            <button class="acid-machine-flag-btn acid-machine-acc-btn ${s.accent ? 'on' : ''}" data-step="${i}" data-flag="accent" title="Accent">A</button>
+            <button class="acid-machine-flag-btn acid-machine-slide-btn ${s.slide ? 'on' : ''}" data-step="${i}" data-flag="slide" title="Slide">S</button>
           </div>
         </div>
       `;
@@ -367,170 +367,170 @@ export function createTB303(audioContext) {
   </svg>`;
 
   el.innerHTML = `
-    <div class="tb303-ports-bar">
+    <div class="acid-machine-ports-bar">
       <span class="port" data-port="clock-in">CLK IN</span>
-      <span class="tb303-brand">ROLAND  TB-303</span>
-      <div class="tb303-tempo-sync">
-        <span class="tb303-tempo-sync-label">SYNC</span>
-        <span class="tb303-tempo-sync-val">-- BPM</span>
+      <span class="acid-machine-brand">ACID MACHINE</span>
+      <div class="acid-machine-tempo-sync">
+        <span class="acid-machine-tempo-sync-label">SYNC</span>
+        <span class="acid-machine-tempo-sync-val">-- BPM</span>
       </div>
       <span class="port" data-port="audio-out">AUDIO OUT</span>
     </div>
 
-    <div class="tb303-body">
+    <div class="acid-machine-body">
 
       <!-- Top knob row -->
-      <div class="tb303-knob-row tb303-top-knobs">
-        <div class="tb303-knob-wrap">
-          <span class="tb303-knob-label">TUNING</span>
-          <div class="tb303-knob" data-param="tune" tabindex="0"></div>
-          <span class="tb303-knob-val" data-param-val="tune">0</span>
+      <div class="acid-machine-knob-row acid-machine-top-knobs">
+        <div class="acid-machine-knob-wrap">
+          <span class="acid-machine-knob-label">TUNING</span>
+          <div class="acid-machine-knob" data-param="tune" tabindex="0"></div>
+          <span class="acid-machine-knob-val" data-param-val="tune">0</span>
         </div>
-        <div class="tb303-knob-wrap">
-          <span class="tb303-knob-label">CUTOFF</span>
-          <div class="tb303-knob" data-param="cutoff" tabindex="0"></div>
-          <span class="tb303-knob-val" data-param-val="cutoff">1k</span>
+        <div class="acid-machine-knob-wrap">
+          <span class="acid-machine-knob-label">CUTOFF</span>
+          <div class="acid-machine-knob" data-param="cutoff" tabindex="0"></div>
+          <span class="acid-machine-knob-val" data-param-val="cutoff">1k</span>
         </div>
-        <div class="tb303-knob-wrap">
-          <span class="tb303-knob-label">RESONANCE</span>
-          <div class="tb303-knob" data-param="resonance" tabindex="0"></div>
-          <span class="tb303-knob-val" data-param-val="resonance">55%</span>
+        <div class="acid-machine-knob-wrap">
+          <span class="acid-machine-knob-label">RESONANCE</span>
+          <div class="acid-machine-knob" data-param="resonance" tabindex="0"></div>
+          <span class="acid-machine-knob-val" data-param-val="resonance">55%</span>
         </div>
-        <div class="tb303-knob-wrap">
-          <span class="tb303-knob-label">ENV MOD</span>
-          <div class="tb303-knob" data-param="envMod" tabindex="0"></div>
-          <span class="tb303-knob-val" data-param-val="envMod">60%</span>
+        <div class="acid-machine-knob-wrap">
+          <span class="acid-machine-knob-label">ENV MOD</span>
+          <div class="acid-machine-knob" data-param="envMod" tabindex="0"></div>
+          <span class="acid-machine-knob-val" data-param-val="envMod">60%</span>
         </div>
-        <div class="tb303-knob-wrap">
-          <span class="tb303-knob-label">DECAY</span>
-          <div class="tb303-knob" data-param="decay" tabindex="0"></div>
-          <span class="tb303-knob-val" data-param-val="decay">840ms</span>
+        <div class="acid-machine-knob-wrap">
+          <span class="acid-machine-knob-label">DECAY</span>
+          <div class="acid-machine-knob" data-param="decay" tabindex="0"></div>
+          <span class="acid-machine-knob-val" data-param-val="decay">840ms</span>
         </div>
-        <div class="tb303-knob-wrap">
-          <span class="tb303-knob-label">ACCENT</span>
-          <div class="tb303-knob" data-param="accent" tabindex="0"></div>
-          <span class="tb303-knob-val" data-param-val="accent">60%</span>
+        <div class="acid-machine-knob-wrap">
+          <span class="acid-machine-knob-label">ACCENT</span>
+          <div class="acid-machine-knob" data-param="accent" tabindex="0"></div>
+          <span class="acid-machine-knob-val" data-param-val="accent">60%</span>
         </div>
       </div>
 
       <!-- Middle controls -->
-      <div class="tb303-middle">
-        <div class="tb303-wave-group">
-          <span class="tb303-section-label">WAVE</span>
-          <div class="tb303-wave-btns">
-            <button class="tb303-wave-btn active" data-wave="sawtooth">
-              <span class="tb303-wave-icon tb303-wave-icon--saw">${SVG_SAW}</span>
+      <div class="acid-machine-middle">
+        <div class="acid-machine-wave-group">
+          <span class="acid-machine-section-label">WAVE</span>
+          <div class="acid-machine-wave-btns">
+            <button class="acid-machine-wave-btn active" data-wave="sawtooth">
+              <span class="acid-machine-wave-icon acid-machine-wave-icon--saw">${SVG_SAW}</span>
               SAW
             </button>
-            <button class="tb303-wave-btn" data-wave="square">
-              <span class="tb303-wave-icon tb303-wave-icon--sqr">${SVG_SQR}</span>
+            <button class="acid-machine-wave-btn" data-wave="square">
+              <span class="acid-machine-wave-icon acid-machine-wave-icon--sqr">${SVG_SQR}</span>
               SQR
             </button>
           </div>
         </div>
 
-        <div class="tb303-small-knobs">
-          <div class="tb303-knob-wrap">
-            <span class="tb303-knob-label">DRIVE</span>
-            <div class="tb303-knob tb303-knob--sm" data-param="drive" tabindex="0"></div>
-            <span class="tb303-knob-val" data-param-val="drive">10</span>
+        <div class="acid-machine-small-knobs">
+          <div class="acid-machine-knob-wrap">
+            <span class="acid-machine-knob-label">DRIVE</span>
+            <div class="acid-machine-knob acid-machine-knob--sm" data-param="drive" tabindex="0"></div>
+            <span class="acid-machine-knob-val" data-param-val="drive">10</span>
           </div>
-          <div class="tb303-knob-wrap">
-            <span class="tb303-knob-label">VOLUME</span>
-            <div class="tb303-knob tb303-knob--sm" data-param="volume" tabindex="0"></div>
-            <span class="tb303-knob-val" data-param-val="volume">75%</span>
+          <div class="acid-machine-knob-wrap">
+            <span class="acid-machine-knob-label">VOLUME</span>
+            <div class="acid-machine-knob acid-machine-knob--sm" data-param="volume" tabindex="0"></div>
+            <span class="acid-machine-knob-val" data-param-val="volume">75%</span>
           </div>
-          <div class="tb303-vu-wrap">
-            <span class="tb303-knob-label">VU</span>
-            <div class="tb303-vu-bar"></div>
+          <div class="acid-machine-vu-wrap">
+            <span class="acid-machine-knob-label">VU</span>
+            <div class="acid-machine-vu-bar"></div>
           </div>
         </div>
 
-        <div class="tb303-transport">
-          <button class="tb303-run-btn" id="tb303-run">&#9654; RUN</button>
-          <button class="tb303-stop-btn" id="tb303-stop">&#9632; STOP</button>
+        <div class="acid-machine-transport">
+          <button class="acid-machine-run-btn" id="acid-machine-run">&#9654; RUN</button>
+          <button class="acid-machine-stop-btn" id="acid-machine-stop">&#9632; STOP</button>
         </div>
       </div>
 
       <!-- Pattern controls row: PRESET + SCALE + OCT TRANSPOSE -->
-      <div class="tb303-pattern-controls">
-        <div class="tb303-ctrl-group">
-          <span class="tb303-section-label">PRESET</span>
-          <select class="tb303-preset-select">
+      <div class="acid-machine-pattern-controls">
+        <div class="acid-machine-ctrl-group">
+          <span class="acid-machine-section-label">PRESET</span>
+          <select class="acid-machine-preset-select">
             ${Object.keys(PRESETS).map(n => `<option value="${n}">${n}</option>`).join('')}
           </select>
-          <button class="tb303-load-preset">LOAD</button>
+          <button class="acid-machine-load-preset">LOAD</button>
         </div>
-        <div class="tb303-ctrl-group">
-          <span class="tb303-section-label">SCALE</span>
-          <select class="tb303-scale-select">
+        <div class="acid-machine-ctrl-group">
+          <span class="acid-machine-section-label">SCALE</span>
+          <select class="acid-machine-scale-select">
             ${Object.keys(SCALES).map(n => `<option value="${n}" ${n==='CHROMATIC'?'selected':''}>${n}</option>`).join('')}
           </select>
         </div>
-        <div class="tb303-ctrl-group">
-          <span class="tb303-section-label">TRANSPOSE</span>
-          <button class="tb303-oct-transpose" data-dir="-1">OCT-</button>
-          <button class="tb303-oct-transpose" data-dir="1">OCT+</button>
+        <div class="acid-machine-ctrl-group">
+          <span class="acid-machine-section-label">TRANSPOSE</span>
+          <button class="acid-machine-oct-transpose" data-dir="-1">OCT-</button>
+          <button class="acid-machine-oct-transpose" data-dir="1">OCT+</button>
         </div>
       </div>
 
       <!-- Sequencer grid -->
-      <div class="tb303-seq-section">
-        <div class="tb303-seq-grid">
+      <div class="acid-machine-seq-section">
+        <div class="acid-machine-seq-grid">
           ${_buildStepButtons()}
         </div>
 
         <!-- Note editor -->
-        <div class="tb303-note-editor">
-          <span class="tb303-section-label">STEP NOTE</span>
-          <div class="tb303-note-picker">
-            ${NOTE_NAMES.map((n, i) => `<button class="tb303-note-btn ${n.includes('#') ? 'sharp' : ''}" data-note-offset="${i}">${n}</button>`).join('')}
+        <div class="acid-machine-note-editor">
+          <span class="acid-machine-section-label">STEP NOTE</span>
+          <div class="acid-machine-note-picker">
+            ${NOTE_NAMES.map((n, i) => `<button class="acid-machine-note-btn ${n.includes('#') ? 'sharp' : ''}" data-note-offset="${i}">${n}</button>`).join('')}
           </div>
-          <div class="tb303-octave-picker">
-            <span class="tb303-section-label">OCT</span>
-            <button class="tb303-oct-btn" data-oct="-1">&#8722;</button>
-            <span class="tb303-oct-val">0</span>
-            <button class="tb303-oct-btn" data-oct="1">+</button>
+          <div class="acid-machine-octave-picker">
+            <span class="acid-machine-section-label">OCT</span>
+            <button class="acid-machine-oct-btn" data-oct="-1">&#8722;</button>
+            <span class="acid-machine-oct-val">0</span>
+            <button class="acid-machine-oct-btn" data-oct="1">+</button>
           </div>
-          <span class="tb303-sel-label">&#8212; select a step &#8212;</span>
+          <span class="acid-machine-sel-label">&#8212; select a step &#8212;</span>
         </div>
       </div>
 
     </div>
 
     <!-- Note picker popup (right-click on step) -->
-    <div class="tb303-notepicker-popup" style="display:none">
-      <div class="tb303-notepicker-title">PICK NOTE</div>
-      <div class="tb303-notepicker-piano"></div>
+    <div class="acid-machine-notepicker-popup" style="display:none">
+      <div class="acid-machine-notepicker-title">PICK NOTE</div>
+      <div class="acid-machine-notepicker-piano"></div>
     </div>
 
     <style>
-      .tb303-tempo-sync {
+      .acid-machine-tempo-sync {
         display: flex;
         flex-direction: column;
         align-items: center;
         margin-left: auto;
         margin-right: 8px;
       }
-      .tb303-tempo-sync-label {
+      .acid-machine-tempo-sync-label {
         font-size: 8px;
         color: #4f4;
         letter-spacing: 0.1em;
       }
-      .tb303-tempo-sync-val {
+      .acid-machine-tempo-sync-val {
         font-size: 9px;
         color: #4f4;
         font-family: monospace;
         letter-spacing: 0.05em;
       }
 
-      .tb303-vu-wrap {
+      .acid-machine-vu-wrap {
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 2px;
       }
-      .tb303-vu-bar {
+      .acid-machine-vu-bar {
         width: 8px;
         height: 36px;
         background: #1a1a10;
@@ -540,7 +540,7 @@ export function createTB303(audioContext) {
         overflow: hidden;
         transition: box-shadow 0.05s;
       }
-      .tb303-vu-bar::after {
+      .acid-machine-vu-bar::after {
         content: '';
         position: absolute;
         bottom: 0;
@@ -551,14 +551,14 @@ export function createTB303(audioContext) {
         transition: height 0.04s ease-out;
         border-radius: 1px;
       }
-      .tb303-vu-bar.active::after {
+      .acid-machine-vu-bar.active::after {
         height: 100%;
       }
-      .tb303-vu-bar.active {
+      .acid-machine-vu-bar.active {
         box-shadow: 0 0 6px rgba(255,120,0,0.6);
       }
 
-      .tb303-pattern-controls {
+      .acid-machine-pattern-controls {
         display: flex;
         flex-direction: row;
         align-items: center;
@@ -569,14 +569,14 @@ export function createTB303(audioContext) {
         border-bottom: 1px solid rgba(255,255,255,0.05);
         flex-wrap: wrap;
       }
-      .tb303-ctrl-group {
+      .acid-machine-ctrl-group {
         display: flex;
         flex-direction: row;
         align-items: center;
         gap: 5px;
       }
-      .tb303-preset-select,
-      .tb303-scale-select {
+      .acid-machine-preset-select,
+      .acid-machine-scale-select {
         font-family: monospace;
         font-size: 10px;
         background: #1a1a10;
@@ -587,7 +587,7 @@ export function createTB303(audioContext) {
         cursor: pointer;
         letter-spacing: 0.04em;
       }
-      .tb303-load-preset {
+      .acid-machine-load-preset {
         font-family: monospace;
         font-size: 9px;
         background: #333;
@@ -599,8 +599,8 @@ export function createTB303(audioContext) {
         letter-spacing: 0.06em;
         transition: background 0.1s;
       }
-      .tb303-load-preset:hover { background: #555; }
-      .tb303-oct-transpose {
+      .acid-machine-load-preset:hover { background: #555; }
+      .acid-machine-oct-transpose {
         font-family: monospace;
         font-size: 9px;
         background: #2a2a18;
@@ -612,43 +612,43 @@ export function createTB303(audioContext) {
         letter-spacing: 0.05em;
         transition: background 0.1s;
       }
-      .tb303-oct-transpose:hover { background: #444; }
+      .acid-machine-oct-transpose:hover { background: #444; }
 
       /* Wave buttons with SVG preview */
-      .tb303-wave-btn {
+      .acid-machine-wave-btn {
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 1px;
       }
-      .tb303-wave-icon {
+      .acid-machine-wave-icon {
         display: block;
         width: 40px;
         height: 20px;
         color: #888;
         transition: color 0.1s;
       }
-      .tb303-wave-btn.active .tb303-wave-icon { color: #e8c060; }
+      .acid-machine-wave-btn.active .acid-machine-wave-icon { color: #e8c060; }
 
       /* More distinct Accent and Slide flags */
-      .tb303-acc-btn {
+      .acid-machine-acc-btn {
         background: #2a1400;
         color: #a04000;
         border-color: #a04000;
       }
-      .tb303-acc-btn.on {
+      .acid-machine-acc-btn.on {
         background: #ff6000;
         color: #fff;
         border-color: #ff8020;
         box-shadow: 0 0 5px rgba(255,96,0,0.7);
         font-weight: bold;
       }
-      .tb303-slide-btn {
+      .acid-machine-slide-btn {
         background: #001425;
         color: #004488;
         border-color: #004488;
       }
-      .tb303-slide-btn.on {
+      .acid-machine-slide-btn.on {
         background: #0088ff;
         color: #fff;
         border-color: #44aaff;
@@ -657,7 +657,7 @@ export function createTB303(audioContext) {
       }
 
       /* Note picker popup */
-      .tb303-notepicker-popup {
+      .acid-machine-notepicker-popup {
         position: fixed;
         z-index: 9999;
         background: #1a1a10;
@@ -667,7 +667,7 @@ export function createTB303(audioContext) {
         box-shadow: 0 4px 16px rgba(0,0,0,0.8);
         min-width: 130px;
       }
-      .tb303-notepicker-title {
+      .acid-machine-notepicker-title {
         font-family: monospace;
         font-size: 9px;
         color: #e8c060;
@@ -675,12 +675,12 @@ export function createTB303(audioContext) {
         margin-bottom: 5px;
         text-align: center;
       }
-      .tb303-notepicker-piano {
+      .acid-machine-notepicker-piano {
         display: grid;
         grid-template-columns: repeat(12, 1fr);
         gap: 2px;
       }
-      .tb303-pp-key {
+      .acid-machine-pp-key {
         font-family: monospace;
         font-size: 7px;
         padding: 3px 1px;
@@ -692,22 +692,22 @@ export function createTB303(audioContext) {
         white-space: nowrap;
         overflow: hidden;
       }
-      .tb303-pp-key.natural {
+      .acid-machine-pp-key.natural {
         background: #e8e0c0;
         color: #222;
       }
-      .tb303-pp-key.natural:hover { background: #fff; }
-      .tb303-pp-key.sharp {
+      .acid-machine-pp-key.natural:hover { background: #fff; }
+      .acid-machine-pp-key.sharp {
         background: #222;
         color: #888;
         border-color: #333;
       }
-      .tb303-pp-key.sharp:hover { background: #444; color: #fff; }
-      .tb303-pp-key.out-of-scale {
+      .acid-machine-pp-key.sharp:hover { background: #444; color: #fff; }
+      .acid-machine-pp-key.out-of-scale {
         opacity: 0.28;
         cursor: not-allowed;
       }
-      .tb303-pp-key.out-of-scale:hover { background: inherit; }
+      .acid-machine-pp-key.out-of-scale:hover { background: inherit; }
     </style>
   `;
 
@@ -766,7 +766,7 @@ export function createTB303(audioContext) {
     }
   }
 
-  el.querySelectorAll('.tb303-knob').forEach(knob => {
+  el.querySelectorAll('.acid-machine-knob').forEach(knob => {
     const param = knob.dataset.param;
     _updateKnobVisual(knob, _params[param] ?? 0.5);
 
@@ -788,9 +788,9 @@ export function createTB303(audioContext) {
   });
 
   // ── Waveform selector ──────────────────────────────────────────────────────
-  el.querySelectorAll('.tb303-wave-btn').forEach(btn => {
+  el.querySelectorAll('.acid-machine-wave-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      el.querySelectorAll('.tb303-wave-btn').forEach(b => b.classList.remove('active'));
+      el.querySelectorAll('.acid-machine-wave-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       _waveform = btn.dataset.wave;
       if (osc) osc.type = _waveform;
@@ -798,13 +798,13 @@ export function createTB303(audioContext) {
   });
 
   // ── Scale selector ─────────────────────────────────────────────────────────
-  el.querySelector('.tb303-scale-select')?.addEventListener('change', e => {
+  el.querySelector('.acid-machine-scale-select')?.addEventListener('change', e => {
     _currentScale = e.target.value;
   });
 
   // ── Preset controls ────────────────────────────────────────────────────────
-  el.querySelector('.tb303-load-preset')?.addEventListener('click', () => {
-    const name = el.querySelector('.tb303-preset-select')?.value;
+  el.querySelector('.acid-machine-load-preset')?.addEventListener('click', () => {
+    const name = el.querySelector('.acid-machine-preset-select')?.value;
     if (name && PRESETS[name]) {
       PRESETS[name]();
       _rebuildStepButtons();
@@ -812,7 +812,7 @@ export function createTB303(audioContext) {
   });
 
   // ── Transpose controls ─────────────────────────────────────────────────────
-  el.querySelectorAll('.tb303-oct-transpose').forEach(btn => {
+  el.querySelectorAll('.acid-machine-oct-transpose').forEach(btn => {
     btn.addEventListener('click', () => {
       const dir = parseInt(btn.dataset.dir);
       _steps.forEach(s => {
@@ -828,7 +828,7 @@ export function createTB303(audioContext) {
   });
 
   function _rebuildStepButtons() {
-    const grid = el.querySelector('.tb303-seq-grid');
+    const grid = el.querySelector('.acid-machine-seq-grid');
     if (!grid) return;
     grid.innerHTML = _buildStepButtons();
     // Re-attach events
@@ -840,27 +840,27 @@ export function createTB303(audioContext) {
   let _selectedStep = null;
 
   // Note picker popup
-  const _popup = el.querySelector('.tb303-notepicker-popup');
+  const _popup = el.querySelector('.acid-machine-notepicker-popup');
   let _popupStep = null;
 
   function _showNotePicker(stepIdx, x, y) {
     _popupStep = stepIdx;
-    const piano = _popup.querySelector('.tb303-notepicker-piano');
+    const piano = _popup.querySelector('.acid-machine-notepicker-piano');
     const scaleIntervals = SCALES[_currentScale];
     piano.innerHTML = NOTE_NAMES.map((n, i) => {
       const inScale = scaleIntervals.includes(i);
       const isSharp = n.includes('#');
-      return `<button class="tb303-pp-key ${isSharp?'sharp':'natural'} ${inScale?'':'out-of-scale'}" data-note-offset="${i}" title="${n}">${n}</button>`;
+      return `<button class="acid-machine-pp-key ${isSharp?'sharp':'natural'} ${inScale?'':'out-of-scale'}" data-note-offset="${i}" title="${n}">${n}</button>`;
     }).join('');
 
     // Click handler for popup keys
-    piano.querySelectorAll('.tb303-pp-key:not(.out-of-scale)').forEach(k => {
+    piano.querySelectorAll('.acid-machine-pp-key:not(.out-of-scale)').forEach(k => {
       k.addEventListener('click', () => {
         const offset = parseInt(k.dataset.noteOffset);
         const step = _steps[_popupStep];
         const octaveBase = Math.floor((step.note - 12) / 12) * 12 + 12;
         step.note = octaveBase + offset;
-        const noteEl = el.querySelector(`.tb303-step[data-step="${_popupStep}"] .tb303-step-note`);
+        const noteEl = el.querySelector(`.acid-machine-step[data-step="${_popupStep}"] .acid-machine-step-note`);
         if (noteEl) noteEl.textContent = _noteLabel(step);
         _popup.style.display = 'none';
         if (_selectedStep === _popupStep) _updateNoteEditorDisplay(_popupStep);
@@ -880,17 +880,17 @@ export function createTB303(audioContext) {
   });
 
   function _attachStepEvents() {
-    el.querySelectorAll('.tb303-step').forEach(btn => {
+    el.querySelectorAll('.acid-machine-step').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
         const i = parseInt(btn.dataset.step);
         if (_selectedStep === i) {
           _selectedStep = null;
-          el.querySelectorAll('.tb303-step').forEach(b => b.classList.remove('selected'));
+          el.querySelectorAll('.acid-machine-step').forEach(b => b.classList.remove('selected'));
           _updateNoteEditorDisplay(null);
         } else {
           _selectedStep = i;
-          el.querySelectorAll('.tb303-step').forEach(b => b.classList.remove('selected'));
+          el.querySelectorAll('.acid-machine-step').forEach(b => b.classList.remove('selected'));
           btn.classList.add('selected');
           _updateNoteEditorDisplay(i);
         }
@@ -911,7 +911,7 @@ export function createTB303(audioContext) {
     });
 
     // Accent/Slide toggle buttons
-    el.querySelectorAll('.tb303-flag-btn').forEach(btn => {
+    el.querySelectorAll('.acid-machine-flag-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const i = parseInt(btn.dataset.step);
@@ -926,12 +926,12 @@ export function createTB303(audioContext) {
 
   // Note editor
   function _updateNoteEditorDisplay(stepIdx) {
-    const labelEl = el.querySelector('.tb303-sel-label');
-    const octValEl = el.querySelector('.tb303-oct-val');
+    const labelEl = el.querySelector('.acid-machine-sel-label');
+    const octValEl = el.querySelector('.acid-machine-oct-val');
     if (stepIdx === null) {
       if (labelEl) labelEl.textContent = '— select a step —';
       if (octValEl) octValEl.textContent = '0';
-      el.querySelectorAll('.tb303-note-btn').forEach(b => b.classList.remove('active'));
+      el.querySelectorAll('.acid-machine-note-btn').forEach(b => b.classList.remove('active'));
       return;
     }
     const step = _steps[stepIdx];
@@ -939,7 +939,7 @@ export function createTB303(audioContext) {
     if (octValEl) octValEl.textContent = step.octave;
 
     const scaleIntervals = SCALES[_currentScale];
-    el.querySelectorAll('.tb303-note-btn').forEach(b => {
+    el.querySelectorAll('.acid-machine-note-btn').forEach(b => {
       const noteOff = parseInt(b.dataset.noteOffset);
       const inScale = scaleIntervals.includes(noteOff);
       b.classList.toggle('active', noteOff === (step.note % 12));
@@ -948,29 +948,29 @@ export function createTB303(audioContext) {
     });
   }
 
-  el.querySelectorAll('.tb303-note-btn').forEach(btn => {
+  el.querySelectorAll('.acid-machine-note-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       if (_selectedStep === null) return;
       const noteOffset = parseInt(btn.dataset.noteOffset);
       const step = _steps[_selectedStep];
       const octaveBase = Math.floor((step.note - 12) / 12) * 12 + 12;
       step.note = octaveBase + noteOffset;
-      const stepBtn = el.querySelector(`.tb303-step[data-step="${_selectedStep}"] .tb303-step-note`);
+      const stepBtn = el.querySelector(`.acid-machine-step[data-step="${_selectedStep}"] .acid-machine-step-note`);
       if (stepBtn) stepBtn.textContent = _noteLabel(step);
       _updateNoteEditorDisplay(_selectedStep);
 
-      el.querySelectorAll('.tb303-note-btn').forEach(b => b.classList.remove('active'));
+      el.querySelectorAll('.acid-machine-note-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
     });
   });
 
-  el.querySelectorAll('.tb303-oct-btn').forEach(btn => {
+  el.querySelectorAll('.acid-machine-oct-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       if (_selectedStep === null) return;
       const step = _steps[_selectedStep];
       const delta = parseInt(btn.dataset.oct);
       step.octave = Math.max(-2, Math.min(2, step.octave + delta));
-      const stepBtn = el.querySelector(`.tb303-step[data-step="${_selectedStep}"] .tb303-step-note`);
+      const stepBtn = el.querySelector(`.acid-machine-step[data-step="${_selectedStep}"] .acid-machine-step-note`);
       if (stepBtn) stepBtn.textContent = _noteLabel(step);
       _updateNoteEditorDisplay(_selectedStep);
     });
@@ -1001,19 +1001,19 @@ export function createTB303(audioContext) {
     _updateStepLEDs(-1);
   }
 
-  el.querySelector('#tb303-run')?.addEventListener('click', () => {
+  el.querySelector('#acid-machine-run')?.addEventListener('click', () => {
     _running = true;
-    el.querySelector('#tb303-run')?.classList.add('active');
-    el.querySelector('#tb303-stop')?.classList.remove('active');
+    el.querySelector('#acid-machine-run')?.classList.add('active');
+    el.querySelector('#acid-machine-stop')?.classList.remove('active');
     if (!ctx) return;
     if (ctx.state === 'suspended') ctx.resume();
     _startStandalone();
   });
 
-  el.querySelector('#tb303-stop')?.addEventListener('click', () => {
+  el.querySelector('#acid-machine-stop')?.addEventListener('click', () => {
     _running = false;
-    el.querySelector('#tb303-run')?.classList.remove('active');
-    el.querySelector('#tb303-stop')?.classList.add('active');
+    el.querySelector('#acid-machine-run')?.classList.remove('active');
+    el.querySelector('#acid-machine-stop')?.classList.add('active');
     _stopStandalone();
   });
 
@@ -1031,7 +1031,7 @@ export function createTB303(audioContext) {
 
   // ── Audio export ──────────────────────────────────────────────────────────
   if (ctx && outputGain) {
-    el._tb303Audio = { output: outputGain, context: ctx };
+    el._acidMachineAudio = { output: outputGain, context: ctx };
     const outPort = el.querySelector('.port[data-port="audio-out"]');
     if (outPort) outPort._audioNode = outputGain;
   }

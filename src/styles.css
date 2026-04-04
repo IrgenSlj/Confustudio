@@ -350,6 +350,29 @@ body {
   cursor: default;
 }
 
+/* ── Module corner resize handles ─────────────────────────── */
+.module-resize-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  z-index: 20;
+  pointer-events: auto;
+  touch-action: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  border-radius: 2px;
+  background: rgba(140,200,80,0.85);
+  border: 1.5px solid rgba(255,255,255,0.5);
+}
+.studio-module:hover .module-resize-handle,
+.module-selected .module-resize-handle {
+  opacity: 1;
+}
+.module-resize-nw { top: -5px; left: -5px; cursor: nw-resize; }
+.module-resize-ne { top: -5px; right: -5px; cursor: ne-resize; }
+.module-resize-sw { bottom: -5px; left: -5px; cursor: sw-resize; }
+.module-resize-se { bottom: -5px; right: -5px; cursor: se-resize; }
+
 button,
 input,
 select,
@@ -5095,10 +5118,10 @@ input[type=range] {
 }
 
 /* ============================================================
-   TB-303 ACID BASS SYNTHESIZER
+   ACID MACHINE SYNTHESIZER
    ============================================================ */
 
-.tb303-chassis {
+.acid-machine-chassis {
   width: 680px;
   background: linear-gradient(180deg, #e8e8e8 0%, #c8c8c8 100%);
   border: 2px solid #888;
@@ -5112,7 +5135,7 @@ input[type=range] {
   overflow: hidden;
 }
 
-.tb303-ports-bar {
+.acid-machine-ports-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -5122,9 +5145,9 @@ input[type=range] {
   cursor: grab;
 }
 
-.tb303-ports-bar:active { cursor: grabbing; }
+.acid-machine-ports-bar:active { cursor: grabbing; }
 
-.tb303-brand {
+.acid-machine-brand {
   font-size: 0.7rem;
   font-weight: 700;
   color: #f0e8d0;
@@ -5132,7 +5155,7 @@ input[type=range] {
   text-transform: uppercase;
 }
 
-.tb303-ports-bar .port {
+.acid-machine-ports-bar .port {
   font-size: 0.45rem;
   color: #aaa;
   letter-spacing: 0.1em;
@@ -5144,12 +5167,12 @@ input[type=range] {
   transition: border-color 0.15s, color 0.15s;
 }
 
-.tb303-ports-bar .port:hover {
+.acid-machine-ports-bar .port:hover {
   border-color: #f0c640;
   color: #f0c640;
 }
 
-.tb303-body {
+.acid-machine-body {
   padding: 10px 14px 12px;
   display: flex;
   flex-direction: column;
@@ -5157,13 +5180,13 @@ input[type=range] {
 }
 
 /* ── Knob rows ── */
-.tb303-knob-row {
+.acid-machine-knob-row {
   display: flex;
   align-items: flex-end;
   gap: 12px;
 }
 
-.tb303-top-knobs {
+.acid-machine-top-knobs {
   justify-content: space-between;
   background: linear-gradient(180deg, #d8d8d8 0%, #c0c0c0 100%);
   border: 1px solid #aaa;
@@ -5171,14 +5194,14 @@ input[type=range] {
   padding: 8px 14px 6px;
 }
 
-.tb303-knob-wrap {
+.acid-machine-knob-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
 }
 
-.tb303-knob-label {
+.acid-machine-knob-label {
   font-size: 0.38rem;
   font-weight: 600;
   color: #333;
@@ -5187,7 +5210,7 @@ input[type=range] {
   text-align: center;
 }
 
-.tb303-knob {
+.acid-machine-knob {
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -5200,13 +5223,13 @@ input[type=range] {
   touch-action: none;
 }
 
-.tb303-knob--sm {
+.acid-machine-knob--sm {
   width: 34px;
   height: 34px;
 }
 
 /* Dot indicator on knob */
-.tb303-knob::after {
+.acid-machine-knob::after {
   content: '';
   position: absolute;
   top: 4px;
@@ -5219,13 +5242,13 @@ input[type=range] {
   box-shadow: 0 0 3px #f0c640;
 }
 
-.tb303-knob--sm::after {
+.acid-machine-knob--sm::after {
   width: 3px;
   height: 3px;
   top: 3px;
 }
 
-.tb303-knob-val {
+.acid-machine-knob-val {
   font-size: 0.36rem;
   color: #555;
   letter-spacing: 0.04em;
@@ -5234,7 +5257,7 @@ input[type=range] {
 }
 
 /* ── Middle row ── */
-.tb303-middle {
+.acid-machine-middle {
   display: flex;
   align-items: center;
   gap: 18px;
@@ -5244,7 +5267,7 @@ input[type=range] {
   padding: 8px 14px;
 }
 
-.tb303-section-label {
+.acid-machine-section-label {
   font-size: 0.36rem;
   font-weight: 700;
   color: #444;
@@ -5252,18 +5275,18 @@ input[type=range] {
   text-transform: uppercase;
 }
 
-.tb303-wave-group {
+.acid-machine-wave-group {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.tb303-wave-btns {
+.acid-machine-wave-btns {
   display: flex;
   gap: 4px;
 }
 
-.tb303-wave-btn {
+.acid-machine-wave-btn {
   font-family: var(--font-mono);
   font-size: 0.55rem;
   font-weight: 700;
@@ -5277,30 +5300,30 @@ input[type=range] {
   transition: all 0.1s;
 }
 
-.tb303-wave-btn.active {
+.acid-machine-wave-btn.active {
   background: #e83c00;
   border-color: #c83000;
   color: #fff;
   box-shadow: 0 0 6px rgba(232,60,0,0.5);
 }
 
-.tb303-wave-btn:hover:not(.active) {
+.acid-machine-wave-btn:hover:not(.active) {
   background: #bbb;
 }
 
-.tb303-small-knobs {
+.acid-machine-small-knobs {
   display: flex;
   gap: 12px;
 }
 
-.tb303-transport {
+.acid-machine-transport {
   display: flex;
   gap: 6px;
   margin-left: auto;
 }
 
-.tb303-run-btn,
-.tb303-stop-btn {
+.acid-machine-run-btn,
+.acid-machine-stop-btn {
   font-family: var(--font-mono);
   font-size: 0.5rem;
   font-weight: 700;
@@ -5314,26 +5337,26 @@ input[type=range] {
   transition: all 0.1s;
 }
 
-.tb303-run-btn.active {
+.acid-machine-run-btn.active {
   background: #3a9c3a;
   border-color: #288028;
   color: #fff;
   box-shadow: 0 0 6px rgba(58,156,58,0.6);
 }
 
-.tb303-stop-btn.active {
+.acid-machine-stop-btn.active {
   background: #c83c3c;
   border-color: #a02020;
   color: #fff;
 }
 
-.tb303-run-btn:hover:not(.active),
-.tb303-stop-btn:hover:not(.active) {
+.acid-machine-run-btn:hover:not(.active),
+.acid-machine-stop-btn:hover:not(.active) {
   background: #b8b8b8;
 }
 
 /* ── Sequencer section ── */
-.tb303-seq-section {
+.acid-machine-seq-section {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -5343,20 +5366,20 @@ input[type=range] {
   padding: 8px 10px;
 }
 
-.tb303-seq-grid {
+.acid-machine-seq-grid {
   display: grid;
   grid-template-columns: repeat(16, 1fr);
   gap: 4px;
 }
 
-.tb303-step-wrap {
+.acid-machine-step-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
 }
 
-.tb303-step-led {
+.acid-machine-step-led {
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -5365,13 +5388,13 @@ input[type=range] {
   transition: background 0.05s, box-shadow 0.05s;
 }
 
-.tb303-step.playing ~ .tb303-step-led,
-.tb303-step-wrap:has(.tb303-step.playing) .tb303-step-led {
+.acid-machine-step.playing ~ .acid-machine-step-led,
+.acid-machine-step-wrap:has(.acid-machine-step.playing) .acid-machine-step-led {
   background: #f0c640;
   box-shadow: 0 0 6px #f0c640;
 }
 
-.tb303-step {
+.acid-machine-step {
   font-family: var(--font-mono);
   display: flex;
   flex-direction: column;
@@ -5393,19 +5416,19 @@ input[type=range] {
   overflow: hidden;
 }
 
-.tb303-step-num {
+.acid-machine-step-num {
   font-weight: 700;
   font-size: 0.38rem;
   line-height: 1;
   color: #888;
 }
 
-.tb303-step-note {
+.acid-machine-step-note {
   font-size: 0.32rem;
   color: #555;
 }
 
-.tb303-step.active {
+.acid-machine-step.active {
   background: #e07020;
   border-color: #c05010;
   color: #fff;
@@ -5414,20 +5437,20 @@ input[type=range] {
     inset 0 1px 0 rgba(255,255,255,0.2);
 }
 
-.tb303-step.active .tb303-step-num { color: rgba(255,255,255,0.6); }
-.tb303-step.active .tb303-step-note { color: #fff; }
+.acid-machine-step.active .acid-machine-step-num { color: rgba(255,255,255,0.6); }
+.acid-machine-step.active .acid-machine-step-note { color: #fff; }
 
-.tb303-step.selected {
+.acid-machine-step.selected {
   border-color: #4080e0;
   box-shadow: 0 0 0 2px rgba(64,128,224,0.5);
 }
 
-.tb303-step.playing {
+.acid-machine-step.playing {
   border-color: #f0c640;
   box-shadow: 0 0 8px rgba(240,198,64,0.7);
 }
 
-.tb303-step.active.playing {
+.acid-machine-step.active.playing {
   background: #f08020;
   border-color: #f0c640;
   box-shadow:
@@ -5435,13 +5458,13 @@ input[type=range] {
     inset 0 1px 0 rgba(255,255,255,0.2);
 }
 
-.tb303-step-flags {
+.acid-machine-step-flags {
   display: flex;
   gap: 1px;
   width: 100%;
 }
 
-.tb303-flag-btn {
+.acid-machine-flag-btn {
   flex: 1;
   font-family: var(--font-mono);
   font-size: 0.3rem;
@@ -5457,14 +5480,14 @@ input[type=range] {
   letter-spacing: 0;
 }
 
-.tb303-acc-btn.on {
+.acid-machine-acc-btn.on {
   background: #d04000;
   border-color: #a03000;
   color: #fff;
   box-shadow: 0 0 3px rgba(208,64,0,0.6);
 }
 
-.tb303-slide-btn.on {
+.acid-machine-slide-btn.on {
   background: #2060c0;
   border-color: #1040a0;
   color: #fff;
@@ -5472,7 +5495,7 @@ input[type=range] {
 }
 
 /* ── Note editor ── */
-.tb303-note-editor {
+.acid-machine-note-editor {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -5481,12 +5504,12 @@ input[type=range] {
   border-top: 1px solid #aaa;
 }
 
-.tb303-note-picker {
+.acid-machine-note-picker {
   display: flex;
   gap: 2px;
 }
 
-.tb303-note-btn {
+.acid-machine-note-btn {
   font-family: var(--font-mono);
   font-size: 0.38rem;
   font-weight: 600;
@@ -5501,33 +5524,33 @@ input[type=range] {
   transition: all 0.08s;
 }
 
-.tb303-note-btn.sharp {
+.acid-machine-note-btn.sharp {
   background: #555;
   border-color: #333;
   color: #ddd;
 }
 
-.tb303-note-btn.active {
+.acid-machine-note-btn.active {
   background: #4080e0;
   border-color: #2060c0;
   color: #fff;
   box-shadow: 0 0 4px rgba(64,128,224,0.5);
 }
 
-.tb303-note-btn:hover:not(.active) {
+.acid-machine-note-btn:hover:not(.active) {
   background: #b0b0b0;
 }
-.tb303-note-btn.sharp:hover:not(.active) {
+.acid-machine-note-btn.sharp:hover:not(.active) {
   background: #444;
 }
 
-.tb303-octave-picker {
+.acid-machine-octave-picker {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.tb303-oct-btn {
+.acid-machine-oct-btn {
   font-family: var(--font-mono);
   font-size: 0.7rem;
   font-weight: 700;
@@ -5546,9 +5569,9 @@ input[type=range] {
   transition: background 0.08s;
 }
 
-.tb303-oct-btn:hover { background: #b0b0b0; }
+.acid-machine-oct-btn:hover { background: #b0b0b0; }
 
-.tb303-oct-val {
+.acid-machine-oct-val {
   font-family: var(--font-mono);
   font-size: 0.6rem;
   font-weight: 700;
@@ -5557,7 +5580,7 @@ input[type=range] {
   text-align: center;
 }
 
-.tb303-sel-label {
+.acid-machine-sel-label {
   font-size: 0.38rem;
   color: #666;
   letter-spacing: 0.05em;

@@ -1,6 +1,6 @@
-// juno60.js — Roland Juno-60 6-voice polyphonic synthesizer module
+// polysynth.js — Polysynth 6-voice polyphonic synthesizer module
 
-export function createJuno60(audioContext) {
+export function createPolysynth(audioContext) {
   const ctx = audioContext;
 
   // ── Audio engine ────────────────────────────────────────────────────────────
@@ -250,7 +250,7 @@ export function createJuno60(audioContext) {
     // Sync sliders to new param values
     Object.entries(p).forEach(([k, v]) => {
       if (typeof v === 'boolean') return;
-      const sl = el.querySelector(`.juno60-slider[data-param="${k}"]`);
+      const sl = el.querySelector(`.polysynth-slider[data-param="${k}"]`);
       if (sl) sl.value = v;
     });
 
@@ -258,13 +258,13 @@ export function createJuno60(audioContext) {
     el.querySelectorAll('[data-dco]').forEach(btn => {
       const src = btn.dataset.dco;
       const on = src === 'saw' ? p.sawOn : src === 'sub' ? p.subOn : p.noiseOn;
-      btn.classList.toggle('juno60-sw--on', !!on);
+      btn.classList.toggle('polysynth-sw--on', !!on);
     });
 
     // Chorus
-    el.querySelectorAll('.juno60-chorus-btn').forEach(btn => {
+    el.querySelectorAll('.polysynth-chorus-btn').forEach(btn => {
       const match = parseInt(btn.dataset.chorus) === p.chorusMode;
-      btn.classList.toggle('juno60-chorus-btn--active', match);
+      btn.classList.toggle('polysynth-chorus-btn--active', match);
     });
     _applyChorusMode(p.chorusMode);
 
@@ -272,15 +272,15 @@ export function createJuno60(audioContext) {
     const HPF_FREQS = [20, 240, 800, 3000];
     const hpfIdx = HPF_FREQS.reduce((best, f, i) =>
       Math.abs(f - p.hpfFreq) < Math.abs(HPF_FREQS[best] - p.hpfFreq) ? i : best, 0);
-    el.querySelectorAll('.juno60-hpf-btn').forEach(btn => {
-      btn.classList.toggle('juno60-hpf-btn--active', parseInt(btn.dataset.hpf) === hpfIdx);
+    el.querySelectorAll('.polysynth-hpf-btn').forEach(btn => {
+      btn.classList.toggle('polysynth-hpf-btn--active', parseInt(btn.dataset.hpf) === hpfIdx);
     });
     if (ctx) {
       voices.forEach(v => v.hpf.frequency.setTargetAtTime(p.hpfFreq, ctx.currentTime, 0.02));
     }
 
     // Portamento slider
-    const portSl = el.querySelector('.juno60-slider[data-param="portamento"]');
+    const portSl = el.querySelector('.polysynth-slider[data-param="portamento"]');
     if (portSl) portSl.value = p.portamento;
 
     _updateADSRCanvas();
@@ -399,7 +399,7 @@ export function createJuno60(audioContext) {
 
   // ── ADSR canvas helper ──────────────────────────────────────────────────────
   function _updateADSRCanvas() {
-    const canvas = el.querySelector('.juno60-adsr-canvas');
+    const canvas = el.querySelector('.polysynth-adsr-canvas');
     if (!canvas) return;
     const cw = canvas.width, ch = canvas.height;
     const gc = canvas.getContext('2d');
@@ -437,7 +437,7 @@ export function createJuno60(audioContext) {
 
   // ── Voice indicator ─────────────────────────────────────────────────────────
   function _updateVoiceDots() {
-    const dots = el.querySelectorAll('.juno60-voice-dot');
+    const dots = el.querySelectorAll('.polysynth-voice-dot');
     voices.forEach((v, i) => {
       if (dots[i]) dots[i].classList.toggle('active', v.active);
     });
@@ -445,197 +445,197 @@ export function createJuno60(audioContext) {
 
   // ── DOM ─────────────────────────────────────────────────────────────────────
   const el = document.createElement('div');
-  el.className = 'juno60-chassis';
+  el.className = 'polysynth-chassis';
 
   const portaMs = () => Math.round(params.portamento * 300);
 
   el.innerHTML = `
-    <div class="juno60-ports-bar">
+    <div class="polysynth-ports-bar">
       <span class="port" data-port="audio-out">AUDIO OUT</span>
       <span class="port" data-port="midi-in">MIDI IN</span>
       <span class="port" data-port="clock-in">CLK IN</span>
-      <span class="juno60-title">JUNO-60</span>
+      <span class="polysynth-title">POLYSYNTH</span>
     </div>
 
-    <div class="juno60-body">
+    <div class="polysynth-body">
 
       <!-- LFO -->
-      <div class="juno60-section">
-        <div class="juno60-section-header">LFO</div>
-        <div class="juno60-section-body">
-          <div class="juno60-knob-col">
-            <input type="range" class="juno60-slider" data-param="lfoRate"
+      <div class="polysynth-section">
+        <div class="polysynth-section-header">LFO</div>
+        <div class="polysynth-section-body">
+          <div class="polysynth-knob-col">
+            <input type="range" class="polysynth-slider" data-param="lfoRate"
               min="0.1" max="20" step="0.01" value="0.5" orient="vertical" />
-            <span class="juno60-label">RATE</span>
+            <span class="polysynth-label">RATE</span>
           </div>
-          <div class="juno60-knob-col">
-            <input type="range" class="juno60-slider" data-param="lfoDelay"
+          <div class="polysynth-knob-col">
+            <input type="range" class="polysynth-slider" data-param="lfoDelay"
               min="0" max="3" step="0.01" value="0" orient="vertical" />
-            <span class="juno60-label">DELAY</span>
+            <span class="polysynth-label">DELAY</span>
           </div>
         </div>
       </div>
 
       <!-- DCO -->
-      <div class="juno60-section">
-        <div class="juno60-section-header">DCO</div>
-        <div class="juno60-section-body">
-          <div class="juno60-knob-col">
-            <input type="range" class="juno60-slider" data-param="lfoDcoDepth"
+      <div class="polysynth-section">
+        <div class="polysynth-section-header">DCO</div>
+        <div class="polysynth-section-body">
+          <div class="polysynth-knob-col">
+            <input type="range" class="polysynth-slider" data-param="lfoDcoDepth"
               min="0" max="200" step="1" value="0" orient="vertical" />
-            <span class="juno60-label">LFO</span>
+            <span class="polysynth-label">LFO</span>
           </div>
-          <div class="juno60-switch-col">
-            <button class="juno60-sw juno60-sw--on" data-dco="saw">SAW</button>
-            <button class="juno60-sw" data-dco="sub">SUB</button>
-            <button class="juno60-sw" data-dco="noise">NOISE</button>
+          <div class="polysynth-switch-col">
+            <button class="polysynth-sw polysynth-sw--on" data-dco="saw">SAW</button>
+            <button class="polysynth-sw" data-dco="sub">SUB</button>
+            <button class="polysynth-sw" data-dco="noise">NOISE</button>
           </div>
         </div>
       </div>
 
       <!-- HPF -->
-      <div class="juno60-section">
-        <div class="juno60-section-header">HPF</div>
-        <div class="juno60-section-body juno60-hpf-body">
-          <button class="juno60-hpf-btn juno60-hpf-btn--active" data-hpf="0">0</button>
-          <button class="juno60-hpf-btn" data-hpf="1">1</button>
-          <button class="juno60-hpf-btn" data-hpf="2">2</button>
-          <button class="juno60-hpf-btn" data-hpf="3">3</button>
+      <div class="polysynth-section">
+        <div class="polysynth-section-header">HPF</div>
+        <div class="polysynth-section-body polysynth-hpf-body">
+          <button class="polysynth-hpf-btn polysynth-hpf-btn--active" data-hpf="0">0</button>
+          <button class="polysynth-hpf-btn" data-hpf="1">1</button>
+          <button class="polysynth-hpf-btn" data-hpf="2">2</button>
+          <button class="polysynth-hpf-btn" data-hpf="3">3</button>
         </div>
       </div>
 
       <!-- VCF -->
-      <div class="juno60-section juno60-section--wide">
-        <div class="juno60-section-header">VCF</div>
-        <div class="juno60-section-body">
-          <div class="juno60-knob-col">
-            <input type="range" class="juno60-slider" data-param="cutoff"
+      <div class="polysynth-section polysynth-section--wide">
+        <div class="polysynth-section-header">VCF</div>
+        <div class="polysynth-section-body">
+          <div class="polysynth-knob-col">
+            <input type="range" class="polysynth-slider" data-param="cutoff"
               min="80" max="18000" step="1" value="8000" orient="vertical" />
-            <span class="juno60-label">FREQ</span>
+            <span class="polysynth-label">FREQ</span>
           </div>
-          <div class="juno60-knob-col">
-            <input type="range" class="juno60-slider" data-param="resonance"
+          <div class="polysynth-knob-col">
+            <input type="range" class="polysynth-slider" data-param="resonance"
               min="0" max="1" step="0.01" value="0" orient="vertical" />
-            <span class="juno60-label">RES</span>
+            <span class="polysynth-label">RES</span>
           </div>
-          <div class="juno60-knob-col">
-            <input type="range" class="juno60-slider" data-param="envAmount"
+          <div class="polysynth-knob-col">
+            <input type="range" class="polysynth-slider" data-param="envAmount"
               min="0" max="1" step="0.01" value="0.5" orient="vertical" />
-            <span class="juno60-label">ENV</span>
+            <span class="polysynth-label">ENV</span>
           </div>
-          <div class="juno60-knob-col">
-            <input type="range" class="juno60-slider" data-param="lfoVcfDepth"
+          <div class="polysynth-knob-col">
+            <input type="range" class="polysynth-slider" data-param="lfoVcfDepth"
               min="0" max="4000" step="1" value="0" orient="vertical" />
-            <span class="juno60-label">LFO</span>
+            <span class="polysynth-label">LFO</span>
           </div>
         </div>
       </div>
 
       <!-- VCA -->
-      <div class="juno60-section">
-        <div class="juno60-section-header">VCA</div>
-        <div class="juno60-section-body">
-          <div class="juno60-knob-col">
-            <input type="range" class="juno60-slider" data-param="vcaLevel"
+      <div class="polysynth-section">
+        <div class="polysynth-section-header">VCA</div>
+        <div class="polysynth-section-body">
+          <div class="polysynth-knob-col">
+            <input type="range" class="polysynth-slider" data-param="vcaLevel"
               min="0" max="1" step="0.01" value="0.8" orient="vertical" />
-            <span class="juno60-label">LEVEL</span>
+            <span class="polysynth-label">LEVEL</span>
           </div>
         </div>
       </div>
 
       <!-- ENV with ADSR canvas -->
-      <div class="juno60-section juno60-section--wide">
-        <div class="juno60-section-header">ENV</div>
-        <div class="juno60-section-body" style="flex-direction:column; gap:4px; align-items:center;">
-          <canvas class="juno60-adsr-canvas" width="80" height="40"></canvas>
+      <div class="polysynth-section polysynth-section--wide">
+        <div class="polysynth-section-header">ENV</div>
+        <div class="polysynth-section-body" style="flex-direction:column; gap:4px; align-items:center;">
+          <canvas class="polysynth-adsr-canvas" width="80" height="40"></canvas>
           <div style="display:flex; flex-direction:row; gap:4px; align-items:flex-end;">
-            <div class="juno60-knob-col">
-              <input type="range" class="juno60-slider" data-param="attack"
+            <div class="polysynth-knob-col">
+              <input type="range" class="polysynth-slider" data-param="attack"
                 min="0.001" max="4" step="0.001" value="0.01" orient="vertical" />
-              <span class="juno60-label">A</span>
+              <span class="polysynth-label">A</span>
             </div>
-            <div class="juno60-knob-col">
-              <input type="range" class="juno60-slider" data-param="decay"
+            <div class="polysynth-knob-col">
+              <input type="range" class="polysynth-slider" data-param="decay"
                 min="0.01" max="4" step="0.001" value="0.3" orient="vertical" />
-              <span class="juno60-label">D</span>
+              <span class="polysynth-label">D</span>
             </div>
-            <div class="juno60-knob-col">
-              <input type="range" class="juno60-slider" data-param="sustain"
+            <div class="polysynth-knob-col">
+              <input type="range" class="polysynth-slider" data-param="sustain"
                 min="0" max="1" step="0.01" value="0.7" orient="vertical" />
-              <span class="juno60-label">S</span>
+              <span class="polysynth-label">S</span>
             </div>
-            <div class="juno60-knob-col">
-              <input type="range" class="juno60-slider" data-param="release"
+            <div class="polysynth-knob-col">
+              <input type="range" class="polysynth-slider" data-param="release"
                 min="0.01" max="6" step="0.001" value="0.5" orient="vertical" />
-              <span class="juno60-label">R</span>
+              <span class="polysynth-label">R</span>
             </div>
           </div>
         </div>
       </div>
 
       <!-- PORTAMENTO -->
-      <div class="juno60-section">
-        <div class="juno60-section-header">PORTA</div>
-        <div class="juno60-section-body" style="flex-direction:column; align-items:center; gap:3px;">
-          <input type="range" class="juno60-slider" data-param="portamento"
+      <div class="polysynth-section">
+        <div class="polysynth-section-header">PORTA</div>
+        <div class="polysynth-section-body" style="flex-direction:column; align-items:center; gap:3px;">
+          <input type="range" class="polysynth-slider" data-param="portamento"
             min="0" max="1" step="0.01" value="0" orient="vertical" />
-          <span class="juno60-label">GLIDE</span>
-          <span class="juno60-porta-val">0ms</span>
+          <span class="polysynth-label">GLIDE</span>
+          <span class="polysynth-porta-val">0ms</span>
         </div>
       </div>
 
       <!-- CHORUS -->
-      <div class="juno60-section">
-        <div class="juno60-section-header">CHORUS</div>
-        <div class="juno60-section-body juno60-chorus-body">
-          <button class="juno60-chorus-btn" data-chorus="0">OFF</button>
-          <button class="juno60-chorus-btn juno60-chorus-btn--active" data-chorus="1">I</button>
-          <button class="juno60-chorus-btn" data-chorus="2">II</button>
+      <div class="polysynth-section">
+        <div class="polysynth-section-header">CHORUS</div>
+        <div class="polysynth-section-body polysynth-chorus-body">
+          <button class="polysynth-chorus-btn" data-chorus="0">OFF</button>
+          <button class="polysynth-chorus-btn polysynth-chorus-btn--active" data-chorus="1">I</button>
+          <button class="polysynth-chorus-btn" data-chorus="2">II</button>
         </div>
       </div>
 
       <!-- HOLD + ARP -->
-      <div class="juno60-section juno60-section--wide">
-        <div class="juno60-section-header">PERFORM</div>
-        <div class="juno60-section-body" style="flex-direction:column; gap:5px; align-items:stretch; padding:6px;">
-          <button class="juno60-hold-btn">HOLD</button>
+      <div class="polysynth-section polysynth-section--wide">
+        <div class="polysynth-section-header">PERFORM</div>
+        <div class="polysynth-section-body" style="flex-direction:column; gap:5px; align-items:stretch; padding:6px;">
+          <button class="polysynth-hold-btn">HOLD</button>
 
           <div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
-            <button class="juno60-arp-btn">ARP</button>
-            <select class="juno60-arp-rate">
+            <button class="polysynth-arp-btn">ARP</button>
+            <select class="polysynth-arp-rate">
               <option value="1/4">1/4</option>
               <option value="1/8" selected>1/8</option>
               <option value="1/16">1/16</option>
             </select>
-            <button class="juno60-arp-mode">UP</button>
+            <button class="polysynth-arp-mode">UP</button>
           </div>
         </div>
       </div>
 
       <!-- PATCH PRESETS -->
-      <div class="juno60-section juno60-section--wide">
-        <div class="juno60-section-header">PATCH</div>
-        <div class="juno60-section-body" style="flex-direction:column; gap:5px; align-items:stretch; padding:6px;">
-          <select class="juno60-patch-select">
+      <div class="polysynth-section polysynth-section--wide">
+        <div class="polysynth-section-header">PATCH</div>
+        <div class="polysynth-section-body" style="flex-direction:column; gap:5px; align-items:stretch; padding:6px;">
+          <select class="polysynth-patch-select">
             ${Object.keys(PATCHES).map(n => `<option value="${n}">${n}</option>`).join('')}
           </select>
-          <button class="juno60-load-patch">LOAD</button>
+          <button class="polysynth-load-patch">LOAD</button>
         </div>
       </div>
 
     </div>
 
     <!-- Voice indicator + keyboard row -->
-    <div class="juno60-lower-bar">
-      <div class="juno60-voice-dots">
-        ${Array.from({length:6}, (_,i) => `<div class="juno60-voice-dot" title="Voice ${i+1}"></div>`).join('')}
-        <span class="juno60-voice-label">VOICES</span>
+    <div class="polysynth-lower-bar">
+      <div class="polysynth-voice-dots">
+        ${Array.from({length:6}, (_,i) => `<div class="polysynth-voice-dot" title="Voice ${i+1}"></div>`).join('')}
+        <span class="polysynth-voice-label">VOICES</span>
       </div>
-      <div class="juno60-keyboard"></div>
+      <div class="polysynth-keyboard"></div>
     </div>
 
     <style>
-      .juno60-chassis {
+      .polysynth-chassis {
         background: #1a1810;
         border-radius: 6px 6px 4px 4px;
         width: 920px;
@@ -650,8 +650,8 @@ export function createJuno60(audioContext) {
         overflow: hidden;
       }
       /* Wood-grain sides */
-      .juno60-chassis::before,
-      .juno60-chassis::after {
+      .polysynth-chassis::before,
+      .polysynth-chassis::after {
         content: '';
         position: absolute;
         top: 0;
@@ -663,10 +663,10 @@ export function createJuno60(audioContext) {
         );
         z-index: 1;
       }
-      .juno60-chassis::before { left: 0; border-radius: 6px 0 0 4px; }
-      .juno60-chassis::after  { right: 0; border-radius: 0 6px 4px 0; }
+      .polysynth-chassis::before { left: 0; border-radius: 6px 0 0 4px; }
+      .polysynth-chassis::after  { right: 0; border-radius: 0 6px 4px 0; }
 
-      .juno60-ports-bar {
+      .polysynth-ports-bar {
         display: flex;
         align-items: center;
         gap: 12px;
@@ -677,7 +677,7 @@ export function createJuno60(audioContext) {
         position: relative;
         z-index: 2;
       }
-      .juno60-ports-bar .port {
+      .polysynth-ports-bar .port {
         font-size: 9px;
         color: #aaa;
         letter-spacing: 0.08em;
@@ -689,8 +689,8 @@ export function createJuno60(audioContext) {
         user-select: none;
         transition: background 0.15s;
       }
-      .juno60-ports-bar .port:hover { background: #333; }
-      .juno60-title {
+      .polysynth-ports-bar .port:hover { background: #333; }
+      .polysynth-title {
         margin-left: auto;
         margin-right: 20px;
         font-size: 22px;
@@ -701,7 +701,7 @@ export function createJuno60(audioContext) {
         text-shadow: 0 0 8px rgba(255,200,100,0.3);
       }
 
-      .juno60-body {
+      .polysynth-body {
         display: flex;
         flex-direction: row;
         gap: 2px;
@@ -713,7 +713,7 @@ export function createJuno60(audioContext) {
         flex-wrap: wrap;
       }
 
-      .juno60-section {
+      .polysynth-section {
         display: flex;
         flex-direction: column;
         border: 1px solid #c05010;
@@ -722,9 +722,9 @@ export function createJuno60(audioContext) {
         overflow: hidden;
         min-width: 54px;
       }
-      .juno60-section--wide { min-width: 100px; }
+      .polysynth-section--wide { min-width: 100px; }
 
-      .juno60-section-header {
+      .polysynth-section-header {
         background: #c05010;
         color: #fff;
         font-size: 9px;
@@ -735,7 +735,7 @@ export function createJuno60(audioContext) {
         white-space: nowrap;
       }
 
-      .juno60-section-body {
+      .polysynth-section-body {
         display: flex;
         flex-direction: row;
         gap: 4px;
@@ -744,14 +744,14 @@ export function createJuno60(audioContext) {
         flex: 1;
       }
 
-      .juno60-knob-col {
+      .polysynth-knob-col {
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 2px;
       }
 
-      .juno60-slider {
+      .polysynth-slider {
         -webkit-appearance: slider-vertical;
         appearance: slider-vertical;
         writing-mode: vertical-lr;
@@ -763,7 +763,7 @@ export function createJuno60(audioContext) {
         background: transparent;
       }
 
-      .juno60-label {
+      .polysynth-label {
         font-size: 8px;
         color: #ccc;
         letter-spacing: 0.05em;
@@ -771,7 +771,7 @@ export function createJuno60(audioContext) {
         white-space: nowrap;
       }
 
-      .juno60-switch-col {
+      .polysynth-switch-col {
         display: flex;
         flex-direction: column;
         gap: 3px;
@@ -780,7 +780,7 @@ export function createJuno60(audioContext) {
         padding: 2px 0;
       }
 
-      .juno60-sw {
+      .polysynth-sw {
         font-family: monospace;
         font-size: 8px;
         padding: 2px 5px;
@@ -793,13 +793,13 @@ export function createJuno60(audioContext) {
         transition: background 0.1s, color 0.1s;
         letter-spacing: 0.05em;
       }
-      .juno60-sw--on {
+      .polysynth-sw--on {
         background: #e07030;
         color: #fff;
         border-color: #e07030;
       }
 
-      .juno60-hpf-body {
+      .polysynth-hpf-body {
         flex-direction: column;
         gap: 3px;
         padding: 6px 6px;
@@ -807,7 +807,7 @@ export function createJuno60(audioContext) {
         justify-content: center;
       }
 
-      .juno60-hpf-btn {
+      .polysynth-hpf-btn {
         font-family: monospace;
         font-size: 10px;
         width: 26px;
@@ -820,13 +820,13 @@ export function createJuno60(audioContext) {
         text-align: center;
         transition: background 0.1s, color 0.1s;
       }
-      .juno60-hpf-btn--active {
+      .polysynth-hpf-btn--active {
         background: #e07030;
         color: #fff;
         border-color: #e07030;
       }
 
-      .juno60-chorus-body {
+      .polysynth-chorus-body {
         flex-direction: column;
         gap: 3px;
         padding: 6px 6px;
@@ -834,7 +834,7 @@ export function createJuno60(audioContext) {
         justify-content: center;
       }
 
-      .juno60-chorus-btn {
+      .polysynth-chorus-btn {
         font-family: monospace;
         font-size: 9px;
         width: 36px;
@@ -848,7 +848,7 @@ export function createJuno60(audioContext) {
         letter-spacing: 0.08em;
         transition: background 0.1s, color 0.1s;
       }
-      .juno60-chorus-btn--active {
+      .polysynth-chorus-btn--active {
         background: #e07030;
         color: #fff;
         border-color: #e07030;
@@ -856,7 +856,7 @@ export function createJuno60(audioContext) {
       }
 
       /* ADSR canvas */
-      .juno60-adsr-canvas {
+      .polysynth-adsr-canvas {
         display: block;
         background: #0e0e08;
         border: 1px solid #333;
@@ -864,7 +864,7 @@ export function createJuno60(audioContext) {
       }
 
       /* Portamento value display */
-      .juno60-porta-val {
+      .polysynth-porta-val {
         font-size: 8px;
         color: #e07030;
         font-family: monospace;
@@ -872,7 +872,7 @@ export function createJuno60(audioContext) {
       }
 
       /* HOLD button */
-      .juno60-hold-btn {
+      .polysynth-hold-btn {
         font-family: monospace;
         font-size: 9px;
         padding: 4px 8px;
@@ -885,7 +885,7 @@ export function createJuno60(audioContext) {
         transition: background 0.1s, color 0.1s;
         width: 100%;
       }
-      .juno60-hold-btn.active {
+      .polysynth-hold-btn.active {
         background: #8040e0;
         color: #fff;
         border-color: #a060ff;
@@ -893,7 +893,7 @@ export function createJuno60(audioContext) {
       }
 
       /* ARP buttons */
-      .juno60-arp-btn {
+      .polysynth-arp-btn {
         font-family: monospace;
         font-size: 9px;
         padding: 3px 6px;
@@ -906,13 +906,13 @@ export function createJuno60(audioContext) {
         transition: background 0.1s, color 0.1s;
         white-space: nowrap;
       }
-      .juno60-arp-btn.active {
+      .polysynth-arp-btn.active {
         background: #20a060;
         color: #fff;
         border-color: #40c880;
         box-shadow: 0 0 6px rgba(32,160,96,0.6);
       }
-      .juno60-arp-rate {
+      .polysynth-arp-rate {
         font-family: monospace;
         font-size: 9px;
         background: #1a1a10;
@@ -922,7 +922,7 @@ export function createJuno60(audioContext) {
         padding: 2px 3px;
         cursor: pointer;
       }
-      .juno60-arp-mode {
+      .polysynth-arp-mode {
         font-family: monospace;
         font-size: 8px;
         padding: 3px 5px;
@@ -935,10 +935,10 @@ export function createJuno60(audioContext) {
         transition: background 0.1s;
         white-space: nowrap;
       }
-      .juno60-arp-mode:hover { background: #444; }
+      .polysynth-arp-mode:hover { background: #444; }
 
       /* Patch controls */
-      .juno60-patch-select {
+      .polysynth-patch-select {
         font-family: monospace;
         font-size: 9px;
         background: #1a1a10;
@@ -949,7 +949,7 @@ export function createJuno60(audioContext) {
         cursor: pointer;
         width: 100%;
       }
-      .juno60-load-patch {
+      .polysynth-load-patch {
         font-family: monospace;
         font-size: 9px;
         padding: 3px 6px;
@@ -962,10 +962,10 @@ export function createJuno60(audioContext) {
         transition: background 0.1s;
         width: 100%;
       }
-      .juno60-load-patch:hover { background: #555; }
+      .polysynth-load-patch:hover { background: #555; }
 
       /* Lower bar with voice dots + keyboard */
-      .juno60-lower-bar {
+      .polysynth-lower-bar {
         display: flex;
         flex-direction: row;
         align-items: center;
@@ -976,7 +976,7 @@ export function createJuno60(audioContext) {
       }
 
       /* Voice indicator dots */
-      .juno60-voice-dots {
+      .polysynth-voice-dots {
         display: flex;
         flex-direction: row;
         align-items: center;
@@ -984,13 +984,13 @@ export function createJuno60(audioContext) {
         padding: 4px 0;
         flex-shrink: 0;
       }
-      .juno60-voice-label {
+      .polysynth-voice-label {
         font-size: 7px;
         color: #666;
         letter-spacing: 0.06em;
         margin-left: 3px;
       }
-      .juno60-voice-dot {
+      .polysynth-voice-dot {
         width: 8px;
         height: 8px;
         border-radius: 50%;
@@ -998,14 +998,14 @@ export function createJuno60(audioContext) {
         border: 1px solid #444;
         transition: background 0.08s, box-shadow 0.08s;
       }
-      .juno60-voice-dot.active {
+      .polysynth-voice-dot.active {
         background: #e07030;
         border-color: #ff9050;
         box-shadow: 0 0 5px rgba(224,112,48,0.7);
       }
 
       /* Keyboard */
-      .juno60-keyboard {
+      .polysynth-keyboard {
         position: relative;
         height: 54px;
         flex: 1;
@@ -1013,7 +1013,7 @@ export function createJuno60(audioContext) {
         z-index: 2;
         margin-bottom: 6px;
       }
-      .juno60-key-white {
+      .polysynth-key-white {
         flex: 1;
         background: linear-gradient(180deg, #f5f5f0 0%, #e8e8e0 100%);
         border: 1px solid #999;
@@ -1024,7 +1024,7 @@ export function createJuno60(audioContext) {
         transition: background 0.06s;
         min-width: 0;
       }
-      .juno60-key-white .juno60-key-label {
+      .polysynth-key-white .polysynth-key-label {
         position: absolute;
         bottom: 2px;
         left: 50%;
@@ -1034,11 +1034,11 @@ export function createJuno60(audioContext) {
         font-family: monospace;
         pointer-events: none;
       }
-      .juno60-key-white:active,
-      .juno60-key-white.pressed {
+      .polysynth-key-white:active,
+      .polysynth-key-white.pressed {
         background: linear-gradient(180deg, #d0c8b8 0%, #b8b0a0 100%);
       }
-      .juno60-key-black {
+      .polysynth-key-black {
         position: absolute;
         width: 58%;
         height: 60%;
@@ -1051,15 +1051,15 @@ export function createJuno60(audioContext) {
         transition: background 0.06s;
         border: 1px solid #000;
       }
-      .juno60-key-black:active,
-      .juno60-key-black.pressed {
+      .polysynth-key-black:active,
+      .polysynth-key-black.pressed {
         background: linear-gradient(180deg, #333 0%, #555 100%);
       }
     </style>
   `;
 
   // ── Build mini keyboard C3–C5 (25 keys, MIDI 48–72) ─────────────────────
-  const kbEl = el.querySelector('.juno60-keyboard');
+  const kbEl = el.querySelector('.polysynth-keyboard');
   const WHITE_PATTERN = [0, 2, 4, 5, 7, 9, 11];
   const MIDI_START = 48; // C3
   const MIDI_END   = 72; // C5
@@ -1080,11 +1080,11 @@ export function createJuno60(audioContext) {
   // Render white keys — show C labels
   whiteKeys.forEach(midi => {
     const k = document.createElement('div');
-    k.className = 'juno60-key-white';
+    k.className = 'polysynth-key-white';
     k.dataset.midi = midi;
     if (midi % 12 === 0) {
       const lbl = document.createElement('span');
-      lbl.className = 'juno60-key-label';
+      lbl.className = 'polysynth-key-label';
       lbl.textContent = `C${Math.floor(midi / 12) - 1}`;
       k.appendChild(lbl);
     }
@@ -1096,7 +1096,7 @@ export function createJuno60(audioContext) {
     const prevWhiteIdx = whiteKeys.findIndex(w => w > midi) - 1;
     if (prevWhiteIdx < 0) return;
     const k = document.createElement('div');
-    k.className = 'juno60-key-black';
+    k.className = 'polysynth-key-black';
     k.dataset.midi = midi;
     const leftPct = (prevWhiteIdx + 1) * wkW;
     k.style.left = `${leftPct}%`;
@@ -1128,7 +1128,7 @@ export function createJuno60(audioContext) {
   });
 
   // ── Slider interaction ───────────────────────────────────────────────────
-  el.querySelectorAll('.juno60-slider').forEach(slider => {
+  el.querySelectorAll('.polysynth-slider').forEach(slider => {
     slider.addEventListener('input', () => {
       const param = slider.dataset.param;
       const v = parseFloat(slider.value);
@@ -1167,7 +1167,7 @@ export function createJuno60(audioContext) {
         break;
       case 'portamento': {
         const ms = Math.round(v * 300);
-        const portaValEl = el.querySelector('.juno60-porta-val');
+        const portaValEl = el.querySelector('.polysynth-porta-val');
         if (portaValEl) portaValEl.textContent = `${ms}ms`;
         break;
       }
@@ -1184,7 +1184,7 @@ export function createJuno60(audioContext) {
   el.querySelectorAll('[data-dco]').forEach(btn => {
     btn.addEventListener('click', () => {
       const src = btn.dataset.dco;
-      const isOn = btn.classList.toggle('juno60-sw--on');
+      const isOn = btn.classList.toggle('polysynth-sw--on');
       if (src === 'saw')   params.sawOn   = isOn;
       if (src === 'sub')   params.subOn   = isOn;
       if (src === 'noise') params.noiseOn = isOn;
@@ -1193,10 +1193,10 @@ export function createJuno60(audioContext) {
 
   // ── HPF selector ──────────────────────────────────────────────────────
   const HPF_FREQS = [20, 240, 800, 3000];
-  el.querySelectorAll('.juno60-hpf-btn').forEach(btn => {
+  el.querySelectorAll('.polysynth-hpf-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      el.querySelectorAll('.juno60-hpf-btn').forEach(b => b.classList.remove('juno60-hpf-btn--active'));
-      btn.classList.add('juno60-hpf-btn--active');
+      el.querySelectorAll('.polysynth-hpf-btn').forEach(b => b.classList.remove('polysynth-hpf-btn--active'));
+      btn.classList.add('polysynth-hpf-btn--active');
       const idx = parseInt(btn.dataset.hpf);
       params.hpfFreq = HPF_FREQS[idx];
       _onParamChange('hpfFreq', params.hpfFreq);
@@ -1204,10 +1204,10 @@ export function createJuno60(audioContext) {
   });
 
   // ── Chorus mode selector ───────────────────────────────────────────────
-  el.querySelectorAll('.juno60-chorus-btn').forEach(btn => {
+  el.querySelectorAll('.polysynth-chorus-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      el.querySelectorAll('.juno60-chorus-btn').forEach(b => b.classList.remove('juno60-chorus-btn--active'));
-      btn.classList.add('juno60-chorus-btn--active');
+      el.querySelectorAll('.polysynth-chorus-btn').forEach(b => b.classList.remove('polysynth-chorus-btn--active'));
+      btn.classList.add('polysynth-chorus-btn--active');
       const mode = parseInt(btn.dataset.chorus);
       params.chorusMode = mode;
       _applyChorusMode(mode);
@@ -1215,7 +1215,7 @@ export function createJuno60(audioContext) {
   });
 
   // ── HOLD button ────────────────────────────────────────────────────────
-  el.querySelector('.juno60-hold-btn')?.addEventListener('click', (e) => {
+  el.querySelector('.polysynth-hold-btn')?.addEventListener('click', (e) => {
     _holdActive = !_holdActive;
     e.currentTarget.classList.toggle('active', _holdActive);
     if (!_holdActive) {
@@ -1231,7 +1231,7 @@ export function createJuno60(audioContext) {
   const ARP_MODES = ['UP', 'DOWN', 'UP-DOWN', 'RANDOM'];
   let _arpModeIdx = 0;
 
-  el.querySelector('.juno60-arp-btn')?.addEventListener('click', (e) => {
+  el.querySelector('.polysynth-arp-btn')?.addEventListener('click', (e) => {
     _arpActive = !_arpActive;
     e.currentTarget.classList.toggle('active', _arpActive);
     if (!_arpActive) {
@@ -1241,27 +1241,27 @@ export function createJuno60(audioContext) {
     }
   });
 
-  el.querySelector('.juno60-arp-mode')?.addEventListener('click', (e) => {
+  el.querySelector('.polysynth-arp-mode')?.addEventListener('click', (e) => {
     _arpModeIdx = (_arpModeIdx + 1) % ARP_MODES.length;
     _arpMode = ARP_MODES[_arpModeIdx];
     e.currentTarget.textContent = _arpMode;
     _arpIdx = 0;
   });
 
-  el.querySelector('.juno60-arp-rate')?.addEventListener('change', (e) => {
+  el.querySelector('.polysynth-arp-rate')?.addEventListener('change', (e) => {
     _arpRate = e.target.value;
     if (_arpTimer) _startArpTimer(); // restart with new rate
   });
 
   // ── Patch preset load ──────────────────────────────────────────────────
-  el.querySelector('.juno60-load-patch')?.addEventListener('click', () => {
-    const name = el.querySelector('.juno60-patch-select')?.value;
+  el.querySelector('.polysynth-load-patch')?.addEventListener('click', () => {
+    const name = el.querySelector('.polysynth-patch-select')?.value;
     if (name) _applyPatch(name);
   });
 
   // ── Audio port export ──────────────────────────────────────────────────
   if (ctx && outputGain) {
-    el._juno60Audio = { output: outputGain, context: ctx };
+    el._polysynthAudio = { output: outputGain, context: ctx };
     const outPort = el.querySelector('.port[data-port="audio-out"]');
     if (outPort) outPort._audioNode = outputGain;
   }
