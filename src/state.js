@@ -638,6 +638,80 @@ export function saveState(state) {
  * Tries STORAGE_KEY first; falls back to "confusynth-v2" (legacy track import).
  * Returns a full appState or null.
  */
+/**
+ * Walk every bank → pattern → track → step and replace any null/invalid
+ * entry with a freshly-created default.  Called after deepMerge so that
+ * sparsification artefacts (null placeholders) can never reach the renderer.
+ */
+function repairState(state) {
+  if (!state?.project) return state;
+
+  // Ensure banks array is the right length and fully populated
+  if (!Array.isArray(state.project.banks) || state.project.banks.length < BANK_COUNT) {
+    const fresh = createProject();
+    state.project.banks = Array.from({ length: BANK_COUNT }, (_, bi) =>
+      state.project.banks?.[bi] ?? fresh.banks[bi]
+    );
+  }
+
+  state.project.banks = state.project.banks.map((bank, bi) => {
+    if (!bank || typeof bank !== 'object') return createBank(bi);
+
+    if (!Array.isArray(bank.patterns) || bank.patterns.length < PATTERN_COUNT) {
+      const freshBank = createBank(bi);
+      bank = { ...bank, patterns: Array.from({ length: PATTERN_COUNT }, (_, pi) =>
+        bank.patterns?.[pi] ?? freshBank.patterns[pi]
+      )};
+    }
+
+    bank.patterns = bank.patterns.map((pat, pi) => {
+      if (!pat || typeof pat !== 'object') return createPattern(pi);
+
+      if (!pat.kit || !Array.isArray(pat.kit.tracks) || pat.kit.tracks.length < TRACK_COUNT) {
+        const freshPat = createPattern(pi);
+        pat = { ...pat, kit: { tracks: Array.from({ length: TRACK_COUNT }, (_, ti) =>
+          pat.kit?.tracks?.[ti] ?? freshPat.kit.tracks[ti]
+        )}};
+      }
+
+      pat.kit.tracks = pat.kit.tracks.map((track, ti) => {
+        if (!track || typeof track !== 'object') return createTrack(ti);
+
+        if (!Array.isArray(track.steps) || track.steps.length < STEP_COUNT) {
+          const freshTrack = createTrack(ti);
+          track = { ...track, steps: Array.from({ length: STEP_COUNT }, (_, si) =>
+            track.steps?.[si] ?? freshTrack.steps[si]
+          )};
+        }
+
+        track.steps = track.steps.map((step, si) => {
+          if (!step || typeof step !== 'object') return createStep(si, ti);
+          if (!step.paramLocks || typeof step.paramLocks !== 'object' || Array.isArray(step.paramLocks)) {
+            step = { ...step, paramLocks: {} };
+          }
+          return step;
+        });
+
+        return track;
+      });
+
+      return pat;
+    });
+
+    return bank;
+  });
+
+  // Clamp navigation indices so they never point outside valid ranges
+  const banks    = state.project.banks;
+  const patterns = banks[0]?.patterns;
+  const tracks   = patterns?.[0]?.kit?.tracks;
+  state.activeBank         = Math.max(0, Math.min((banks?.length    ?? 1) - 1, state.activeBank         ?? 0));
+  state.activePattern      = Math.max(0, Math.min((patterns?.length ?? 1) - 1, state.activePattern      ?? 0));
+  state.selectedTrackIndex = Math.max(0, Math.min((tracks?.length   ?? 1) - 1, state.selectedTrackIndex ?? 0));
+
+  return state;
+}
+
 export function loadState() {
   // ── Try v3 ──
   try {
@@ -692,7 +766,7 @@ export function loadState() {
       }
       // Merge into a fresh appState so any new fields are present
       const fresh = createAppState();
-      const next = normalizeScenes(deepMerge(fresh, parsed));
+      const next = repairState(normalizeScenes(deepMerge(fresh, parsed)));
       scheduleAssetHydration(next);
       return next;
     }
