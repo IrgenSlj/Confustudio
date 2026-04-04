@@ -746,11 +746,10 @@ function deepMerge(target, source) {
     if (
       srcVal !== null &&
       typeof srcVal === "object" &&
-      !Array.isArray(srcVal) &&
       tgtVal !== null &&
-      typeof tgtVal === "object" &&
-      !Array.isArray(tgtVal)
+      typeof tgtVal === "object"
     ) {
+      // Recursively merge both objects AND arrays (arrays hit the array branch above)
       result[key] = deepMerge(tgtVal, srcVal);
     } else {
       result[key] = srcVal;
