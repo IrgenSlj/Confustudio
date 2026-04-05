@@ -6,9 +6,9 @@ export function createDJMixer(audioContext) {
   el.dataset.djm = '1';
   el.innerHTML = `
     <div class="djm-ports-bar">
-      <span class="djm-port" data-port="ch1-in">CH1 IN</span>
+      <span class="djm-port" data-port="ch1-in"><span class="djm-port-led"></span><span class="djm-port-label">CH1 IN</span></span>
       <span class="djm-title">DJM·900</span>
-      <span class="djm-port" data-port="ch2-in">CH2 IN</span>
+      <span class="djm-port" data-port="ch2-in"><span class="djm-port-led"></span><span class="djm-port-label">CH2 IN</span></span>
     </div>
     <div class="djm-body">
       <!-- Channel 1 -->
@@ -231,8 +231,22 @@ export function createDJMixer(audioContext) {
     // ── Peak LED animation loop ──────────────────────────────────────────────
     const peakLed1 = el.querySelector('[data-peak-ch="1"]');
     const peakLed2 = el.querySelector('[data-peak-ch="2"]');
+    const portLed1 = el.querySelector('.djm-port[data-port="ch1-in"]');
+    const portLed2 = el.querySelector('.djm-port[data-port="ch2-in"]');
+    const meter1 = Array.from(el.querySelectorAll('.djm-level-meter[data-ch="1"] .djm-seg'));
+    const meter2 = Array.from(el.querySelectorAll('.djm-level-meter[data-ch="2"] .djm-seg'));
     let _peakHold1 = 0, _peakHold2 = 0;
     let _peakHoldTimer1 = null, _peakHoldTimer2 = null;
+
+    function updateMeter(segments, peak) {
+      const litCount = Math.max(0, Math.min(segments.length, Math.ceil(peak * segments.length)));
+      segments.forEach((seg, index) => {
+        const isLit = index < litCount;
+        seg.classList.toggle('lit-g', isLit && index < 8);
+        seg.classList.toggle('lit-y', isLit && index >= 8 && index < 10);
+        seg.classList.toggle('lit-r', isLit && index >= 10);
+      });
+    }
 
     function updatePeakLeds() {
       if (!el.isConnected) return;
@@ -262,6 +276,16 @@ export function createDJMixer(audioContext) {
         peakLed2.style.background = level > 0.85 ? '#f55' : level > 0.6 ? '#fa0' : level > 0.2 ? '#5d5' : '#333';
         peakLed2.style.boxShadow  = level > 0.85 ? '0 0 4px #f55' : level > 0.6 ? '0 0 3px #fa0' : 'none';
       }
+      if (portLed1) {
+        portLed1.classList.toggle('has-signal', p1 > 0.08);
+        portLed1.classList.toggle('is-hot', p1 > 0.85);
+      }
+      if (portLed2) {
+        portLed2.classList.toggle('has-signal', p2 > 0.08);
+        portLed2.classList.toggle('is-hot', p2 > 0.85);
+      }
+      updateMeter(meter1, p1);
+      updateMeter(meter2, p2);
 
       requestAnimationFrame(updatePeakLeds);
     }

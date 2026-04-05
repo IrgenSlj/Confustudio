@@ -100,7 +100,34 @@ try {
   const selectionLabel = await page.textContent('#module-selection');
   assert(selectionLabel && selectionLabel.toLowerCase().includes('figure-robot'), 'Inserted module did not become selected', { selectionLabel });
 
-  const tabs = ['PATTERN', 'ROLL', 'PADS', 'SCENES', 'MIXER', 'SET'];
+  await page.click('#add-module');
+  await page.waitForTimeout(100);
+  await page.click('.module-picker button[data-module="djmixer"]');
+  await page.waitForTimeout(400);
+  const moduleCountAfterMixerAdd = await page.locator('.studio-module').count();
+  assert(moduleCountAfterMixerAdd === 3, 'DJ mixer insertion failed', { moduleCountAfterMixerAdd });
+
+  const cableCreated = await page.evaluate(() => {
+    const modules = [...document.querySelectorAll('.studio-module')];
+    const primary = modules.find((mod) => mod.id === 'module-0');
+    const mixer = modules.find((mod) => mod.dataset.moduleType === 'djmixer');
+    const fromEl = primary?.querySelector('.port');
+    const toEl = mixer?.querySelector('.djm-port, .port');
+    if (!fromEl || !toEl) return false;
+    document.dispatchEvent(new CustomEvent('cable:autoconnect', { detail: { fromEl, toEl } }));
+    return true;
+  });
+  assert(cableCreated, 'Could not find ports to create a cable for removal testing');
+  await page.waitForTimeout(150);
+  const cableCountBeforeRemoval = await page.locator('#studio-cables .cable-group').count();
+  assert(cableCountBeforeRemoval >= 1, 'Expected at least one cable before module removal', { cableCountBeforeRemoval });
+
+  await page.locator('.studio-module[data-module-type="djmixer"] .module-remove-btn').click();
+  await page.waitForTimeout(250);
+  const cableCountAfterRemoval = await page.locator('#studio-cables .cable-group').count();
+  assert(cableCountAfterRemoval === 0, 'Cable cleanup failed after module removal', { cableCountAfterRemoval });
+
+  const tabs = ['PATTERN', 'ROLL', 'PADS', 'SOUND', 'SCENES', 'MIXER', 'SET'];
   for (const tab of tabs) {
     await page.getByText(tab, { exact: true }).first().click();
     await page.waitForTimeout(250);

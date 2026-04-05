@@ -120,7 +120,9 @@ export default {
 
     // Zoom: cell width
     const zoomIdx = Math.round(Math.max(0, Math.min(4, state.rollZoom ?? 1)));
-    const cellW   = ZOOM_WIDTHS[zoomIdx];
+    const baseCellW = ZOOM_WIDTHS[zoomIdx];
+    const fillCellW = Math.floor(Math.max(18, (Math.max(container.clientWidth, 760) - 64) / Math.max(steps, 1)));
+    const cellW   = Math.max(baseCellW, Math.min(56, fillCellW));
 
     // Scroll: determine visible note window
     const scrollRaw  = state.rollScroll ?? 0.5;
@@ -335,6 +337,7 @@ export default {
 
     const gridView = document.createElement('div');
     gridView.className = 'roll-view';
+    if (steps <= 16) gridView.style.minWidth = '100%';
 
     const gridCol = document.createElement('div');
     gridCol.className = 'roll-grid';

@@ -64,10 +64,6 @@ export function initStudio() {
       '.macro-name',
       '.macro-name-input',
       '.kbd-btn',
-      '.page-content',
-      '.right-col',
-      '.channel-strip',
-      '.kbd-panel',
       '.module-picker',
       '.module-resize-handle',
     ].join(',')));
@@ -225,29 +221,33 @@ export function initStudio() {
     const bounds = getModuleBounds();
     const scaledWidth = bounds.width * scale;
     const scaledHeight = bounds.height * scale;
-    const minX = wrapW - scaledWidth - FIT_PADDING;
+    const minX = wrapW - FIT_PADDING - bounds.right * scale;
     const maxX = FIT_PADDING - bounds.left * scale;
-    const minY = wrapH - scaledHeight - FIT_PADDING;
+    const minY = wrapH - FIT_PADDING - bounds.bottom * scale;
     const maxY = FIT_PADDING - bounds.top * scale;
+    const clampMinX = Math.min(minX, maxX);
+    const clampMaxX = Math.max(minX, maxX);
+    const clampMinY = Math.min(minY, maxY);
+    const clampMaxY = Math.max(minY, maxY);
 
     if (scaledWidth + FIT_PADDING * 2 <= wrapW) {
       if (!_userHasPanned && _autoZoom) {
         panX = (wrapW - scaledWidth) / 2 - bounds.left * scale;
       } else {
-        panX = Math.min(maxX, Math.max(minX, panX));
+        panX = Math.min(clampMaxX, Math.max(clampMinX, panX));
       }
     } else {
-      panX = Math.min(maxX, Math.max(minX, panX));
+      panX = Math.min(clampMaxX, Math.max(clampMinX, panX));
     }
 
     if (scaledHeight + FIT_PADDING * 2 <= wrapH) {
       if (!_userHasPanned && _autoZoom) {
         panY = (wrapH - scaledHeight) / 2 - bounds.top * scale;
       } else {
-        panY = Math.min(maxY, Math.max(minY, panY));
+        panY = Math.min(clampMaxY, Math.max(clampMinY, panY));
       }
     } else {
-      panY = Math.min(maxY, Math.max(minY, panY));
+      panY = Math.min(clampMaxY, Math.max(clampMinY, panY));
     }
 
     applyTransform();
@@ -849,6 +849,8 @@ export function initStudio() {
     return null;
   }
 
+  // Capture wheel gestures before nested UI surfaces can consume them so
+  // trackpad panning stays consistent across the synth chrome.
   wrap.addEventListener('wheel', (e) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
@@ -865,11 +867,11 @@ export function initStudio() {
       // Two-finger trackpad scroll pans the studio unless the gesture started in
       // a scrollable editor/control that should own the movement.
       _userHasPanned = true;
-      panX -= e.deltaX;
-      panY -= e.deltaY;
+      panX += e.deltaX;
+      panY += e.deltaY;
       clampViewport();
     }
-  }, { passive: false });
+  }, { passive: false, capture: true });
 
   let panning = false;
   let panStartX = 0;

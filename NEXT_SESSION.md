@@ -20,6 +20,9 @@
 - Recorder slot preview: toggle play/stop (▶/■), `onended` cleanup, page-leave cleanup
 - Recorder slot info: shows `${dur}s · ${ch} · ${hz}` including sample rate
 - Removed duplicate `slotInfo.textContent` assignment
+- Unified ADSR preset definitions across SYNTH + MOD tabs
+- Replaced MOD tab filter SVG with the same canvas response visualizer used in SYNTH
+- Added target-aware LFO depth preview text in the Sound page
 
 ### Piano Roll
 - Replaced expensive `MutationObserver` keyboard listener cleanup with `AbortController` + `container._cleanup` chain
@@ -27,6 +30,14 @@
 ### FX Page
 - Fixed `convReverbPreset` + `reverbType` emits: `param:` → `path:`
 - `_applyGlobal`: engine fallback `window._confusynthEngine ?? state.engine`
+
+### Engine / Routing
+- Added target-aware LFO depth scaling in `src/engine.js` for cutoff, volume, pan, and pitch
+
+### Studio / Cables
+- Cable redraw now self-prunes disconnected endpoints
+- In-progress cable drags are cancelled if their source module is removed
+- Added UI smoke coverage for cable cleanup after module removal
 
 ### Studio (Session 2)
 - Removed `isLoopbackHost` guards in `restoreView()` and `restoreLayout()` — broke layout persistence on localhost
@@ -45,11 +56,9 @@
 
 ## Remaining Validation TODOs
 
-- **`setTrackMute` in engine.js** — confirm method exists; section mute wiring depends on it
-- **'Add Section' button** — `state.arranger.push({...})` in arranger toolbar doesn't init `trackMutes: Array(8).fill(false)`
-- **Cables after module removal** — verify `module:removed` event handled correctly in cables.js
-- **Sound page: ADSR canvas vs SVG filter visualizer** — two disconnected visualizers, should sync
-- **LFO depth scaling per target** — same 0–1 slider for all targets, needs per-target range mapping
+- **Section track-mute engine wiring** — validated against `engine.setGroupMute()` in `src/engine.js`; do a browser pass to confirm per-section mutes behave correctly with real playback
+- **Cable removal with live audio routing** — do a browser pass with multiple patched mixer routes to confirm rerouting stays correct when one cable is removed
+- **Sound page visual pass** — verify MOD tab filter canvas + LFO depth hint feel clear on desktop and mobile widths
 
 ## Recommended Work (Ongoing)
 

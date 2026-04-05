@@ -1404,8 +1404,10 @@ function emit(type, payload = {}) {
         repeat: 1,
         muted: false,
         followAction: 'next',
+        trackMutes: Array(8).fill(false),
       });
       state.arrangementCursor = state.arranger.length - 1;
+      scheduleSave();
       renderPage();
       break;
     }
@@ -2350,6 +2352,7 @@ function renderPage() {
   const page = PAGES[state.currentPage];
   if (!page) return;
   if (!el.pageContent) { console.error('[renderPage] el.pageContent is null'); return; }
+  const pageChanged = _lastRenderedPage !== state.currentPage;
   // Clamp navigation indices so page renders never throw on out-of-range access
   const bankCount    = state.project?.banks?.length ?? 0;
   const patternCount = bankCount > 0 ? (state.project.banks[0]?.patterns?.length ?? 0) : 0;
@@ -2368,14 +2371,16 @@ function renderPage() {
       el.pageContent.innerHTML = `<div style="padding:20px;color:#f05b52;font-family:monospace;font-size:0.6rem;white-space:pre-wrap">Render error (${state.currentPage}):\n${err?.message ?? err}</div>`;
     }
   }
-  if (_lastRenderedPage !== state.currentPage) {
+  if (pageChanged) {
     el.pageContent.scrollTop = 0;
     el.pageContent.scrollLeft = 0;
     _lastRenderedPage = state.currentPage;
   }
-  // Page fade-in animation
-  el.pageContent.classList.remove('page-enter');
-  requestAnimationFrame(() => el.pageContent.classList.add('page-enter'));
+  // Avoid replaying the page fade on every in-page interaction; it looks like a blackout.
+  if (pageChanged) {
+    el.pageContent.classList.remove('page-enter');
+    requestAnimationFrame(() => el.pageContent.classList.add('page-enter'));
+  }
   // Keep topbar page label in sync regardless of what triggered re-render
   const pageLabel = document.getElementById('topbar-page-label');
   if (pageLabel) {
@@ -2473,7 +2478,7 @@ function renderTrackSelector() {
   if (!el_cs) return;
   const pattern = getActivePattern(state);
   el_cs.innerHTML = '';
-  el_cs.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:4px;align-content:start';
+  el_cs.style.cssText = 'display:grid;grid-template-columns:1fr;gap:4px;padding:4px;align-content:start';
 
   const GRP_COLORS = [
     '#f0c640','#5add71','#67d7ff','#ff8c52',
@@ -2486,7 +2491,7 @@ function renderTrackSelector() {
 
     const row = document.createElement('div');
     row.className = 'track-ch' + (isActive ? ' active track-selected' : '') + (track.mute ? ' muted' : '');
-    row.style.height = '36px';
+    row.style.height = '46px';
     row.style.borderLeft = '3px solid ' + TRACK_COLORS[i];
     row.style.setProperty('--track-color', TRACK_COLORS[i]);
     row.style.position = 'relative';
@@ -2596,8 +2601,8 @@ function renderTrackSelector() {
     const btn = document.createElement('button');
     btn.style.cssText = [
       'display:flex', 'align-items:center', 'gap:3px',
-      'padding:4px 5px',
-      'height:36px',
+      'padding:5px 6px',
+      'height:40px',
       `border:1px solid ${grp.muted ? 'rgba(255,255,255,0.1)' : GRP_COLORS[gi] + '60'}`,
       `background:${grp.muted ? 'rgba(0,0,0,0.3)' : GRP_COLORS[gi] + '18'}`,
       'border-radius:3px', 'cursor:pointer',
@@ -2622,13 +2627,13 @@ function renderTrackSelector() {
 
     const mBtn = document.createElement('button');
     mBtn.textContent = 'M';
-    mBtn.style.cssText = 'width:16px;height:16px;border-radius:2px;border:1px solid rgba(0,0,0,0.3);background:rgba(0,0,0,0.25);color:var(--chassis-metal);font-size:0.38rem;font-family:var(--font-mono);font-weight:700;cursor:pointer;display:grid;place-items:center;padding:0;flex-shrink:0';
+    mBtn.style.cssText = 'width:18px;height:18px;border-radius:2px;border:1px solid rgba(0,0,0,0.3);background:rgba(0,0,0,0.25);color:var(--chassis-metal);font-size:0.42rem;font-family:var(--font-mono);font-weight:700;cursor:pointer;display:grid;place-items:center;padding:0;flex-shrink:0';
     mBtn.title = 'Mute group';
     if (grp.muted) { mBtn.style.background = 'rgba(240,91,82,0.25)'; mBtn.style.borderColor = 'rgba(240,91,82,0.5)'; mBtn.style.color = 'var(--record)'; }
 
     const sBtn = document.createElement('button');
     sBtn.textContent = 'S';
-    sBtn.style.cssText = 'width:16px;height:16px;border-radius:2px;border:1px solid rgba(0,0,0,0.3);background:rgba(0,0,0,0.25);color:var(--chassis-metal);font-size:0.38rem;font-family:var(--font-mono);font-weight:700;cursor:pointer;display:grid;place-items:center;padding:0;flex-shrink:0';
+    sBtn.style.cssText = 'width:18px;height:18px;border-radius:2px;border:1px solid rgba(0,0,0,0.3);background:rgba(0,0,0,0.25);color:var(--chassis-metal);font-size:0.42rem;font-family:var(--font-mono);font-weight:700;cursor:pointer;display:grid;place-items:center;padding:0;flex-shrink:0';
     sBtn.title = 'Solo group';
 
     mBtn.addEventListener('click', e => {

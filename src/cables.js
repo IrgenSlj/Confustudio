@@ -49,34 +49,62 @@ export function initCables() {
   const cables = []; // { id, fromEl, toEl, color, group }
   let dragging = null; // { fromEl, color, tempPath, tempDot, pointerId }
 
+  function getPortAnchor(el, wr) {
+    const er = el.getBoundingClientRect();
+    const isMixerPort = el.classList.contains('djm-port');
+    const hasJackHole = el.classList.contains('port') || isMixerPort;
+    const holeOffsetX = hasJackHole ? 10 : er.width / 2;
+    const baseX = er.left - wr.left + Math.min(holeOffsetX, er.width / 2);
+    const baseY = er.top - wr.top + er.height / 2;
+    return { x: baseX, y: baseY };
+  }
+
   // Get center of a port element in studio-wrap coordinates
   function portCenter(el) {
     const wr = studioWrap.getBoundingClientRect();
-    const er = el.getBoundingClientRect();
-    return {
-      x: er.left - wr.left + er.width / 2,
-      y: er.top  - wr.top  + er.height / 2,
-    };
+    return getPortAnchor(el, wr);
   }
 
-  function makeBezier(x1, y1, x2, y2) {
+  function getBezierGeometry(x1, y1, x2, y2) {
     const dx = x2 - x1;
     const dy = y2 - y1;
     const dist = Math.hypot(dx, dy);
 
-    // Natural cable sag — capped so long cables don't droop over the chassis UI
-    const sag = Math.min(120, Math.max(30, dist * 0.2 + 30));
+    // Lift cables above the modules so they arc around the chassis instead of
+    // drooping over the screens and controls.
+    const lift = Math.min(180, Math.max(56, dist * 0.35));
+    const topY = Math.min(y1, y2) - lift;
+    const spread = Math.min(56, Math.max(20, dist * 0.12));
 
-    // Control points: both hang below their respective endpoints
-    // Add lateral spread so cables fan out naturally
-    const spread = Math.min(40, dist * 0.08);
+    const cp1x = x1 + dx * 0.2 - spread;
+    const cp1y = topY;
+    const cp2x = x2 - dx * 0.2 + spread;
+    const cp2y = topY;
 
-    const cp1x = x1 + dx * 0.25 - spread;
-    const cp1y = y1 + sag;
-    const cp2x = x2 - dx * 0.25 + spread;
-    const cp2y = y2 + sag;
+    return {
+      start: { x: x1, y: y1 },
+      cp1: { x: cp1x, y: cp1y },
+      cp2: { x: cp2x, y: cp2y },
+      end: { x: x2, y: y2 },
+      d: `M${x1},${y1} C${cp1x},${cp1y} ${cp2x},${cp2y} ${x2},${y2}`,
+    };
+  }
 
-    return `M${x1},${y1} C${cp1x},${cp1y} ${cp2x},${cp2y} ${x2},${y2}`;
+  function bezierTangent(geom, t) {
+    const mt = 1 - t;
+    const dx =
+      3 * mt * mt * (geom.cp1.x - geom.start.x) +
+      6 * mt * t * (geom.cp2.x - geom.cp1.x) +
+      3 * t * t * (geom.end.x - geom.cp2.x);
+    const dy =
+      3 * mt * mt * (geom.cp1.y - geom.start.y) +
+      6 * mt * t * (geom.cp2.y - geom.cp1.y) +
+      3 * t * t * (geom.end.y - geom.cp2.y);
+    return { x: dx, y: dy };
+  }
+
+  function plugRotationFromVector(vx, vy) {
+    return (Math.atan2(vy, vx) * 180) / Math.PI - 90;
   }
 
   // Create a 6.35mm TS audio jack plug SVG group at (x, y), upright
@@ -183,13 +211,23 @@ export function initCables() {
   }
 
   function drawCable(cable) {
+    if (!cable.fromEl?.isConnected || !cable.toEl?.isConnected) {
+      removeCable(cable);
+      return;
+    }
     const a = portCenter(cable.fromEl);
     const b = portCenter(cable.toEl);
-    const d = makeBezier(a.x, a.y, b.x, b.y);
-    setLayerPath(cable.layers, d);
-    // Position plugs
-    cable.plugFrom.setAttribute('transform', `translate(${a.x},${a.y})`);
-    cable.plugTo.setAttribute('transform', `translate(${b.x},${b.y})`);
+    const geom = getBezierGeometry(a.x, a.y, b.x, b.y);
+    setLayerPath(cable.layers, geom.d);
+
+    const startTangent = bezierTangent(geom, 0.02);
+    const endTangent = bezierTangent(geom, 0.98);
+    const fromAngle = plugRotationFromVector(startTangent.x, startTangent.y);
+    const toAngle = plugRotationFromVector(-endTangent.x, -endTangent.y);
+
+    // Shift local geometry so the plug tip, not the cable sleeve, lands on the jack.
+    cable.plugFrom.setAttribute('transform', `translate(${a.x},${a.y}) rotate(${fromAngle}) translate(0,16)`);
+    cable.plugTo.setAttribute('transform', `translate(${b.x},${b.y}) rotate(${toAngle}) translate(0,16)`);
   }
 
   function addCable(fromEl, toEl) {
@@ -230,15 +268,22 @@ export function initCables() {
         const isCh1 = toType.includes('ch1') || toType.includes('1');
         const targetInput = isCh1 ? audio.ch1Input : audio.ch2Input;
         // Disconnect engine from destination, connect to DJ mixer input
+        const sourceNode = engine.mainOutput ?? engine.master;
+        const destinationNode = engine.context.destination;
         try {
-          engine.master.disconnect(engine.context.destination);
-          engine.master.connect(targetInput);
+          sourceNode.disconnect(destinationNode);
+        } catch (_) {}
+        try {
+          sourceNode.connect(targetInput);
         } catch(e) {
           console.warn('[cables] audio routing failed:', e.message);
         }
         // DJ mixer already connects to destination via masterGain
         cable._audioRouted = true;
         cable._engine = engine;
+        cable._sourceNode = sourceNode;
+        cable._destinationNode = destinationNode;
+        cable._targetInput = targetInput;
         cable._djmAudio = audio;
       }
     }
@@ -257,9 +302,16 @@ export function initCables() {
 
   function removeCable(cable) {
     if (!cable) return;
-    if (cable._audioRouted && cable._engine) {
-      try { cable._engine.master.disconnect(); } catch (e) {}
-      cable._engine.master.connect(cable._engine.context.destination);
+    if (cable._audioRouted && cable._engine && cable._sourceNode) {
+      try {
+        cable._sourceNode.disconnect(cable._targetInput);
+      } catch (_) {}
+      const remainingAudioRoutes = cables.some((entry) => entry !== cable && entry._audioRouted && entry._sourceNode === cable._sourceNode);
+      if (!remainingAudioRoutes) {
+        try {
+          cable._sourceNode.connect(cable._destinationNode ?? cable._engine.context.destination);
+        } catch (_) {}
+      }
     }
     cable.group?.remove();
     const idx = cables.indexOf(cable);
@@ -307,8 +359,18 @@ export function initCables() {
     const mx = clientX - wr.left;
     const my = clientY - wr.top;
     const a  = portCenter(dragging.fromEl);
-    dragging.tempPath.setAttribute('d', makeBezier(a.x, a.y, mx, my));
-    dragging.tempPlug.setAttribute('transform', `translate(${a.x},${a.y})`);
+    const geom = getBezierGeometry(a.x, a.y, mx, my);
+    dragging.tempPath.setAttribute('d', geom.d);
+    const startTangent = bezierTangent(geom, 0.02);
+    const angle = plugRotationFromVector(startTangent.x, startTangent.y);
+    dragging.tempPlug.setAttribute('transform', `translate(${a.x},${a.y}) rotate(${angle}) translate(0,16)`);
+  }
+
+  function cancelDraggingCable() {
+    if (!dragging) return;
+    dragging.tempPath?.remove();
+    dragging.tempPlug?.remove();
+    dragging = null;
   }
 
   function finishDraggingCable(clientX, clientY) {
@@ -385,6 +447,9 @@ export function initCables() {
   document.addEventListener('module:removed', (e) => {
     const moduleEl = e.detail?.moduleEl;
     if (!moduleEl) return;
+    if (dragging && moduleEl.contains(dragging.fromEl)) {
+      cancelDraggingCable();
+    }
     cables
       .filter((cable) => moduleEl.contains(cable.fromEl) || moduleEl.contains(cable.toEl))
       .forEach(removeCable);

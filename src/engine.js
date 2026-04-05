@@ -858,6 +858,22 @@ export class AudioEngine {
     return a + (b - a) * crossfader;
   }
 
+  _resolveLfoDepthAmount(target, depth, { cutoff = 800, loudness = 1 } = {}) {
+    const amt = Math.max(0, depth ?? 0);
+    switch (target) {
+      case 'cutoff':
+        return amt * Math.max(250, Math.min(6000, cutoff * 1.25));
+      case 'volume':
+        return amt * Math.max(0.08, loudness * 0.6);
+      case 'pan':
+        return Math.min(1, amt);
+      case 'pitch':
+        return amt * 120;
+      default:
+        return amt;
+    }
+  }
+
   // ——————————————————————————————————————————————
   // MIDI output
   // ——————————————————————————————————————————————
@@ -1285,16 +1301,16 @@ export class AudioEngine {
         const lfoGain = this.context.createGain();
         trigLFO.connect(lfoGain);
         if (params.lfoTarget === "cutoff") {
-          lfoGain.gain.value = params.lfoDepth * 2500;
+          lfoGain.gain.value = this._resolveLfoDepthAmount('cutoff', params.lfoDepth, { cutoff: params.cutoff, loudness });
           lfoGain.connect(filter.frequency);
         } else if (params.lfoTarget === "volume") {
-          lfoGain.gain.value = params.lfoDepth * loudness * 0.7;
+          lfoGain.gain.value = this._resolveLfoDepthAmount('volume', params.lfoDepth, { cutoff: params.cutoff, loudness });
           lfoGain.connect(output.gain);
         } else if (params.lfoTarget === "pan") {
-          lfoGain.gain.value = params.lfoDepth;
+          lfoGain.gain.value = this._resolveLfoDepthAmount('pan', params.lfoDepth, { cutoff: params.cutoff, loudness });
           lfoGain.connect(panner.pan);
         } else if (params.lfoTarget === "pitch") {
-          lfoGain.gain.value = (params.lfoDepth ?? 0.3) * 100;
+          lfoGain.gain.value = this._resolveLfoDepthAmount('pitch', params.lfoDepth, { cutoff: params.cutoff, loudness });
           // pitch routing needs osc.detune — deferred to after osc creation below
           trigLFO._pitchGain = lfoGain;
         }
@@ -1303,13 +1319,13 @@ export class AudioEngine {
       // Multi-destination routing flags
       if (params.lfoToCutoff) {
         const g = this.context.createGain();
-        g.gain.value = (params.lfoDepth ?? 0.3) * (params.cutoff ?? 800);
+        g.gain.value = this._resolveLfoDepthAmount('cutoff', params.lfoDepth, { cutoff: params.cutoff, loudness });
         trigLFO.connect(g);
         g.connect(filter.frequency);
       }
       if (params.lfoToVolume) {
         const g = this.context.createGain();
-        g.gain.value = (params.lfoDepth ?? 0.3) * 0.5;
+        g.gain.value = this._resolveLfoDepthAmount('volume', params.lfoDepth, { cutoff: params.cutoff, loudness });
         trigLFO.connect(g);
         g.connect(output.gain);
       }
@@ -1571,7 +1587,7 @@ export class AudioEngine {
         // lfoToPitch routing flag
         if (params.lfoToPitch) {
           const g = this.context.createGain();
-          g.gain.value = (params.lfoDepth ?? 0.3) * 100; // depth * 100 cents
+          g.gain.value = this._resolveLfoDepthAmount('pitch', params.lfoDepth, { cutoff: params.cutoff, loudness });
           trigLFO.connect(g);
           g.connect(osc.detune);
         }

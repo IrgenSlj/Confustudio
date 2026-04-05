@@ -146,18 +146,20 @@ function injectPatternCSS() {
   flex: 1 !important;
   min-height: 0 !important;
   gap: 1px !important;
+  width: 100% !important;
 }
 .mtg-row {
   min-height: 44px !important;
   max-height: 54px !important;
   overflow: hidden;
   flex-shrink: 0;
+  width: 100% !important;
 }
 /* ── Compact label area ── */
 .mtg-label-wrap {
-  width: 80px !important;
-  min-width: 80px !important;
-  max-width: 80px !important;
+  width: 74px !important;
+  min-width: 74px !important;
+  max-width: 74px !important;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -165,20 +167,30 @@ function injectPatternCSS() {
   padding: 2px 3px;
   overflow: hidden;
 }
+.mtg-steps {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 1px !important;
+}
 .mtg-label {
   font-size: 0.54rem !important;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+  letter-spacing: 0.02em;
 }
 .mtg-machine {
-  font-size: 0.38rem !important;
+  font-size: 0.36rem !important;
   white-space: nowrap;
+  opacity: 0.7;
 }
 .mtg-rand-btn {
-  font-size: 0.5rem !important;
-  padding: 0px 2px !important;
+  font-size: 0.44rem !important;
+  padding: 1px 0 !important;
   line-height: 1.2;
 }
 /* ── Step buttons: border-radius + beat groups ── */
@@ -596,6 +608,10 @@ export default {
       const isSelected   = ti === selTi;
       const trackLen     = trk.trackLength > 0 ? trk.trackLength : pattern.length;
       const trkStepCount = trk.stepCount ?? pattern.length;
+      const shortPattern = trkStepCount <= 16;
+      const stepBtnSize = shortPattern
+        ? Math.max(22, Math.min(52, Math.floor((Math.max(container.clientWidth, 760) - 96) / Math.max(trkStepCount, 1)) - 2))
+        : 22;
 
       const row = document.createElement('div');
       row.className = 'mtg-row' + (isSelected ? ' active' : '') + (trk.mute ? ' muted' : '');
@@ -615,13 +631,13 @@ export default {
       labelWrap.append(labelRow1);
       // Row 2: action buttons (horizontal, compact)
       const labelRow2 = document.createElement('div');
-      labelRow2.style.cssText = 'display:flex;align-items:center;gap:1px;flex-wrap:nowrap;overflow:hidden';
+      labelRow2.style.cssText = 'display:flex;align-items:center;gap:1px;flex-wrap:nowrap;overflow:hidden;opacity:0.9';
       labelWrap.append(labelRow2);
 
       const randBtn = document.createElement('button');
       randBtn.className = 'mtg-rand-btn';
       randBtn.title = 'Randomize steps (uses current density + genre)';
-      randBtn.textContent = '⚄';
+      randBtn.textContent = 'R';
       randBtn.addEventListener('click', e => {
         e.stopPropagation();
         // Delegate to app.js so pushHistory is called there
@@ -632,7 +648,7 @@ export default {
       const copyBtn = document.createElement('button');
       copyBtn.className = 'mtg-rand-btn';
       copyBtn.title = 'Copy track steps';
-      copyBtn.textContent = '⧉';
+      copyBtn.textContent = 'C';
       copyBtn.addEventListener('click', e => {
         e.stopPropagation();
         state._trackCopyBuffer = JSON.parse(JSON.stringify(trk.steps));
@@ -651,7 +667,7 @@ export default {
       const pasteBtn = document.createElement('button');
       pasteBtn.className = 'mtg-rand-btn';
       pasteBtn.title = 'Paste track steps';
-      pasteBtn.textContent = '▣';
+      pasteBtn.textContent = 'P';
       pasteBtn.style.opacity = state._trackCopyBuffer ? '1' : '0.35';
       pasteBtn.addEventListener('click', e => {
         e.stopPropagation();
@@ -664,7 +680,7 @@ export default {
       const recArmBtn = document.createElement('button');
       recArmBtn.className = 'mtg-rand-btn mtg-rec-arm-btn' + (trk.recArmed ? ' armed' : '');
       recArmBtn.title = trk.recArmed ? 'Disarm track from recording' : 'Arm track for recording';
-      recArmBtn.textContent = '●';
+      recArmBtn.textContent = 'REC';
       recArmBtn.style.color = trk.recArmed ? 'var(--live, #f44)' : 'var(--muted, #555)';
       recArmBtn.addEventListener('click', e => {
         e.stopPropagation();
@@ -680,7 +696,7 @@ export default {
       const velRandBtn = document.createElement('button');
       velRandBtn.className = 'mtg-rand-btn mtg-vel-rand-btn';
       velRandBtn.title = 'Randomize step velocities';
-      velRandBtn.textContent = 'V⚄';
+      velRandBtn.textContent = 'VEL';
       velRandBtn.addEventListener('click', e => {
         e.stopPropagation();
         const activePattern = state.project.banks[state.activeBank].patterns[state.activePattern];
@@ -694,7 +710,7 @@ export default {
 
       // Per-track step count selector (polyrhythm) — placed in label row 1 as a small inline select
       const stepCountSel = document.createElement('select');
-      stepCountSel.style.cssText = 'font-size:0.38rem;background:var(--surface);color:var(--muted);border:1px solid rgba(255,255,255,0.1);border-radius:2px;padding:0 1px;width:28px;flex-shrink:0';
+      stepCountSel.style.cssText = 'font-size:0.36rem;background:rgba(255,255,255,0.04);color:var(--muted);border:1px solid rgba(255,255,255,0.08);border-radius:2px;padding:0 1px;width:28px;flex-shrink:0';
       stepCountSel.title = 'Track step count (polyrhythm)';
       [8, 12, 16, 24, 32].forEach(n => {
         const opt = document.createElement('option');
@@ -814,6 +830,13 @@ export default {
       }
 
       row.append(labelWrap);
+      const stepsWrap = document.createElement('div');
+      stepsWrap.className = 'mtg-steps';
+      if (!shortPattern) {
+        stepsWrap.style.flex = '0 0 auto';
+        stepsWrap.style.width = 'max-content';
+      }
+      row.append(stepsWrap);
 
       // Step buttons — use per-track stepCount if set, otherwise fall back to global pattern.length
       trk.steps.slice(0, trkStepCount).forEach((step, si) => {
@@ -821,12 +844,17 @@ export default {
         if (trkStepCount > 16 && si > 0 && si % 16 === 0) {
           const sep = document.createElement('div');
           sep.style.cssText = 'width:2px;height:18px;background:rgba(255,255,255,0.12);border-radius:1px;flex-shrink:0;align-self:center;margin:0 1px';
-          row.append(sep);
+          stepsWrap.append(sep);
         }
 
         const btn = document.createElement('button');
         btn.className = 'step-btn step-sm';
         btn.style.position = 'relative';
+        btn.style.width = `${stepBtnSize}px`;
+        btn.style.height = `${stepBtnSize}px`;
+        btn.style.minWidth = `${stepBtnSize}px`;
+        btn.style.maxWidth = shortPattern ? '56px' : `${stepBtnSize}px`;
+        btn.style.flex = shortPattern ? '1 1 0' : '0 0 auto';
         if (step.active)                          btn.classList.add('active');
         if (step.accent)                          btn.classList.add('accent');
         if (Object.keys(step.paramLocks ?? {}).length)  btn.classList.add('plock');
@@ -1256,7 +1284,7 @@ export default {
           // Do not cancel velDragging here — pointer capture keeps events flowing
         });
 
-        row.append(btn);
+        stepsWrap.append(btn);
       });
 
       // Track length drag handle

@@ -120,6 +120,13 @@ const MACHINE_BADGE_COLORS = {
 };
 
 const LFO_TARGETS = ['cutoff', 'volume', 'pan', 'pitch'];
+const ADSR_PRESETS = [
+  { label: 'Perc',  a: 0.001, d: 0.1,  s: 0,   r: 0.05 },
+  { label: 'Pad',   a: 0.3,   d: 0.5,  s: 0.8, r: 1.0  },
+  { label: 'Pluck', a: 0.001, d: 0.15, s: 0.3, r: 0.2  },
+  { label: 'Long',  a: 0.1,   d: 0.3,  s: 0.7, r: 0.8  },
+  { label: 'Drone', a: 0.5,   d: 0.1,  s: 1.0, r: 2.0  },
+];
 
 const PLAITS_ENGINES = [
   { label: 'VA',     value: 0 },
@@ -250,17 +257,6 @@ function buildEnvelopeSVG(attack, decay, sustain = 0.6, release = 0.3) {
     <path d="${pts}" fill="none" stroke="var(--live)" stroke-width="1.5" stroke-linejoin="round"/>
     <circle cx="${aX}" cy="4"    r="2.5" fill="var(--accent)"/>
     <circle cx="${dX}" cy="${sY}" r="2.5" fill="var(--accent)"/>
-  </svg>`;
-}
-
-function buildFilterSVG(cutoff, resonance) {
-  const W = 180, H = 40;
-  const cx = 10 + (Math.log(cutoff / 80) / Math.log(200)) * (W - 20);
-  const peakY = Math.max(4, H - resonance * 10 - 8);
-  const pts = `M4,${H - 4} Q${cx * 0.6},${H - 4} ${cx - 8},${H - 6} L${cx},${peakY} L${cx + 8},${H - 6} Q${cx + 20},${H - 2} ${W - 4},${H - 2}`;
-  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" width="100%" height="40"
-    style="display:block;background:#0a0a0a;border-radius:4px;border:1px solid var(--border)">
-    <path d="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
   </svg>`;
 }
 
@@ -1236,14 +1232,6 @@ function buildAmpColumn(track, ti, emit, color) {
   adsrCanvas.height = 50;
   col.append(adsrCanvas);
 
-  const ADSR_PRESETS = [
-    { label: 'Perc',  a: 0.001, d: 0.1,  s: 0,   r: 0.05 },
-    { label: 'Pad',   a: 0.3,   d: 0.5,  s: 0.8, r: 1.0  },
-    { label: 'Pluck', a: 0.001, d: 0.15, s: 0.3, r: 0.2  },
-    { label: 'Long',  a: 0.1,   d: 0.3,  s: 0.7, r: 0.8  },
-    { label: 'Drone', a: 0.5,   d: 0.1,  s: 1.0, r: 2.0  },
-  ];
-
   // Preset row
   const presetRow = document.createElement('div');
   presetRow.style.cssText = 'display:flex;gap:3px;flex-wrap:wrap';
@@ -1629,15 +1617,6 @@ export default {
       drawADSR(adsrCanvas, a, d, s, r, TRACK_COLORS[ti] ?? '#5add71');
     }
 
-    // ADSR shape presets
-    const ADSR_PRESETS = [
-      { label: 'Perc',  a: 0.001, d: 0.1,  s: 0,   r: 0.05 },
-      { label: 'Pad',   a: 0.3,   d: 0.5,  s: 0.8, r: 1.0  },
-      { label: 'Pluck', a: 0.001, d: 0.15, s: 0.3, r: 0.2  },
-      { label: 'Long',  a: 0.1,   d: 0.3,  s: 0.7, r: 0.8  },
-      { label: 'Drone', a: 0.5,   d: 0.1,  s: 1.0, r: 2.0  },
-    ];
-
     const presetRow = document.createElement('div');
     presetRow.style.cssText = 'display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px';
 
@@ -1722,13 +1701,29 @@ export default {
         });
         btn.classList.add('active');
         btn.style.borderColor = 'var(--accent)';
+        track.filterType = value;
         emit('track:change', { trackIndex: ti, param: 'filterType', value });
+        redrawModFilter();
       });
       filtTypeRow.append(btn);
     });
     filtCard.append(filtTypeRow);
 
-    filtCard.insertAdjacentHTML('beforeend', buildFilterSVG(track.cutoff, track.resonance));
+    const filterCanvas = document.createElement('canvas');
+    filterCanvas.className = 'snd-filter-canvas';
+    filterCanvas.width = 180;
+    filterCanvas.height = 40;
+    filterCanvas.style.cssText = 'display:block;width:100%;height:40px;margin-bottom:6px;background:#0a0a0a;border-radius:4px;border:1px solid var(--border)';
+    filtCard.append(filterCanvas);
+
+    function redrawModFilter() {
+      const layoutW = filterCanvas.offsetWidth;
+      if (layoutW > 0) filterCanvas.width = layoutW;
+      const inputs = filtCard.querySelectorAll('input[type="range"]');
+      const cutoff = parseFloat(inputs[0]?.value ?? track.cutoff ?? 4000);
+      const resonance = parseFloat(inputs[1]?.value ?? track.resonance ?? 0.5);
+      drawFilterResponse(filterCanvas, cutoff, resonance, track.filterType ?? 'lowpass', TRACK_COLORS[ti] ?? '#5add71');
+    }
 
     const filtParams = [
       { label: 'Cutoff', param: 'cutoff',    min: 80,  max: 16000, step: 10  },
@@ -1741,17 +1736,8 @@ export default {
       filtCard.append(makeSlider(label, param, min, max, step, val, emit, ti));
     });
 
-    filtCard.addEventListener('input', () => {
-      const inputs = filtCard.querySelectorAll('input[type="range"]');
-      const c = parseFloat(inputs[0]?.value ?? track.cutoff);
-      const r = parseFloat(inputs[1]?.value ?? track.resonance);
-      const existingSvg = filtCard.querySelector('svg');
-      if (existingSvg) {
-        const tmp = document.createElement('div');
-        tmp.innerHTML = buildFilterSVG(c, r);
-        existingSvg.replaceWith(tmp.firstElementChild);
-      }
-    });
+    filtCard.addEventListener('input', redrawModFilter);
+    requestAnimationFrame(redrawModFilter);
     modGrid.append(filtCard);
 
     // ── Mix card ──
@@ -1831,6 +1817,22 @@ export default {
     lfoCard.className = 'page-card';
     lfoCard.innerHTML = '<h4>LFO</h4>';
 
+    function formatLfoDepthPreview(target, depth) {
+      const amt = Math.max(0, Number(depth) || 0);
+      switch (target) {
+        case 'cutoff':
+          return `${Math.round(amt * Math.max(250, Math.min(6000, (track.cutoff ?? 800) * 1.25)))} Hz`;
+        case 'volume':
+          return `${Math.round(amt * 60)}% amp`;
+        case 'pan':
+          return `${amt.toFixed(2)} pan`;
+        case 'pitch':
+          return `${Math.round(amt * 120)} cents`;
+        default:
+          return amt.toFixed(2);
+      }
+    }
+
     const targetRow = document.createElement('div');
     targetRow.style.cssText = 'display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap';
     LFO_TARGETS.forEach(tgt => {
@@ -1840,7 +1842,9 @@ export default {
       btn.addEventListener('click', () => {
         targetRow.querySelectorAll('.ctx-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
+        track.lfoTarget = tgt;
         emit('track:change', { trackIndex: ti, param: 'lfoTarget', value: tgt });
+        updateLfoDepthHint();
       });
       targetRow.append(btn);
     });
@@ -1852,6 +1856,16 @@ export default {
     ].forEach(({ label, param, min, max, step, value }) => {
       lfoCard.append(makeSlider(label, param, min, max, step, value, emit, ti));
     });
+
+    const lfoDepthHint = document.createElement('div');
+    lfoDepthHint.style.cssText = 'margin-top:4px;font-family:var(--font-mono);font-size:0.52rem;color:var(--muted)';
+    function updateLfoDepthHint() {
+      const inputs = lfoCard.querySelectorAll('input[type="range"]');
+      const rawDepth = parseFloat(inputs[1]?.value ?? track.lfoDepth ?? 0);
+      const target = track.lfoTarget || 'cutoff';
+      lfoDepthHint.textContent = `Depth maps to ${formatLfoDepthPreview(target, rawDepth)} on ${target.toUpperCase()}`;
+    }
+    lfoCard.append(lfoDepthHint);
 
     // LFO routing destination toggles (multi-target flags)
     const lfoRoutingRow = document.createElement('div');
@@ -1870,10 +1884,13 @@ export default {
         track[param] = val;
         btn.classList.toggle('active', val);
         emit('track:change', { trackIndex: ti, param, value: val });
+        updateLfoDepthHint();
       });
       lfoRoutingRow.append(btn);
     });
     lfoCard.append(lfoRoutingRow);
+    lfoCard.addEventListener('input', updateLfoDepthHint);
+    requestAnimationFrame(updateLfoDepthHint);
 
     modGrid.append(lfoCard);
 
