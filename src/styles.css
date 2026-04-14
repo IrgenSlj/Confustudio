@@ -212,6 +212,41 @@ body {
   z-index: 1000;
 }
 
+.studio-controls-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.studio-controls-group + .studio-controls-group {
+  position: relative;
+  margin-left: 8px;
+  padding-left: 10px;
+}
+
+.studio-controls-group + .studio-controls-group::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 5px;
+  bottom: 5px;
+  width: 1px;
+  background: rgba(255,255,255,0.08);
+}
+
+#studio-brandmark {
+  color: #ffffff;
+  font-family: var(--font-ui);
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: none;
+  margin-right: 10px;
+  padding: 0 8px 0 2px;
+  white-space: nowrap;
+  text-shadow: 0 1px 10px rgba(255,255,255,0.08);
+}
+
 #studio-controls button {
   height: 30px;
   padding: 0 9px;
@@ -241,9 +276,16 @@ body {
 }
 
 #module-selection {
-  color: rgba(255,255,255,0.38) !important;
-  font-size: 0.54rem !important;
-  padding: 0 2px !important;
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  color: rgba(255,255,255,0.68) !important;
+  font-size: 0.56rem !important;
+  padding: 0 10px !important;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  letter-spacing: 0.03em;
 }
 
 #add-module {
@@ -273,6 +315,40 @@ body {
 #remove-module:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+#toggle-zoom-lens {
+  background: rgba(103,215,255,0.12) !important;
+  border-color: rgba(103,215,255,0.24) !important;
+  color: var(--electric) !important;
+}
+
+#toggle-zoom-lens.lens-off {
+  background: rgba(255,255,255,0.05) !important;
+  border-color: rgba(255,255,255,0.08) !important;
+  color: rgba(255,255,255,0.55) !important;
+}
+
+#studio-zoom-lens-host {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 220px;
+  height: 220px;
+  pointer-events: none;
+  z-index: 1400;
+  display: none;
+}
+
+@media (max-width: 1100px) {
+  #studio-brandmark {
+    display: none;
+  }
+
+  .studio-controls-group + .studio-controls-group {
+    margin-left: 4px;
+    padding-left: 6px;
+  }
 }
 
 #studio-wrap.is-panning {

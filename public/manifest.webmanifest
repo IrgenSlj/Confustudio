@@ -1,6 +1,6 @@
 {
-  "name": "Confusynth Prototype",
-  "short_name": "Confusynth",
+  "name": "CONFUstudio",
+  "short_name": "CONFUstudio",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -11,7 +11,7 @@
     {"src": "/public/icon.svg", "sizes": "any", "type": "image/svg+xml"}
   ],
   "shortcuts": [
-    {"name": "Open CONFUsynth", "url": "/"}
+    {"name": "Open CONFUstudio", "url": "/"}
   ],
   "categories": ["music", "entertainment"]
 }

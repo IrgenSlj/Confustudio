@@ -2,18 +2,56 @@
 
 const { app, BrowserWindow } = require('electron');
 const { spawn } = require('child_process');
+const net = require('net');
 const path = require('path');
 
 const rootDir = path.join(__dirname, '..');
 const isDev = process.env.ELECTRON_IS_DEV === '1';
+const preferredPort = Number(process.env.PORT || 4173);
 
 let mainWindow = null;
 let serverProcess = null;
+let serverPort = preferredPort;
 
-function startServer() {
+function isPortAvailable(port) {
+  return new Promise((resolve) => {
+    const tester = net.createServer();
+    tester.once('error', () => resolve(false));
+    tester.once('listening', () => {
+      tester.close(() => resolve(true));
+    });
+    tester.listen(port, '127.0.0.1');
+  });
+}
+
+function getEphemeralPort() {
+  return new Promise((resolve, reject) => {
+    const tester = net.createServer();
+    tester.once('error', reject);
+    tester.once('listening', () => {
+      const address = tester.address();
+      tester.close((closeError) => {
+        if (closeError) {
+          reject(closeError);
+          return;
+        }
+        resolve(address.port);
+      });
+    });
+    tester.listen(0, '127.0.0.1');
+  });
+}
+
+async function resolveServerPort() {
+  if (await isPortAvailable(preferredPort)) {
+    return preferredPort;
+  }
+  return getEphemeralPort();
+}
+
+function startServer(port) {
   return new Promise((resolve, reject) => {
     let resolved = false;
-    let portAlreadyInUse = false;
 
     const resolveOnce = () => {
       if (resolved) return;
@@ -23,13 +61,17 @@ function startServer() {
 
     serverProcess = spawn('node', ['server.mjs'], {
       cwd: rootDir,
+      env: {
+        ...process.env,
+        PORT: String(port),
+      },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
     serverProcess.stdout.on('data', (data) => {
       const output = data.toString();
       process.stdout.write(`[server] ${output}`);
-      if (output.includes('Confusynth listening')) {
+      if (output.includes(`Confusynth listening on http://127.0.0.1:${port}`)) {
         resolveOnce();
       }
     });
@@ -37,10 +79,6 @@ function startServer() {
     serverProcess.stderr.on('data', (data) => {
       const output = data.toString();
       process.stderr.write(`[server:err] ${output}`);
-      if (output.includes('EADDRINUSE')) {
-        portAlreadyInUse = true;
-        resolveOnce();
-      }
     });
 
     serverProcess.on('error', (err) => {
@@ -50,10 +88,6 @@ function startServer() {
 
     serverProcess.on('exit', (code, signal) => {
       if (code === 0) {
-        resolveOnce();
-        return;
-      }
-      if (portAlreadyInUse) {
         resolveOnce();
         return;
       }
@@ -71,7 +105,7 @@ function killServer() {
   }
 }
 
-function createWindow() {
+function createWindow(port) {
   const isMac = process.platform === 'darwin';
 
   mainWindow = new BrowserWindow({
@@ -90,7 +124,7 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadURL('http://127.0.0.1:4173');
+  mainWindow.loadURL(`http://127.0.0.1:${port}`);
 
   if (isDev) {
     mainWindow.webContents.openDevTools();
@@ -104,8 +138,9 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   try {
-    await startServer();
-    createWindow();
+    serverPort = await resolveServerPort();
+    await startServer(serverPort);
+    createWindow(serverPort);
   } catch (err) {
     console.error('[confu] Could not start server, aborting:', err);
     app.quit();

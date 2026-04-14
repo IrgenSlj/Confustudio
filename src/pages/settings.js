@@ -148,8 +148,8 @@ function _downloadBlob(blob, filename) {
 
 /**
  * Show the stem export modal. Renders each track to a separate WAV using
- * the live AudioContext if available, falling back to a "coming soon" notice
- * when the engine cannot supply per-track nodes.
+ * engine-provided offline rendering hooks. When those hooks are absent, the
+ * UI stays read-only instead of exporting silent placeholder files.
  */
 function _showStemExportModal(state, emit, container) {
   // Remove any existing modal
@@ -176,10 +176,16 @@ function _showStemExportModal(state, emit, container) {
   const beatsPerBar = 4;
   const durationSec = (bars * beatsPerBar * 60) / bpm;
   const sampleRate = state.audioContext?.sampleRate ?? 44100;
+  const eng = window._confusynthEngine ?? state.engine;
+  const stemRenderingAvailable = Boolean(eng?.renderTrackStem || eng?.renderOfflineTrack);
 
   const infoEl = document.createElement('div');
   infoEl.style.cssText = 'font-size:0.54rem;color:var(--screen-text,#f0c640);margin-bottom:12px;padding:6px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;background:rgba(0,0,0,0.3)';
   infoEl.innerHTML = `<span style="opacity:0.7">BPM:</span> ${bpm} &nbsp; <span style="opacity:0.7">Bars:</span> ${bars} &nbsp; <span style="opacity:0.7">Duration:</span> ${durationSec.toFixed(2)}s &nbsp; <span style="opacity:0.7">Rate:</span> ${sampleRate}Hz`;
+
+  if (!stemRenderingAvailable) {
+    desc.textContent = 'Per-track offline rendering is not implemented in the current engine build yet. Stem export stays disabled until engine render hooks are available.';
+  }
 
   const trackList = document.createElement('div');
   trackList.style.cssText = 'display:flex;flex-direction:column;gap:3px;margin-bottom:12px';
@@ -213,10 +219,21 @@ function _showStemExportModal(state, emit, container) {
 
   const exportBtn = document.createElement('button');
   exportBtn.className = 'seq-btn';
-  exportBtn.textContent = 'Export WAV';
+  exportBtn.textContent = stemRenderingAvailable ? 'Export WAV' : 'Unavailable';
   exportBtn.style.cssText = 'font-size:0.6rem;font-weight:700';
+  exportBtn.disabled = !stemRenderingAvailable;
+
+  if (!stemRenderingAvailable) {
+    progressEl.style.color = 'var(--muted,#888)';
+    progressEl.textContent = 'Stem export is blocked until offline track rendering is implemented in the engine.';
+  }
 
   exportBtn.addEventListener('click', async () => {
+    if (!stemRenderingAvailable) {
+      progressEl.style.color = 'var(--muted,#888)';
+      progressEl.textContent = 'Stem export is not available in this build yet.';
+      return;
+    }
     exportBtn.disabled = true;
     cancelBtn.disabled = true;
     const selectedIndices = checkboxes.filter(cb => cb.checked).map(cb => parseInt(cb.dataset.trackIndex, 10));
@@ -225,8 +242,6 @@ function _showStemExportModal(state, emit, container) {
       exportBtn.disabled = false; cancelBtn.disabled = false;
       return;
     }
-
-    const eng = window._confusynthEngine ?? state.engine;
     const projectName = (state.project?.name ?? 'stem').replace(/[^a-zA-Z0-9_-]/g, '_');
 
     // Prefer engine's per-track render if available
@@ -246,33 +261,18 @@ function _showStemExportModal(state, emit, container) {
       return;
     }
 
-    // Fallback: use OfflineAudioContext with a simple sine oscillator per track
-    // to produce a correctly-timed silent-except-for-note-events WAV.
-    // In practice without engine cooperation we can only produce silence-plus-
-    // metadata, so we render a placeholder buffer and note the limitation.
     try {
       for (let idx = 0; idx < selectedIndices.length; idx++) {
         const ti = selectedIndices[idx];
         progressEl.textContent = `Rendering T${ti+1}…  (${idx+1}/${selectedIndices.length})`;
         const offCtx = new OfflineAudioContext(2, Math.ceil(sampleRate * durationSec), sampleRate);
-
-        // If the engine can supply a rendered sub-graph, use it; otherwise fall back to silence
-        let rendered;
-        if (eng?.renderOfflineTrack) {
-          await eng.renderOfflineTrack(offCtx, ti);
-          rendered = await offCtx.startRendering();
-        } else {
-          // Silence placeholder — real engine integration needed for actual audio
-          rendered = await offCtx.startRendering();
-        }
-
+        await eng.renderOfflineTrack(offCtx, ti);
+        const rendered = await offCtx.startRendering();
         const filename = `${projectName}_T${ti+1}.wav`;
         _downloadBlob(_audioBufferToWavBlob(rendered), filename);
       }
       progressEl.style.color = 'var(--live,#5add71)';
-      progressEl.textContent = selectedIndices.length > 0
-        ? `${selectedIndices.length} stem(s) exported. (Note: full engine integration required for audio content.)`
-        : 'Done.';
+      progressEl.textContent = `${selectedIndices.length} stem(s) exported.`;
     } catch (err) {
       progressEl.style.color = 'var(--record,#f05b52)';
       progressEl.textContent = 'Export failed: ' + (err.message ?? err);
@@ -422,7 +422,7 @@ export default {
     container.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0">
         <span class="page-title" style="margin:0">Settings</span>
-        <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);margin-left:auto">CONFUsynth ${VERSION}</span>
+        <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);margin-left:auto">CONFUstudio ${VERSION}</span>
       </div>
       <div class="settings-grid" style="overflow-y:visible;height:auto;min-height:0">
 
@@ -563,7 +563,7 @@ export default {
             Clear Saved State
           </button>
           <div style="font-family:var(--font-mono);font-size:0.56rem;color:var(--muted);margin-top:10px;line-height:1.6">
-            CONFUsynth ${VERSION}<br>Web Audio API sequencer<br>ES modules
+            CONFUstudio ${VERSION}<br>Web Audio API studio shell<br>ES modules
           </div>
         </div>
 
@@ -797,7 +797,7 @@ export default {
       if (state.project) {
         state.project.name = e.target.value;
         const topbarEl = document.getElementById('project-name');
-        if (topbarEl) topbarEl.textContent = e.target.value || 'CONFUsynth';
+        if (topbarEl) topbarEl.textContent = e.target.value || 'CONFUstudio';
         saveState(state);
       }
     });
@@ -1731,7 +1731,7 @@ export default {
     const exportStemsBtn = document.createElement('button');
     exportStemsBtn.className = 'seq-btn';
     exportStemsBtn.textContent = 'Export Stems';
-    exportStemsBtn.title = 'Render each track to a separate WAV file using OfflineAudioContext';
+    exportStemsBtn.title = 'Render each track to a separate WAV file when offline engine rendering is available';
     exportStemsBtn.addEventListener('click', () => _showStemExportModal(state, emit, container));
 
     presetBar.append(saveBtn, loadInput, loadBtn, saveKitBtn, loadKitInput, loadKitBtn, exportMidiFileBtn, exportStemsBtn);
@@ -1866,6 +1866,24 @@ export default {
       summary: `${getActivePattern(state)?.length ?? 16} steps at ${state.bpm ?? 120} BPM`,
     });
 
+    const updateAssistantAvailability = (providers = {}) => {
+      const selectedId = assistantProvider.value || 'auto';
+      const configuredProviders = Object.values(providers).filter((provider) => provider?.id !== 'auto' && provider?.configured);
+      const selectedProvider = providers[selectedId] || null;
+      const canSend = selectedId === 'auto'
+        ? configuredProviders.length > 0
+        : selectedProvider?.configured !== false;
+
+      assistantSendBtn.disabled = !canSend;
+      if (!canSend) {
+        assistantOutput.textContent = configuredProviders.length === 0
+          ? 'Configure an assistant provider in the environment before sending prompts.'
+          : 'The selected provider is not configured in the current environment.';
+      } else if (assistantOutput.textContent.startsWith('Configure an assistant provider') || assistantOutput.textContent.startsWith('The selected provider is not configured')) {
+        assistantOutput.textContent = 'Assistant ready.';
+      }
+    };
+
     assistantContextBtn.addEventListener('click', () => {
       assistantPrompt.value = buildAssistantPrompt(buildLiveContext());
       assistantPrompt.focus();
@@ -1911,9 +1929,13 @@ export default {
           assistantProvider.append(option);
         });
         assistantProvider.value = state.assistantProvider || data?.defaultProvider || 'auto';
+        updateAssistantAvailability(providers);
+        assistantProvider.addEventListener('change', () => updateAssistantAvailability(providers));
       })
       .catch(() => {
         assistantProvider.innerHTML = '<option value="auto">Auto</option>';
+        assistantSendBtn.disabled = true;
+        assistantOutput.textContent = 'Assistant provider metadata is unavailable.';
       });
 
     assistantButtons.append(assistantContextBtn, assistantSendBtn);

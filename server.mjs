@@ -49,13 +49,13 @@ function buildFallbackManual() {
   return {
     schemaVersion: "1.0.0",
     app: {
-      name: "CONFUsynth",
+      name: "CONFUstudio",
       description: "Browser-first open-source digital music studio for sequencing, sampling, synthesis, routing, mixing, and mastering.",
     },
     assistant: {
       defaultRole: "studio assistant",
       systemPrompt: assistantSystemFallback,
-      contextSummary: "CONFUsynth is a browser-first digital music studio.",
+      contextSummary: "CONFUstudio is a browser-first digital music studio with CONFUsynth as its flagship instrument.",
       skills: [],
       toolSurface: [],
     },
@@ -86,11 +86,8 @@ function loadAssistantManual() {
 
 function resolveDefaultAssistantProvider() {
   const configured = normalizeProviderName(process.env.ASSISTANT_PROVIDER);
-  if (configured) return configured;
-  if (process.env.OPENAI_API_KEY) return "openai";
-  if (process.env.ANTHROPIC_API_KEY) return "anthropic";
-  if (process.env.OLLAMA_HOST || process.env.LOCAL_AI_BASE_URL || process.env.ASSISTANT_BASE_URL) return "local-openai";
-  return "openai";
+  if (configured && assistantProviderCatalog[configured]?.configured) return configured;
+  return getConfiguredAssistantProviderIds()[0] || "auto";
 }
 
 function normalizeProviderName(provider) {
@@ -147,13 +144,20 @@ function buildProviderCatalog() {
 function resolveAssistantConfig(requestedProvider) {
   const normalized = normalizeProviderName(requestedProvider) || defaultAssistantProvider;
   if (normalized === "auto") {
-    return resolveAssistantConfig(defaultAssistantProvider);
+    const preferredProvider = getConfiguredAssistantProviderIds()[0];
+    return preferredProvider ? assistantProviderCatalog[preferredProvider] : null;
   }
   const provider = assistantProviderCatalog[normalized];
   if (!provider) {
     return null;
   }
   return provider;
+}
+
+function getConfiguredAssistantProviderIds() {
+  return Object.values(assistantProviderCatalog)
+    .filter((provider) => provider.id !== "auto" && provider.configured)
+    .map((provider) => provider.id);
 }
 
 function buildAssistantSystemPrompt(bodyContext = null) {
@@ -502,9 +506,14 @@ async function handleAssistant(req, res) {
     const maxTokens = Number.isFinite(maxTokensValue) ? maxTokensValue : 300;
 
     if (!providerConfig) {
-      sendJson(res, 400, {
-        error: `Unknown provider: ${body.provider}`,
+      const requestedProvider = normalizeProviderName(body.provider) || "auto";
+      const statusCode = requestedProvider === "auto" ? 503 : 400;
+      sendJson(res, statusCode, {
+        error: requestedProvider === "auto"
+          ? "No assistant provider is configured"
+          : `Unknown provider: ${body.provider}`,
         providers: Object.keys(assistantProviderCatalog),
+        configuredProviders: getConfiguredAssistantProviderIds(),
       });
       return;
     }

@@ -1,15 +1,15 @@
 {
   "schemaVersion": "1.0.0",
   "app": {
-    "name": "CONFUsynth",
+    "name": "CONFUstudio",
     "description": "Browser-first open-source digital music studio for sequencing, sampling, synthesis, routing, mixing, mastering, and live performance.",
     "targets": ["browser", "PWA", "Electron desktop", "future Tauri", "future CLAP/VST host shells"],
     "runtime": "plain ES modules, custom Node HTTP server, Web Audio API, AudioWorklet"
   },
   "assistant": {
     "defaultRole": "studio assistant and music co-pilot",
-    "systemPrompt": "You are the CONFUsynth studio assistant. Help with sequencing, sampling, synth design, routing, mixing, mastering, scene morphing, and workflow decisions. Keep answers actionable, concise, and grounded in the app's current capabilities. Do not propose changes that require audio-thread blocking work. Prefer browser-first and host-neutral solutions. When asked to play music the user likes, help with pattern, scene, and arrangement choices that capture the vibe.",
-    "contextSummary": "CONFUsynth is an original browser-first digital music studio. It currently provides a pattern sequencer, pad and piano-roll editing, sample/synth tracks, mixer and FX pages, scene morphing, banks, arranger, MIDI I/O, local persistence, and an Electron shell. AI should stay outside realtime audio code and operate through explicit API boundaries.",
+    "systemPrompt": "You are the CONFUstudio assistant. Help with sequencing, sampling, synth design, routing, mixing, mastering, scene morphing, and workflow decisions across the studio shell and its instruments, especially CONFUsynth. Keep answers actionable, concise, and grounded in the app's current capabilities. Do not propose changes that require audio-thread blocking work. Prefer browser-first and host-neutral solutions. When asked to play music the user likes, help with pattern, scene, and arrangement choices that capture the vibe.",
+    "contextSummary": "CONFUstudio is an original browser-first digital music studio. CONFUsynth is its flagship instrument. The app currently provides a pattern sequencer, pad and piano-roll editing, sample/synth tracks, mixer and FX pages, scene morphing, banks, arranger, MIDI I/O, local persistence, and the Confu desktop shell. AI should stay outside realtime audio code and operate through explicit API boundaries.",
     "skills": [
       {
         "id": "studio-assistant",
@@ -85,7 +85,7 @@
       { "id": "pages", "path": "src/pages/*", "summary": "Page-specific editor UIs." },
       { "id": "worklets", "path": "src/worklets/*", "summary": "Low-latency AudioWorklet processors for resampling and special synth engines." },
       { "id": "server", "path": "server.mjs", "summary": "Static file host, assistant API, and sample file serving." },
-      { "id": "electron", "path": "confu/main.cjs", "summary": "Optional Electron desktop shell." }
+      { "id": "confu-shell", "path": "confu/main.cjs", "summary": "Optional Confu desktop shell." }
     ],
     "audioAndControl": {
       "trackCount": 8,

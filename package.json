@@ -4,13 +4,13 @@
   "private": true,
   "type": "module",
   "main": "confu/main.cjs",
-  "description": "CONFUsynth — original hybrid sampler, sequencer, and synthesizer for browser, desktop, and plugin targets.",
+  "description": "CONFUstudio — browser-first music studio with CONFUsynth as its flagship instrument.",
   "scripts": {
     "start": "node server.mjs",
     "dev": "node --watch server.mjs",
     "test:ui-smoke": "node tests/ui-smoke.mjs",
-    "electron": "electron .",
-    "electron:dev": "ELECTRON_IS_DEV=1 electron ."
+    "confu": "electron .",
+    "confu:dev": "ELECTRON_IS_DEV=1 electron ."
   },
   "devDependencies": {
     "electron": "^35.0.0",

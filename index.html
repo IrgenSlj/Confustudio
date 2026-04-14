@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#4e5f3c" />
-  <title>CONFUsynth</title>
+  <title>CONFUstudio</title>
   <link rel="icon" href="/public/icon.svg" type="image/svg+xml" />
   <link rel="manifest" href="/public/manifest.webmanifest" />
   <link rel="stylesheet" href="/src/styles.css" />
@@ -77,7 +77,7 @@
 
                 <!-- Top info bar -->
                 <div class="screen-topbar">
-                  <span id="project-name" class="topbar-item">CONFUsynth</span>
+                  <span id="project-name" class="topbar-item">CONFUstudio</span>
                   <span id="bank-pattern" class="topbar-item">A&#xB7;01</span>
                   <span id="bpm-display"  class="topbar-item topbar-bpm">122 BPM</span>
                   <span id="status-pill"  class="topbar-item topbar-status">IDLE</span>
@@ -149,21 +149,28 @@
   </div>
   <!-- Studio controls: zoom + add module — must be outside #studio-wrap to avoid overflow:hidden hit-test clipping -->
   <div id="studio-controls">
-    <button id="zoom-in" title="Zoom in (Ctrl+scroll)">＋</button>
-    <button id="zoom-out" title="Zoom out (Ctrl+scroll)">－</button>
-    <button id="zoom-reset" title="Fit view to screen">⊡</button>
-    <span id="zoom-level" style="font-family:monospace;font-size:0.6rem;color:rgba(255,255,255,0.5);padding:0 6px;line-height:36px">100%</span>
-    <button id="auto-zoom" title="Toggle auto-fit on resize (currently ON)" style="font-size:0.6rem;padding:0 8px">⊡ Auto</button>
-    <button id="fit-all" title="Fit all modules in view">⊞ Fit</button>
-    <span id="module-selection" title="Selected module" style="font-family:monospace;font-size:0.56rem;color:rgba(255,255,255,0.45);padding:0 6px;line-height:36px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">No module selected</span>
-    <button id="remove-module" title="Remove selected module" disabled style="font-size:0.6rem;padding:0 8px">－ Module</button>
-    <button id="add-module" title="Add a new module (synth or mixer)">＋ Module</button>
+    <div id="studio-brandmark" aria-label="CONFUstudio">CONFUstudio</div>
+    <div class="studio-controls-group studio-controls-group--view">
+      <button id="zoom-in" title="Zoom in (Ctrl+scroll)">＋</button>
+      <button id="zoom-out" title="Zoom out (Ctrl+scroll)">－</button>
+      <span id="zoom-level" style="font-family:monospace;font-size:0.6rem;color:rgba(255,255,255,0.5);padding:0 6px;line-height:36px">100%</span>
+      <button id="auto-zoom" title="Auto-fit the studio when the window changes" style="font-size:0.6rem;padding:0 8px">Auto Fit</button>
+      <button id="fit-all" title="Fit all modules in view">⊞ Fit</button>
+      <button id="toggle-zoom-lens" title="Toggle cursor zoom lens">◉ Lens</button>
+    </div>
+    <div class="studio-controls-group studio-controls-group--status">
+      <span id="module-selection" title="Selected module" style="font-family:monospace;font-size:0.56rem;color:rgba(255,255,255,0.45);padding:0 6px;line-height:36px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">CONFUsynth Instrument</span>
+    </div>
+    <div class="studio-controls-group studio-controls-group--module">
+      <button id="remove-module" title="Remove selected module" disabled style="font-size:0.6rem;padding:0 8px">－ Module</button>
+      <button id="add-module" title="Add a new module (synth or mixer)">＋ Module</button>
+    </div>
   </div>
   <script type="module" src="/src/app.js"></script>
   <script type="module" src="/src/assistant-client.js"></script>
   <script>
     const isLoopbackHost = ['127.0.0.1', 'localhost', '::1'].includes(window.location.hostname);
-    const DEV_SHELL_VERSION = 'confusynth-shell-v5';
+    const DEV_SHELL_VERSION = 'confustudio-shell-v6';
 
     async function resetLocalDevShellState() {
       try {
@@ -176,7 +183,7 @@
           await Promise.all(keys.map((key) => caches.delete(key)));
         }
       } catch (error) {
-        console.warn('[CONFUsynth] Local shell reset failed:', error);
+        console.warn('[CONFUstudio] Local shell reset failed:', error);
       }
     }
 
@@ -195,7 +202,7 @@
 
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js').catch((error) => {
-          console.warn('[CONFUsynth] Service worker registration failed:', error);
+          console.warn('[CONFUstudio] Service worker registration failed:', error);
         });
       }
     });

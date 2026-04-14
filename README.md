@@ -1,12 +1,12 @@
-# CONFUsynth
+# CONFUstudio
 
-CONFUsynth is an original experimental instrument focused on sequencing, sampling, live sound transformation, and performable modulation. The project explores a hybrid workflow that blends rhythmic composition, scene-based control, resampling, and flexible routing in a modern open-source stack.
+CONFUstudio is the broader project and studio shell. CONFUsynth is its default and flagship instrument, focused on sequencing, sampling, live sound transformation, and performable modulation. The project explores a hybrid workflow that blends rhythmic composition, scene-based control, resampling, and flexible routing in a modern open-source stack.
 
 The current prototype runs in the browser, is installable as a PWA for desktop-like use, and includes a small local API bridge for optional OpenAI or Anthropic assistance. It is intentionally compact: plain HTML, CSS, and modern JavaScript on the frontend, plus a dependency-light Node server for static hosting and API proxying.
 
 ## Instrument Direction
 
-The core themes of CONFUsynth are:
+The core themes of CONFUsynth, the default instrument inside CONFUstudio, are:
 
 - Step sequencing with fast per-step editing.
 - Sample-first sound design.
@@ -19,17 +19,17 @@ The core themes of CONFUsynth are:
 
 ## Product Position
 
-CONFUsynth should be described and developed as an original instrument with its own interface language, signal flow, and performance model.
+CONFUstudio should be developed as an original studio environment, with CONFUsynth as its primary instrument and interface anchor.
 
 - Build the identity around experimental sequencing, live capture, and morphable performance control.
 - Keep the UI, terminology, presets, and interaction model original to the project.
-- Treat this repository as a product architecture and prototype basis for CONFUsynth itself.
+- Treat this repository as the product architecture and prototype basis for CONFUstudio, with CONFUsynth as the lead instrument.
 
 ## Architecture
 
 ### Product Shape
 
-CONFUsynth should evolve into a modular hybrid instrument with four major subsystems:
+CONFUstudio should evolve into a modular hybrid studio with four major subsystems:
 
 1. DSP Core
 2. Sequencer Core
@@ -99,7 +99,7 @@ This avoids locking the core architecture to one host SDK too early.
 - Tone, noise, and sample machines.
 - Delay and reverb sends.
 - File sample import and microphone recording.
-- Assistant bridge stub for OpenAI, Anthropic, and MCP.
+- Assistant bridge routes for OpenAI, Anthropic, local OpenAI-compatible endpoints, and Ollama.
 
 ### Phase 2
 
@@ -192,13 +192,13 @@ What is implemented:
 - Per-track bitcrusher (BITS) and sample rate reduction (SRR) controls.
 - AudioWorklet sinc resampler (`cs-resampler`) — 4-point cubic Hermite interpolation for pitched samples.
 - MIDI Clock out (24ppqn) with drift correction, MIDI start/stop transport.
-- Ableton Link WebSocket bridge ready (requires `node-abletonlink` server integration to activate).
+- Ableton Link-style tempo sync bridge exposed over SSE (`/link`) and `/api/link/state`; real Ableton Link transport is still pending.
 - WebMIDI I/O, MIDI output selection.
 - File sample import, microphone capture.
 - COOP/COEP headers — SharedArrayBuffer enabled for AudioWorklet.
-- Assistant bridge: OpenAI, Anthropic, MCP stub.
+- Assistant bridge: OpenAI, Anthropic, local OpenAI-compatible, and Ollama routes.
 - Installable PWA shell.
-- Electron desktop packaging (`npm install && npm run electron`). The shell entrypoint now lives in `confu/`.
+- Confu desktop shell (`npm install && npm run confu`). The shell entrypoint lives in `confu/`.
 
 ## Recommended Next Build Steps
 

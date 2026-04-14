@@ -20,6 +20,9 @@ export function initStudio() {
   const FIT_PADDING = 40;
   const DEFAULT_MODULE_W = 860;
   const DEFAULT_MODULE_H = 860;
+  const ZOOM_LENS_KEY = 'confusynth-zoom-lens-v1';
+  const ZOOM_LENS_SIZE = 420;
+  const ZOOM_LENS_SCALE = 1.05;
 
   let scale = 1;
   let panX = 0;
@@ -30,6 +33,23 @@ export function initStudio() {
   let _autoZoom = true; // when true, viewport auto-fits on resize and new module spawn
   let _selectedModule = null;
   let _restoredSelectedModuleId = null;
+  let _zoomLensEnabled = true;
+  let _zoomLensHost = null;
+  let _zoomLensViewport = null;
+  let _zoomLensClone = null;
+  let _zoomLensVisible = false;
+  let _zoomLensLastPoint = null;
+  let _zoomLensRefreshTimer = null;
+  let _zoomLensCurrentLeft = 0;
+  let _zoomLensCurrentTop = 0;
+  let _zoomLensTargetLeft = 0;
+  let _zoomLensTargetTop = 0;
+  let _zoomLensRaf = 0;
+
+  try {
+    const savedLensPref = localStorage.getItem(ZOOM_LENS_KEY);
+    if (savedLensPref != null) _zoomLensEnabled = savedLensPref !== '0';
+  } catch (_) {}
 
   function getWrapSize() {
     return {
@@ -40,6 +60,184 @@ export function initStudio() {
 
   function parsePx(value) {
     return Number.parseFloat(value || '0') || 0;
+  }
+
+  function getLensToggleButton() {
+    return document.getElementById('toggle-zoom-lens');
+  }
+
+  function saveLensPreference() {
+    try {
+      localStorage.setItem(ZOOM_LENS_KEY, _zoomLensEnabled ? '1' : '0');
+    } catch (_) {}
+  }
+
+  function updateLensToggleButton() {
+    const button = getLensToggleButton();
+    if (!button) return;
+    button.textContent = _zoomLensEnabled ? '◉ Lens' : '○ Lens';
+    button.title = _zoomLensEnabled ? 'Turn cursor zoom lens off' : 'Turn cursor zoom lens on';
+    button.classList.toggle('lens-off', !_zoomLensEnabled);
+  }
+
+  function createZoomLens() {
+    if (_zoomLensHost) return;
+    _zoomLensHost = document.createElement('div');
+    _zoomLensHost.id = 'studio-zoom-lens-host';
+    _zoomLensHost.setAttribute('aria-hidden', 'true');
+    document.body.append(_zoomLensHost);
+
+    const shadow = _zoomLensHost.attachShadow({ mode: 'open' });
+    shadow.innerHTML = `
+      <link rel="stylesheet" href="/src/styles.css">
+      <style>
+        .lens-shell {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          overflow: hidden;
+          box-shadow:
+            0 18px 32px rgba(0, 0, 0, 0.14),
+            0 3px 8px rgba(0, 0, 0, 0.05);
+          background: transparent;
+        }
+
+        .lens-viewport {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          border-radius: 50%;
+          -webkit-mask-image: radial-gradient(circle at center, #000 60%, rgba(0,0,0,0.98) 74%, rgba(0,0,0,0.46) 88%, rgba(0,0,0,0.08) 96%, transparent 100%);
+          mask-image: radial-gradient(circle at center, #000 60%, rgba(0,0,0,0.98) 74%, rgba(0,0,0,0.46) 88%, rgba(0,0,0,0.08) 96%, transparent 100%);
+        }
+
+        .lens-shell::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-radius: 50%;
+          background: radial-gradient(circle at center, transparent 68%, rgba(255,255,255,0.01) 82%, rgba(3,8,4,0.03) 92%, rgba(3,8,4,0.08) 100%);
+        }
+      </style>
+      <div class="lens-shell">
+        <div class="lens-viewport"></div>
+      </div>
+    `;
+
+    _zoomLensViewport = shadow.querySelector('.lens-viewport');
+  }
+
+  function refreshZoomLensClone() {
+    if (!_zoomLensViewport) return;
+    const clone = wrap.cloneNode(true);
+    clone.style.position = 'absolute';
+    clone.style.inset = '0';
+    clone.style.margin = '0';
+    clone.style.width = `${window.innerWidth}px`;
+    clone.style.height = `${window.innerHeight}px`;
+    clone.style.pointerEvents = 'none';
+    _zoomLensViewport.replaceChildren(clone);
+    _zoomLensClone = clone;
+    if (_zoomLensLastPoint) {
+      positionZoomLens(_zoomLensLastPoint.clientX, _zoomLensLastPoint.clientY);
+    }
+  }
+
+  function scheduleZoomLensRefresh() {
+    if (!_zoomLensVisible) return;
+    clearTimeout(_zoomLensRefreshTimer);
+    _zoomLensRefreshTimer = setTimeout(() => {
+      refreshZoomLensClone();
+    }, 220);
+  }
+
+  function showZoomLens() {
+    if (!_zoomLensEnabled) return;
+    if (!_zoomLensHost) createZoomLens();
+    if (!_zoomLensHost) return;
+    if (!_zoomLensClone) refreshZoomLensClone();
+    _zoomLensHost.style.display = 'block';
+    _zoomLensVisible = true;
+  }
+
+  function hideZoomLens() {
+    clearTimeout(_zoomLensRefreshTimer);
+    cancelAnimationFrame(_zoomLensRaf);
+    _zoomLensRaf = 0;
+    if (_zoomLensViewport) _zoomLensViewport.replaceChildren();
+    _zoomLensClone = null;
+    if (_zoomLensHost) _zoomLensHost.style.display = 'none';
+    _zoomLensVisible = false;
+  }
+
+  function animateZoomLens() {
+    if (!_zoomLensHost || !_zoomLensVisible) {
+      _zoomLensRaf = 0;
+      return;
+    }
+    _zoomLensCurrentLeft += (_zoomLensTargetLeft - _zoomLensCurrentLeft) * 0.22;
+    _zoomLensCurrentTop += (_zoomLensTargetTop - _zoomLensCurrentTop) * 0.22;
+    _zoomLensHost.style.transform = `translate(${_zoomLensCurrentLeft}px, ${_zoomLensCurrentTop}px)`;
+
+    if (Math.abs(_zoomLensTargetLeft - _zoomLensCurrentLeft) < 0.35 && Math.abs(_zoomLensTargetTop - _zoomLensCurrentTop) < 0.35) {
+      _zoomLensCurrentLeft = _zoomLensTargetLeft;
+      _zoomLensCurrentTop = _zoomLensTargetTop;
+      _zoomLensHost.style.transform = `translate(${_zoomLensCurrentLeft}px, ${_zoomLensCurrentTop}px)`;
+      _zoomLensRaf = 0;
+      return;
+    }
+    _zoomLensRaf = requestAnimationFrame(animateZoomLens);
+  }
+
+  function positionZoomLens(clientX, clientY) {
+    if (!_zoomLensHost || !_zoomLensClone) return;
+    const left = clientX - (ZOOM_LENS_SIZE / 2);
+    const top = clientY - (ZOOM_LENS_SIZE / 2);
+    const lensCenterX = ZOOM_LENS_SIZE / 2;
+    const lensCenterY = ZOOM_LENS_SIZE / 2;
+
+    _zoomLensTargetLeft = left;
+    _zoomLensTargetTop = top;
+    if (!_zoomLensRaf) {
+      if (!_zoomLensVisible || (_zoomLensCurrentLeft === 0 && _zoomLensCurrentTop === 0)) {
+        _zoomLensCurrentLeft = left;
+        _zoomLensCurrentTop = top;
+        _zoomLensHost.style.transform = `translate(${left}px, ${top}px)`;
+      }
+      _zoomLensRaf = requestAnimationFrame(animateZoomLens);
+    }
+    _zoomLensClone.style.transformOrigin = '0 0';
+    _zoomLensClone.style.transform = `translate(${lensCenterX - (clientX * ZOOM_LENS_SCALE)}px, ${lensCenterY - (clientY * ZOOM_LENS_SCALE)}px) scale(${ZOOM_LENS_SCALE})`;
+  }
+
+  function setZoomLensEnabled(nextEnabled) {
+    _zoomLensEnabled = Boolean(nextEnabled);
+    saveLensPreference();
+    updateLensToggleButton();
+    if (_zoomLensEnabled) {
+      createZoomLens();
+      if (_zoomLensVisible && _zoomLensLastPoint) {
+        showZoomLens();
+        positionZoomLens(_zoomLensLastPoint.clientX, _zoomLensLastPoint.clientY);
+      }
+    } else {
+      hideZoomLens();
+    }
+  }
+
+  function shouldHideLensForTarget(target) {
+    if (!(target instanceof Element)) return true;
+    return Boolean(target.closest([
+      '.port',
+      '.djm-port',
+      '.module-tools',
+      '.module-drag-handle',
+      '.module-resize-handle',
+      '.module-picker',
+      '.chassis-dup-btn',
+      '#studio-controls',
+    ].join(',')));
   }
 
   function isModuleInteractiveTarget(target) {
@@ -182,10 +380,10 @@ export function initStudio() {
       applyTransform();
       const autoZoomBtn = document.getElementById('auto-zoom');
       if (autoZoomBtn) {
-        autoZoomBtn.textContent = _autoZoom ? '⊡ Auto' : '⊟ Manual';
+        autoZoomBtn.textContent = _autoZoom ? 'Auto Fit' : 'Manual';
         autoZoomBtn.title = _autoZoom
-          ? 'Auto-fit is ON — viewport fits on resize (click to disable)'
-          : 'Auto-fit is OFF — manual zoom only (click to enable)';
+          ? 'Auto-fit is on and the studio recenters itself on resize'
+          : 'Manual view is on and the studio stays where you leave it';
         autoZoomBtn.style.color = _autoZoom ? '' : 'rgba(255,255,255,0.35)';
       }
       return true;
@@ -356,10 +554,10 @@ export function initStudio() {
 
   function getModuleLabel(modEl) {
     if (!modEl) return 'No module selected';
-    if (modEl.id === 'module-0') return 'CONFUsynth (primary)';
+    if (modEl.id === 'module-0') return 'CONFUsynth Instrument';
     const type = modEl.dataset.moduleType || 'module';
     const label = MODULE_LABELS[type] || type.replace(/_/g, ' ');
-    return `${label} (${modEl.id})`;
+    return label;
   }
 
   function updateSelectionUi() {
@@ -760,10 +958,6 @@ export function initStudio() {
     const { width, height } = getWrapSize();
     zoomBy(1 / 1.08, width / 2, height / 2);
   });
-  document.getElementById('zoom-reset')?.addEventListener('click', () => {
-    hasRestoredView = false;
-    fitToWindow({ force: true });
-  });
   document.getElementById('fit-all')?.addEventListener('click', () => {
     _userHasPanned = false;
     fitToWindow({ force: true });
@@ -771,10 +965,10 @@ export function initStudio() {
   const autoZoomBtn = document.getElementById('auto-zoom');
   autoZoomBtn?.addEventListener('click', () => {
     _autoZoom = !_autoZoom;
-    autoZoomBtn.textContent = _autoZoom ? '⊡ Auto' : '⊟ Manual';
+    autoZoomBtn.textContent = _autoZoom ? 'Auto Fit' : 'Manual';
     autoZoomBtn.title = _autoZoom
-      ? 'Auto-fit is ON — viewport fits on resize (click to disable)'
-      : 'Auto-fit is OFF — manual zoom only (click to enable)';
+      ? 'Auto-fit is on and the studio recenters itself on resize'
+      : 'Manual view is on and the studio stays where you leave it';
     autoZoomBtn.style.color = _autoZoom ? '' : 'rgba(255,255,255,0.35)';
     if (_autoZoom) {
       _userHasPanned = false;
@@ -782,6 +976,9 @@ export function initStudio() {
     }
   });
   document.getElementById('add-module')?.addEventListener('click', showModulePicker);
+  getLensToggleButton()?.addEventListener('click', () => {
+    setZoomLensEnabled(!_zoomLensEnabled);
+  });
   document.getElementById('remove-module')?.addEventListener('click', () => {
     const selected = getSelectedModule();
     if (selected && selected.id !== 'module-0') {
@@ -1009,5 +1206,29 @@ export function initStudio() {
     } else {
       clampViewport();
     }
+    if (_zoomLensEnabled) scheduleZoomLensRefresh();
   });
+
+  wrap.addEventListener('pointermove', (e) => {
+    _zoomLensLastPoint = { clientX: e.clientX, clientY: e.clientY };
+    if (!_zoomLensEnabled || e.pointerType === 'touch' || wrap.classList.contains('is-panning')) {
+      hideZoomLens();
+      return;
+    }
+    const hoveredModule = e.target.closest('.studio-module');
+    if (!hoveredModule || shouldHideLensForTarget(e.target)) {
+      hideZoomLens();
+      return;
+    }
+    showZoomLens();
+    positionZoomLens(e.clientX, e.clientY);
+  });
+
+  wrap.addEventListener('pointerleave', hideZoomLens);
+  wrap.addEventListener('pointerdown', () => {
+    hideZoomLens();
+  });
+
+  updateLensToggleButton();
+  if (_zoomLensEnabled) createZoomLens();
 }

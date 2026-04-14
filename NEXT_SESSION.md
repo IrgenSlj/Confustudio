@@ -89,16 +89,15 @@
 
 ### Phase 2 (Bigger Lifts)
 - Plaits/Clouds/Rings WASM synthesis engines
-- Ableton Link SSE validation (Codex changed from WebSocket to SSE)
-- Undo/redo stack
+- Ableton Link SSE validation
 - Automation lanes
 - Stem export (audio content)
-- AI assistant server routes (`/api/assistant`)
+- Assistant provider setup UX beyond env-driven configuration
 
 ## Validation Checklist
 
 - Manual browser pass on all tabs
 - Real audio: init, play/stop, record, sample load, recorder slot capture/load
 - Multi-module studio: add synth + DJ mixer, drag, zoom/pan, reset fit
-- Electron shell from `confu/`
+- Confu desktop shell from `confu/`
 - Git diff review before release
