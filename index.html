@@ -23,7 +23,6 @@
             <span class="port" data-port="midi-in">MIDI In</span>
             <span class="port" data-port="midi-out">MIDI Out</span>
             <span class="port" data-port="usb">USB</span>
-            <button id="btn-duplicate" class="chassis-dup-btn" title="Duplicate this synth module">⧉</button>
           </div>
 
           <!-- MAIN GRID: left-col | screen | right-col -->
@@ -55,7 +54,7 @@
 
               <!-- Transport buttons -->
               <div class="transport-buttons">
-                <button id="btn-audio"  class="t-btn t-btn--audio" title="Initialize audio engine (click first!)">AUDIO</button>
+                <button id="btn-audio"  class="t-btn t-btn--audio" title="Initialize audio engine (click first!)">⏻</button>
                 <button id="btn-play"   class="t-btn t-btn--play" title="Play / Pause (Space)">&#9654;</button>
                 <button id="btn-stop"   class="t-btn t-btn--stop" title="Stop and reset playhead">&#9632;</button>
                 <button id="btn-record" class="t-btn t-btn--record" title="Record to master output">&#9679;</button>
@@ -154,23 +153,24 @@
       <button id="zoom-in" title="Zoom in (Ctrl+scroll)">＋</button>
       <button id="zoom-out" title="Zoom out (Ctrl+scroll)">－</button>
       <span id="zoom-level" style="font-family:monospace;font-size:0.6rem;color:rgba(255,255,255,0.5);padding:0 6px;line-height:36px">100%</span>
-      <button id="auto-zoom" title="Auto-fit the studio when the window changes" style="font-size:0.6rem;padding:0 8px">Auto Fit</button>
-      <button id="fit-all" title="Fit all modules in view">⊞ Fit</button>
-      <button id="toggle-zoom-lens" title="Toggle cursor zoom lens">◉ Lens</button>
+      <button id="auto-zoom" title="Auto-fit the studio when the window changes" style="font-size:0.6rem;padding:0 8px">Auto</button>
+      <button id="fit-all" title="Fit all modules in view">Fit</button>
+      <button id="toggle-zoom-lens" title="Toggle cursor zoom lens">Lens</button>
     </div>
-    <div class="studio-controls-group studio-controls-group--status">
-      <span id="module-selection" title="Selected module" style="font-family:monospace;font-size:0.56rem;color:rgba(255,255,255,0.45);padding:0 6px;line-height:36px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">CONFUsynth Instrument</span>
+    <div class="studio-controls-group studio-controls-group--assist">
+      <button id="open-manual" title="Open the CONFUstudio guide">Guide</button>
+      <button id="open-assistant" title="Open the studio assistant">Assistant</button>
     </div>
     <div class="studio-controls-group studio-controls-group--module">
-      <button id="remove-module" title="Remove selected module" disabled style="font-size:0.6rem;padding:0 8px">－ Module</button>
-      <button id="add-module" title="Add a new module (synth or mixer)">＋ Module</button>
+      <button id="remove-module" title="Remove selected module" disabled style="font-size:0.6rem;padding:0 8px">×</button>
+      <button id="add-module" title="Add a new module (synth or mixer)">＋</button>
     </div>
   </div>
   <script type="module" src="/src/app.js"></script>
   <script type="module" src="/src/assistant-client.js"></script>
   <script>
     const isLoopbackHost = ['127.0.0.1', 'localhost', '::1'].includes(window.location.hostname);
-    const DEV_SHELL_VERSION = 'confustudio-shell-v6';
+    const DEV_SHELL_VERSION = 'confustudio-shell-v7';
 
     async function resetLocalDevShellState() {
       try {

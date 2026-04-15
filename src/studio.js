@@ -1,3 +1,5 @@
+import { buildAssistantPrompt, chatAssistant, fetchAssistantContext, fetchAssistantProviders } from './assistant-client.js';
+
 // studio.js — studio canvas: zoom, pan, module placement
 export function initStudio() {
   const wrap = document.getElementById('studio-wrap');
@@ -21,8 +23,8 @@ export function initStudio() {
   const DEFAULT_MODULE_W = 860;
   const DEFAULT_MODULE_H = 860;
   const ZOOM_LENS_KEY = 'confusynth-zoom-lens-v1';
-  const ZOOM_LENS_SIZE = 420;
-  const ZOOM_LENS_SCALE = 1.05;
+  const ZOOM_LENS_SIZE = 480;
+  const ZOOM_LENS_SCALE = 1.085;
 
   let scale = 1;
   let panX = 0;
@@ -45,6 +47,7 @@ export function initStudio() {
   let _zoomLensTargetLeft = 0;
   let _zoomLensTargetTop = 0;
   let _zoomLensRaf = 0;
+  let _studioOverlay = null;
 
   try {
     const savedLensPref = localStorage.getItem(ZOOM_LENS_KEY);
@@ -75,7 +78,7 @@ export function initStudio() {
   function updateLensToggleButton() {
     const button = getLensToggleButton();
     if (!button) return;
-    button.textContent = _zoomLensEnabled ? '◉ Lens' : '○ Lens';
+    button.textContent = 'Lens';
     button.title = _zoomLensEnabled ? 'Turn cursor zoom lens off' : 'Turn cursor zoom lens on';
     button.classList.toggle('lens-off', !_zoomLensEnabled);
   }
@@ -85,6 +88,8 @@ export function initStudio() {
     _zoomLensHost = document.createElement('div');
     _zoomLensHost.id = 'studio-zoom-lens-host';
     _zoomLensHost.setAttribute('aria-hidden', 'true');
+    _zoomLensHost.style.width = `${ZOOM_LENS_SIZE}px`;
+    _zoomLensHost.style.height = `${ZOOM_LENS_SIZE}px`;
     document.body.append(_zoomLensHost);
 
     const shadow = _zoomLensHost.attachShadow({ mode: 'open' });
@@ -98,8 +103,8 @@ export function initStudio() {
           border-radius: 50%;
           overflow: hidden;
           box-shadow:
-            0 18px 32px rgba(0, 0, 0, 0.14),
-            0 3px 8px rgba(0, 0, 0, 0.05);
+            0 18px 48px rgba(0, 0, 0, 0.13),
+            0 4px 14px rgba(0, 0, 0, 0.04);
           background: transparent;
         }
 
@@ -108,8 +113,8 @@ export function initStudio() {
           inset: 0;
           overflow: hidden;
           border-radius: 50%;
-          -webkit-mask-image: radial-gradient(circle at center, #000 60%, rgba(0,0,0,0.98) 74%, rgba(0,0,0,0.46) 88%, rgba(0,0,0,0.08) 96%, transparent 100%);
-          mask-image: radial-gradient(circle at center, #000 60%, rgba(0,0,0,0.98) 74%, rgba(0,0,0,0.46) 88%, rgba(0,0,0,0.08) 96%, transparent 100%);
+          -webkit-mask-image: radial-gradient(circle at center, #000 0 58%, rgba(0,0,0,0.98) 70%, rgba(0,0,0,0.84) 80%, rgba(0,0,0,0.48) 89%, rgba(0,0,0,0.14) 96%, transparent 100%);
+          mask-image: radial-gradient(circle at center, #000 0 58%, rgba(0,0,0,0.98) 70%, rgba(0,0,0,0.84) 80%, rgba(0,0,0,0.48) 89%, rgba(0,0,0,0.14) 96%, transparent 100%);
         }
 
         .lens-shell::after {
@@ -117,7 +122,9 @@ export function initStudio() {
           position: absolute;
           inset: 0;
           border-radius: 50%;
-          background: radial-gradient(circle at center, transparent 68%, rgba(255,255,255,0.01) 82%, rgba(3,8,4,0.03) 92%, rgba(3,8,4,0.08) 100%);
+          background:
+            radial-gradient(circle at center, rgba(255,255,255,0.05) 0 22%, rgba(255,255,255,0.025) 32%, rgba(255,255,255,0.01) 48%, transparent 66%),
+            radial-gradient(circle at center, transparent 72%, rgba(12,22,14,0.035) 84%, rgba(12,22,14,0.08) 94%, rgba(12,22,14,0.12) 100%);
         }
       </style>
       <div class="lens-shell">
@@ -130,12 +137,16 @@ export function initStudio() {
 
   function refreshZoomLensClone() {
     if (!_zoomLensViewport) return;
+    const wrapRect = wrap.getBoundingClientRect();
     const clone = wrap.cloneNode(true);
     clone.style.position = 'absolute';
-    clone.style.inset = '0';
+    clone.style.left = `${wrapRect.left}px`;
+    clone.style.top = `${wrapRect.top}px`;
     clone.style.margin = '0';
-    clone.style.width = `${window.innerWidth}px`;
-    clone.style.height = `${window.innerHeight}px`;
+    clone.style.width = `${wrapRect.width}px`;
+    clone.style.height = `${wrapRect.height}px`;
+    clone.style.maxWidth = 'none';
+    clone.style.maxHeight = 'none';
     clone.style.pointerEvents = 'none';
     _zoomLensViewport.replaceChildren(clone);
     _zoomLensClone = clone;
@@ -171,25 +182,6 @@ export function initStudio() {
     _zoomLensVisible = false;
   }
 
-  function animateZoomLens() {
-    if (!_zoomLensHost || !_zoomLensVisible) {
-      _zoomLensRaf = 0;
-      return;
-    }
-    _zoomLensCurrentLeft += (_zoomLensTargetLeft - _zoomLensCurrentLeft) * 0.22;
-    _zoomLensCurrentTop += (_zoomLensTargetTop - _zoomLensCurrentTop) * 0.22;
-    _zoomLensHost.style.transform = `translate(${_zoomLensCurrentLeft}px, ${_zoomLensCurrentTop}px)`;
-
-    if (Math.abs(_zoomLensTargetLeft - _zoomLensCurrentLeft) < 0.35 && Math.abs(_zoomLensTargetTop - _zoomLensCurrentTop) < 0.35) {
-      _zoomLensCurrentLeft = _zoomLensTargetLeft;
-      _zoomLensCurrentTop = _zoomLensTargetTop;
-      _zoomLensHost.style.transform = `translate(${_zoomLensCurrentLeft}px, ${_zoomLensCurrentTop}px)`;
-      _zoomLensRaf = 0;
-      return;
-    }
-    _zoomLensRaf = requestAnimationFrame(animateZoomLens);
-  }
-
   function positionZoomLens(clientX, clientY) {
     if (!_zoomLensHost || !_zoomLensClone) return;
     const left = clientX - (ZOOM_LENS_SIZE / 2);
@@ -199,14 +191,9 @@ export function initStudio() {
 
     _zoomLensTargetLeft = left;
     _zoomLensTargetTop = top;
-    if (!_zoomLensRaf) {
-      if (!_zoomLensVisible || (_zoomLensCurrentLeft === 0 && _zoomLensCurrentTop === 0)) {
-        _zoomLensCurrentLeft = left;
-        _zoomLensCurrentTop = top;
-        _zoomLensHost.style.transform = `translate(${left}px, ${top}px)`;
-      }
-      _zoomLensRaf = requestAnimationFrame(animateZoomLens);
-    }
+    _zoomLensCurrentLeft = left;
+    _zoomLensCurrentTop = top;
+    _zoomLensHost.style.transform = `translate(${left}px, ${top}px)`;
     _zoomLensClone.style.transformOrigin = '0 0';
     _zoomLensClone.style.transform = `translate(${lensCenterX - (clientX * ZOOM_LENS_SCALE)}px, ${lensCenterY - (clientY * ZOOM_LENS_SCALE)}px) scale(${ZOOM_LENS_SCALE})`;
   }
@@ -561,14 +548,244 @@ export function initStudio() {
   }
 
   function updateSelectionUi() {
-    const label = document.getElementById('module-selection');
     const removeBtn = document.getElementById('remove-module');
     const selected = getSelectedModule();
-    if (label) label.textContent = selected ? getModuleLabel(selected) : 'No module selected';
     if (removeBtn) {
       const removable = Boolean(selected && selected.id !== 'module-0');
       removeBtn.disabled = !removable;
       removeBtn.title = removable ? `Remove ${getModuleLabel(selected)}` : 'Primary module cannot be removed';
+    }
+  }
+
+  function buildLiveContext() {
+    const projectName = document.getElementById('project-name')?.textContent?.trim() || 'CONFUstudio';
+    const page = document.querySelector('.page-tabs .tab.active')?.dataset?.page || 'pattern';
+    const bankPattern = document.getElementById('bank-pattern')?.textContent?.trim() || 'A·01';
+    const bpm = document.getElementById('bpm-display')?.textContent?.trim() || '';
+    const selected = getSelectedModule();
+    return {
+      project: { name: projectName },
+      page,
+      summary: `${bankPattern}${bpm ? ` · ${bpm}` : ''}${selected ? ` · ${getModuleLabel(selected)}` : ''}`,
+    };
+  }
+
+  function ensureStudioOverlay() {
+    if (_studioOverlay?.isConnected) return _studioOverlay;
+    const overlay = document.createElement('div');
+    overlay.id = 'studio-overlay';
+    overlay.className = 'hidden';
+    overlay.innerHTML = `
+      <div class="studio-overlay-panel" role="dialog" aria-modal="true" aria-label="CONFUstudio overlay">
+        <div class="studio-overlay-head">
+          <div class="studio-overlay-title">CONFUstudio</div>
+          <button class="studio-overlay-close" type="button" aria-label="Close">×</button>
+        </div>
+        <div class="studio-overlay-body"></div>
+      </div>
+    `;
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay || event.target.closest('.studio-overlay-close')) {
+        closeStudioOverlay();
+      }
+    });
+    document.body.append(overlay);
+    _studioOverlay = overlay;
+    return overlay;
+  }
+
+  function closeStudioOverlay() {
+    if (_studioOverlay) _studioOverlay.classList.add('hidden');
+  }
+
+  function openStudioOverlay(title, content) {
+    const overlay = ensureStudioOverlay();
+    hideZoomLens();
+    overlay.querySelector('.studio-overlay-title').textContent = title;
+    const body = overlay.querySelector('.studio-overlay-body');
+    body.replaceChildren();
+    if (typeof content === 'string') {
+      body.innerHTML = content;
+    } else if (content) {
+      body.append(content);
+    }
+    overlay.classList.remove('hidden');
+  }
+
+  async function openManualOverlay() {
+    openStudioOverlay('Guide', '<div class="studio-overlay-copy">Loading guide…</div>');
+    try {
+      const context = await fetchAssistantContext();
+      const app = context?.app || {};
+      const assistant = context?.assistant || {};
+      const manual = context?.manual || {};
+      const pages = manual.pages || [];
+      const signalFlow = (manual.audioAndControl?.routing || []).map((item) => `<li>${item}</li>`).join('');
+      const pageItems = pages.map((page) => `<li><strong>${page.title}</strong>: ${page.purpose}</li>`).join('');
+      const quickStart = [
+        'Power the audio engine, set BPM, and choose a page for the current task.',
+        'Build or edit the pattern, then shape the selected track in Sound and Mixer.',
+        'Use Scenes and Arranger to turn loops into a performance or song structure.',
+        'Call the Assistant when you want producer-style direction grounded in the current project.'
+      ].map((step) => `<li>${step}</li>`).join('');
+      const assistantModes = (assistant.skills || []).map((skill) => `<li><strong>${skill.id}</strong>: ${skill.purpose}</li>`).join('');
+      const wrapEl = document.createElement('div');
+      wrapEl.innerHTML = `
+        <div class="studio-overlay-copy">${app.description || 'CONFUstudio is a browser-first studio shell for sequencing, sampling, synthesis, routing, and performance.'}</div>
+        <nav class="studio-manual-index">
+          <button type="button" class="active" data-manual-tab="manual-quickstart">Quick Start</button>
+          <button type="button" data-manual-tab="manual-overview">Overview</button>
+          <button type="button" data-manual-tab="manual-pages">Pages</button>
+          <button type="button" data-manual-tab="manual-routing">Routing</button>
+          <button type="button" data-manual-tab="manual-assistant">Assistant</button>
+        </nav>
+        <div class="studio-manual-meta">
+          <section class="studio-overlay-card">
+            <h4>Instrument</h4>
+            <p>CONFUsynth is the primary instrument. Use it as the core sequencer, sampler, and synth voice inside the studio shell.</p>
+          </section>
+          <section class="studio-overlay-card">
+            <h4>Manual Type</h4>
+            <p>Quick-start plus reference format, similar to modern hardware manuals that separate first-use flow from deeper parameter reference.</p>
+          </section>
+        </div>
+        <div class="studio-overlay-grid">
+          <section class="studio-overlay-card studio-manual-section" id="manual-quickstart">
+            <h4>Quick Start</h4>
+            <ul>${quickStart}</ul>
+          </section>
+          <section class="studio-overlay-card studio-manual-section hidden" id="manual-overview">
+            <h4>Studio Overview</h4>
+            <p>${assistant.contextSummary || 'Use CONFUsynth for sequencing, sampling, synthesis, routing, and mix decisions across the studio.'}</p>
+          </section>
+          <section class="studio-overlay-card studio-manual-section hidden" id="manual-pages">
+            <h4>Page Reference</h4>
+            <ul>${pageItems}</ul>
+          </section>
+          <section class="studio-overlay-card studio-manual-section hidden" id="manual-routing">
+            <h4>Signal And Routing</h4>
+            <ul>${signalFlow}</ul>
+          </section>
+          <section class="studio-overlay-card studio-manual-section hidden" id="manual-assistant">
+            <h4>Assistant Modes</h4>
+            <ul>${assistantModes}</ul>
+          </section>
+          <section class="studio-overlay-card studio-manual-section hidden" id="manual-rules">
+            <h4>Operating Rules</h4>
+            <ul>${(manual.assistantGuardrails || []).map((rule) => `<li>${rule}</li>`).join('')}</ul>
+          </section>
+        </div>
+      `;
+      wrapEl.querySelectorAll('[data-manual-tab]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const targetId = button.dataset.manualTab;
+          wrapEl.querySelectorAll('[data-manual-tab]').forEach((other) => {
+            other.classList.toggle('active', other === button);
+          });
+          wrapEl.querySelectorAll('.studio-manual-section').forEach((section) => {
+            section.classList.toggle('hidden', section.id !== targetId);
+          });
+        });
+      });
+      openStudioOverlay('Guide', wrapEl);
+    } catch (error) {
+      openStudioOverlay('Guide', `<div class="studio-overlay-copy">${error?.message || 'Guide unavailable.'}</div>`);
+    }
+  }
+
+  async function openAssistantOverlay() {
+    const shell = document.createElement('div');
+    shell.innerHTML = `
+      <div class="studio-overlay-copy">Use the studio assistant as a producer partner. It can translate the current project state into sequencing, sound design, routing, arrangement, and mix actions grounded in what CONFUstudio can actually do.</div>
+      <div class="studio-assistant-toolbar">
+        <select class="studio-assistant-provider"><option value="auto">Auto</option></select>
+        <button type="button" data-preset="producer">Producer</button>
+        <button type="button" data-preset="sound">Sound Design</button>
+        <button type="button" data-preset="arrangement">Arrangement</button>
+        <button type="button" data-preset="mix">Mix</button>
+        <button type="button" data-preset="workflow">Workflow</button>
+      </div>
+      <textarea class="studio-assistant-prompt" placeholder="Ask for a full production move, a patch idea, routing help, scene transitions, or a step-by-step plan."></textarea>
+      <div class="studio-assistant-actions">
+        <button type="button" class="studio-assistant-context">Use Current Context</button>
+        <button type="button" class="studio-assistant-send">Ask Assistant</button>
+      </div>
+      <pre class="studio-assistant-output">Assistant ready.</pre>
+    `;
+    openStudioOverlay('Assistant', shell);
+
+    const providerSelect = shell.querySelector('.studio-assistant-provider');
+    const promptEl = shell.querySelector('.studio-assistant-prompt');
+    const outputEl = shell.querySelector('.studio-assistant-output');
+    const contextBtn = shell.querySelector('.studio-assistant-context');
+    const sendBtn = shell.querySelector('.studio-assistant-send');
+
+    const presetPrompts = {
+      producer: 'Act like a senior music producer using CONFUstudio. Turn the current project into a stronger track with concrete next moves in sequencing, sound, scenes, arrangement, and mix.',
+      sound: 'Act like a sound designer. Use CONFUsynth and the studio tools to design a distinctive patch or sample treatment for the current context.',
+      arrangement: 'Act like an arrangement producer. Suggest a full section plan, pattern changes, and scene transitions for the current project.',
+      mix: 'Act like a mix engineer and producer. Suggest level, panning, FX send, dynamics, and space moves that fit the current project.',
+      workflow: 'Act like a technical studio operator. Give the best next workflow steps inside CONFUstudio page by page, using the current project context.'
+    };
+
+    shell.querySelectorAll('[data-preset]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const text = presetPrompts[button.dataset.preset];
+        if (text) promptEl.value = text;
+      });
+    });
+
+    contextBtn.addEventListener('click', () => {
+      promptEl.value = buildAssistantPrompt(buildLiveContext());
+      promptEl.focus();
+    });
+
+    sendBtn.addEventListener('click', async () => {
+      const message = promptEl.value.trim();
+      if (!message) {
+        outputEl.textContent = 'Enter a prompt first.';
+        return;
+      }
+      sendBtn.disabled = true;
+      outputEl.textContent = 'Thinking…';
+      try {
+        const response = await chatAssistant({
+          provider: providerSelect.value || 'auto',
+          message,
+          context: buildLiveContext(),
+        });
+        outputEl.textContent = response?.text || 'No response text returned.';
+      } catch (error) {
+        outputEl.textContent = error?.message || 'Assistant request failed.';
+      } finally {
+        sendBtn.disabled = false;
+      }
+    });
+
+    try {
+      const data = await fetchAssistantProviders();
+      const providers = Object.values(data?.providers || {});
+      providerSelect.innerHTML = '';
+      const autoOption = document.createElement('option');
+      autoOption.value = 'auto';
+      autoOption.textContent = 'Auto';
+      providerSelect.append(autoOption);
+      providers.forEach((provider) => {
+        const option = document.createElement('option');
+        option.value = provider.id;
+        option.textContent = provider.configured ? provider.label : `${provider.label} (unconfigured)`;
+        providerSelect.append(option);
+      });
+      providerSelect.value = data?.defaultProvider || 'auto';
+      const hasConfiguredProvider = providers.some((provider) => provider.configured);
+      sendBtn.disabled = !hasConfiguredProvider;
+      if (!hasConfiguredProvider) {
+        outputEl.textContent = 'Configure an assistant provider before sending prompts.';
+      }
+    } catch (error) {
+      providerSelect.innerHTML = '<option value="auto">Auto</option>';
+      sendBtn.disabled = true;
+      outputEl.textContent = error?.message || 'Assistant provider metadata is unavailable.';
     }
   }
 
@@ -614,14 +831,9 @@ export function initStudio() {
 
   function attachModuleChrome(modEl) {
     if (!modEl || modEl.querySelector(':scope > .module-tools')) return;
-    const type = modEl.dataset.moduleType || 'module';
-    const label = MODULE_LABELS[type] || type.replace(/_/g, ' ');
     const tools = document.createElement('div');
     tools.className = 'module-tools';
-    tools.innerHTML = `
-      <span class="module-badge">${label}</span>
-      <button class="module-remove-btn" type="button" title="Remove module">×</button>
-    `;
+    tools.innerHTML = `<button class="module-remove-btn" type="button" title="Remove module">×</button>`;
     const removeBtn = tools.querySelector('.module-remove-btn');
     if (modEl.id === 'module-0') {
       removeBtn.disabled = true;
@@ -965,7 +1177,7 @@ export function initStudio() {
   const autoZoomBtn = document.getElementById('auto-zoom');
   autoZoomBtn?.addEventListener('click', () => {
     _autoZoom = !_autoZoom;
-    autoZoomBtn.textContent = _autoZoom ? 'Auto Fit' : 'Manual';
+    autoZoomBtn.textContent = _autoZoom ? 'Auto' : 'Free';
     autoZoomBtn.title = _autoZoom
       ? 'Auto-fit is on and the studio recenters itself on resize'
       : 'Manual view is on and the studio stays where you leave it';
@@ -976,6 +1188,8 @@ export function initStudio() {
     }
   });
   document.getElementById('add-module')?.addEventListener('click', showModulePicker);
+  document.getElementById('open-manual')?.addEventListener('click', openManualOverlay);
+  document.getElementById('open-assistant')?.addEventListener('click', openAssistantOverlay);
   getLensToggleButton()?.addEventListener('click', () => {
     setZoomLensEnabled(!_zoomLensEnabled);
   });
@@ -1006,6 +1220,11 @@ export function initStudio() {
 
   document.addEventListener('keydown', (e) => {
     const target = e.target instanceof Element ? e.target : null;
+    if (e.key === 'Escape' && _studioOverlay && !_studioOverlay.classList.contains('hidden')) {
+      e.preventDefault();
+      closeStudioOverlay();
+      return;
+    }
     if (target && (target.matches('input, textarea, select') || target.isContentEditable)) return;
     if ((e.key === 'Delete' || e.key === 'Backspace') && getSelectedModule() && getSelectedModule().id !== 'module-0') {
       e.preventDefault();

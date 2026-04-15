@@ -47,6 +47,8 @@ try {
     zoomLabel: document.querySelector('#zoom-level')?.textContent,
     hasAddModule: !!document.querySelector('#add-module'),
     hasFit: !!document.querySelector('#fit-all'),
+    hasGuide: !!document.querySelector('#open-manual'),
+    hasAssistant: !!document.querySelector('#open-assistant'),
     pageContentRect: (() => {
       const r = document.querySelector('#page-content')?.getBoundingClientRect();
       return r ? { width: r.width, height: r.height } : null;
@@ -56,6 +58,7 @@ try {
   assert(initial.moduleCount === 1, 'Expected a single module on clean startup', initial);
   assert(initial.keyboardDisplay !== 'none', 'Keyboard panel should be visible on desktop startup', initial);
   assert(initial.hasAddModule && initial.hasFit, 'Studio controls are missing', initial);
+  assert(initial.hasGuide && initial.hasAssistant, 'Guide/Assistant entry points are missing', initial);
   assert(initial.pageContentRect && initial.pageContentRect.width > 400 && initial.pageContentRect.height > 300, 'Page content area is too small to be usable', initial);
 
   const wrapBox = await page.locator('#studio-wrap').boundingBox();
@@ -97,8 +100,22 @@ try {
   const moduleCountAfterAdd = await page.locator('.studio-module').count();
   assert(moduleCountAfterAdd === 2, 'Module insertion failed', { moduleCountAfterAdd });
 
-  const selectionLabel = await page.textContent('#module-selection');
-  assert(selectionLabel && selectionLabel.toLowerCase().includes('figure-robot'), 'Inserted module did not become selected', { selectionLabel });
+  const removeEnabled = await page.evaluate(() => !document.querySelector('#remove-module')?.disabled);
+  assert(removeEnabled, 'Inserted module did not become selected for removal', { removeEnabled });
+
+  await page.click('#open-manual');
+  await page.waitForTimeout(200);
+  const guideVisible = await page.locator('#studio-overlay:not(.hidden)').count();
+  assert(guideVisible === 1, 'Guide overlay did not open');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(100);
+
+  await page.click('#open-assistant');
+  await page.waitForTimeout(200);
+  const assistantVisible = await page.locator('#studio-overlay:not(.hidden)').count();
+  assert(assistantVisible === 1, 'Assistant overlay did not open');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(100);
 
   await page.click('#add-module');
   await page.waitForTimeout(100);
@@ -129,7 +146,7 @@ try {
 
   const tabs = ['PATTERN', 'ROLL', 'PADS', 'SOUND', 'SCENES', 'MIXER', 'SET'];
   for (const tab of tabs) {
-    await page.getByText(tab, { exact: true }).first().click();
+    await page.locator('.page-tabs .tab', { hasText: tab }).first().click();
     await page.waitForTimeout(250);
     const state = await page.evaluate(() => ({
       htmlLen: document.querySelector('#page-content')?.innerHTML?.length || 0,
