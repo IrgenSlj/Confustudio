@@ -190,6 +190,7 @@ function buildAssistantContextEnvelope() {
     defaultProvider: defaultAssistantProvider,
     endpoints: {
       chat: "/api/assistant/chat",
+      actions: "/api/assistant/actions/plan",
       context: "/api/assistant/context",
       providers: "/api/assistant/providers",
     },
@@ -373,6 +374,198 @@ function providerResult(provider, model, text, raw = null) {
   };
 }
 
+function buildAssistantActionPlannerPrompt(bodyContext = null) {
+  const base = buildAssistantSystemPrompt(bodyContext);
+  return `${base}
+
+You are producing bounded studio commands for CONFUstudio.
+Return JSON only with this shape:
+{"summary":"short summary","commands":[{"type":"command-type","...": "..."}]}
+
+Allowed command types:
+- set-project-meta
+- set-transport
+- set-pattern-length
+- set-track-param
+- set-step
+- clear-track
+- duplicate-pattern
+- set-scene-name
+- add-arranger-section
+- generate-drum-pattern
+
+Rules:
+- Do not return markdown.
+- Keep commands safe, concrete, and immediately executable.
+- Prefer 1-6 commands.
+- Use numeric indices for bankIndex, patternIndex, trackIndex, sceneIndex, and stepIndex.
+- If the request is unclear, return {"summary":"Need clarification","commands":[]}.`;
+}
+
+function extractJsonObject(text) {
+  if (typeof text !== "string" || !text.trim()) return null;
+  const trimmed = text.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch (_) {}
+
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced) {
+    try {
+      return JSON.parse(fenced[1].trim());
+    } catch (_) {}
+  }
+
+  const start = trimmed.indexOf("{");
+  const end = trimmed.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    try {
+      return JSON.parse(trimmed.slice(start, end + 1));
+    } catch (_) {}
+  }
+  return null;
+}
+
+async function requestAssistantProvider(body, systemPrompt) {
+  const providerConfig = resolveAssistantConfig(body.provider);
+  const messages = normalizeAssistantMessages(body);
+  const temperatureValue = Number(body.temperature);
+  const maxTokensValue = Number(body.maxTokens);
+  const temperature = Number.isFinite(temperatureValue) ? temperatureValue : 0.7;
+  const maxTokens = Number.isFinite(maxTokensValue) ? maxTokensValue : 300;
+
+  if (!providerConfig) {
+    const requestedProvider = normalizeProviderName(body.provider) || "auto";
+    const error = new Error(requestedProvider === "auto"
+      ? "No assistant provider is configured"
+      : `Unknown provider: ${body.provider}`);
+    error.statusCode = requestedProvider === "auto" ? 503 : 400;
+    error.payload = {
+      providers: Object.keys(assistantProviderCatalog),
+      configuredProviders: getConfiguredAssistantProviderIds(),
+    };
+    throw error;
+  }
+
+  const requestBaseUrl = typeof body.baseUrl === "string" && body.baseUrl.trim()
+    ? body.baseUrl.trim()
+    : providerConfig.baseUrl;
+
+  if (messages.length === 0) {
+    const error = new Error("message or messages is required");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (providerConfig.id === "openai") {
+    if (!process.env.OPENAI_API_KEY) {
+      const error = new Error("OPENAI_API_KEY is not configured");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const { response, data } = await postJson(
+      `${requestBaseUrl.replace(/\/$/, "")}/v1/responses`,
+      {
+        model: body.model || providerConfig.model,
+        input: toOpenAIResponsesInput(systemPrompt, messages),
+        temperature,
+        max_output_tokens: maxTokens,
+      },
+      {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      }
+    );
+
+    if (!response.ok) {
+      const error = new Error(data?.error?.message || data?.raw || JSON.stringify(data));
+      error.statusCode = response.status;
+      throw error;
+    }
+
+    return providerResult(providerConfig.id, body.model || providerConfig.model, extractOpenAIText(data), data);
+  }
+
+  if (providerConfig.id === "anthropic") {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      const error = new Error("ANTHROPIC_API_KEY is not configured");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const { response, data } = await postJson(
+      `${requestBaseUrl.replace(/\/$/, "")}/v1/messages`,
+      {
+        model: body.model || providerConfig.model,
+        max_tokens: maxTokens,
+        temperature,
+        system: systemPrompt,
+        messages: toAnthropicMessages(messages),
+      },
+      {
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      }
+    );
+
+    if (!response.ok) {
+      const error = new Error(data?.error?.message || data?.raw || JSON.stringify(data));
+      error.statusCode = response.status;
+      throw error;
+    }
+
+    return providerResult(providerConfig.id, body.model || providerConfig.model, extractAnthropicText(data), data);
+  }
+
+  if (providerConfig.id === "local-openai") {
+    const { response, data } = await postJson(
+      `${requestBaseUrl.replace(/\/$/, "")}/chat/completions`,
+      {
+        model: body.model || providerConfig.model,
+        messages: toOpenAIChatMessages(systemPrompt, messages),
+        temperature,
+        max_tokens: maxTokens,
+      },
+      body.apiKey ? { Authorization: `Bearer ${body.apiKey}` } : {}
+    );
+
+    if (!response.ok) {
+      const error = new Error(data?.error?.message || data?.raw || JSON.stringify(data));
+      error.statusCode = response.status;
+      throw error;
+    }
+
+    return providerResult(providerConfig.id, body.model || providerConfig.model, extractChatCompletionText(data), data);
+  }
+
+  if (providerConfig.id === "ollama") {
+    const { response, data } = await postJson(
+      `${requestBaseUrl.replace(/\/$/, "")}/api/chat`,
+      {
+        model: body.model || providerConfig.model,
+        messages: toOpenAIChatMessages(systemPrompt, messages),
+        options: {
+          temperature,
+          num_predict: maxTokens,
+        },
+        stream: false,
+      }
+    );
+
+    if (!response.ok) {
+      const error = new Error(data?.error?.message || data?.raw || JSON.stringify(data));
+      error.statusCode = response.status;
+      throw error;
+    }
+
+    return providerResult(providerConfig.id, body.model || providerConfig.model, extractOllamaText(data), data);
+  }
+
+  const error = new Error(`Provider transport not implemented: ${providerConfig.id}`);
+  error.statusCode = 501;
+  throw error;
+}
+
 async function handleAssistantContext(_req, res) {
   sendJson(res, 200, buildAssistantContextEnvelope());
 }
@@ -497,141 +690,40 @@ async function readBody(req) {
 async function handleAssistant(req, res) {
   try {
     const body = await readJsonBody(req);
-    const providerConfig = resolveAssistantConfig(body.provider);
-    const messages = normalizeAssistantMessages(body);
-    const systemPrompt = buildAssistantSystemPrompt(body.context);
-    const temperatureValue = Number(body.temperature);
-    const maxTokensValue = Number(body.maxTokens);
-    const temperature = Number.isFinite(temperatureValue) ? temperatureValue : 0.7;
-    const maxTokens = Number.isFinite(maxTokensValue) ? maxTokensValue : 300;
+    const result = await requestAssistantProvider(body, buildAssistantSystemPrompt(body.context));
+    sendJson(res, 200, result);
+  } catch (error) {
+    sendJson(res, error.statusCode || 500, { error: error.message, ...(error.payload || {}) });
+  }
+}
 
-    if (!providerConfig) {
-      const requestedProvider = normalizeProviderName(body.provider) || "auto";
-      const statusCode = requestedProvider === "auto" ? 503 : 400;
-      sendJson(res, statusCode, {
-        error: requestedProvider === "auto"
-          ? "No assistant provider is configured"
-          : `Unknown provider: ${body.provider}`,
-        providers: Object.keys(assistantProviderCatalog),
-        configuredProviders: getConfiguredAssistantProviderIds(),
+async function handleAssistantActionPlan(req, res) {
+  try {
+    const body = await readJsonBody(req);
+    body.message = typeof body.message === "string" ? body.message : "";
+    body.messages = [{ role: "user", content: body.message }];
+    const result = await requestAssistantProvider(body, buildAssistantActionPlannerPrompt(body.context));
+    const plan = extractJsonObject(result.text);
+    if (!plan || typeof plan !== "object") {
+      sendJson(res, 502, {
+        error: "Assistant action planner returned invalid JSON",
+        provider: result.provider,
+        model: result.model,
+        text: result.text,
       });
       return;
     }
-
-    const requestBaseUrl = typeof body.baseUrl === "string" && body.baseUrl.trim()
-      ? body.baseUrl.trim()
-      : providerConfig.baseUrl;
-
-    if (messages.length === 0) {
-      sendJson(res, 400, { error: "message or messages is required" });
-      return;
-    }
-
-    if (providerConfig.id === "openai") {
-      if (!process.env.OPENAI_API_KEY) {
-        sendJson(res, 400, { error: "OPENAI_API_KEY is not configured" });
-        return;
-      }
-
-      const { response, data } = await postJson(
-        `${requestBaseUrl.replace(/\/$/, "")}/v1/responses`,
-        {
-          model: body.model || providerConfig.model,
-          input: toOpenAIResponsesInput(systemPrompt, messages),
-          temperature,
-          max_output_tokens: maxTokens,
-        },
-        {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        }
-      );
-
-      if (!response.ok) {
-        sendJson(res, response.status, { error: data?.error?.message || data?.raw || JSON.stringify(data) });
-        return;
-      }
-
-      sendJson(res, 200, providerResult(providerConfig.id, body.model || providerConfig.model, extractOpenAIText(data), data));
-      return;
-    }
-
-    if (providerConfig.id === "anthropic") {
-      if (!process.env.ANTHROPIC_API_KEY) {
-        sendJson(res, 400, { error: "ANTHROPIC_API_KEY is not configured" });
-        return;
-      }
-
-      const { response, data } = await postJson(
-        `${requestBaseUrl.replace(/\/$/, "")}/v1/messages`,
-        {
-          model: body.model || providerConfig.model,
-          max_tokens: maxTokens,
-          temperature,
-          system: systemPrompt,
-          messages: toAnthropicMessages(messages),
-        },
-        {
-          "x-api-key": process.env.ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
-        }
-      );
-
-      if (!response.ok) {
-        sendJson(res, response.status, { error: data?.error?.message || data?.raw || JSON.stringify(data) });
-        return;
-      }
-
-      sendJson(res, 200, providerResult(providerConfig.id, body.model || providerConfig.model, extractAnthropicText(data), data));
-      return;
-    }
-
-    if (providerConfig.id === "local-openai") {
-      const { response, data } = await postJson(
-        `${requestBaseUrl.replace(/\/$/, "")}/chat/completions`,
-        {
-          model: body.model || providerConfig.model,
-          messages: toOpenAIChatMessages(systemPrompt, messages),
-          temperature,
-          max_tokens: maxTokens,
-        },
-        body.apiKey ? { Authorization: `Bearer ${body.apiKey}` } : {}
-      );
-
-      if (!response.ok) {
-        sendJson(res, response.status, { error: data?.error?.message || data?.raw || JSON.stringify(data) });
-        return;
-      }
-
-      sendJson(res, 200, providerResult(providerConfig.id, body.model || providerConfig.model, extractChatCompletionText(data), data));
-      return;
-    }
-
-    if (providerConfig.id === "ollama") {
-      const { response, data } = await postJson(
-        `${requestBaseUrl.replace(/\/$/, "")}/api/chat`,
-        {
-          model: body.model || providerConfig.model,
-          messages: toOpenAIChatMessages(systemPrompt, messages),
-          options: {
-            temperature,
-            num_predict: maxTokens,
-          },
-          stream: false,
-        }
-      );
-
-      if (!response.ok) {
-        sendJson(res, response.status, { error: data?.error?.message || data?.raw || JSON.stringify(data) });
-        return;
-      }
-
-      sendJson(res, 200, providerResult(providerConfig.id, body.model || providerConfig.model, extractOllamaText(data), data));
-      return;
-    }
-
-    sendJson(res, 501, { error: `Provider transport not implemented: ${providerConfig.id}` });
+    sendJson(res, 200, {
+      provider: result.provider,
+      model: result.model,
+      summary: typeof plan.summary === "string" ? plan.summary : "",
+      commands: Array.isArray(plan.commands)
+        ? plan.commands.filter((command) => command && typeof command === "object" && typeof command.type === "string").slice(0, 24)
+        : [],
+      text: result.text,
+    });
   } catch (error) {
-    sendJson(res, error.statusCode || 500, { error: error.message });
+    sendJson(res, error.statusCode || 500, { error: error.message, ...(error.payload || {}) });
   }
 }
 
@@ -640,6 +732,11 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === "POST" && url.pathname === "/api/assistant/chat") {
     await handleAssistant(req, res);
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/assistant/actions/plan") {
+    await handleAssistantActionPlan(req, res);
     return;
   }
 

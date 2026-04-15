@@ -302,6 +302,12 @@ export default {
 
     const { project, activeBank, activePattern, copyBuffer, patternCompareA, patternCompareB } = state;
     const hasPatternCopy = copyBuffer?.type === 'pattern';
+    const executeCommands = (commands, label) => {
+      if (window.confustudioCommands?.execute) {
+        return window.confustudioCommands.execute(commands, label);
+      }
+      return null;
+    };
 
     const header = document.createElement('div');
     header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0';
@@ -719,9 +725,17 @@ export default {
         const ACTIONS = ['next', 'loop', 'stop', 'random'];
         const current = pat.followAction ?? 'next';
         const idx = ACTIONS.indexOf(current);
-        pat.followAction = ACTIONS[(idx + 1) % ACTIONS.length];
+        const nextFollowAction = ACTIONS[(idx + 1) % ACTIONS.length];
+        if (!executeCommands({
+          type: 'update-pattern-meta',
+          bankIndex: activeBank,
+          patternIndex: pi,
+          followAction: nextFollowAction,
+        }, 'Updated follow action')) {
+          pat.followAction = nextFollowAction;
+        }
         const icons = { next:'→', loop:'↺', stop:'■', random:'?' };
-        followBadge.textContent = icons[pat.followAction];
+        followBadge.textContent = icons[nextFollowAction];
         emit('state:change', { param: 'followAction' });
       });
       btn.style.position = 'relative';
@@ -737,9 +751,18 @@ export default {
       clearBtn.addEventListener('click', e => {
         e.stopPropagation();
         if (!confirm(`Clear all steps in pattern ${pi+1}?`)) return;
-        pat.kit.tracks?.forEach(t => t.steps?.forEach(s => { s.active = false; }));
-        emit('state:change', { param: 'pattern' });
-        this.render(container, state, emit);
+        const cleared = JSON.parse(JSON.stringify(pat));
+        cleared.kit?.tracks?.forEach(t => t.steps?.forEach(s => { s.active = false; }));
+        if (!executeCommands({
+          type: 'replace-pattern',
+          bankIndex: activeBank,
+          patternIndex: pi,
+          pattern: cleared,
+        }, `Cleared pattern ${String(pi + 1).padStart(2, '0')}`)) {
+          pat.kit.tracks?.forEach(t => t.steps?.forEach(s => { s.active = false; }));
+          emit('state:change', { param: 'pattern' });
+          this.render(container, state, emit);
+        }
       });
       btn.append(followBadge, clearBtn);
 
@@ -762,10 +785,18 @@ export default {
 
         const commit = () => {
           const trimmed = input.value.trim();
-          const bank = state.project.banks[activeBank];
-          bank.patterns[pi].name = trimmed
+          const nextName = trimmed
             ? (trimmed.startsWith('Pattern ') ? trimmed : trimmed)
             : originalName;
+          if (!executeCommands({
+            type: 'update-pattern-meta',
+            bankIndex: activeBank,
+            patternIndex: pi,
+            name: nextName,
+          }, 'Renamed pattern')) {
+            const bank = state.project.banks[activeBank];
+            bank.patterns[pi].name = nextName;
+          }
           emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
           this.render(container, { ...state }, emit);
         };
@@ -804,9 +835,17 @@ export default {
         if (targetIdx === -1) {
           targetIdx = (pi + 1) % patterns.length;
         }
-        patterns[targetIdx] = JSON.parse(JSON.stringify(patterns[pi]));
-        emit('state:change', { path: 'scale', value: state.scale });
-        emit('toast', { msg: `Duplicated to slot ${String(targetIdx + 1).padStart(2, '0')}` });
+        if (!executeCommands({
+          type: 'duplicate-pattern',
+          sourceBankIndex: activeBank,
+          sourcePatternIndex: pi,
+          bankIndex: activeBank,
+          patternIndex: targetIdx,
+        }, `Duplicated to slot ${String(targetIdx + 1).padStart(2, '0')}`)) {
+          patterns[targetIdx] = JSON.parse(JSON.stringify(patterns[pi]));
+          emit('state:change', { path: 'scale', value: state.scale });
+          emit('toast', { msg: `Duplicated to slot ${String(targetIdx + 1).padStart(2, '0')}` });
+        }
       });
       btn.append(dupBtn);
 
@@ -871,8 +910,15 @@ export default {
       const targetBank = parseInt(bankSelect.value);
       const targetPat = parseInt(patSelect.value);
       const src = state.project.banks[activeBank].patterns[activePattern];
-      state.project.banks[targetBank].patterns[targetPat] = JSON.parse(JSON.stringify(src));
-      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      if (!executeCommands({
+        type: 'replace-pattern',
+        bankIndex: targetBank,
+        patternIndex: targetPat,
+        pattern: JSON.parse(JSON.stringify(src)),
+      }, `Copied to ${BANK_LETTERS[targetBank]}${String(targetPat + 1).padStart(2, '0')}`)) {
+        state.project.banks[targetBank].patterns[targetPat] = JSON.parse(JSON.stringify(src));
+        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      }
     });
 
     copyToDiv.append(copyToLbl, bankSelect, patSelect, copyToBtn);
@@ -930,10 +976,17 @@ export default {
               emit('toast', { msg: 'Invalid pattern: missing kit' });
               return;
             }
-            const target = state.project.banks[activeBank].patterns[activePattern];
-            Object.assign(target, JSON.parse(JSON.stringify(imported)));
-            emit('state:change', { path: 'scale', value: state.scale });
-            emit('toast', { msg: 'Pattern imported' });
+            if (!executeCommands({
+              type: 'replace-pattern',
+              bankIndex: activeBank,
+              patternIndex: activePattern,
+              pattern: JSON.parse(JSON.stringify(imported)),
+            }, 'Pattern imported')) {
+              const target = state.project.banks[activeBank].patterns[activePattern];
+              Object.assign(target, JSON.parse(JSON.stringify(imported)));
+              emit('state:change', { path: 'scale', value: state.scale });
+              emit('toast', { msg: 'Pattern imported' });
+            }
           } catch (err) {
             emit('toast', { msg: 'Import failed: invalid JSON' });
           }
@@ -1002,8 +1055,15 @@ export default {
               }
             });
           });
-          emit('state:change', { path: 'scale', value: state.scale });
-          emit('toast', { msg: `MIDI imported: ${notesImported} notes` });
+          if (!executeCommands({
+            type: 'replace-pattern',
+            bankIndex: activeBank,
+            patternIndex: activePattern,
+            pattern: JSON.parse(JSON.stringify(targetPat)),
+          }, `MIDI imported: ${notesImported} notes`)) {
+            emit('state:change', { path: 'scale', value: state.scale });
+            emit('toast', { msg: `MIDI imported: ${notesImported} notes` });
+          }
         };
         reader.readAsArrayBuffer(file);
       });

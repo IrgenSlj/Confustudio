@@ -1,103 +1,94 @@
 # Next Session
 
-## Fixed This Session (Session 3)
+## Current Baseline
 
-### Navigation & Labels
-- Added `'pad': 'PADS'` and `'modmatrix': 'MOD MATRIX'` to PAGE_LABELS (two instances in app.js)
-- Added `F10: 'pad'`, `F11: 'modmatrix'` to F_KEY_PAGES
-- Unified PAGE_ORDER for touch swipe: `['pattern', 'pad', 'piano-roll', 'sound', 'mixer', 'fx', 'modmatrix', 'scenes', 'banks', 'arranger', 'settings']`
+The repo now has a real command-layer foundation instead of only ad hoc state mutation.
 
-### Arranger Wiring
-- Fixed color change emit: `{ param: 'arranger' }` → `{ path: 'arranger', value: state.arranger }`
-- Fixed duplicate section emit: wrong path `'scale'` → `'arranger'`; name gets `' (copy)'` suffix
-- Fixed Insert Before emit: same wrong path fixed; added `trackMutes: Array(8).fill(false)` to new section
-- Added jump target `<select>` in section detail panel (visible only when followAction === 'jump')
-- Wired trackMutes application to engine during section transitions (in app.js scheduler)
-- Wired trackMute restore after arrangement stops in `stopPlay()`
-- Fixed scheduler jump: `state._arrSection = section.jumpTarget ?? 0` (bounded to length)
+Implemented in this round:
+- Project package helpers in `src/state.js`
+  `createProjectPackage()`, `applyProjectPackageToState()`, normalized import/export path
+- Command/history layer in `src/command-bus.js`
+  snapshot/restore, undo/redo-ready state capture, bounded studio commands
+- App integration in `src/app.js`
+  `window.confustudioCommands.execute(...)` plus history controller hookup
+- Assistant action planning
+  `POST /api/assistant/actions/plan` in `server.mjs`
+  `planAssistantActions()` in `src/assistant-client.js`
+- Settings migration
+  backups + project save/load now go through the package path
 
-### Sound Page
-- Recorder slot preview: toggle play/stop (▶/■), `onended` cleanup, page-leave cleanup
-- Recorder slot info: shows `${dur}s · ${ch} · ${hz}` including sample rate
-- Removed duplicate `slotInfo.textContent` assignment
-- Unified ADSR preset definitions across SYNTH + MOD tabs
-- Replaced MOD tab filter SVG with the same canvas response visualizer used in SYNTH
-- Added target-aware LFO depth preview text in the Sound page
+## Command-Layer Coverage
 
-### Piano Roll
-- Replaced expensive `MutationObserver` keyboard listener cleanup with `AbortController` + `container._cleanup` chain
+Already moved onto structured commands:
+- `scenes`
+  copy, clear, capture, rename, apply, swap
+- `arranger`
+  reset, quick-add, rename, duplicate, insert, bars, repeat, follow action, jump target, BPM override, time signature, mute, track mutes, color, templates
+- `banks`
+  pattern duplicate, copy-to-slot, JSON import, MIDI import, pattern rename, follow action change, clear
+- `pattern` top-level tools
+  follow action, Euclid generate/all, track paste, track clear
 
-### FX Page
-- Fixed `convReverbPreset` + `reverbType` emits: `param:` → `path:`
-- `_applyGlobal`: engine fallback `window._confustudioEngine ?? state.engine`
+Command types currently available include:
+- `set-project-meta`
+- `set-transport`
+- `set-pattern-length`
+- `update-pattern-meta`
+- `replace-pattern`
+- `set-track-param`
+- `replace-track-steps`
+- `set-step`
+- `clear-track`
+- `duplicate-pattern`
+- `generate-drum-pattern`
+- `generate-euclid`
+- `set-scene-name`
+- `set-scene-payload`
+- `swap-scenes`
+- `apply-scene`
+- `add-arranger-section`
+- `replace-arranger`
+- `update-arranger-section`
 
-### Engine / Routing
-- Added target-aware LFO depth scaling in `src/engine.js` for cutoff, volume, pan, and pitch
+## Tests Green
 
-### Studio / Cables
-- Cable redraw now self-prunes disconnected endpoints
-- In-progress cable drags are cancelled if their source module is removed
-- Added UI smoke coverage for cable cleanup after module removal
+Last verified:
+- `npm run test:state`
+- `npm run test:server`
+- `npm run test:ui-smoke`
 
-### Studio (Session 2)
-- Removed `isLoopbackHost` guards in `restoreView()` and `restoreLayout()` — broke layout persistence on localhost
-- Fixed `canStartDrag`: whitelist → blacklist; simplified to `Boolean(target.closest('.studio-module'))`
-- Restored `_spawnDefaultMixer()` with `attachModuleChrome` + auto-cable to mixer ch1-in
+The new state test lives in `tests/state-commands.mjs`.
 
-### App.js (Session 2)
-- Swing fix: `track.swing ?? state.swing ?? 0`
-- MIDI gate fix: `step.gate ?? 0.5` → `track.gate ?? 0.5` (both arp + non-arp paths)
-- Tap tempo: uses `state._tapTimes`, 2-tap minimum, routes through `emit('state:change', { path: 'bpm', ... })`
+## Next Highest-Value Work
 
-### Keyboard (Session 2)
-- Removed erroneous `state.chordMode` block firing `keyboard:noteOn` for chord tones on piano-roll/sound pages
+### Pattern Deep Migration
 
----
+This is the biggest remaining mutation-heavy surface.
 
-## Remaining Validation TODOs
+Still mostly direct mutation:
+- per-step editor internals in `src/pages/pattern.js`
+- step context-menu edits
+- multi-step selection tools
+- random fill
+- morph
+- several track-row inline edits
 
-- **Section track-mute engine wiring** — validated against `engine.setGroupMute()` in `src/engine.js`; do a browser pass to confirm per-section mutes behave correctly with real playback
-- **Cable removal with live audio routing** — do a browser pass with multiple patched mixer routes to confirm rerouting stays correct when one cable is removed
-- **Sound page visual pass** — verify MOD tab filter canvas + LFO depth hint feel clear on desktop and mobile widths
+Next step should be:
+1. add command types for richer step/selection operations
+2. migrate step editor + selection tools in `pattern.js`
+3. keep UI smoke green while expanding `tests/state-commands.mjs`
 
-## Recommended Work (Ongoing)
+### After Pattern
 
-### Pattern / Sequencing
-- Batch step actions: `state._selectedSteps` Set exists but no multi-step toolbar
-- Stronger visual feedback for copied/pasted step groups
-- Trig-condition naming consistency between UI and scheduler
+- normalize remaining direct mutation in `settings`
+- add an in-app assistant action preview/apply flow on top of `/api/assistant/actions/plan`
+- improve asset packaging so exported project files can eventually carry sample-backed state more reliably
 
-### Scenes
-- Crossfader live parameter preview while dragging
-- Scene morph curves and per-parameter inclusion/exclusion UI
-- Scene automation per arranger section
+## Validation To Do Later
 
-### Sound / Sample Workflow
-- Recorder-to-sample baseline is in place: waveform, trim, normalize, reverse, and slice-to-steps from Settings
-- Slice markers → assign to pads with a real pad-slice mapping model
-- Waveform display in recorder capture slots
-
-### Runtime / Audio
-- Track-specific capture (beyond master bus)
-- Safer MIDI output rebinding on device disconnect/reconnect
-- MIDI clock start/stop/restart validation against real devices
-- Offline bounce/export (beyond live MediaRecorder)
-
-### Studio Shell
-- New module spawn placement avoids overlapping tab strip
-- "Fit all modules" explicit control
-
-### Phase 2 (Bigger Lifts)
-- Plaits/Clouds/Rings WASM synthesis engines
-- Ableton Link SSE validation
-- Automation lanes
-- Stem export (audio content)
-- Assistant provider setup UX beyond env-driven configuration
-
-## Validation Checklist
-
-- Manual browser pass on all tabs
-- Real audio: init, play/stop, record, sample load, recorder slot capture/load
-- Multi-module studio: add synth + DJ mixer, drag, zoom/pan, reset fit
-- Confu desktop shell from `confu/`
-- Git diff review before release
+- Real audio pass
+  init audio, transport, recorder capture/load, sample playback
+- Real MIDI/device pass
+  MIDI out rebinding, clock start/stop, hardware sync behavior
+- Manual browser pass on all tabs after the deeper `pattern.js` migration
+- Desktop shell pass with project import/export and persistence

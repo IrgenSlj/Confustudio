@@ -1,6 +1,12 @@
 // src/pages/settings.js — MIDI, clock, audio, storage, sync, version
 
-import { saveState, getActivePattern, RECORDER_SLOT_COUNT } from '../state.js';
+import {
+  applyProjectPackageToState,
+  createProjectPackage,
+  saveState,
+  getActivePattern,
+  RECORDER_SLOT_COUNT,
+} from '../state.js';
 import { chatAssistant, fetchAssistantProviders, buildAssistantPrompt } from '../assistant-client.js';
 
 const VERSION = 'v3.0.0';
@@ -1468,7 +1474,7 @@ export default {
       backupBtn.addEventListener('click', () => {
         const now = Date.now();
         const key = `confustudio_backup_${now}`;
-        localStorage.setItem(key, JSON.stringify({ ...state.project, timestamp: now }));
+        localStorage.setItem(key, JSON.stringify(createProjectPackage(state, { backup: true, timestamp: now })));
         emit('toast', { msg: 'Backup saved' });
         renderBackups();
       });
@@ -1508,7 +1514,7 @@ export default {
             if (!confirm('Restore this backup? Current project will be lost.')) return;
             try {
               const proj = JSON.parse(localStorage.getItem(key));
-              state.project = proj;
+              applyProjectPackageToState(state, proj);
               saveState(state);
               emit('state:change', { path: 'scale', value: state.scale });
               emit('toast', { msg: 'Backup restored' });
@@ -1945,7 +1951,7 @@ export default {
     saveBtn.className = 'seq-btn';
     saveBtn.textContent = 'Save Project';
     saveBtn.addEventListener('click', () => {
-      const json = JSON.stringify(state.project, null, 2);
+      const json = JSON.stringify(createProjectPackage(state), null, 2);
       const blob = new Blob([json], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -1966,7 +1972,7 @@ export default {
       reader.onload = e => {
         try {
           const project = JSON.parse(e.target.result);
-          state.project = project;
+          applyProjectPackageToState(state, project);
           saveState(state);
           emit('state:change', { path: 'action_renderPage', value: true });
         } catch (err) {

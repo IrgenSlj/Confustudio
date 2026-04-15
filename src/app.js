@@ -10,6 +10,7 @@ import { renderKnobs, KNOB_MAPS } from './knobs.js';
 import { initStudio } from './studio.js';
 import { initCables } from './cables.js';
 import { initBackground } from './background.js';
+import { captureCommandState, createHistoryController, executeStudioCommands } from './command-bus.js';
 
 // Page modules
 import patternPage  from './pages/pattern.js';
@@ -258,58 +259,80 @@ state._selectedSteps = new Set();
 
 const LEGACY_STORAGE_KEY = 'confusynth-v2';
 
+function runStudioCommands(commands, label = 'Studio edit') {
+  const list = Array.isArray(commands) ? commands : [commands];
+  if (!list.length) return { changed: false, results: [] };
+  const before = JSON.stringify(captureCommandState(state));
+  pushHistory(state);
+  const result = executeStudioCommands(state, list);
+  if (!result.changed || JSON.stringify(captureCommandState(state)) === before) {
+    undoHistory(state);
+    return { ...result, changed: false };
+  }
+  saveState(state);
+  updateTopbar();
+  renderAll();
+  if (label) showToast(label);
+  return result;
+}
+
+window.confustudioCommands = {
+  execute(commands, label) {
+    return runStudioCommands(commands, label);
+  },
+  history: {
+    undo() {
+      undoHistory(state);
+      renderAll();
+      saveState(state);
+      return historyController.getMeta();
+    },
+    redo() {
+      redoHistory(state);
+      renderAll();
+      saveState(state);
+      return historyController.getMeta();
+    },
+  },
+};
+
 // ─────────────────────────────────────────────
 // UNDO / REDO HISTORY
 // ─────────────────────────────────────────────
-const _history = [];
+const historyController = createHistoryController(100);
 let _historyIdx = -1;
-const _checkpoints = []; // {historyIdx, label, timestamp}
+let _historyTotal = 0;
+let _checkpoints = []; // {historyIdx, label, timestamp}
+
+function syncHistoryMeta() {
+  const meta = historyController.getMeta();
+  _historyIdx = meta.index;
+  _historyTotal = meta.total;
+  _checkpoints = meta.checkpoints;
+}
 
 function pushHistory(state) {
-  // Trim any redo entries ahead of current position
-  _history.splice(_historyIdx + 1);
-  // Prune checkpoints that pointed into removed redo entries
-  const pruneFrom = _historyIdx + 1;
-  for (let i = _checkpoints.length - 1; i >= 0; i--) {
-    if (_checkpoints[i].historyIdx >= pruneFrom) _checkpoints.splice(i, 1);
-  }
-  _history.push(JSON.parse(JSON.stringify(state.project)));
-  if (_history.length > 100) {
-    _history.shift();
-    // Adjust checkpoint indices after the oldest entry is evicted
-    for (let i = _checkpoints.length - 1; i >= 0; i--) {
-      _checkpoints[i].historyIdx--;
-      if (_checkpoints[i].historyIdx < 0) _checkpoints.splice(i, 1);
-    }
-  }
-  _historyIdx = _history.length - 1;
+  historyController.push(state);
+  syncHistoryMeta();
   updateUndoIndicator();
 }
 
 function undoHistory(state) {
-  if (_historyIdx <= 0) return;
-  _historyIdx--;
-  state.project = JSON.parse(JSON.stringify(_history[_historyIdx]));
+  if (!historyController.undo(state)) return;
+  syncHistoryMeta();
   updateUndoIndicator();
 }
 
 function redoHistory(state) {
-  if (_historyIdx >= _history.length - 1) return;
-  _historyIdx++;
-  state.project = JSON.parse(JSON.stringify(_history[_historyIdx]));
+  if (!historyController.redo(state)) return;
+  syncHistoryMeta();
   updateUndoIndicator();
 }
 
 function markCheckpoint(label) {
-  if (_historyIdx < 0) return;
-  // Replace any existing checkpoint at this exact history index
-  const existing = _checkpoints.findIndex(c => c.historyIdx === _historyIdx);
-  const entry = { historyIdx: _historyIdx, label: label || 'Checkpoint', timestamp: Date.now() };
-  if (existing >= 0) {
-    _checkpoints[existing] = entry;
-  } else {
-    _checkpoints.push(entry);
-  }
+  const entry = historyController.markCheckpoint(label);
+  if (!entry) return;
+  syncHistoryMeta();
   updateUndoIndicator();
   showToast(`Checkpoint: ${entry.label}`);
 }
@@ -324,7 +347,7 @@ function updateUndoIndicator() {
     if (stopBtn?.parentNode) stopBtn.parentNode.insertBefore(ind, stopBtn.nextSibling);
   }
   const available = _historyIdx;
-  const total = _history.length;
+  const total = _historyTotal;
   ind.textContent = total > 0 ? `\u21BA${available}` : '';
   ind.style.color = available > 0 ? 'var(--screen-text)' : 'var(--muted)';
   // Build tooltip listing named checkpoints
@@ -3065,19 +3088,19 @@ function bindUI() {
         redoHistory(state);
         renderPage();
         saveState(state);
-        showToast('\u21AA Redo (' + _historyIdx + '/' + (_history.length - 1) + ')');
+        showToast('\u21AA Redo (' + _historyIdx + '/' + (_historyTotal - 1) + ')');
       } else {
         undoHistory(state);
         renderPage();
         saveState(state);
-        showToast('\u21A9 Undo (' + _historyIdx + '/' + (_history.length - 1) + ')');
+        showToast('\u21A9 Undo (' + _historyIdx + '/' + (_historyTotal - 1) + ')');
       }
       e.preventDefault();
     } else if (e.key === 'y' || e.key === 'Y') {
       redoHistory(state);
       renderPage();
       saveState(state);
-      showToast('\u21AA Redo (' + _historyIdx + '/' + (_history.length - 1) + ')');
+      showToast('\u21AA Redo (' + _historyIdx + '/' + (_historyTotal - 1) + ')');
       e.preventDefault();
     } else if (e.key === 'm' || e.key === 'M') {
       e.preventDefault();

@@ -96,6 +96,25 @@ export default {
     container.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:6px 8px;gap:4px';
 
     const { arranger, arrangementMode, arrangementCursor, scenes, isPlaying } = state;
+    const executeCommands = (commands, label) => {
+      if (window.confustudioCommands?.execute) {
+        return window.confustudioCommands.execute(commands, label);
+      }
+      return null;
+    };
+    const replaceArranger = (nextArranger, label = 'Arranger updated', extra = {}) => {
+      if (executeCommands({
+        type: 'replace-arranger',
+        arranger: nextArranger,
+        arrangementCursor: extra.arrangementCursor ?? state.arrangementCursor,
+      }, label)) {
+        return true;
+      }
+      state.arranger = nextArranger;
+      if (extra.arrangementCursor != null) state.arrangementCursor = extra.arrangementCursor;
+      emit('state:change', { path: 'arranger', value: state.arranger });
+      return false;
+    };
     const activeSectionIdx = (arrangementMode && isPlaying) ? (state._arrSection ?? 0) : -1;
     if (state.arrSoloSection == null) state.arrSoloSection = null; // ensure defined
 
@@ -125,8 +144,8 @@ export default {
     clearBtn.title = 'Clear all sections and reset to one default section';
     clearBtn.addEventListener('click', () => {
       if (!confirm('Clear arranger? All sections will be lost.')) return;
-      state.arranger.length = 0;
-      state.arranger.push({ sceneIdx: 0, bars: 4, name: 'Section 1', repeat: 1, muted: false, followAction: 'next', trackMutes: Array(8).fill(false) });
+      const nextArranger = [{ sceneIdx: 0, bars: 4, name: 'Section 1', repeat: 1, muted: false, followAction: 'next', trackMutes: Array(8).fill(false) }];
+      replaceArranger(nextArranger, 'Arranger reset', { arrangementCursor: 0 });
       state.arrangementCursor = 0;
       state._arrSection = 0;
       state._arrSectionBars = 0;
@@ -207,7 +226,10 @@ export default {
         qBtn.textContent = `+ ${name}`;
         qBtn.addEventListener('mouseenter', () => { qBtn.style.borderColor = col; qBtn.style.background = col + '22'; });
         qBtn.addEventListener('mouseleave', () => { qBtn.style.borderColor = col + '55'; qBtn.style.background = col + '11'; });
-        qBtn.addEventListener('click', () => emit('arranger:addSection', { name, bars: 4 }));
+        qBtn.addEventListener('click', () => {
+          const next = [...state.arranger, { sceneIdx: 0, bars: 4, name, repeat: 1, muted: false, followAction: 'next', trackMutes: Array(8).fill(false) }];
+          replaceArranger(next, `Added ${name}`, { arrangementCursor: next.length - 1 });
+        });
         quickAdd.append(qBtn);
       });
       emptyDiv.append(quickAdd);
@@ -294,26 +316,31 @@ export default {
             menuItem('Rename', '✎', () => {
               const name = prompt('Section name:', section.name ?? `Section ${idx + 1}`);
               if (name !== null) {
-                section.name = name;
-                emit('state:change', { path: 'arranger', value: state.arranger });
+                const next = state.arranger.map((item, sectionIndex) => sectionIndex === idx ? { ...item, name } : item);
+                replaceArranger(next, 'Renamed section', { arrangementCursor: idx });
               }
             }),
             menuItem('Duplicate', '⧉', () => {
               const clone = JSON.parse(JSON.stringify(section));
               clone.name = (section.name ?? `Section ${idx + 1}`) + ' (copy)';
-              state.arranger.splice(idx + 1, 0, clone);
-              emit('state:change', { path: 'arranger', value: state.arranger });
+              const next = [...state.arranger];
+              next.splice(idx + 1, 0, clone);
+              replaceArranger(next, 'Duplicated section', { arrangementCursor: idx + 1 });
             }),
             menuItem('Insert Before', '↑+', () => {
               const newName = `Section ${state.arranger.length + 1}`;
               const newSec = { sceneIdx: section.sceneIdx ?? 0, bars: section.bars ?? 4, name: newName, repeat: 1, muted: false, followAction: 'next', trackMutes: Array(8).fill(false) };
-              state.arranger.splice(idx, 0, newSec);
-              emit('state:change', { path: 'arranger', value: state.arranger });
+              const next = [...state.arranger];
+              next.splice(idx, 0, newSec);
+              replaceArranger(next, 'Inserted section', { arrangementCursor: idx });
             }),
             ...faOptions.map(({ value, label }) => menuItem(
               (value === (section.followAction ?? 'next') ? '✓ ' : '') + 'Follow: ' + label,
               '',
-              () => { section.followAction = value; emit('state:change', { path: 'arranger', value: state.arranger }); }
+              () => {
+                const next = state.arranger.map((item, sectionIndex) => sectionIndex === idx ? { ...item, followAction: value } : item);
+                replaceArranger(next, 'Updated follow action', { arrangementCursor: idx });
+              }
             )),
             menuItem('Delete', '✕', () => emit('state:change', { path: 'action_arrRemove', value: idx })),
           );
@@ -340,8 +367,8 @@ export default {
           e.stopPropagation();
           const name = prompt('Section name:', section.name ?? `Section ${idx + 1}`);
           if (name !== null) {
-            section.name = name;
-            emit('state:change', { path: 'arranger', value: state.arranger });
+            const next = state.arranger.map((item, sectionIndex) => sectionIndex === idx ? { ...item, name } : item);
+            replaceArranger(next, 'Renamed section', { arrangementCursor: idx });
           }
         });
 
@@ -416,10 +443,11 @@ export default {
         barsInput.style.cssText = 'width:36px;background:#222;border:1px solid var(--accent);border-radius:2px;padding:0 2px;font-family:var(--font-mono);font-size:0.58rem;color:var(--screen-text);text-align:right';
         const commit = () => {
           const newBars = Math.max(1, Math.min(64, parseInt(barsInput.value) || 4));
-          selSection.bars = newBars;
           barsLabel.textContent = `${newBars}B`;
           barsInput.replaceWith(barsLabel);
-          emit('state:change', { path: `arranger[${selIdx}].bars`, value: newBars });
+          if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { bars: newBars } }, 'Updated bars')) {
+            emit('state:change', { path: `arranger[${selIdx}].bars`, value: newBars });
+          }
         };
         barsInput.addEventListener('blur', commit);
         barsInput.addEventListener('keydown', ev => {
@@ -434,18 +462,20 @@ export default {
       minusBtn2.textContent = '−';
       minusBtn2.addEventListener('click', () => {
         const v = Math.max(1, (selSection.bars ?? 4) - 1);
-        selSection.bars = v;
         barsLabel.textContent = `${v}B`;
-        emit('state:change', { path: `arranger[${selIdx}].bars`, value: v });
+        if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { bars: v } }, 'Updated bars')) {
+          emit('state:change', { path: `arranger[${selIdx}].bars`, value: v });
+        }
       });
       const plusBtn2 = document.createElement('button');
       plusBtn2.className = 'bpm-arrow';
       plusBtn2.textContent = '+';
       plusBtn2.addEventListener('click', () => {
         const v = Math.min(64, (selSection.bars ?? 4) + 1);
-        selSection.bars = v;
         barsLabel.textContent = `${v}B`;
-        emit('state:change', { path: `arranger[${selIdx}].bars`, value: v });
+        if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { bars: v } }, 'Updated bars')) {
+          emit('state:change', { path: `arranger[${selIdx}].bars`, value: v });
+        }
       });
       detailPanel.append(minusBtn2, barsLabel, plusBtn2);
 
@@ -461,9 +491,12 @@ export default {
       repeatInput2.title = 'Repeat count';
       repeatInput2.style.width = '32px';
       repeatInput2.addEventListener('change', () => {
-        selSection.repeat = Math.max(1, Math.min(16, parseInt(repeatInput2.value) || 1));
-        repeatInput2.value = String(selSection.repeat);
-        emit('state:change', { path: 'arranger', value: state.arranger });
+        const repeat = Math.max(1, Math.min(16, parseInt(repeatInput2.value) || 1));
+        repeatInput2.value = String(repeat);
+        if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { repeat } }, 'Updated repeat')) {
+          selSection.repeat = repeat;
+          emit('state:change', { path: 'arranger', value: state.arranger });
+        }
       });
       detailPanel.append(repLabel, repeatInput2);
 
@@ -478,9 +511,11 @@ export default {
         followSelect2.append(opt);
       });
       followSelect2.addEventListener('change', () => {
-        selSection.followAction = followSelect2.value;
         jumpTargetWrap.style.display = followSelect2.value === 'jump' ? 'flex' : 'none';
-        emit('state:change', { path: 'arranger', value: state.arranger });
+        if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { followAction: followSelect2.value } }, 'Updated follow action')) {
+          selSection.followAction = followSelect2.value;
+          emit('state:change', { path: 'arranger', value: state.arranger });
+        }
       });
       detailPanel.append(followSelect2);
 
@@ -501,8 +536,11 @@ export default {
         jumpSelect.append(opt);
       });
       jumpSelect.addEventListener('change', () => {
-        selSection.jumpTarget = parseInt(jumpSelect.value, 10);
-        emit('state:change', { path: 'arranger', value: state.arranger });
+        const jumpTarget = parseInt(jumpSelect.value, 10);
+        if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { jumpTarget } }, 'Updated jump target')) {
+          selSection.jumpTarget = jumpTarget;
+          emit('state:change', { path: 'arranger', value: state.arranger });
+        }
       });
       jumpTargetWrap.append(jumpLabel, jumpSelect);
       detailPanel.append(jumpTargetWrap);
@@ -519,8 +557,11 @@ export default {
       bpmInput2.placeholder = String(state.bpm);
       bpmInput2.title = '0 = use global BPM';
       bpmInput2.addEventListener('change', () => {
-        selSection.bpmOverride = parseInt(bpmInput2.value) || 0;
-        emit('state:change', { path: 'arranger', value: state.arranger });
+        const bpmOverride = parseInt(bpmInput2.value) || 0;
+        if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { bpmOverride } }, 'Updated BPM override')) {
+          selSection.bpmOverride = bpmOverride;
+          emit('state:change', { path: 'arranger', value: state.arranger });
+        }
       });
       detailPanel.append(bpmLabel2, bpmInput2);
 
@@ -535,8 +576,10 @@ export default {
         tsSelect2.append(opt);
       });
       tsSelect2.addEventListener('change', () => {
-        selSection.timeSignature = tsSelect2.value;
-        emit('state:change', { path: 'arranger', value: state.arranger });
+        if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { timeSignature: tsSelect2.value } }, 'Updated time signature')) {
+          selSection.timeSignature = tsSelect2.value;
+          emit('state:change', { path: 'arranger', value: state.arranger });
+        }
       });
       detailPanel.append(tsSelect2);
 
@@ -548,10 +591,13 @@ export default {
       muteBtn2.style.cssText = `font-size:0.52rem;padding:2px 5px;${selSection.muted ? 'color:var(--live);border-color:var(--live);' : 'opacity:0.45;'}`;
       muteBtn2.addEventListener('click', e => {
         e.stopPropagation();
-        selSection.muted = !selSection.muted;
-        muteBtn2.classList.toggle('active', selSection.muted);
-        muteBtn2.style.cssText = `font-size:0.52rem;padding:2px 5px;${selSection.muted ? 'color:var(--live);border-color:var(--live);' : 'opacity:0.45;'}`;
-        emit('state:change', { path: 'arranger', value: state.arranger });
+        const muted = !selSection.muted;
+        muteBtn2.classList.toggle('active', muted);
+        muteBtn2.style.cssText = `font-size:0.52rem;padding:2px 5px;${muted ? 'color:var(--live);border-color:var(--live);' : 'opacity:0.45;'}`;
+        if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { muted } }, 'Updated mute')) {
+          selSection.muted = muted;
+          emit('state:change', { path: 'arranger', value: state.arranger });
+        }
       });
 
       // Solo
@@ -581,8 +627,11 @@ export default {
         sq.title = `Track ${ti + 1} — ${muted ? 'muted' : 'active'}`;
         sq.addEventListener('click', e => {
           e.stopPropagation();
-          selSection.trackMutes[ti] = !selSection.trackMutes[ti];
-          emit('state:change', { path: 'arranger', value: state.arranger });
+          const nextTrackMutes = selSection.trackMutes.map((item, muteIndex) => muteIndex === ti ? !item : item);
+          if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { trackMutes: nextTrackMutes } }, 'Updated track mute')) {
+            selSection.trackMutes[ti] = !selSection.trackMutes[ti];
+            emit('state:change', { path: 'arranger', value: state.arranger });
+          }
         });
         mutesRow2.append(sq);
       });
@@ -598,9 +647,11 @@ export default {
       colorPick2.value = selSection.color ?? '#3a4a5a';
       colorPick2.style.cssText = 'width:100%;height:100%;padding:0;border:none;border-radius:2px;cursor:pointer;opacity:0;position:absolute;inset:0';
       colorPick2.addEventListener('change', () => {
-        selSection.color = colorPick2.value;
         colorSwatch2.style.background = colorPick2.value;
-        emit('state:change', { path: 'arranger', value: state.arranger });
+        if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { color: colorPick2.value } }, 'Updated section color')) {
+          selSection.color = colorPick2.value;
+          emit('state:change', { path: 'arranger', value: state.arranger });
+        }
       });
       colorSwatch2.append(colorPick2);
       detailPanel.append(colorSwatch2);
@@ -613,8 +664,9 @@ export default {
       dupBtn2.style.cssText = 'font-size:0.6rem;padding:2px 5px;opacity:0.7;margin-left:auto';
       dupBtn2.addEventListener('click', () => {
         const clone = JSON.parse(JSON.stringify(selSection));
-        state.arranger.splice(selIdx + 1, 0, clone);
-        emit('state:change', { path: 'scale', value: state.scale });
+        const next = [...state.arranger];
+        next.splice(selIdx + 1, 0, clone);
+        replaceArranger(next, 'Duplicated section', { arrangementCursor: selIdx + 1 });
       });
       const upBtn2 = document.createElement('button');
       upBtn2.className = 'bpm-arrow';
@@ -725,15 +777,14 @@ export default {
       btn.className = 'seq-btn';
       btn.textContent = template.name;
       btn.addEventListener('click', () => {
-        state.arranger = template.sections.map(([name, bars], idx) => ({
+        const next = template.sections.map(([name, bars], idx) => ({
           name,
           bars,
           sceneIdx: idx % scenes.length,
           repeat: 1,
           muted: false,
         }));
-        state.arrangementCursor = 0;
-        emit('state:change', { path: 'arranger', value: state.arranger });
+        replaceArranger(next, `Loaded ${template.name} template`, { arrangementCursor: 0 });
       });
       templateWrap.append(btn);
     });

@@ -270,6 +270,12 @@ export default {
     const pattern = state.project.banks[state.activeBank].patterns[state.activePattern];
     const selTi   = state.selectedTrackIndex;
     const track   = pattern.kit.tracks[selTi];
+    const executeCommands = (commands, label) => {
+      if (window.confustudioCommands?.execute) {
+        return window.confustudioCommands.execute(commands, label);
+      }
+      return null;
+    };
     const rerenderPattern = () =>
       emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
 
@@ -367,7 +373,14 @@ export default {
       faSelect.append(opt);
     });
     faSelect.addEventListener('change', () => {
-      pattern.followAction = faSelect.value;
+      if (!executeCommands({
+        type: 'update-pattern-meta',
+        bankIndex: state.activeBank,
+        patternIndex: state.activePattern,
+        followAction: faSelect.value,
+      }, 'Updated follow action')) {
+        pattern.followAction = faSelect.value;
+      }
       emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
     });
     followDiv.append(faSelect);
@@ -1605,30 +1618,49 @@ export default {
       const beats  = parseInt(euclidBeatsInput.value,  10);
       const steps  = parseInt(euclidStepsInput.value,  10) || (track.trackLength || pattern.length);
       const offset = parseInt(euclidOffsetInput.value, 10) || 0;
-      const base   = euclidean(beats, steps);
-      const off    = ((offset % steps) + steps) % steps;
-      const result = [...base.slice(off), ...base.slice(0, off)];
-      result.forEach((active, i) => {
-        if (track.steps[i]) track.steps[i].active = active;
-      });
-      state.euclidBeats  = beats;
-      state.euclidOffset = offset;
+      if (!executeCommands({
+        type: 'generate-euclid',
+        bankIndex: state.activeBank,
+        patternIndex: state.activePattern,
+        trackIndex: selTi,
+        beats,
+        steps,
+        offset,
+      }, 'Applied Euclid')) {
+        const base   = euclidean(beats, steps);
+        const off    = ((offset % steps) + steps) % steps;
+        const result = [...base.slice(off), ...base.slice(0, off)];
+        result.forEach((active, i) => {
+          if (track.steps[i]) track.steps[i].active = active;
+        });
+        state.euclidBeats  = beats;
+        state.euclidOffset = offset;
+      }
       emit('state:change', { path: 'euclidBeats', value: beats });
     });
 
     allBtn.addEventListener('click', () => {
       const beats = parseInt(euclidBeatsInput.value,  10);
       const steps = parseInt(euclidStepsInput.value,  10) || (track.trackLength || pattern.length);
-      const base  = euclidean(beats, steps);
-      pattern.kit.tracks.forEach((trk, ti) => {
-        const off    = Math.round(ti * steps / 8);
-        const result = [...base.slice(off), ...base.slice(0, off)];
-        result.forEach((active, i) => {
-          if (trk.steps[i]) trk.steps[i].active = active;
+      if (!executeCommands({
+        type: 'generate-euclid',
+        bankIndex: state.activeBank,
+        patternIndex: state.activePattern,
+        beats,
+        steps,
+        applyToAll: true,
+      }, 'Applied Euclid to all 8 tracks')) {
+        const base  = euclidean(beats, steps);
+        pattern.kit.tracks.forEach((trk, ti) => {
+          const off    = Math.round(ti * steps / 8);
+          const result = [...base.slice(off), ...base.slice(0, off)];
+          result.forEach((active, i) => {
+            if (trk.steps[i]) trk.steps[i].active = active;
+          });
         });
-      });
-      state.euclidBeats  = beats;
-      state.euclidOffset = 0;
+        state.euclidBeats  = beats;
+        state.euclidOffset = 0;
+      }
       emit('state:change', { path: 'euclidBeats', value: beats });
       emit('toast', { msg: 'Applied to all 8 tracks' });
     });
@@ -1656,7 +1688,15 @@ export default {
       pasteBtn2.style.opacity = '0.4';
     }
     pasteBtn2.addEventListener('click', () => {
-      emit('state:change', { path: 'action_paste', value: true });
+      if (!executeCommands({
+        type: 'replace-track-steps',
+        bankIndex: state.activeBank,
+        patternIndex: state.activePattern,
+        trackIndex: selTi,
+        steps: JSON.parse(JSON.stringify(state.copyBuffer?.data ?? [])),
+      }, 'Pasted steps')) {
+        emit('state:change', { path: 'action_paste', value: true });
+      }
       pasteBtn2.style.background = 'rgba(90,221,113,0.3)';
       setTimeout(() => { pasteBtn2.style.background = ''; }, 400);
     });
@@ -1666,9 +1706,16 @@ export default {
     clearBtn2.className = 'seq-btn';
     clearBtn2.textContent = 'Clear';
     clearBtn2.title = 'Clear all steps on current track';
-    clearBtn2.addEventListener('click', () =>
-      emit('state:change', { path: 'action_clear', value: true })
-    );
+    clearBtn2.addEventListener('click', () => {
+      if (!executeCommands({
+        type: 'clear-track',
+        bankIndex: state.activeBank,
+        patternIndex: state.activePattern,
+        trackIndex: selTi,
+      }, 'Cleared track')) {
+        emit('state:change', { path: 'action_clear', value: true });
+      }
+    });
     actionsDiv.append(clearBtn2);
 
     // ── Lock button ───────────────────────────────────────────────────────────

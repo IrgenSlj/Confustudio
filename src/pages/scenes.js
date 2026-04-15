@@ -77,6 +77,12 @@ export default {
 
     const { scenes, crossfader, sceneA, sceneB, selectedTrackIndex } = state;
     const activePattern = getActivePattern(state);
+    const executeCommands = (commands, label) => {
+      if (window.confustudioCommands?.execute) {
+        return window.confustudioCommands.execute(commands, label);
+      }
+      return null;
+    };
 
     function rerenderScenes() {
       emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
@@ -91,33 +97,46 @@ export default {
     }
 
     function copyScene(sourceIdx, targetIdx) {
-      state.project.scenes[targetIdx] = cloneScenePayload(sourceIdx);
-      state.scenes[targetIdx] = state.project.scenes[targetIdx];
-      rerenderScenes();
+      const copied = cloneScenePayload(sourceIdx);
+      if (!executeCommands({ type: 'set-scene-payload', sceneIndex: targetIdx, scene: copied }, `Scene ${String.fromCharCode(65 + targetIdx)} updated`)) {
+        state.project.scenes[targetIdx] = copied;
+        state.scenes[targetIdx] = state.project.scenes[targetIdx];
+        rerenderScenes();
+      }
     }
 
     function clearScene(sceneIdx) {
       const fallback = scenes[sceneIdx];
-      state.project.scenes[sceneIdx] = {
+      const nextScene = {
         name: fallback?.name || `Scene ${String.fromCharCode(65 + sceneIdx)}`,
         tracks: Array.from({ length: activePattern.kit.tracks.length }, () => ({})),
         noInterp: [],
       };
-      state.scenes[sceneIdx] = state.project.scenes[sceneIdx];
-      rerenderScenes();
+      if (!executeCommands({ type: 'set-scene-payload', sceneIndex: sceneIdx, scene: nextScene }, `Scene ${String.fromCharCode(65 + sceneIdx)} cleared`)) {
+        state.project.scenes[sceneIdx] = nextScene;
+        state.scenes[sceneIdx] = state.project.scenes[sceneIdx];
+        rerenderScenes();
+      }
     }
 
     function applySceneToLive(sceneIdx, mode = 'track') {
-      const sourceScene = state.project.scenes[sceneIdx];
-      if (!sourceScene?.tracks) return;
-      if (mode === 'all') {
-        activePattern.kit.tracks.forEach((track, ti) => {
-          Object.assign(track, sourceScene.tracks[ti] ?? {});
-        });
-      } else {
-        Object.assign(getActiveTrack(state), sourceScene.tracks[selectedTrackIndex] ?? {});
+      if (!executeCommands({
+        type: 'apply-scene',
+        sceneIndex: sceneIdx,
+        mode,
+        trackIndex: selectedTrackIndex,
+      }, `Applied Scene ${String.fromCharCode(65 + sceneIdx)}`)) {
+        const sourceScene = state.project.scenes[sceneIdx];
+        if (!sourceScene?.tracks) return;
+        if (mode === 'all') {
+          activePattern.kit.tracks.forEach((track, ti) => {
+            Object.assign(track, sourceScene.tracks[ti] ?? {});
+          });
+        } else {
+          Object.assign(getActiveTrack(state), sourceScene.tracks[selectedTrackIndex] ?? {});
+        }
+        rerenderScenes();
       }
-      rerenderScenes();
     }
 
     const header = document.createElement('div');
@@ -282,25 +301,21 @@ export default {
       captureBtn.addEventListener('click', e => {
         e.stopPropagation();
         const tracks = getActivePattern(state).kit.tracks;
-        if (scenes[si] && scenes[si].tracks) {
-          tracks.forEach((track, ti) => {
-            scenes[si].tracks[ti] = {
-              cutoff: track.cutoff, decay: track.decay, delaySend: track.delaySend,
-              pitch: track.pitch, volume: track.volume,
-            };
-          });
-        }
         const CAPTURE_PARAMS = ['volume', 'pan', 'cutoff', 'resonance', 'attack', 'decay',
                                 'sustain', 'release', 'reverbSend', 'delaySend', 'pitch'];
-        if (!state.project.scenes[si]) state.project.scenes[si] = {};
-        state.project.scenes[si].tracks = tracks.map(track => {
+        const nextScene = cloneScenePayload(si);
+        nextScene.tracks = tracks.map(track => {
           const captured = {};
           CAPTURE_PARAMS.forEach(p => { if (track[p] !== undefined) captured[p] = track[p]; });
           return captured;
         });
-        state.project.scenes[si].bpm = state.bpm;
-        state.project.scenes[si].swing = state.swing;
-        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+        nextScene.bpm = state.bpm;
+        nextScene.swing = state.swing;
+        if (!executeCommands({ type: 'set-scene-payload', sceneIndex: si, scene: nextScene }, `Captured Scene ${letter}`)) {
+          state.project.scenes[si] = nextScene;
+          state.scenes[si] = nextScene;
+          emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+        }
         card.style.outline = '2px solid var(--accent)';
         setTimeout(() => { card.style.outline = ''; }, 500);
       });
@@ -378,9 +393,11 @@ export default {
         input.focus(); input.select();
         const save = () => {
           const name = input.value.trim() || currentName;
-          if (!state.project.scenes[si]) state.project.scenes[si] = {};
-          state.project.scenes[si].name = name;
-          if (state.scenes[si]) state.scenes[si].name = name;
+          if (!executeCommands({ type: 'set-scene-name', sceneIndex: si, name }, `Renamed Scene ${letter}`)) {
+            if (!state.project.scenes[si]) state.project.scenes[si] = {};
+            state.project.scenes[si].name = name;
+            if (state.scenes[si]) state.scenes[si].name = name;
+          }
           input.replaceWith(nameEl);
           nameEl.textContent = name;
           emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
@@ -461,12 +478,14 @@ export default {
       makeSceneTool('Apply B', () => applySceneToLive(sceneB, 'track'), 'Apply Scene B to selected track'),
       makeSceneTool('Apply All A', () => applySceneToLive(sceneA, 'all'), 'Apply Scene A to all tracks'),
       makeSceneTool('Swap', () => {
-        const temp = cloneScenePayload(sceneA);
-        state.project.scenes[sceneA] = cloneScenePayload(sceneB);
-        state.project.scenes[sceneB] = temp;
-        state.scenes[sceneA] = state.project.scenes[sceneA];
-        state.scenes[sceneB] = state.project.scenes[sceneB];
-        rerenderScenes();
+        if (!executeCommands({ type: 'swap-scenes', sceneA, sceneB }, 'Swapped scenes')) {
+          const temp = cloneScenePayload(sceneA);
+          state.project.scenes[sceneA] = cloneScenePayload(sceneB);
+          state.project.scenes[sceneB] = temp;
+          state.scenes[sceneA] = state.project.scenes[sceneA];
+          state.scenes[sceneB] = state.project.scenes[sceneB];
+          rerenderScenes();
+        }
       }, 'Swap the full contents of Scenes A and B'),
       makeSceneTool('Clear A', () => clearScene(sceneA), 'Clear the captured data in Scene A'),
       makeSceneTool('Clear B', () => clearScene(sceneB), 'Clear the captured data in Scene B'),

@@ -100,6 +100,15 @@ try {
   const chatJson = await readJson(chatRes);
   assert(chatJson.error === 'No assistant provider is configured', 'Assistant error payload mismatch', chatJson);
 
+  const actionPlanRes = await fetch(`${server.baseUrl}/api/assistant/actions/plan`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: 'make the drums punchier' }),
+  });
+  assert(actionPlanRes.status === 503, 'Assistant action planner should reject when no provider is configured', { status: actionPlanRes.status });
+  const actionPlanJson = await readJson(actionPlanRes);
+  assert(actionPlanJson.error === 'No assistant provider is configured', 'Assistant action planner error payload mismatch', actionPlanJson);
+
   const linkInitialRes = await fetch(`${server.baseUrl}/api/link/state`);
   assert(linkInitialRes.ok, 'Link state GET failed', { status: linkInitialRes.status });
   const linkInitial = await readJson(linkInitialRes);

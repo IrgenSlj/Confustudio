@@ -11,6 +11,8 @@ import {
 
 export const STORAGE_KEY   = "confustudio-v3";
 export const LEGACY_STORAGE_KEYS = ["confusynth-v3", "confustudio-v2", "confusynth-v2"];
+export const PROJECT_SCHEMA_VERSION = "3.1.0";
+export const PROJECT_PACKAGE_VERSION = "1.0.0";
 export const STEP_COUNT    = 64;
 export const TRACK_COUNT   = 8;
 export const BANK_COUNT    = 8;
@@ -290,6 +292,76 @@ export function createProject() {
     banks:       Array.from({ length: BANK_COUNT }, (_, bi) => createBank(bi)),
     scenes:      Array.from({ length: 8 }, (_, i) => createScene(i)),
   };
+}
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function unwrapProjectPackage(input) {
+  if (input && typeof input === 'object' && input.format === 'confustudio-project-package' && input.project) {
+    return input.project;
+  }
+  return input;
+}
+
+export function normalizeProject(projectLike) {
+  const rawProject = unwrapProjectPackage(projectLike);
+  const freshState = createAppState();
+  const mergedState = deepMerge(freshState, {
+    project: rawProject && typeof rawProject === 'object' ? rawProject : createProject(),
+  });
+  const nextState = repairState(normalizeScenes(mergedState));
+  return cloneJson(nextState.project);
+}
+
+export function createProjectPackage(stateOrProject, metadata = {}) {
+  const hasAppStateShape = !!stateOrProject?.project;
+  const projectSource = stateOrProject?.project ?? stateOrProject;
+  const project = normalizeProject(projectSource);
+  const session = hasAppStateShape
+    ? stripRuntime({
+        ...stateOrProject,
+        project,
+      })
+    : { project };
+  return {
+    format: 'confustudio-project-package',
+    packageVersion: PROJECT_PACKAGE_VERSION,
+    schemaVersion: PROJECT_SCHEMA_VERSION,
+    exportedAt: Date.now(),
+    app: {
+      name: 'CONFUstudio',
+    },
+    metadata: {
+      name: project.name ?? 'New Project',
+      author: project.author ?? '',
+      description: project.description ?? '',
+      ...metadata,
+    },
+    state: session,
+    project,
+  };
+}
+
+export function applyProjectPackageToState(state, packageOrProject) {
+  if (!state || typeof state !== 'object') {
+    throw new TypeError('state is required');
+  }
+  const snapshot = packageOrProject?.state && typeof packageOrProject.state === 'object'
+    ? packageOrProject.state
+    : { project: unwrapProjectPackage(packageOrProject) };
+  const runtime = {
+    audioContext: state.audioContext,
+    engine: state.engine,
+    _playingNotes: state._playingNotes,
+    _pressedKeys: state._pressedKeys,
+    _selectedSteps: state._selectedSteps,
+  };
+  const next = repairState(normalizeScenes(deepMerge(createAppState(), snapshot)));
+  Object.assign(state, next, runtime);
+  scheduleAssetHydration(state);
+  return state.project;
 }
 
 // ─── Factory: full appState ───────────────────────────────────────────────────
@@ -719,7 +791,9 @@ export function loadState() {
     const activeKey = [STORAGE_KEY, ...LEGACY_STORAGE_KEYS].find((key) => localStorage.getItem(key));
     const raw = activeKey ? localStorage.getItem(activeKey) : null;
     if (raw) {
-      const parsed = JSON.parse(raw);
+      const parsedInput = JSON.parse(raw);
+      const parsedProject = unwrapProjectPackage(parsedInput);
+      const parsed = parsedProject?.banks ? { project: parsedProject } : parsedInput;
       // Restore sampleBuffer = null on all tracks (was stripped on save)
       // Also forward-fill any new track fields added after this save was made
       if (parsed.project && Array.isArray(parsed.project.banks)) {

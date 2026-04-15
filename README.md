@@ -4,6 +4,8 @@ CONFUstudio is the broader project and studio shell. CONFUsynth is its default a
 
 The current prototype runs in the browser, is installable as a PWA for desktop-like use, and includes a small local API bridge for optional OpenAI or Anthropic assistance. It is intentionally compact: plain HTML, CSS, and modern JavaScript on the frontend, plus a dependency-light Node server for static hosting and API proxying.
 
+The repo now also includes an early structured command layer for undoable state mutations, normalized project package import/export, and assistant action planning. That foundation is being used to migrate the UI away from direct ad hoc mutation, starting with scenes, arranger, banks, and top-level pattern tools.
+
 ## Instrument Direction
 
 The core themes of CONFUsynth, the default instrument inside CONFUstudio, are:
@@ -100,6 +102,7 @@ This avoids locking the core architecture to one host SDK too early.
 - Delay and reverb sends.
 - File sample import and microphone recording.
 - Assistant bridge routes for OpenAI, Anthropic, local OpenAI-compatible endpoints, and Ollama.
+- Assistant action planning endpoint for bounded studio commands.
 
 ### Phase 2
 
@@ -197,8 +200,17 @@ What is implemented:
 - File sample import, microphone capture.
 - COOP/COEP headers — SharedArrayBuffer enabled for AudioWorklet.
 - Assistant bridge: OpenAI, Anthropic, local OpenAI-compatible, and Ollama routes.
+- Assistant action planning route for bounded command generation.
 - Installable PWA shell.
 - Confu desktop shell (`npm install && npm run confu`). The shell entrypoint lives in `confu/`.
+
+## Recent Architecture Work
+
+- Project package helpers now normalize save/load/backup flows.
+- A command/history layer exists in `src/command-bus.js`.
+- The app exposes `window.confustudioCommands.execute(...)` for bounded command execution.
+- `scenes`, `arranger`, `banks`, and key `pattern` toolbar actions already use that structured mutation path.
+- Automated coverage includes `test:state`, `test:server`, and `test:ui-smoke`.
 
 ## Recommended Next Build Steps
 

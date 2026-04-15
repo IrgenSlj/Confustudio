@@ -78,6 +78,31 @@ export async function chatAssistant(payload) {
   });
 }
 
+export async function planAssistantActions(payload) {
+  if (!payload || typeof payload !== "object") {
+    throw new TypeError("payload must be an object");
+  }
+
+  const message = typeof payload.message === "string" ? payload.message.trim() : "";
+  if (!message) {
+    throw new TypeError("message is required");
+  }
+
+  return requestJson("/actions/plan", {
+    method: "POST",
+    body: JSON.stringify({
+      provider: payload.provider || "auto",
+      message,
+      context: payload.context || undefined,
+      model: payload.model || undefined,
+      baseUrl: payload.baseUrl || undefined,
+      temperature: payload.temperature,
+      maxTokens: payload.maxTokens,
+      apiKey: payload.apiKey,
+    }),
+  });
+}
+
 export function buildAssistantPrompt(context = {}) {
   const lines = [];
 
@@ -98,6 +123,7 @@ export function installAssistantBridge(target = typeof window !== "undefined" ? 
     fetchContext: fetchAssistantContext,
     fetchProviders: fetchAssistantProviders,
     chat: chatAssistant,
+    planActions: planAssistantActions,
     buildPrompt: buildAssistantPrompt,
   };
 
@@ -114,6 +140,7 @@ export default {
   fetchAssistantContext,
   fetchAssistantProviders,
   chatAssistant,
+  planAssistantActions,
   buildAssistantPrompt,
   installAssistantBridge,
 };
