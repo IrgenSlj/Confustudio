@@ -73,8 +73,8 @@
 - Scene automation per arranger section
 
 ### Sound / Sample Workflow
-- Full recorder-to-sample: trim, normalize, reverse, slice
-- Slice markers → assign to steps or pads
+- Recorder-to-sample baseline is in place: waveform, trim, normalize, reverse, and slice-to-steps from Settings
+- Slice markers → assign to pads with a real pad-slice mapping model
 - Waveform display in recorder capture slots
 
 ### Runtime / Audio

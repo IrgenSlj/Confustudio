@@ -710,6 +710,14 @@ export default {
                 <button class="screen-btn" data-action="reverseRecorder">Reverse</button>
                 <button class="screen-btn" data-action="trimRecorder">Apply Trim</button>
               </div>
+              <div style="display:grid;grid-template-columns:120px 1fr;gap:4px;margin-top:8px">
+                <select id="recorder-slice-count" class="screen-btn" title="Equal slices to assign to the selected track">
+                  <option value="2">2 slices</option>
+                  <option value="4" selected>4 slices</option>
+                  <option value="8">8 slices</option>
+                </select>
+                <button class="screen-btn" data-action="sliceRecorderToSteps">Slice To Steps</button>
+              </div>
             </div>
           </div>
         </div>
@@ -1161,6 +1169,51 @@ export default {
           state.recorderSlotsMeta[slotIndex].durationSec = state.recorderBuffers[slotIndex].duration;
         }
         saveState(state);
+        emit('state:change', { path: 'action_renderPage', value: true });
+      }
+
+      if (action === 'sliceRecorderToSteps') {
+        const slotIndex = state.selectedRecorderSlot ?? 0;
+        const buffer = state.recorderBuffers?.[slotIndex];
+        const pattern = getActivePattern(state);
+        const trackIndex = Math.max(0, Number(state.selectedTrackIndex ?? 0));
+        const track = pattern?.kit?.tracks?.[trackIndex];
+        if (!buffer || !track) {
+          emit('toast', { msg: 'No recorder slot loaded' });
+          return;
+        }
+        const sliceSelect = root.querySelector('#recorder-slice-count');
+        const sliceCount = Math.max(2, Math.min(8, parseInt(sliceSelect?.value || '4', 10) || 4));
+        const trackLen = Math.max(1, track.trackLength || pattern.length || track.steps.length || 16);
+        const candidateSteps = track.steps.slice(0, trackLen);
+        let targetSteps = candidateSteps.filter(step => step.active);
+        if (!targetSteps.length) {
+          targetSteps = candidateSteps.slice(0, sliceCount);
+          targetSteps.forEach(step => { step.active = true; });
+        }
+        const sliceMarkers = [];
+        track.machine = 'sample';
+        track.sampleBuffer = buffer;
+        track.sampleStart = 0;
+        track.sampleEnd = 1;
+        track.loopStart = 0;
+        track.loopEnd = 1;
+        track.loopEnabled = false;
+        for (let index = 0; index < sliceCount; index += 1) {
+          const start = index / sliceCount;
+          const end = Math.min(1, (index + 1) / sliceCount);
+          sliceMarkers.push({ index, start, end });
+          const step = targetSteps[index];
+          if (!step) continue;
+          step.paramLocks = {
+            ...(step.paramLocks || {}),
+            sampleStart: start,
+            sampleEnd: end,
+          };
+        }
+        track.sampleSlices = sliceMarkers;
+        saveState(state);
+        emit('toast', { msg: `Sliced slot ${slotIndex + 1} → T${trackIndex + 1}` });
         emit('state:change', { path: 'action_renderPage', value: true });
       }
 
