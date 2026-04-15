@@ -146,6 +146,146 @@ function _downloadBlob(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
+function _getRecorderEditMeta(state, slotIndex) {
+  const meta = state.recorderSlotsMeta?.[slotIndex] || {};
+  return {
+    trimStart: Math.max(0, Math.min(1, Number(meta.trimStart) || 0)),
+    trimEnd: Math.max(0, Math.min(1, Number(meta.trimEnd) || 1)),
+    reversed: Boolean(meta.reversed),
+    normalized: Boolean(meta.normalized),
+    editedAt: meta.editedAt || null,
+  };
+}
+
+function _setRecorderEditMeta(state, slotIndex, patch = {}) {
+  if (!Array.isArray(state.recorderSlotsMeta)) return;
+  const current = _getRecorderEditMeta(state, slotIndex);
+  state.recorderSlotsMeta[slotIndex] = {
+    ...state.recorderSlotsMeta[slotIndex],
+    ...current,
+    ...patch,
+  };
+}
+
+function _createBufferLike(sourceBuffer, length = sourceBuffer.length) {
+  const ctx = new OfflineAudioContext(
+    sourceBuffer.numberOfChannels,
+    Math.max(1, length),
+    sourceBuffer.sampleRate
+  );
+  return ctx.createBuffer(
+    sourceBuffer.numberOfChannels,
+    Math.max(1, length),
+    sourceBuffer.sampleRate
+  );
+}
+
+function _normalizeAudioBuffer(sourceBuffer) {
+  let peak = 0;
+  for (let ch = 0; ch < sourceBuffer.numberOfChannels; ch++) {
+    const data = sourceBuffer.getChannelData(ch);
+    for (let i = 0; i < data.length; i++) {
+      const abs = Math.abs(data[i]);
+      if (abs > peak) peak = abs;
+    }
+  }
+  if (peak === 0) return sourceBuffer;
+  const out = _createBufferLike(sourceBuffer);
+  for (let ch = 0; ch < sourceBuffer.numberOfChannels; ch++) {
+    const src = sourceBuffer.getChannelData(ch);
+    const dst = out.getChannelData(ch);
+    for (let i = 0; i < src.length; i++) dst[i] = src[i] / peak;
+  }
+  return out;
+}
+
+function _reverseAudioBuffer(sourceBuffer) {
+  const out = _createBufferLike(sourceBuffer);
+  for (let ch = 0; ch < sourceBuffer.numberOfChannels; ch++) {
+    const src = sourceBuffer.getChannelData(ch);
+    const dst = out.getChannelData(ch);
+    for (let i = 0; i < src.length; i++) dst[i] = src[src.length - 1 - i];
+  }
+  return out;
+}
+
+function _trimAudioBuffer(sourceBuffer, trimStart, trimEnd) {
+  const start = Math.max(0, Math.min(sourceBuffer.length - 1, Math.floor(sourceBuffer.length * trimStart)));
+  const end = Math.max(start + 1, Math.min(sourceBuffer.length, Math.ceil(sourceBuffer.length * trimEnd)));
+  const out = _createBufferLike(sourceBuffer, end - start);
+  for (let ch = 0; ch < sourceBuffer.numberOfChannels; ch++) {
+    const src = sourceBuffer.getChannelData(ch).subarray(start, end);
+    out.copyToChannel(src, ch, 0);
+  }
+  return out;
+}
+
+function _drawRecorderWaveform(canvas, buffer, trimStart = 0, trimEnd = 1) {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const dpr = window.devicePixelRatio || 1;
+  const cssWidth = canvas.clientWidth || 320;
+  const cssHeight = canvas.clientHeight || 86;
+  canvas.width = Math.round(cssWidth * dpr);
+  canvas.height = Math.round(cssHeight * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  ctx.clearRect(0, 0, cssWidth, cssHeight);
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.fillRect(0, 0, cssWidth, cssHeight);
+
+  if (!buffer) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.strokeRect(0.5, 0.5, cssWidth - 1, cssHeight - 1);
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = '12px IBM Plex Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('No recorder audio in selected slot', cssWidth / 2, cssHeight / 2 + 4);
+    return;
+  }
+
+  const channel = buffer.getChannelData(0);
+  const midY = cssHeight / 2;
+  const step = Math.max(1, Math.floor(channel.length / cssWidth));
+
+  ctx.fillStyle = 'rgba(240,198,64,0.1)';
+  ctx.fillRect(cssWidth * trimStart, 0, cssWidth * Math.max(0.002, trimEnd - trimStart), cssHeight);
+
+  ctx.beginPath();
+  ctx.moveTo(0, midY);
+  for (let x = 0; x < cssWidth; x++) {
+    const start = x * step;
+    const end = Math.min(channel.length, start + step);
+    let min = 1;
+    let max = -1;
+    for (let i = start; i < end; i++) {
+      const sample = channel[i];
+      if (sample < min) min = sample;
+      if (sample > max) max = sample;
+    }
+    ctx.moveTo(x + 0.5, midY + min * (cssHeight * 0.38));
+    ctx.lineTo(x + 0.5, midY + max * (cssHeight * 0.38));
+  }
+  ctx.strokeStyle = 'rgba(144,232,146,0.85)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  const startX = cssWidth * trimStart;
+  const endX = cssWidth * trimEnd;
+  ctx.strokeStyle = 'rgba(240,198,64,0.95)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(startX, 0);
+  ctx.lineTo(startX, cssHeight);
+  ctx.moveTo(endX, 0);
+  ctx.lineTo(endX, cssHeight);
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(240,198,64,0.95)';
+  ctx.fillRect(startX - 2, 0, 4, cssHeight);
+  ctx.fillRect(endX - 2, 0, 4, cssHeight);
+}
+
 /**
  * Show the stem export modal. Renders each track to a separate WAV using
  * engine-provided offline rendering hooks. When those hooks are absent, the
@@ -552,6 +692,25 @@ export default {
               <button class="screen-btn" data-action="exportRecorder">Export Slot</button>
               <button class="screen-btn" data-action="clearRecorder">Clear Slot</button>
             </div>
+            <div style="margin-top:10px;border-top:1px solid rgba(255,255,255,0.06);padding-top:8px">
+              <div style="font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);margin-bottom:6px">RECORDER EDITOR</div>
+              <canvas id="recorder-waveform" style="display:block;width:100%;height:86px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:rgba(0,0,0,0.16)"></canvas>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+                <label style="display:flex;flex-direction:column;gap:4px;font-family:var(--font-mono);font-size:0.54rem;color:var(--muted)">
+                  <span>Trim Start <span id="recorder-trim-start-readout">${_getRecorderEditMeta(state, state.selectedRecorderSlot ?? 0).trimStart.toFixed(3)}</span></span>
+                  <input id="recorder-trim-start" type="range" min="0" max="0.999" step="0.001" value="${_getRecorderEditMeta(state, state.selectedRecorderSlot ?? 0).trimStart}">
+                </label>
+                <label style="display:flex;flex-direction:column;gap:4px;font-family:var(--font-mono);font-size:0.54rem;color:var(--muted)">
+                  <span>Trim End <span id="recorder-trim-end-readout">${_getRecorderEditMeta(state, state.selectedRecorderSlot ?? 0).trimEnd.toFixed(3)}</span></span>
+                  <input id="recorder-trim-end" type="range" min="0.001" max="1" step="0.001" value="${_getRecorderEditMeta(state, state.selectedRecorderSlot ?? 0).trimEnd}">
+                </label>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:8px">
+                <button class="screen-btn" data-action="normalizeRecorder">Normalize</button>
+                <button class="screen-btn" data-action="reverseRecorder">Reverse</button>
+                <button class="screen-btn" data-action="trimRecorder">Apply Trim</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -822,6 +981,38 @@ export default {
       }
     });
 
+    const recorderSlotIndex = state.selectedRecorderSlot ?? 0;
+    const recorderWaveform = container.querySelector('#recorder-waveform');
+    const recorderTrimStart = container.querySelector('#recorder-trim-start');
+    const recorderTrimEnd = container.querySelector('#recorder-trim-end');
+    const recorderTrimStartReadout = container.querySelector('#recorder-trim-start-readout');
+    const recorderTrimEndReadout = container.querySelector('#recorder-trim-end-readout');
+    const syncRecorderTrimUi = () => {
+      if (!recorderTrimStart || !recorderTrimEnd) return;
+      const meta = _getRecorderEditMeta(state, recorderSlotIndex);
+      recorderTrimStart.value = String(meta.trimStart);
+      recorderTrimEnd.value = String(meta.trimEnd);
+      if (recorderTrimStartReadout) recorderTrimStartReadout.textContent = meta.trimStart.toFixed(3);
+      if (recorderTrimEndReadout) recorderTrimEndReadout.textContent = meta.trimEnd.toFixed(3);
+      _drawRecorderWaveform(recorderWaveform, state.recorderBuffers?.[recorderSlotIndex] ?? null, meta.trimStart, meta.trimEnd);
+    };
+
+    recorderTrimStart?.addEventListener('input', () => {
+      const next = Math.min(parseFloat(recorderTrimStart.value) || 0, (parseFloat(recorderTrimEnd?.value) || 1) - 0.001);
+      _setRecorderEditMeta(state, recorderSlotIndex, { trimStart: Math.max(0, next), editedAt: Date.now() });
+      syncRecorderTrimUi();
+      saveState(state);
+    });
+
+    recorderTrimEnd?.addEventListener('input', () => {
+      const next = Math.max(parseFloat(recorderTrimEnd.value) || 1, (parseFloat(recorderTrimStart?.value) || 0) + 0.001);
+      _setRecorderEditMeta(state, recorderSlotIndex, { trimEnd: Math.min(1, next), editedAt: Date.now() });
+      syncRecorderTrimUi();
+      saveState(state);
+    });
+
+    syncRecorderTrimUi();
+
     container.addEventListener('click', e => {
       const btn = e.target.closest('[data-action]');
       if (!btn || btn.tagName === 'SELECT' || btn.tagName === 'INPUT') return;
@@ -915,7 +1106,60 @@ export default {
           trackIndex: null,
           durationSec: 0,
           createdAt: null,
+          trimStart: 0,
+          trimEnd: 1,
+          reversed: false,
+          normalized: false,
+          editedAt: null,
         };
+        saveState(state);
+        emit('state:change', { path: 'action_renderPage', value: true });
+      }
+
+      if (action === 'normalizeRecorder') {
+        const slotIndex = state.selectedRecorderSlot ?? 0;
+        const buffer = state.recorderBuffers?.[slotIndex];
+        if (!buffer) return;
+        state.recorderBuffers[slotIndex] = _normalizeAudioBuffer(buffer);
+        _setRecorderEditMeta(state, slotIndex, { normalized: true, editedAt: Date.now() });
+        if (state.recorderSlotsMeta?.[slotIndex]) {
+          state.recorderSlotsMeta[slotIndex].durationSec = state.recorderBuffers[slotIndex].duration;
+        }
+        saveState(state);
+        emit('state:change', { path: 'action_renderPage', value: true });
+      }
+
+      if (action === 'reverseRecorder') {
+        const slotIndex = state.selectedRecorderSlot ?? 0;
+        const buffer = state.recorderBuffers?.[slotIndex];
+        if (!buffer) return;
+        state.recorderBuffers[slotIndex] = _reverseAudioBuffer(buffer);
+        const meta = _getRecorderEditMeta(state, slotIndex);
+        _setRecorderEditMeta(state, slotIndex, {
+          reversed: !meta.reversed,
+          editedAt: Date.now(),
+        });
+        if (state.recorderSlotsMeta?.[slotIndex]) {
+          state.recorderSlotsMeta[slotIndex].durationSec = state.recorderBuffers[slotIndex].duration;
+        }
+        saveState(state);
+        emit('state:change', { path: 'action_renderPage', value: true });
+      }
+
+      if (action === 'trimRecorder') {
+        const slotIndex = state.selectedRecorderSlot ?? 0;
+        const buffer = state.recorderBuffers?.[slotIndex];
+        if (!buffer) return;
+        const meta = _getRecorderEditMeta(state, slotIndex);
+        state.recorderBuffers[slotIndex] = _trimAudioBuffer(buffer, meta.trimStart, meta.trimEnd);
+        _setRecorderEditMeta(state, slotIndex, {
+          trimStart: 0,
+          trimEnd: 1,
+          editedAt: Date.now(),
+        });
+        if (state.recorderSlotsMeta?.[slotIndex]) {
+          state.recorderSlotsMeta[slotIndex].durationSec = state.recorderBuffers[slotIndex].duration;
+        }
         saveState(state);
         emit('state:change', { path: 'action_renderPage', value: true });
       }

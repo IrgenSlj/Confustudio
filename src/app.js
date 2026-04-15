@@ -64,6 +64,11 @@ function resetRecorderSlotMeta(slotIndex) {
     trackIndex: null,
     durationSec: 0,
     createdAt: null,
+    trimStart: 0,
+    trimEnd: 1,
+    reversed: false,
+    normalized: false,
+    editedAt: null,
   };
 }
 

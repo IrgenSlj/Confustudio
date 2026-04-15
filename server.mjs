@@ -721,5 +721,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(port, host, () => {
-  console.log(`Confusynth listening on http://${host}:${port}`);
+  console.log(`CONFUstudio listening on http://${host}:${port}`);
 });

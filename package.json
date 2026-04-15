@@ -8,6 +8,7 @@
   "scripts": {
     "start": "node server.mjs",
     "dev": "node --watch server.mjs",
+    "test:server": "node tests/server-routes.mjs",
     "test:ui-smoke": "node tests/ui-smoke.mjs",
     "confu": "electron .",
     "confu:dev": "ELECTRON_IS_DEV=1 electron ."
