@@ -1,4 +1,4 @@
-// CONFUsynth — cs-clouds AudioWorkletProcessor
+// CONFUstudio — cs-clouds AudioWorkletProcessor
 // Granular synthesizer — Hann-windowed grain clouds with scatter, pitch, and density control
 
 const TWO_PI = 2 * Math.PI;

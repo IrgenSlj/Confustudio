@@ -29,7 +29,7 @@
 
 ### FX Page
 - Fixed `convReverbPreset` + `reverbType` emits: `param:` → `path:`
-- `_applyGlobal`: engine fallback `window._confusynthEngine ?? state.engine`
+- `_applyGlobal`: engine fallback `window._confustudioEngine ?? state.engine`
 
 ### Engine / Routing
 - Added target-aware LFO depth scaling in `src/engine.js` for cutoff, volume, pan, and pitch

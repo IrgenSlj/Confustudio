@@ -474,7 +474,7 @@ export default {
 
     stutterRateSelect.addEventListener('change', () => {
       state.stutterRate = parseFloat(stutterRateSelect.value);
-      const eng = window._confusynthEngine ?? state.engine;
+      const eng = window._confustudioEngine ?? state.engine;
       if (eng?.setStutterRate) eng.setStutterRate(state.stutterRate);
     });
 
@@ -482,7 +482,7 @@ export default {
       state.stutterActive = !state.stutterActive;
       stutterBtn.classList.toggle('active', state.stutterActive);
       stutterBtn.textContent = state.stutterActive ? '■ STOP' : '▶ GO';
-      const eng = window._confusynthEngine ?? state.engine;
+      const eng = window._confustudioEngine ?? state.engine;
       if (state.stutterActive) eng?.startStutter?.(state.stutterRate ?? 0.125);
       else eng?.stopStutter?.();
     });
@@ -657,7 +657,7 @@ export default {
         if (preset.comp && Object.keys(preset.comp).length > 0) {
           state.compressor = state.compressor ?? {};
           Object.assign(state.compressor, preset.comp);
-          const eng = window._confusynthEngine ?? state.engine;
+          const eng = window._confustudioEngine ?? state.engine;
           if (eng?.setCompressor) eng.setCompressor(preset.comp);
         }
         // Apply per-track values
@@ -748,7 +748,7 @@ export default {
     bypassBtn.title = 'Bypass all global FX (reverb, delay, chorus)';
 
     bypassBtn.addEventListener('click', () => {
-      const eng = window._confusynthEngine ?? state.engine;
+      const eng = window._confustudioEngine ?? state.engine;
       _bypassed = !_bypassed;
       if (_bypassed) {
         // Store current values and mute wet signals
@@ -888,7 +888,7 @@ export default {
         const band = input.closest('.eq-band');
         if (band) band.querySelector('span').textContent = fmtDB(v);
         state[param] = v;
-        const eng = window._confusynthEngine;
+        const eng = window._confustudioEngine;
         if (eng?.setMasterEQ) {
           eng.setMasterEQ(state.masterEqLow ?? 0, state.masterEqMid ?? 0, state.masterEqHigh ?? 0);
         }
@@ -900,7 +900,7 @@ export default {
         const out = input.closest('label')?.querySelector('output');
         if (out) out.textContent = Number(v).toFixed(step < 1 ? 2 : 0);
         state[param] = v;
-        const eng = window._confusynthEngine;
+        const eng = window._confustudioEngine;
         if (param === 'chorusRate'  && eng?.setChorusRate)  eng.setChorusRate(v);
         if (param === 'chorusDepth' && eng?.setChorusDepth) eng.setChorusDepth(v);
         if (param === 'chorusMix'   && eng?.setChorusMix)   eng.setChorusMix(v);
@@ -922,7 +922,7 @@ export default {
         }
         state.compressor = state.compressor ?? {};
         state.compressor[param] = v;
-        const eng = window._confusynthEngine;
+        const eng = window._confustudioEngine;
         if (eng?.setCompressor) eng.setCompressor({ [param]: v });
         saveState(state);
         return;
@@ -964,7 +964,7 @@ export default {
         container.querySelectorAll('[data-conv-reverb-preset]').forEach(b =>
           b.classList.toggle('active', b.dataset.convReverbPreset === cp)
         );
-        const eng = window._confusynthEngine ?? state.engine;
+        const eng = window._confustudioEngine ?? state.engine;
         if (eng?.setReverbConvPreset) eng.setReverbConvPreset(cp);
         // Apply default mix for this preset
         const defaultMix = CONV_REVERB_PRESETS[cp]?.mix ?? 0.3;
@@ -986,7 +986,7 @@ export default {
         container.querySelectorAll('[data-reverb-type]').forEach(b =>
           b.classList.toggle('active', b.dataset.reverbType === rt)
         );
-        const eng = window._confusynthEngine ?? state.engine;
+        const eng = window._confustudioEngine ?? state.engine;
         if (eng?.setReverbPreset) eng.setReverbPreset(rt);
         else if (eng?.setReverbType) eng.setReverbType(rt);
         // Update preset info label
@@ -1014,7 +1014,7 @@ export default {
               </div>`;
             const bpm = state.bpm ?? 120;
             const t = calcSyncDelayTime(bpm, state.delaySyncDiv ?? '1/8');
-            const eng2 = window._confusynthEngine ?? state.engine;
+            const eng2 = window._confustudioEngine ?? state.engine;
             if (eng2?.setDelayTime) eng2.setDelayTime(t);
           } else {
             timeRow.innerHTML = sliderHTML('', 'delayTime', 'global', 0.01, 1.4, 0.01, state.delayTime ?? 0.28);
@@ -1035,7 +1035,7 @@ export default {
         const bpm = state.bpm ?? 120;
         const t = calcSyncDelayTime(bpm, div);
         state.delayTime = t;
-        const eng3 = window._confusynthEngine ?? state.engine;
+        const eng3 = window._confustudioEngine ?? state.engine;
         if (eng3?.setDelayTime) eng3.setDelayTime(t);
         saveState(state);
         return;
@@ -1051,7 +1051,7 @@ export default {
         const duckDot = container.querySelector('[data-sc-duck]');
         if (duckDot) duckDot.style.background = state.sidechainConfig.enabled ? 'var(--record)' : 'rgba(255,255,255,0.1)';
         const scSrc = state.sidechainConfig.source ?? -1;
-        const eng4 = window._confusynthEngine ?? state.engine;
+        const eng4 = window._confustudioEngine ?? state.engine;
         if (state.sidechainConfig.enabled) {
           eng4?.setSidechainSource?.(scSrc);
           eng4?.setSidechainConfig?.({
@@ -1085,7 +1085,7 @@ export default {
           else if (param === 'ratio')   out.textContent = `${v}:1`;
           else if (param === 'attack' || param === 'release') out.textContent = `${v} ms`;
         }
-        const eng5 = window._confusynthEngine ?? state.engine;
+        const eng5 = window._confustudioEngine ?? state.engine;
         if (param === 'source') {
           eng5?.setSidechainSource?.(v);
         } else {
@@ -1115,11 +1115,11 @@ export default {
           duckDot.style.background = 'var(--record)';
         }, 120);
       };
-      window.addEventListener('confusynth:note:on', _scNoteListener);
+      window.addEventListener('confustudio:note:on', _scNoteListener);
       // Clean up when container is replaced
       const _prevCleanupFx = container._cleanup;
       container._cleanup = () => {
-        window.removeEventListener('confusynth:note:on', _scNoteListener);
+        window.removeEventListener('confustudio:note:on', _scNoteListener);
         _prevCleanupFx?.();
       };
     }
@@ -1164,7 +1164,7 @@ function _syncEQSliderDisplays(container, track) {
 // ─── Global parameter application ────────────────────────────────────────────
 
 function _applyGlobal(param, v, state) {
-  const eng = window._confusynthEngine ?? state.engine;
+  const eng = window._confustudioEngine ?? state.engine;
   if (!eng) return;
   if (param === 'reverbSize'        && eng.setReverbRoomSize)   eng.setReverbRoomSize(v);
   if (param === 'reverbDamping'     && eng.setReverbDamping)    eng.setReverbDamping(v);

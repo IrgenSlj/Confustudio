@@ -607,7 +607,7 @@ export function createDrumMachine(audioContext) {
     _flashPad(voice);
     _flashVU(voice);
 
-    window.dispatchEvent(new CustomEvent('confusynth:note:on', {
+    window.dispatchEvent(new CustomEvent('confustudio:note:on', {
       detail: { source: 'drum_machine', voice, velocity: v, time: now },
     }));
 
@@ -680,7 +680,7 @@ export function createDrumMachine(audioContext) {
   }
 
   // ── Clock sync ────────────────────────────────────────────────────────────
-  window.addEventListener('confusynth:clock', (e) => {
+  window.addEventListener('confustudio:clock', (e) => {
     const { step, bpm, time: clockTime } = e.detail ?? {};
     if (!_running || !_syncMode) return;
     if (bpm && _standaloneBPM !== bpm) {
@@ -1226,7 +1226,7 @@ export function createDrumMachine(audioContext) {
       <div class="drum-machine-transport">
         <button class="drum-machine-btn" id="${_id}-play">&#9654; PLAY</button>
         <button class="drum-machine-btn" id="${_id}-stop">&#9632; STOP</button>
-        <button class="drum-machine-sync-btn" id="${_id}-sync" title="Sync to confusynth:clock">SYNC</button>
+        <button class="drum-machine-sync-btn" id="${_id}-sync" title="Sync to confustudio:clock">SYNC</button>
         <button class="drum-machine-comp-btn${_compEnabled ? ' active' : ''}" id="${_id}-comp" title="Master compressor">COMP</button>
       </div>
       <div class="drum-machine-master-knob-wrap">

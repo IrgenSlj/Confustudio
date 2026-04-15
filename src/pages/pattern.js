@@ -1389,10 +1389,10 @@ export default {
     };
     _playheadRafId = requestAnimationFrame(runPlayheadHighlight);
 
-    // ── Step trigger flash on confusynth:clock ────────────────────────────────
+    // ── Step trigger flash on confustudio:clock ────────────────────────────────
     // Brief white flash on active step buttons when they fire during playback.
     const flashAbort = new AbortController();
-    document.addEventListener('confusynth:clock', e => {
+    document.addEventListener('confustudio:clock', e => {
       if (!multiGrid.isConnected) return;
       const { step } = e.detail;
       multiGrid.querySelectorAll(`.step-btn[data-step="${step}"].active`).forEach(btn => {

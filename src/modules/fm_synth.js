@@ -293,9 +293,9 @@ export function createFMSynth(audioContext) {
   }
 
   // Global event listeners
-  document.addEventListener('confusynth:note:on',  e => noteOn(e.detail.note, e.detail.velocity * 127));
-  document.addEventListener('confusynth:note:off', e => noteOff(e.detail.note));
-  document.addEventListener('confusynth:clock', e => {
+  document.addEventListener('confustudio:note:on',  e => noteOn(e.detail.note, e.detail.velocity * 127));
+  document.addEventListener('confustudio:note:off', e => noteOff(e.detail.note));
+  document.addEventListener('confustudio:clock', e => {
     // FM synth doesn't use clock — placeholder for future arp support
   });
 

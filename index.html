@@ -189,9 +189,11 @@
 
     window.addEventListener('load', () => {
       if (isLoopbackHost) {
-        const previous = localStorage.getItem('confusynth-dev-shell-version');
+        const previous = localStorage.getItem('confustudio-dev-shell-version')
+          ?? localStorage.getItem('confusynth-dev-shell-version');
         if (previous !== DEV_SHELL_VERSION) {
-          localStorage.setItem('confusynth-dev-shell-version', DEV_SHELL_VERSION);
+          localStorage.setItem('confustudio-dev-shell-version', DEV_SHELL_VERSION);
+          localStorage.removeItem('confusynth-dev-shell-version');
           resetLocalDevShellState().then(() => {
             window.location.reload();
           });

@@ -1,4 +1,4 @@
-// CONFUsynth v3 — state.js
+// CONFUstudio v3 — state.js
 // Central state module: project structure, accessors, persistence
 
 import {
@@ -9,7 +9,8 @@ import {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-export const STORAGE_KEY   = "confusynth-v3";
+export const STORAGE_KEY   = "confustudio-v3";
+export const LEGACY_STORAGE_KEYS = ["confusynth-v3", "confustudio-v2", "confusynth-v2"];
 export const STEP_COUNT    = 64;
 export const TRACK_COUNT   = 8;
 export const BANK_COUNT    = 8;
@@ -624,10 +625,10 @@ export function saveState(state) {
           void queuePersistAssets(state);
           return;
         } catch (fallbackErr) {
-          console.warn("[CONFUsynth] saveState failed after sparse fallback:", fallbackErr);
+          console.warn("[CONFUstudio] saveState failed after sparse fallback:", fallbackErr);
         }
       } else {
-        console.warn("[CONFUsynth] saveState failed:", err);
+        console.warn("[CONFUstudio] saveState failed:", err);
       }
     }
   }, 400);
@@ -635,7 +636,7 @@ export function saveState(state) {
 
 /**
  * Load state from localStorage.
- * Tries STORAGE_KEY first; falls back to "confusynth-v2" (legacy track import).
+ * Tries STORAGE_KEY first; falls back to legacy Confusynth/CONFUstudio keys.
  * Returns a full appState or null.
  */
 /**
@@ -713,9 +714,10 @@ function repairState(state) {
 }
 
 export function loadState() {
-  // ── Try v3 ──
+  // ── Try current + legacy v3 keys ──
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const activeKey = [STORAGE_KEY, ...LEGACY_STORAGE_KEYS].find((key) => localStorage.getItem(key));
+    const raw = activeKey ? localStorage.getItem(activeKey) : null;
     if (raw) {
       const parsed = JSON.parse(raw);
       // Restore sampleBuffer = null on all tracks (was stripped on save)
@@ -771,12 +773,12 @@ export function loadState() {
       return next;
     }
   } catch (err) {
-    console.warn("[CONFUsynth] loadState v3 failed:", err);
+    console.warn("[CONFUstudio] loadState v3 failed:", err);
   }
 
-  // ── Try v2 legacy (import tracks from first pattern only) ──
+  // ── Try legacy track imports (import tracks from first pattern only) ──
   try {
-    const raw = localStorage.getItem("confusynth-v2");
+    const raw = localStorage.getItem("confustudio-v2") ?? localStorage.getItem("confusynth-v2");
     if (raw) {
       const legacy = JSON.parse(raw);
       const state  = createAppState();
@@ -793,7 +795,7 @@ export function loadState() {
       return next;
     }
   } catch (err) {
-    console.warn("[CONFUsynth] loadState v2 legacy import failed:", err);
+    console.warn("[CONFUstudio] loadState v2 legacy import failed:", err);
   }
 
   return null;

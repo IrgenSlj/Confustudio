@@ -1,4 +1,4 @@
-// CONFUsynth v3 — AudioEngine module
+// CONFUstudio v3 — AudioEngine module
 // Extracted and enhanced from app.js
 
 const WAVEFORMS = ["sine", "triangle", "sawtooth", "square"];
@@ -1143,7 +1143,7 @@ export class AudioEngine {
           output.connect(crusher);
           eqTail = crusher;
         } catch (error) {
-          console.warn('[CONFUsynth] Bitcrusher worklet failed, falling back to ScriptProcessorNode:', error);
+          console.warn('[CONFUstudio] Bitcrusher worklet failed, falling back to ScriptProcessorNode:', error);
         }
       }
 

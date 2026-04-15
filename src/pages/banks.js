@@ -900,7 +900,7 @@ export default {
     exportBtn.addEventListener('click', () => {
       const bankName = BANK_LETTERS[activeBank];
       const patternName = pat.name.replace(/[^a-zA-Z0-9_-]/g, '_');
-      const filename = `confusynth-pattern-${bankName}-${patternName}.json`;
+      const filename = `confustudio-pattern-${bankName}-${patternName}.json`;
       const blob = new Blob([JSON.stringify(pat, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -955,7 +955,7 @@ export default {
       const midi = encodeMIDI(state, activeBank, activePattern);
       if (!midi.length) { emit('toast', { msg: 'Nothing to export' }); return; }
       const bankName = BANK_LETTERS[activeBank];
-      const filename = `confusynth_${bankName}${String(activePattern + 1).padStart(2, '0')}.mid`;
+      const filename = `confustudio_${bankName}${String(activePattern + 1).padStart(2, '0')}.mid`;
       const blob = new Blob([midi], { type: 'audio/midi' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');

@@ -335,9 +335,9 @@ export function createMonosynth(audioContext) {
   }
 
   // Global event listeners
-  document.addEventListener('confusynth:note:on',  e => noteOn(e.detail.note, e.detail.velocity * 127));
-  document.addEventListener('confusynth:note:off', e => noteOff(e.detail.note));
-  document.addEventListener('confusynth:clock', () => {});
+  document.addEventListener('confustudio:note:on',  e => noteOn(e.detail.note, e.detail.velocity * 127));
+  document.addEventListener('confustudio:note:off', e => noteOff(e.detail.note));
+  document.addEventListener('confustudio:clock', () => {});
 
   // ── Apply preset ────────────────────────────────────────────────────────────
   function _applyPreset(name) {

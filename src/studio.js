@@ -6,8 +6,8 @@ export function initStudio() {
   const canvas = document.getElementById('studio-canvas');
   if (!wrap || !canvas) return;
 
-  const STUDIO_LAYOUT_KEY = 'confusynth-studio-layout-v4';
-  const STUDIO_VIEW_KEY = 'confusynth-studio-view-v3';
+  const STUDIO_LAYOUT_KEY = 'confustudio-studio-layout-v4';
+  const STUDIO_VIEW_KEY = 'confustudio-studio-view-v3';
   const MODULE_LABELS = {
     synth: 'CONFUsynth',
     acid_machine: 'Acid Machine',
@@ -22,7 +22,7 @@ export function initStudio() {
   const FIT_PADDING = 40;
   const DEFAULT_MODULE_W = 860;
   const DEFAULT_MODULE_H = 860;
-  const ZOOM_LENS_KEY = 'confusynth-zoom-lens-v1';
+  const ZOOM_LENS_KEY = 'confustudio-zoom-lens-v1';
   const ZOOM_LENS_SIZE = 480;
   const ZOOM_LENS_SCALE = 1.085;
 
@@ -697,8 +697,15 @@ export function initStudio() {
     const shell = document.createElement('div');
     shell.innerHTML = `
       <div class="studio-overlay-copy">Use the studio assistant as a producer partner. It can translate the current project state into sequencing, sound design, routing, arrangement, and mix actions grounded in what CONFUstudio can actually do.</div>
+      <div class="studio-assistant-provider-row">
+        <div class="studio-assistant-provider-block">
+          <div class="studio-assistant-label">Provider</div>
+          <select class="studio-assistant-provider"><option value="auto">Auto</option></select>
+          <div class="studio-assistant-provider-note">Use a configured provider for live responses. Unconfigured backends stay hidden unless they are the only available options.</div>
+        </div>
+        <div class="studio-assistant-status">Checking…</div>
+      </div>
       <div class="studio-assistant-toolbar">
-        <select class="studio-assistant-provider"><option value="auto">Auto</option></select>
         <button type="button" data-preset="producer">Producer</button>
         <button type="button" data-preset="sound">Sound Design</button>
         <button type="button" data-preset="arrangement">Arrangement</button>
@@ -719,6 +726,8 @@ export function initStudio() {
     const outputEl = shell.querySelector('.studio-assistant-output');
     const contextBtn = shell.querySelector('.studio-assistant-context');
     const sendBtn = shell.querySelector('.studio-assistant-send');
+    const providerStatus = shell.querySelector('.studio-assistant-status');
+    const providerNote = shell.querySelector('.studio-assistant-provider-note');
 
     const presetPrompts = {
       producer: 'Act like a senior music producer using CONFUstudio. Turn the current project into a stronger track with concrete next moves in sequencing, sound, scenes, arrangement, and mix.',
@@ -765,27 +774,40 @@ export function initStudio() {
     try {
       const data = await fetchAssistantProviders();
       const providers = Object.values(data?.providers || {});
+      const configuredProviders = providers.filter((provider) => provider.configured);
       providerSelect.innerHTML = '';
       const autoOption = document.createElement('option');
       autoOption.value = 'auto';
-      autoOption.textContent = 'Auto';
+      autoOption.textContent = configuredProviders.length ? 'Auto' : 'Auto (none configured)';
       providerSelect.append(autoOption);
-      providers.forEach((provider) => {
+      (configuredProviders.length ? configuredProviders : providers).forEach((provider) => {
         const option = document.createElement('option');
         option.value = provider.id;
-        option.textContent = provider.configured ? provider.label : `${provider.label} (unconfigured)`;
+        option.textContent = provider.configured ? provider.label : `${provider.label} (setup required)`;
+        option.disabled = !provider.configured;
         providerSelect.append(option);
       });
       providerSelect.value = data?.defaultProvider || 'auto';
-      const hasConfiguredProvider = providers.some((provider) => provider.configured);
+      const hasConfiguredProvider = configuredProviders.length > 0;
       sendBtn.disabled = !hasConfiguredProvider;
       if (!hasConfiguredProvider) {
         outputEl.textContent = 'Configure an assistant provider before sending prompts.';
+        providerStatus.textContent = 'No provider configured';
+        providerStatus.classList.add('unconfigured');
+        providerNote.textContent = 'Set up OpenAI, Anthropic, Local OpenAI-compatible, or Ollama in the environment to enable the studio assistant.';
+      } else {
+        const activeProvider = providers.find((provider) => provider.id === (data?.defaultProvider || '')) || configuredProviders[0];
+        providerStatus.textContent = activeProvider ? `${activeProvider.label} ready` : 'Provider ready';
+        providerStatus.classList.remove('unconfigured');
+        providerNote.textContent = 'Provider selection is trimmed to live backends so the panel stays focused on usable studio-assistant routes.';
       }
     } catch (error) {
       providerSelect.innerHTML = '<option value="auto">Auto</option>';
       sendBtn.disabled = true;
       outputEl.textContent = error?.message || 'Assistant provider metadata is unavailable.';
+      providerStatus.textContent = 'Provider metadata unavailable';
+      providerStatus.classList.add('unconfigured');
+      providerNote.textContent = 'Assistant provider metadata could not be loaded from the local bridge.';
     }
   }
 
@@ -1029,7 +1051,7 @@ export function initStudio() {
     } else if (type === 'djmixer') {
       mod.innerHTML = '<div class="module-loading-shell">Loading Mixer</div>';
       import('./modules/djmixer.js').then((m) => {
-        const ctx = window._confusynthEngine?.context ?? null;
+        const ctx = window._confustudioEngine?.context ?? null;
         mod.innerHTML = '';
         mod.appendChild(m.createDJMixer(ctx));
         attachModuleChrome(mod);
@@ -1038,7 +1060,7 @@ export function initStudio() {
     } else if (type === 'acid_machine') {
       mod.innerHTML = '<div class="module-loading-shell" style="width:680px;height:340px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Acid Machine…</div>';
       import('./modules/acid_machine.js').then((m) => {
-        const ctx = window._confusynthEngine?.context ?? null;
+        const ctx = window._confustudioEngine?.context ?? null;
         mod.innerHTML = '';
         mod.appendChild(m.createAcidMachine(ctx));
         attachModuleChrome(mod);
@@ -1048,7 +1070,7 @@ export function initStudio() {
       mod.innerHTML = '<div class="module-loading-shell" style="width:860px;height:240px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Polysynth…</div>';
       import('./modules/polysynth.js').then(m => {
         mod.innerHTML = '';
-        mod.appendChild(m.createPolysynth(window._confusynthEngine?.context ?? null));
+        mod.appendChild(m.createPolysynth(window._confustudioEngine?.context ?? null));
         attachModuleChrome(mod);
         if (mod === getSelectedModule()) updateSelectionUi();
       });
@@ -1056,7 +1078,7 @@ export function initStudio() {
       mod.innerHTML = '<div class="module-loading-shell" style="width:920px;height:320px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Drum Machine…</div>';
       import('./modules/drum_machine.js').then(m => {
         mod.innerHTML = '';
-        mod.appendChild(m.createDrumMachine(window._confusynthEngine?.context ?? null));
+        mod.appendChild(m.createDrumMachine(window._confustudioEngine?.context ?? null));
         attachModuleChrome(mod);
         if (mod === getSelectedModule()) updateSelectionUi();
       });
@@ -1064,7 +1086,7 @@ export function initStudio() {
       mod.innerHTML = '<div class="module-loading-shell" style="width:980px;height:280px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading FM Synth…</div>';
       import('./modules/fm_synth.js').then(m => {
         mod.innerHTML = '';
-        mod.appendChild(m.createFMSynth(window._confusynthEngine?.context ?? null));
+        mod.appendChild(m.createFMSynth(window._confustudioEngine?.context ?? null));
         attachModuleChrome(mod);
         if (mod === getSelectedModule()) updateSelectionUi();
       });
@@ -1072,7 +1094,7 @@ export function initStudio() {
       mod.innerHTML = '<div class="module-loading-shell" style="width:1000px;height:300px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Monosynth…</div>';
       import('./modules/monosynth.js').then(m => {
         mod.innerHTML = '';
-        mod.appendChild(m.createMonosynth(window._confusynthEngine?.context ?? null));
+        mod.appendChild(m.createMonosynth(window._confustudioEngine?.context ?? null));
         attachModuleChrome(mod);
         if (mod === getSelectedModule()) updateSelectionUi();
       });
@@ -1117,7 +1139,7 @@ export function initStudio() {
     saveLayout();
 
     import('./modules/djmixer.js').then((m) => {
-      const ctx = window._confusynthEngine?.context ?? null;
+      const ctx = window._confustudioEngine?.context ?? null;
       mod.innerHTML = '';
       mod.appendChild(m.createDJMixer(ctx));
       attachModuleChrome(mod);

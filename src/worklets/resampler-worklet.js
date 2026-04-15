@@ -1,4 +1,4 @@
-// CONFUsynth — cs-resampler AudioWorkletProcessor
+// CONFUstudio — cs-resampler AudioWorkletProcessor
 // 4-point cubic Hermite interpolation — replaces browser linear resampling
 
 class ResamplerProcessor extends AudioWorkletProcessor {

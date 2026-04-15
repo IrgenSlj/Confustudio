@@ -1,4 +1,4 @@
-// CONFUsynth v3 — main bootstrap & integration
+// CONFUstudio v3 — main bootstrap & integration
 import { createAppState, getActivePattern, getActiveTrack, getActiveStep,
          applyParamLock, setScene, interpolateScenes,
          saveState, loadState, PROB_LEVELS, TRACK_COUNT, STORAGE_KEY,
@@ -145,7 +145,7 @@ export function exportMidi(state) {
   const tracks = pattern.kit.tracks;
   const patLen = pattern.length;
 
-  // Build one MIDI track per CONFUsynth track
+  // Build one MIDI track per studio track
   const midiTracks = tracks.map((track, ti) => {
     const ch = ti; // channel 0-7
     const events = [];
@@ -486,7 +486,7 @@ function exportRecorderSlot(slotIndex) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `confusynth-slot-${slotIndex + 1}.wav`;
+  a.download = `confustudio-slot-${slotIndex + 1}.wav`;
   a.click();
   URL.revokeObjectURL(url);
   return true;
@@ -814,7 +814,7 @@ function renderFillBtn() {
 function publishLinkBpmToServer(bpm) {
   if (!state.abletonLink || state._linkSuppressPublish) return;
   const value = Math.max(40, Math.min(240, Number(bpm) || 120));
-  const sourceId = state._linkClientId || 'confusynth-app';
+  const sourceId = state._linkClientId || 'confustudio-app';
   fetch('/api/link/state', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1378,7 +1378,7 @@ function emit(type, payload = {}) {
           renderAll();
         });
       }).catch((error) => {
-        console.warn('[CONFUsynth] Sample load failed:', error);
+        console.warn('[CONFUstudio] Sample load failed:', error);
         showToast('Sample load failed');
       });
       break;
@@ -1532,6 +1532,7 @@ async function ensureAudio() {
       renderAll();
     }, 250);
   }
+  window._confustudioEngine = state.engine;
   window._confusynthEngine = state.engine;
   state.engine.setBpm(state.bpm ?? 120);
   state.engine.initWorklets(); // async — loads cs-resampler worklet in background
@@ -1933,7 +1934,7 @@ function scheduleLoop() {
             const gateDur = (track.gate ?? 0.5) * (60 / state.bpm) * 1000;
             state.engine.midiOutput.send([0x80 | ch, note, 0], window.performance.now() + gateDur);
           }
-          document.dispatchEvent(new CustomEvent('confusynth:note:on', {
+          document.dispatchEvent(new CustomEvent('confustudio:note:on', {
             detail: { note: noteToPlay, velocity: step.velocity ?? 1, trackIndex: ti, channel: ti }
           }));
         } else {
@@ -1955,7 +1956,7 @@ function scheduleLoop() {
             const gateDur = (track.gate ?? 0.5) * (60 / state.bpm) * 1000;
             state.engine.midiOutput.send([0x80 | ch, note, 0], window.performance.now() + gateDur);
           }
-          document.dispatchEvent(new CustomEvent('confusynth:note:on', {
+          document.dispatchEvent(new CustomEvent('confustudio:note:on', {
             detail: { note: step.note ?? track.pitch ?? 60, velocity: step.velocity ?? 1, trackIndex: ti, channel: ti }
           }));
         }
@@ -1987,7 +1988,7 @@ function scheduleLoop() {
       _schedStepIdx = _trackStepIdx[0]; // keep alias in sync
 
       // Dispatch clock event so external modules (Acid Machine, Drum Machine) can sync
-      document.dispatchEvent(new CustomEvent('confusynth:clock', {
+      document.dispatchEvent(new CustomEvent('confustudio:clock', {
         detail: {
           step: state.currentStep,
           bpm: state.bpm,
@@ -2261,7 +2262,7 @@ async function togglePlay() {
       state.engine.startMidiClock(state.bpm ?? 120);
     }
     // Notify external modules that transport has started
-    document.dispatchEvent(new CustomEvent('confusynth:transport', {
+    document.dispatchEvent(new CustomEvent('confustudio:transport', {
       detail: { playing: true, bpm: state.bpm, time: state.audioContext.currentTime }
     }));
     updateTransportUI();
@@ -2285,7 +2286,7 @@ function stopPlay() {
     state.engine.stopMidiClock();
   }
   // Notify external modules that transport has stopped
-  document.dispatchEvent(new CustomEvent('confusynth:transport', {
+  document.dispatchEvent(new CustomEvent('confustudio:transport', {
     detail: { playing: false, bpm: state.bpm, time: state.audioContext?.currentTime ?? 0 }
   }));
   // Restore per-track mutes to their global state after arrangement play
@@ -2343,6 +2344,8 @@ function tapTempo() {
 // RENDER
 // ─────────────────────────────────────────────
 function renderAll() {
+  window._confustudioState = state;
+  window._confusynthState = state;
   updateTopbar();
   renderPageTabs();
   renderPage();
@@ -2813,7 +2816,7 @@ async function exportAudio(engine) {
     const blob = new Blob(chunks, { type: 'audio/webm' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'confusynth-export.webm';
+    a.download = 'confustudio-export.webm';
     a.click();
     engine.master.disconnect(dest);
   };

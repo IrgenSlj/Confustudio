@@ -260,7 +260,7 @@ export function initCables() {
     const toType   = toEl.textContent.trim().toLowerCase();
 
     if (fromPort && toPort) {
-      const engine  = window._confusynthEngine;
+      const engine  = window._confustudioEngine;
       const djmixer = toPort.querySelector('[data-djm]') || fromPort.querySelector('[data-djm]');
 
       if (engine && djmixer?._djmAudio) {

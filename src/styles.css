@@ -1,5 +1,5 @@
 /* ============================================================
-   CONFUsynth v3 — Design System
+   CONFUstudio v3 — Design System
    ============================================================ */
 
 @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap");
@@ -385,7 +385,7 @@ body {
 
 .studio-overlay-title {
   font-family: var(--font-ui);
-  font-size: 0.86rem;
+  font-size: 0.96rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   color: #fff;
@@ -408,8 +408,8 @@ body {
 }
 
 .studio-overlay-copy {
-  font-size: 0.6rem;
-  line-height: 1.72;
+  font-size: 0.68rem;
+  line-height: 1.76;
   color: rgba(255,255,255,0.68);
 }
 
@@ -429,7 +429,7 @@ body {
 
 .studio-overlay-card h4 {
   margin: 0 0 6px;
-  font-size: 0.56rem;
+  font-size: 0.64rem;
   color: rgba(255,255,255,0.52);
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -438,8 +438,8 @@ body {
 .studio-overlay-card p,
 .studio-overlay-card li {
   margin: 0;
-  font-size: 0.56rem;
-  line-height: 1.6;
+  font-size: 0.66rem;
+  line-height: 1.7;
   color: rgba(255,255,255,0.76);
 }
 
@@ -465,7 +465,7 @@ body {
   background: rgba(255,255,255,0.04);
   color: rgba(255,255,255,0.7);
   font-family: var(--font-mono);
-  font-size: 0.52rem;
+  font-size: 0.58rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
@@ -497,6 +497,54 @@ body {
   min-height: 90px;
 }
 
+.studio-assistant-provider-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  margin: 14px 0 8px;
+}
+
+.studio-assistant-provider-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.studio-assistant-label {
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.48);
+}
+
+.studio-assistant-provider-note {
+  font-size: 0.58rem;
+  line-height: 1.55;
+  color: rgba(255,255,255,0.56);
+}
+
+.studio-assistant-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  font-family: var(--font-mono);
+  font-size: 0.54rem;
+  color: rgba(255,255,255,0.7);
+  white-space: nowrap;
+}
+
+.studio-assistant-status.unconfigured {
+  color: rgba(255,180,180,0.9);
+  border-color: rgba(255,96,96,0.2);
+  background: rgba(255,96,96,0.08);
+}
+
 .studio-assistant-toolbar {
   display: flex;
   gap: 8px;
@@ -513,7 +561,7 @@ body {
   background: rgba(255,255,255,0.05);
   color: rgba(255,255,255,0.76);
   font-family: var(--font-mono);
-  font-size: 0.58rem;
+  font-size: 0.62rem;
   padding: 0 10px;
 }
 
@@ -525,8 +573,8 @@ body {
   background: rgba(0,0,0,0.24);
   color: var(--screen-text);
   font-family: var(--font-mono);
-  font-size: 0.6rem;
-  line-height: 1.6;
+  font-size: 0.64rem;
+  line-height: 1.65;
   padding: 10px 12px;
 }
 

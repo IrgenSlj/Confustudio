@@ -843,8 +843,8 @@ function makeSampleLoader(track, ti, emit, machCard, state) {
       return;
     }
     // Get audio context from engine or global
-    const audioCtx = window._confusynthState?.engine?.context
-      ?? window._confusynthState?.audioContext;
+    const audioCtx = window._confustudioState?.engine?.context
+      ?? window._confustudioState?.audioContext;
     if (!audioCtx) { emit('toast', { msg: 'No audio context' }); return; }
 
     const buf = track.sampleBuffer;
@@ -884,7 +884,7 @@ function makeSampleLoader(track, ti, emit, machCard, state) {
   // ── Playhead rAF loop ─────────────────────────────────────────────────────
   let _phRaf = null;
   function tickPlayhead() {
-    const st = window._confusynthState;
+    const st = window._confustudioState;
     if (!st?.isPlaying) {
       playhead.style.display = 'none';
       _phRaf = null;
@@ -902,7 +902,7 @@ function makeSampleLoader(track, ti, emit, machCard, state) {
   }
 
   const phInterval = setInterval(() => {
-    const st = window._confusynthState;
+    const st = window._confustudioState;
     if (st?.isPlaying && !_phRaf) {
       tickPlayhead();
     }

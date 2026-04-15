@@ -7,7 +7,7 @@ const VERSION = 'v3.0.0';
 
 function ensureLinkClientId(state) {
   if (!state._linkClientId) {
-    state._linkClientId = `confusynth-${Math.random().toString(36).slice(2, 10)}`;
+    state._linkClientId = `confustudio-${Math.random().toString(36).slice(2, 10)}`;
   }
   return state._linkClientId;
 }
@@ -316,7 +316,7 @@ function _showStemExportModal(state, emit, container) {
   const beatsPerBar = 4;
   const durationSec = (bars * beatsPerBar * 60) / bpm;
   const sampleRate = state.audioContext?.sampleRate ?? 44100;
-  const eng = window._confusynthEngine ?? state.engine;
+  const eng = window._confustudioEngine ?? state.engine;
   const stemRenderingAvailable = Boolean(eng?.renderTrackStem || eng?.renderOfflineTrack);
 
   const infoEl = document.createElement('div');
@@ -507,7 +507,9 @@ const ACCENT_COLORS = [
 ];
 
 function buildAccentSection(state) {
-  const currentAccent = localStorage.getItem('confusynth-accent') ?? '#5add71';
+  const currentAccent = localStorage.getItem('confustudio-accent')
+    ?? localStorage.getItem('confusynth-accent')
+    ?? '#5add71';
 
   const el = document.createElement('div');
   el.className = 'settings-section';
@@ -523,7 +525,8 @@ function buildAccentSection(state) {
     swatch.style.background = value;
     swatch.title = name;
     swatch.addEventListener('click', () => {
-      localStorage.setItem('confusynth-accent', value);
+      localStorage.setItem('confustudio-accent', value);
+      localStorage.removeItem('confusynth-accent');
       document.documentElement.style.setProperty('--live', value);
       row.querySelectorAll('.set-accent-swatch').forEach(s => s.classList.remove('active'));
       swatch.classList.add('active');
@@ -1464,7 +1467,7 @@ export default {
       backupBtn.textContent = 'Backup Now';
       backupBtn.addEventListener('click', () => {
         const now = Date.now();
-        const key = `confusynth_backup_${now}`;
+        const key = `confustudio_backup_${now}`;
         localStorage.setItem(key, JSON.stringify({ ...state.project, timestamp: now }));
         emit('toast', { msg: 'Backup saved' });
         renderBackups();
@@ -1473,7 +1476,7 @@ export default {
       backupSection.append(actionRow);
 
       const keys = Object.keys(localStorage)
-        .filter(k => k.startsWith('confusynth_backup_'))
+        .filter(k => k.startsWith('confustudio_backup_') || k.startsWith('confusynth_backup_'))
         .sort((a, b) => b.localeCompare(a))
         .slice(0, 5);
 
@@ -1486,7 +1489,9 @@ export default {
         keys.forEach(key => {
           let backup = null;
           try { backup = JSON.parse(localStorage.getItem(key)); } catch (_) {}
-          const rawTs = backup?.timestamp ?? backup?.savedAt ?? parseInt(key.replace('confusynth_backup_', ''), 10);
+          const rawTs = backup?.timestamp
+            ?? backup?.savedAt
+            ?? parseInt(key.replace('confustudio_backup_', '').replace('confusynth_backup_', ''), 10);
           const date = new Date(rawTs ?? Date.now());
           const dateStr = date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
           const label = isNaN(date.getTime()) ? key : dateStr;
@@ -1644,7 +1649,7 @@ export default {
       limiterBtn.textContent = state.masterLimiter ? 'ON' : 'OFF';
       limiterBtn.addEventListener('click', () => {
         state.masterLimiter = !state.masterLimiter;
-        const eng = window._confusynthEngine;
+        const eng = window._confustudioEngine;
         if (eng?.setLimiter) eng.setLimiter(state.masterLimiter);
         limiterBtn.classList.toggle('active', state.masterLimiter);
         limiterBtn.textContent = state.masterLimiter ? 'ON' : 'OFF';
@@ -1808,7 +1813,7 @@ export default {
         const v = parseInt(e.target.value) || 0;
         trk.midiProgram = v > 0 ? v - 1 : null;
         if (v > 0) {
-          const eng = window._confusynthEngine;
+          const eng = window._confustudioEngine;
           if (eng?.sendProgramChange) eng.sendProgramChange(state.midiChannel ?? 1, v - 1);
         }
         emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
@@ -1853,7 +1858,7 @@ export default {
       let _lastFrameTs = null;
 
       const updatePerf = () => {
-        const eng = window._confusynthEngine;
+        const eng = window._confustudioEngine;
         if (!eng?.context) {
           perfDiv.innerHTML = '<span style="color:var(--muted);font-size:0.55rem">Audio not initialized</span>';
           return;
@@ -1919,7 +1924,7 @@ export default {
     container.append(buildShortcutsSection());
 
     // Apply saved accent color on render
-    const _savedAccent = localStorage.getItem('confusynth-accent');
+    const _savedAccent = localStorage.getItem('confustudio-accent') ?? localStorage.getItem('confusynth-accent');
     if (_savedAccent) document.documentElement.style.setProperty('--live', _savedAccent);
 
     // ── Presets ──────────────────────────────────────────────────────────────
@@ -1944,7 +1949,7 @@ export default {
       const blob = new Blob([json], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `${state.project.name ?? 'confusynth'}-${Date.now()}.json`;
+      a.download = `${state.project.name ?? 'confustudio'}-${Date.now()}.json`;
       a.click();
       URL.revokeObjectURL(a.href);
     });
@@ -2336,7 +2341,7 @@ export default {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `confusynth_${Date.now()}.wav`;
+      a.download = `confustudio_${Date.now()}.wav`;
       a.click();
       URL.revokeObjectURL(url);
     });

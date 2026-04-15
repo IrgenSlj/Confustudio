@@ -101,6 +101,7 @@ export function installAssistantBridge(target = typeof window !== "undefined" ? 
     buildPrompt: buildAssistantPrompt,
   };
 
+  target.confustudioAssistant = api;
   target.confusynthAssistant = api;
   return api;
 }

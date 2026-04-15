@@ -324,7 +324,7 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
   faderWrap.append(fader);
   strip.append(faderWrap, volReadout);
 
-  // VU bar (peak-decay meter, driven by confusynth:note:on events)
+  // VU bar (peak-decay meter, driven by confustudio:note:on events)
   const vuBar = document.createElement('div');
   vuBar.className = 'mx-vu-bar';
   vuBar.dataset.vuTrack = ti;
@@ -639,7 +639,7 @@ export default {
 
     // Listen for trigger events — AbortController cleans up on page change
     const mixerAbortController = new AbortController();
-    window.addEventListener('confusynth:note:on', (e) => {
+    window.addEventListener('confustudio:note:on', (e) => {
       const { trackIndex, velocity = 1 } = e.detail ?? {};
       if (trackIndex >= 0 && trackIndex < 8) {
         window._trackPeaks[trackIndex]     = Math.max(0.4, velocity);
@@ -682,7 +682,7 @@ export default {
     const FFT_BINS = 256; // we'll read 256 bins (fftSize 512)
 
     // Ensure the analyser node has fftSize 512 if accessible
-    const _analyserNode = window._confusynthEngine?.analyser ?? state.engine?.analyser ?? null;
+    const _analyserNode = window._confustudioEngine?.analyser ?? state.engine?.analyser ?? null;
     if (_analyserNode && _analyserNode.fftSize < 512) {
       try { _analyserNode.fftSize = 512; } catch (_) {}
     }
@@ -690,7 +690,7 @@ export default {
 
     function _drawSpectrum() {
       if (!specCanvas.isConnected) return; // self-terminate
-      const analyser = window._confusynthEngine?.analyser ?? state.engine?.analyser ?? null;
+      const analyser = window._confustudioEngine?.analyser ?? state.engine?.analyser ?? null;
       if (!analyser) {
         // no analyser yet — clear and reschedule
         specCtx.clearRect(0, 0, specCanvas.width, specCanvas.height);

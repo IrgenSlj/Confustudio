@@ -1,5 +1,5 @@
 // src/knobs.js
-// CONFUsynth v3 — SVG knob components
+// CONFUstudio v3 — SVG knob components
 // Each knob renders a 270° arc track, an amber-filled value arc, and an indicator dot.
 
 // ─── SVG helpers ──────────────────────────────────────────────────────────────

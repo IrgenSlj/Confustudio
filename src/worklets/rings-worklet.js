@@ -1,4 +1,4 @@
-// CONFUsynth — cs-rings AudioWorkletProcessor
+// CONFUstudio — cs-rings AudioWorkletProcessor
 // Modal resonator — 8-mode biquad bank with impulse/noise/bow exciters
 
 class RingsProcessor extends AudioWorkletProcessor {

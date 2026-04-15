@@ -379,11 +379,11 @@ export function createPolysynth(audioContext) {
   }
 
   // Listen for global note events
-  document.addEventListener('confusynth:note:on',  e => noteOn(e.detail.note,  e.detail.velocity * 127));
-  document.addEventListener('confusynth:note:off', e => noteOff(e.detail.note));
+  document.addEventListener('confustudio:note:on',  e => noteOn(e.detail.note,  e.detail.velocity * 127));
+  document.addEventListener('confustudio:note:off', e => noteOff(e.detail.note));
 
   // Clock sync for arp
-  document.addEventListener('confusynth:clock', e => {
+  document.addEventListener('confustudio:clock', e => {
     const { step, bpm } = e.detail ?? {};
     if (bpm) { _arpClockBPM = bpm; }
     if (!_arpActive) return;

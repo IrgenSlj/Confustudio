@@ -330,8 +330,8 @@ export function createDJMixer(audioContext) {
       if (param === 'masterGain' && masterGain) {
         masterGain.gain.setTargetAtTime(v * 1.2, audioContext.currentTime, 0.02);
       }
-      if (param === 'headGain' && window._confusynthEngine?.setCueGain) {
-        window._confusynthEngine.setCueGain(v * 1.4);
+      if (param === 'headGain' && window._confustudioEngine?.setCueGain) {
+        window._confustudioEngine.setCueGain(v * 1.4);
       }
     });
   });

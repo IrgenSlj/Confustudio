@@ -11,7 +11,7 @@ const srcDir = path.join(rootDir, "src");
 const docsDir = path.join(rootDir, "docs");
 const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || "127.0.0.1";
-const assistantManualPath = path.join(docsDir, "confusynth.manual.json");
+const assistantManualPath = path.join(docsDir, "confustudio.manual.json");
 const assistantSystemFallback = "You are the CONFUstudio assistant and production co-pilot. Translate the studio's real sequencing, sampling, synth, routing, scene, arrangement, and mix capabilities into concrete next actions the user can execute immediately.";
 const assistantManual = loadAssistantManual();
 const assistantProviderCatalog = buildProviderCatalog();
@@ -79,7 +79,7 @@ function loadAssistantManual() {
       return JSON.parse(readFileSync(assistantManualPath, "utf8"));
     }
   } catch (error) {
-    console.warn("[CONFUsynth] Failed to load assistant manual, using fallback:", error);
+    console.warn("[CONFUstudio] Failed to load assistant manual, using fallback:", error);
   }
   return buildFallbackManual();
 }

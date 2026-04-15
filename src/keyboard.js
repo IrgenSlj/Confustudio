@@ -1,4 +1,4 @@
-// src/keyboard.js — CONFUsynth v3
+// src/keyboard.js — CONFUstudio v3
 // Simplified graphical keyboard: Q-P · A-L · Z-M · SPACE
 // Q-P = permanent page nav + record
 // A-L = sequencer steps 1-9 (pattern) / white piano notes (sound, roll)

@@ -693,7 +693,7 @@ export default {
     exportBtn.addEventListener('click', () => {
       const sections = state.arranger.sections ?? state.arranger ?? [];
       const total = sections.reduce((sum, s) => sum + (s.bars ?? 1), 0);
-      let txt = `CONFUsynth Arrangement: ${state.project.name ?? 'Untitled'}\n`;
+      let txt = `CONFUstudio Arrangement: ${state.project.name ?? 'Untitled'}\n`;
       txt += `BPM: ${state.bpm}\nTotal: ${total} bars\n\n`;
       sections.forEach((s, i) => {
         const sceneName = String.fromCharCode(65 + (s.sceneIdx ?? i % 8));

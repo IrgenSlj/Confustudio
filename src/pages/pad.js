@@ -511,7 +511,7 @@ export default {
           pad.classList.remove('pressed');
           if (_holdMode) return; // sustain
           _heldPads.delete(i);
-          document.dispatchEvent(new CustomEvent('confusynth:note:off', {
+          document.dispatchEvent(new CustomEvent('confustudio:note:off', {
             detail: { note, trackIndex: trackIdx }
           }));
         });
@@ -536,7 +536,7 @@ export default {
       emit('toast', { msg: `Pad ${_assignPadIdx + 1} → ${tracks[trackIndex]?.name ?? 'Track ' + (trackIndex + 1)}` });
       _rerenderGrid();
     }
-    document.addEventListener('confusynth:track:select', onTrackClick);
+    document.addEventListener('confustudio:track:select', onTrackClick);
 
     // MIDI learn: capture incoming MIDI note-on events and assign to next learn slot
     function onMidiLearn(e) {
@@ -553,13 +553,13 @@ export default {
         _rerenderGrid();
       }
     }
-    document.addEventListener('confusynth:note:on', onMidiLearn);
+    document.addEventListener('confustudio:note:on', onMidiLearn);
 
     // Cleanup event listeners when page is replaced
     const observer = new MutationObserver(() => {
       if (!document.contains(container)) {
-        document.removeEventListener('confusynth:track:select', onTrackClick);
-        document.removeEventListener('confusynth:note:on', onMidiLearn);
+        document.removeEventListener('confustudio:track:select', onTrackClick);
+        document.removeEventListener('confustudio:note:on', onMidiLearn);
         observer.disconnect();
       }
     });
@@ -567,8 +567,8 @@ export default {
 
     // ── Trigger helper ────────────────────────────────────────────────────────
     function triggerPad(padIdx, trackIdx, note, velocity, flashOverlay, velBar, color) {
-      // 1. Fire confusynth:note:on
-      document.dispatchEvent(new CustomEvent('confusynth:note:on', {
+      // 1. Fire confustudio:note:on
+      document.dispatchEvent(new CustomEvent('confustudio:note:on', {
         detail: { note, velocity, trackIndex: trackIdx, channel: trackIdx }
       }));
 

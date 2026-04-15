@@ -1,4 +1,4 @@
-const DB_NAME = 'confusynth-assets-v1';
+const DB_NAME = 'confustudio-assets-v1';
 const DB_VERSION = 1;
 const PROJECT_STORE = 'projects';
 const ASSET_STORE = 'assets';
@@ -42,7 +42,7 @@ function openDb() {
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
     request.onblocked = () => {
-      console.warn('[CONFUsynth] IndexedDB upgrade blocked by another tab.');
+      console.warn('[CONFUstudio] IndexedDB upgrade blocked by another tab.');
     };
   });
 
@@ -323,7 +323,7 @@ async function hydrateStateAssets(state) {
       const done = await poll();
       if (done) return;
     } catch (error) {
-      console.warn('[CONFUsynth] Asset hydration failed:', error);
+      console.warn('[CONFUstudio] Asset hydration failed:', error);
       state._assetHydrationPending = false;
       state._assetHydrationComplete = true;
       return;
@@ -340,7 +340,7 @@ async function hydrateStateAssets(state) {
           globalThis.clearInterval(timer);
         }
       } catch (error) {
-        console.warn('[CONFUsynth] Asset hydration failed:', error);
+        console.warn('[CONFUstudio] Asset hydration failed:', error);
         state._assetHydrationPending = false;
         state._assetHydrationComplete = true;
         globalThis.clearInterval(timer);
@@ -365,7 +365,7 @@ export function queuePersistAssets(state) {
   persistChain = persistChain
     .then(() => persistToIndexedDb(snapshot, mergeOnly))
     .catch((error) => {
-      console.warn('[CONFUsynth] Asset persistence failed:', error);
+      console.warn('[CONFUstudio] Asset persistence failed:', error);
     });
 
   return persistChain;

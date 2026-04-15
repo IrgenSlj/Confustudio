@@ -71,7 +71,7 @@ function startServer(port) {
     serverProcess.stdout.on('data', (data) => {
       const output = data.toString();
       process.stdout.write(`[server] ${output}`);
-      if (output.includes(`Confusynth listening on http://127.0.0.1:${port}`)) {
+      if (output.includes(`CONFUstudio listening on http://127.0.0.1:${port}`)) {
         resolveOnce();
       }
     });

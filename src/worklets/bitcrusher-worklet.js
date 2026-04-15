@@ -1,4 +1,4 @@
-// CONFUsynth — cs-bitcrusher AudioWorkletProcessor
+// CONFUstudio — cs-bitcrusher AudioWorkletProcessor
 
 class BitcrusherProcessor extends AudioWorkletProcessor {
   constructor() {

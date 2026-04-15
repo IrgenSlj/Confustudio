@@ -23,7 +23,7 @@ export function initBackground() {
   function draw() {
     requestAnimationFrame(draw);
 
-    const engine = window._confusynthEngine;
+    const engine = window._confustudioEngine;
     const analyser = engine?.analyser;
     let bass = 0, mid = 0, high = 0, hasAudio = false;
     let waveData = null;

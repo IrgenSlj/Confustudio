@@ -1,4 +1,4 @@
-// CONFUsynth — cs-plaits AudioWorkletProcessor
+// CONFUstudio — cs-plaits AudioWorkletProcessor
 // 5-engine synthesizer: VA, Wavetable, FM2, Karplus-Strong, Chord
 
 const TWO_PI = 2.0 * Math.PI;

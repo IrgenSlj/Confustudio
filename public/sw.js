@@ -1,4 +1,4 @@
-const CACHE_NAME = "confusynth-v3";
+const CACHE_NAME = "confustudio-v3";
 const APP_SHELL = [
   "/",
   "/index.html",

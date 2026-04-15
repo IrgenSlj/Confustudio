@@ -164,8 +164,8 @@ Open `http://127.0.0.1:4173`.
 ### Docker
 
 ```bash
-docker build -t confusynth .
-docker run --rm -p 4173:4173 confusynth
+docker build -t confustudio .
+docker run --rm -p 4173:4173 confustudio
 ```
 
 ### Optional AI Env Vars

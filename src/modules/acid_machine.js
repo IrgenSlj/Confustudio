@@ -1018,7 +1018,7 @@ export function createAcidMachine(audioContext) {
   });
 
   // ── Clock sync ─────────────────────────────────────────────────────────────
-  document.addEventListener('confusynth:clock', (e) => {
+  document.addEventListener('confustudio:clock', (e) => {
     const { step, bpm } = e.detail ?? {};
     if (!_running) return;
     if (bpm) {
