@@ -8,6 +8,8 @@
   "scripts": {
     "start": "node server.mjs",
     "dev": "node --watch server.mjs",
+    "test": "npm run test:syntax && npm run test:state && npm run test:server && npm run test:ui-smoke",
+    "test:syntax": "node tests/syntax-check.mjs",
     "test:state": "node tests/state-commands.mjs",
     "test:server": "node tests/server-routes.mjs",
     "test:ui-smoke": "node tests/ui-smoke.mjs",
@@ -15,7 +17,7 @@
     "confu:dev": "ELECTRON_IS_DEV=1 electron ."
   },
   "devDependencies": {
-    "electron": "^35.0.0",
-    "playwright": "^1.58.2"
+    "electron": "^41.3.0",
+    "playwright": "^1.59.1"
   }
 }

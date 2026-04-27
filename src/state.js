@@ -11,6 +11,8 @@ import {
 
 export const STORAGE_KEY   = "confustudio-v3";
 export const LEGACY_STORAGE_KEYS = ["confusynth-v3", "confustudio-v2", "confusynth-v2"];
+export const APP_VERSION = "0.1.0";
+export const APP_DISPLAY_VERSION = `v${APP_VERSION}`;
 export const PROJECT_SCHEMA_VERSION = "3.1.0";
 export const PROJECT_PACKAGE_VERSION = "1.0.0";
 export const STEP_COUNT    = 64;

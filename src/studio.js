@@ -22,7 +22,7 @@ export function initStudio() {
   const FIT_PADDING = 40;
   const DEFAULT_MODULE_W = 860;
   const DEFAULT_MODULE_H = 860;
-  const ZOOM_LENS_KEY = 'confustudio-zoom-lens-v1';
+  const ZOOM_LENS_KEY = 'confustudio-zoom-lens-v2';
   const ZOOM_LENS_SIZE = 480;
   const ZOOM_LENS_SCALE = 1.085;
 
@@ -35,7 +35,7 @@ export function initStudio() {
   let _autoZoom = true; // when true, viewport auto-fits on resize and new module spawn
   let _selectedModule = null;
   let _restoredSelectedModuleId = null;
-  let _zoomLensEnabled = true;
+  let _zoomLensEnabled = false;
   let _zoomLensHost = null;
   let _zoomLensViewport = null;
   let _zoomLensClone = null;
@@ -48,6 +48,7 @@ export function initStudio() {
   let _zoomLensTargetTop = 0;
   let _zoomLensRaf = 0;
   let _studioOverlay = null;
+  let _suppressLensUntil = 0;
 
   try {
     const savedLensPref = localStorage.getItem(ZOOM_LENS_KEY);
@@ -215,6 +216,7 @@ export function initStudio() {
 
   function shouldHideLensForTarget(target) {
     if (!(target instanceof Element)) return true;
+    if (isModuleInteractiveTarget(target)) return true;
     return Boolean(target.closest([
       '.port',
       '.djm-port',
@@ -229,7 +231,7 @@ export function initStudio() {
 
   function isModuleInteractiveTarget(target) {
     if (!(target instanceof Element)) return false;
-    return Boolean(target.closest([
+    const explicitInteractive = Boolean(target.closest([
       'button',
       'input',
       'select',
@@ -251,6 +253,18 @@ export function initStudio() {
       '.kbd-btn',
       '.module-picker',
       '.module-resize-handle',
+    ].join(',')));
+    if (explicitInteractive) return true;
+    return Boolean(target.closest([
+      '[role="slider"]',
+      '[class*="knob"]',
+      '[class*="slider"]',
+      '[class*="fader"]',
+      '[class*="switch"]',
+      '[class*="button"]',
+      '[class*="step"]',
+      '[data-param]',
+      '[data-action]',
     ].join(',')));
   }
 
@@ -351,6 +365,24 @@ export function initStudio() {
       if (force) _userHasPanned = false;
       applyTransform();
     }
+  }
+
+  function fitModuleToWindow(modEl) {
+    if (!modEl || !modEl.isConnected) return;
+    const { width: wrapW, height: wrapH } = getWrapSize();
+    const left = parsePx(modEl.style.left);
+    const top = parsePx(modEl.style.top);
+    const { width, height } = getModuleSize(modEl);
+    const fitW = Math.max(120, wrapW - FIT_PADDING * 2);
+    const fitH = Math.max(120, wrapH - FIT_PADDING * 2);
+    scale = Math.max(
+      MIN_SCALE,
+      Math.min(MAX_SCALE, Math.min(fitW / Math.max(width, 1), fitH / Math.max(height, 1)))
+    );
+    panX = (wrapW - width * scale) / 2 - left * scale;
+    panY = (wrapH - height * scale) / 2 - top * scale;
+    _userHasPanned = true;
+    applyTransform();
   }
 
   function restoreView() {
@@ -874,7 +906,18 @@ export function initStudio() {
       modEl.appendChild(handle);
     });
     enableModuleResize(modEl);
-    modEl.addEventListener('pointerdown', () => selectModule(modEl, { focus: false }));
+    modEl.addEventListener('pointerdown', (e) => {
+      if (isModuleInteractiveTarget(e.target)) return;
+      selectModule(modEl, { focus: false });
+    });
+    modEl.addEventListener('dblclick', (e) => {
+      if (isModuleInteractiveTarget(e.target)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      hideZoomLens();
+      selectModule(modEl, { focus: false });
+      fitModuleToWindow(modEl);
+    });
   }
 
   function enableModuleDrag(modEl) {
@@ -886,7 +929,8 @@ export function initStudio() {
     function canStartDrag(target) {
       if (!(target instanceof Element)) return false;
       if (isModuleInteractiveTarget(target)) return false;
-      return Boolean(target.closest('.studio-module'));
+      if (target.closest('.module-drag-handle, .ports-bar, .studio-figure')) return true;
+      return target.classList.contains('module-loading-shell') || target === modEl;
     }
 
     modEl.addEventListener('pointerdown', (e) => {
@@ -1020,7 +1064,7 @@ export function initStudio() {
       addModule(type);
       closeModulePicker();
     });
-    document.getElementById('studio-controls')?.prepend(picker);
+    document.body.append(picker);
   }
 
   function addModule(type) {
@@ -1224,7 +1268,7 @@ export function initStudio() {
 
   canvas.addEventListener('click', (e) => {
     const clickedModule = e.target.closest('.studio-module');
-    if (clickedModule) {
+    if (clickedModule && !isModuleInteractiveTarget(e.target)) {
       selectModule(clickedModule, { focus: false });
     }
     if (e.target.closest('.chassis-dup-btn')) {
@@ -1234,8 +1278,8 @@ export function initStudio() {
   });
 
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('#studio-controls')) closeModulePicker();
-    if (!e.target.closest('.studio-module') && !e.target.closest('#studio-controls')) {
+    if (!e.target.closest('#studio-controls, #module-picker')) closeModulePicker();
+    if (!e.target.closest('.studio-module') && !e.target.closest('#studio-controls, #module-picker')) {
       selectModule(null, { focus: false });
     }
   });
@@ -1452,7 +1496,7 @@ export function initStudio() {
 
   wrap.addEventListener('pointermove', (e) => {
     _zoomLensLastPoint = { clientX: e.clientX, clientY: e.clientY };
-    if (!_zoomLensEnabled || e.pointerType === 'touch' || wrap.classList.contains('is-panning')) {
+    if (!_zoomLensEnabled || performance.now() < _suppressLensUntil || e.pointerType === 'touch' || wrap.classList.contains('is-panning')) {
       hideZoomLens();
       return;
     }
@@ -1467,6 +1511,7 @@ export function initStudio() {
 
   wrap.addEventListener('pointerleave', hideZoomLens);
   wrap.addEventListener('pointerdown', () => {
+    _suppressLensUntil = performance.now() + 500;
     hideZoomLens();
   });
 

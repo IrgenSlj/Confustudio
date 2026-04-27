@@ -1,6 +1,9 @@
 import { chromium } from 'playwright';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { setTimeout as delay } from 'node:timers/promises';
 
-const BASE_URL = process.env.CONFUSYNTH_BASE_URL || 'http://127.0.0.1:4173/';
+let BASE_URL = process.env.CONFUSYNTH_BASE_URL || '';
 
 function assert(condition, message, details = null) {
   if (!condition) {
@@ -23,15 +26,74 @@ async function clearBrowserState(page) {
   });
 }
 
-const browser = await chromium.launch({ headless: true });
-const page = await browser.newPage({ viewport: { width: 1365, height: 768 } });
+async function startServer() {
+  const port = 4300 + Math.floor(Math.random() * 1000);
+  const child = spawn('node', ['server.mjs'], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      PORT: String(port),
+      OPENAI_API_KEY: '',
+      ANTHROPIC_API_KEY: '',
+      OLLAMA_HOST: '',
+      LOCAL_AI_BASE_URL: '',
+      ASSISTANT_BASE_URL: '',
+      ASSISTANT_PROVIDER: '',
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  const stdout = [];
+  const stderr = [];
+  child.stdout.on('data', (chunk) => stdout.push(chunk.toString()));
+  child.stderr.on('data', (chunk) => stderr.push(chunk.toString()));
+
+  const ready = new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error(`Timed out waiting for server start.\nSTDOUT:\n${stdout.join('')}\nSTDERR:\n${stderr.join('')}`));
+    }, 10000);
+
+    child.stdout.on('data', (chunk) => {
+      if (chunk.toString().includes(`CONFUstudio listening on http://127.0.0.1:${port}`)) {
+        clearTimeout(timeout);
+        resolve();
+      }
+    });
+
+    child.once('exit', (code) => {
+      clearTimeout(timeout);
+      reject(new Error(`Server exited before ready with code ${code}.\nSTDOUT:\n${stdout.join('')}\nSTDERR:\n${stderr.join('')}`));
+    });
+  });
+
+  await ready;
+
+  return {
+    baseUrl: `http://127.0.0.1:${port}/`,
+    async stop() {
+      child.kill('SIGTERM');
+      await Promise.race([
+        once(child, 'exit'),
+        delay(2000).then(() => child.kill('SIGKILL')),
+      ]);
+    },
+  };
+}
+
+const managedServer = BASE_URL ? null : await startServer();
+BASE_URL = BASE_URL || managedServer.baseUrl;
+let browser = null;
+let page = null;
 const consoleErrors = [];
-page.on('pageerror', (e) => consoleErrors.push(`pageerror:${e.message}`));
-page.on('console', (m) => {
-  if (m.type() === 'error') consoleErrors.push(`console:${m.text()}`);
-});
 
 try {
+  browser = await chromium.launch({ headless: true });
+  page = await browser.newPage({ viewport: { width: 1365, height: 768 } });
+  page.on('pageerror', (e) => consoleErrors.push(`pageerror:${e.message}`));
+  page.on('console', (m) => {
+    if (m.type() === 'error') consoleErrors.push(`console:${m.text()}`);
+  });
+
   await page.goto(BASE_URL, { waitUntil: 'networkidle' });
   await clearBrowserState(page);
   await page.reload({ waitUntil: 'networkidle' });
@@ -49,6 +111,7 @@ try {
     hasFit: !!document.querySelector('#fit-all'),
     hasGuide: !!document.querySelector('#open-manual'),
     hasAssistant: !!document.querySelector('#open-assistant'),
+    lensOffByDefault: document.querySelector('#toggle-zoom-lens')?.classList.contains('lens-off'),
     pageContentRect: (() => {
       const r = document.querySelector('#page-content')?.getBoundingClientRect();
       return r ? { width: r.width, height: r.height } : null;
@@ -59,6 +122,7 @@ try {
   assert(initial.keyboardDisplay !== 'none', 'Keyboard panel should be visible on desktop startup', initial);
   assert(initial.hasAddModule && initial.hasFit, 'Studio controls are missing', initial);
   assert(initial.hasGuide && initial.hasAssistant, 'Guide/Assistant entry points are missing', initial);
+  assert(initial.lensOffByDefault, 'Zoom lens should be opt-in on clean startup', initial);
   assert(initial.pageContentRect && initial.pageContentRect.width > 400 && initial.pageContentRect.height > 300, 'Page content area is too small to be usable', initial);
 
   const wrapBox = await page.locator('#studio-wrap').boundingBox();
@@ -124,6 +188,54 @@ try {
   const moduleCountAfterMixerAdd = await page.locator('.studio-module').count();
   assert(moduleCountAfterMixerAdd === 3, 'DJ mixer insertion failed', { moduleCountAfterMixerAdd });
 
+  const mixerKnobBefore = await page.evaluate(() => {
+    const mod = document.querySelector('.studio-module[data-module-type="djmixer"]');
+    const knob = mod?.querySelector('.djm-knob');
+    return {
+      left: mod?.style.left,
+      top: mod?.style.top,
+      transform: knob ? getComputedStyle(knob).transform : null,
+    };
+  });
+  const mixerKnobBox = await page.locator('.studio-module[data-module-type="djmixer"] .djm-knob').first().boundingBox();
+  assert(mixerKnobBox, 'DJ mixer knob is missing');
+  await page.mouse.move(mixerKnobBox.x + mixerKnobBox.width / 2, mixerKnobBox.y + mixerKnobBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(mixerKnobBox.x + mixerKnobBox.width / 2, mixerKnobBox.y + mixerKnobBox.height / 2 - 80, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(100);
+  const mixerKnobAfter = await page.evaluate(() => {
+    const mod = document.querySelector('.studio-module[data-module-type="djmixer"]');
+    const knob = mod?.querySelector('.djm-knob');
+    return {
+      left: mod?.style.left,
+      top: mod?.style.top,
+      transform: knob ? getComputedStyle(knob).transform : null,
+    };
+  });
+  assert(mixerKnobBefore.transform !== mixerKnobAfter.transform, 'DJ mixer knob drag did not rotate the knob', { mixerKnobBefore, mixerKnobAfter });
+  assert(mixerKnobBefore.left === mixerKnobAfter.left && mixerKnobBefore.top === mixerKnobAfter.top, 'Knob drag moved the whole module', { mixerKnobBefore, mixerKnobAfter });
+
+  const mixerFaderBefore = await page.evaluate(() => document.querySelector('.studio-module[data-module-type="djmixer"] .djm-fader')?.value);
+  const mixerFaderBox = await page.locator('.studio-module[data-module-type="djmixer"] .djm-fader').first().boundingBox();
+  assert(mixerFaderBox, 'DJ mixer fader is missing');
+  await page.mouse.move(mixerFaderBox.x + mixerFaderBox.width / 2, mixerFaderBox.y + mixerFaderBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(mixerFaderBox.x + mixerFaderBox.width / 2, mixerFaderBox.y + mixerFaderBox.height - 4, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(100);
+  const mixerFaderAfter = await page.evaluate(() => document.querySelector('.studio-module[data-module-type="djmixer"] .djm-fader')?.value);
+  assert(mixerFaderBefore !== mixerFaderAfter, 'DJ mixer fader drag did not change the slider value', { mixerFaderBefore, mixerFaderAfter });
+
+  const transformBeforeModuleFit = await canvasTransform();
+  await page.locator('.studio-module[data-module-type="djmixer"] .djm-body').dblclick();
+  await page.waitForTimeout(150);
+  const transformAfterModuleFit = await canvasTransform();
+  assert(transformAfterModuleFit !== transformBeforeModuleFit, 'Double-clicking a module did not fit it to the viewport', {
+    transformBeforeModuleFit,
+    transformAfterModuleFit,
+  });
+
   const cableCreated = await page.evaluate(() => {
     const modules = [...document.querySelectorAll('.studio-module')];
     const primary = modules.find((mod) => mod.id === 'module-0');
@@ -172,5 +284,6 @@ try {
   console.error(JSON.stringify(payload, null, 2));
   process.exitCode = 1;
 } finally {
-  await browser.close();
+  await browser?.close();
+  await managedServer?.stop();
 }

@@ -164,6 +164,14 @@ npm start
 
 Open `http://127.0.0.1:4173`.
 
+### Test
+
+```bash
+npm test
+```
+
+The aggregate test runs syntax checks, state/command coverage, server route coverage, and a self-contained Playwright UI smoke test.
+
 ### Docker
 
 ```bash

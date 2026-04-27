@@ -5,11 +5,13 @@ import {
   createProjectPackage,
   saveState,
   getActivePattern,
+  APP_DISPLAY_VERSION,
+  PROJECT_SCHEMA_VERSION,
   RECORDER_SLOT_COUNT,
 } from '../state.js';
 import { chatAssistant, fetchAssistantProviders, buildAssistantPrompt } from '../assistant-client.js';
 
-const VERSION = 'v3.0.0';
+const VERSION_LABEL = `${APP_DISPLAY_VERSION} · schema ${PROJECT_SCHEMA_VERSION}`;
 
 function ensureLinkClientId(state) {
   if (!state._linkClientId) {
@@ -571,7 +573,7 @@ export default {
     container.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0">
         <span class="page-title" style="margin:0">Settings</span>
-        <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);margin-left:auto">CONFUstudio ${VERSION}</span>
+        <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);margin-left:auto">CONFUstudio ${VERSION_LABEL}</span>
       </div>
       <div class="settings-grid" style="overflow-y:visible;height:auto;min-height:0">
 
@@ -739,7 +741,7 @@ export default {
             Clear Saved State
           </button>
           <div style="font-family:var(--font-mono);font-size:0.56rem;color:var(--muted);margin-top:10px;line-height:1.6">
-            CONFUstudio ${VERSION}<br>Web Audio API studio shell<br>ES modules
+            CONFUstudio ${VERSION_LABEL}<br>Web Audio API studio shell<br>ES modules
           </div>
         </div>
 
