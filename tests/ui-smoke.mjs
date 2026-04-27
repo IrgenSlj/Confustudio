@@ -158,6 +158,8 @@ try {
   await page.waitForTimeout(100);
   const pickerOpen = await page.locator('#module-picker').count();
   assert(pickerOpen === 1, 'Add Module did not open the module picker');
+  const pickerBox = await page.locator('#module-picker').boundingBox();
+  assert(pickerBox && pickerBox.width <= 420, 'Module picker should stay compact on desktop', pickerBox);
 
   await page.click('.module-picker button[data-module="figure-robot"]');
   await page.waitForTimeout(250);
@@ -227,6 +229,19 @@ try {
   const mixerFaderAfter = await page.evaluate(() => document.querySelector('.studio-module[data-module-type="djmixer"] .djm-fader')?.value);
   assert(mixerFaderBefore !== mixerFaderAfter, 'DJ mixer fader drag did not change the slider value', { mixerFaderBefore, mixerFaderAfter });
 
+  await page.click('#fit-all');
+  await page.waitForTimeout(150);
+  const transformBeforeFitButton = await canvasTransform();
+  await page.locator('.studio-module[data-module-type="djmixer"] .module-fit-btn').click();
+  await page.waitForTimeout(150);
+  const transformAfterFitButton = await canvasTransform();
+  assert(transformAfterFitButton !== transformBeforeFitButton, 'Module fit button did not focus the selected module', {
+    transformBeforeFitButton,
+    transformAfterFitButton,
+  });
+
+  await page.click('#fit-all');
+  await page.waitForTimeout(150);
   const transformBeforeModuleFit = await canvasTransform();
   await page.locator('.studio-module[data-module-type="djmixer"] .djm-body').dblclick();
   await page.waitForTimeout(150);

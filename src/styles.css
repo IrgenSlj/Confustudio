@@ -671,6 +671,7 @@ body {
   display: none;
 }
 
+.module-fit-btn,
 .module-remove-btn {
   width: 22px;
   height: 22px;
@@ -682,6 +683,17 @@ body {
   font-size: 0.8rem;
   line-height: 1;
   cursor: pointer;
+}
+
+.module-fit-btn {
+  background: rgba(8,20,18,0.78);
+  color: rgba(103,215,255,0.86);
+}
+
+.module-fit-btn:hover {
+  color: #fff;
+  border-color: rgba(103,215,255,0.55);
+  background: rgba(20,54,58,0.95);
 }
 
 .module-remove-btn:hover:not(:disabled) {
@@ -4359,6 +4371,7 @@ button {
   position: fixed;
   bottom: 72px;
   right: 12px;
+  width: min(392px, calc(100vw - 24px));
   background: rgba(9,12,9,0.96);
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 12px;
@@ -4476,6 +4489,7 @@ button {
     left: max(8px, env(safe-area-inset-left));
     right: max(8px, env(safe-area-inset-right));
     bottom: calc(68px + env(safe-area-inset-bottom));
+    width: auto;
     min-width: 0;
   }
 }

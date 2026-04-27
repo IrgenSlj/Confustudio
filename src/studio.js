@@ -385,6 +385,13 @@ export function initStudio() {
     applyTransform();
   }
 
+  function focusModule(modEl) {
+    if (!modEl || !modEl.isConnected) return;
+    hideZoomLens();
+    selectModule(modEl, { focus: false });
+    fitModuleToWindow(modEl);
+  }
+
   function restoreView() {
     try {
       const raw = localStorage.getItem(STUDIO_VIEW_KEY);
@@ -887,8 +894,16 @@ export function initStudio() {
     if (!modEl || modEl.querySelector(':scope > .module-tools')) return;
     const tools = document.createElement('div');
     tools.className = 'module-tools';
-    tools.innerHTML = `<button class="module-remove-btn" type="button" title="Remove module">×</button>`;
+    tools.innerHTML = `
+      <button class="module-fit-btn" type="button" title="Fit this module to screen" aria-label="Fit module to screen">□</button>
+      <button class="module-remove-btn" type="button" title="Remove module">×</button>
+    `;
+    const fitBtn = tools.querySelector('.module-fit-btn');
     const removeBtn = tools.querySelector('.module-remove-btn');
+    fitBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      focusModule(modEl);
+    });
     if (modEl.id === 'module-0') {
       removeBtn.disabled = true;
       removeBtn.title = 'Primary module cannot be removed';
@@ -914,9 +929,7 @@ export function initStudio() {
       if (isModuleInteractiveTarget(e.target)) return;
       e.preventDefault();
       e.stopPropagation();
-      hideZoomLens();
-      selectModule(modEl, { focus: false });
-      fitModuleToWindow(modEl);
+      focusModule(modEl);
     });
   }
 
