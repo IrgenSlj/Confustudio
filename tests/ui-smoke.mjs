@@ -190,6 +190,20 @@ try {
   const moduleCountAfterMixerAdd = await page.locator('.studio-module').count();
   assert(moduleCountAfterMixerAdd === 3, 'DJ mixer insertion failed', { moduleCountAfterMixerAdd });
 
+  const mixerModuleId = await page.evaluate(() => document.querySelector('.studio-module[data-module-type="djmixer"]')?.id || '');
+  assert(Boolean(mixerModuleId), 'DJ mixer module id is missing');
+  await page.click('#add-module');
+  await page.waitForTimeout(100);
+  const moduleNavigatorCount = await page.locator('#module-picker .mp-module-btn').count();
+  assert(moduleNavigatorCount === moduleCountAfterMixerAdd, 'Module picker navigator does not list all modules', {
+    moduleNavigatorCount,
+    moduleCountAfterMixerAdd,
+  });
+  await page.locator(`#module-picker .mp-module-btn[data-focus-module="${mixerModuleId}"]`).click();
+  await page.waitForTimeout(150);
+  const mixerSelectedFromNavigator = await page.evaluate((id) => document.getElementById(id)?.classList.contains('module-selected'), mixerModuleId);
+  assert(mixerSelectedFromNavigator, 'Module picker navigator did not select the requested module', { mixerModuleId });
+
   const mixerKnobBefore = await page.evaluate(() => {
     const mod = document.querySelector('.studio-module[data-module-type="djmixer"]');
     const knob = mod?.querySelector('.djm-knob');

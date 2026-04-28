@@ -586,6 +586,15 @@ export function initStudio() {
     return label;
   }
 
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function updateSelectionUi() {
     const removeBtn = document.getElementById('remove-module');
     const selected = getSelectedModule();
@@ -1046,9 +1055,22 @@ export function initStudio() {
     const picker = document.createElement('div');
     picker.id = 'module-picker';
     picker.className = 'module-picker';
+    const currentModuleItems = [...canvas.querySelectorAll('.studio-module')]
+      .map((mod, index) => {
+        const selected = mod === getSelectedModule();
+        return `
+          <button class="mp-module-btn${selected ? ' active' : ''}" data-focus-module="${escapeHtml(mod.id)}">
+            <span class="mp-module-index">${index + 1}</span>
+            <span class="mp-module-name">${escapeHtml(getModuleLabel(mod))}</span>
+          </button>
+        `;
+      })
+      .join('');
     picker.innerHTML = `
-      <div class="mp-title">Add Module</div>
-      <div class="mp-hint">Drop another synth into view, add a DJ mixer, or place lightweight figures while testing zoom, pan, and cables.</div>
+      <div class="mp-title">Modules</div>
+      <div class="mp-hint">Focus a live module, then add another instrument, mixer, or layout utility.</div>
+      <div class="mp-section-label">CURRENT</div>
+      <div class="mp-module-list">${currentModuleItems}</div>
       <div class="mp-section-label">INSTRUMENTS</div>
       <div class="mp-grid">
         <button data-module="synth">CONFUsynth</button>
@@ -1071,6 +1093,13 @@ export function initStudio() {
     `;
     picker.addEventListener('click', (e) => {
       e.stopPropagation();
+      const focusTarget = e.target.closest('button[data-focus-module]');
+      if (focusTarget) {
+        const mod = document.getElementById(focusTarget.dataset.focusModule);
+        if (mod) focusModule(mod);
+        closeModulePicker();
+        return;
+      }
       const target = e.target.closest('button[data-module]');
       const type = target?.dataset.module;
       if (!type) return;

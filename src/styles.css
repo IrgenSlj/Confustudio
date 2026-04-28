@@ -4378,6 +4378,9 @@ button {
   padding: 12px;
   min-width: 224px;
   max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+  scrollbar-width: thin;
   backdrop-filter: blur(12px);
   display: flex;
   flex-direction: column;
@@ -4397,6 +4400,50 @@ button {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
+}
+
+.mp-section-label {
+  margin-top: 4px;
+  color: rgba(255,255,255,0.34);
+  font-family: var(--font-mono);
+  font-size: 0.48rem;
+  letter-spacing: 0.12em;
+}
+
+.mp-module-list {
+  display: grid;
+  gap: 6px;
+}
+
+.mp-module-btn {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.mp-module-btn.active {
+  border-color: rgba(103,215,255,0.46) !important;
+  background: rgba(103,215,255,0.12) !important;
+  color: rgba(220,248,255,0.95) !important;
+}
+
+.mp-module-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.54);
+  font-size: 0.52rem;
+}
+
+.mp-module-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .module-picker button[data-module="synth"] {
