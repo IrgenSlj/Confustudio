@@ -4,6 +4,8 @@ CONFUstudio is the broader project and studio shell. CONFUsynth is its default a
 
 The current prototype runs in the browser, is installable as a PWA for desktop-like use, and includes a small local API bridge for optional OpenAI or Anthropic assistance. It is intentionally compact: plain HTML, CSS, and modern JavaScript on the frontend, plus a dependency-light Node server for static hosting and API proxying.
 
+The studio shell now includes a modular canvas where instruments, utilities, and mixer modules can be added, focused, resized, patched, and restored across reloads. The primary CONFUsynth module remains the anchor, while added modules such as Acid Machine, polysynth, drum machine, FM synth, monosynth, DJ mixer, and utility figures can live alongside it in the same workspace.
+
 The repo now also includes an early structured command layer for undoable state mutations, normalized project package import/export, and assistant action planning. That foundation is being used to migrate the UI away from direct ad hoc mutation, starting with scenes, arranger, banks, and top-level pattern tools.
 
 ## Instrument Direction
@@ -192,6 +194,10 @@ export ANTHROPIC_MODEL=claude-3-5-sonnet-latest
 
 What is implemented:
 
+- Modular studio canvas with pan, zoom, fit-all, per-module fit, double-click focus, compact module picker, and a live module navigator.
+- Persisted studio layout for dynamically added modules, including restored module IDs, positions, zoom levels, and selection.
+- Patch cable overlay with draggable port connections, DJ mixer routing, cable cleanup on module removal, and restored cable connections after reload.
+- Interaction hardening so knobs, sliders, faders, ports, and module buttons receive pointer input instead of accidentally dragging or selecting the whole module.
 - Transport: BPM, swing, tap tempo, 64-step scheduling with trig conditions and probability.
 - 8 audio tracks + 8 MIDI tracks, per-track mute/solo.
 - Machines: tone (4 waveforms), noise, sample playback, MIDI.
@@ -218,15 +224,17 @@ What is implemented:
 - A command/history layer exists in `src/command-bus.js`.
 - The app exposes `window.confustudioCommands.execute(...)` for bounded command execution.
 - `scenes`, `arranger`, `banks`, and key `pattern` toolbar actions already use that structured mutation path.
-- Automated coverage includes `test:state`, `test:server`, and `test:ui-smoke`.
+- Studio interaction coverage now verifies module insertion, module navigator focus, reload restoration, knob/fader dragging, double-click module fit, cable restoration, and cable cleanup.
+- Automated coverage includes `test:syntax`, `test:state`, `test:server`, and `test:ui-smoke`; `npm test` runs the full set.
 
 ## Recommended Next Build Steps
 
-1. Add Mutable Instruments Plaits/Clouds/Rings as WASM synthesis machines (16-engine wavetable, granular, physical modeling).
-2. Integrate `node-abletonlink` into `server.mjs` to complete the Ableton Link tempo sync bridge.
-3. Build the Rust/WASM DSP core for sequencing and voice allocation.
-4. Package the standalone app in Tauri (replaces Electron once the Rust core exists).
-5. Expose a CLAP plugin build target for DAW integration.
+1. Finish the deeper `pattern.js` migration to the command/history layer, especially step-editor internals, selection tools, random fill, morph, and track-row inline edits.
+2. Persist per-module parameter state in the project package so restored modules keep their actual instrument settings, not only their layout and routing.
+3. Add an in-app assistant action preview/apply flow on top of `/api/assistant/actions/plan`.
+4. Integrate `node-abletonlink` into `server.mjs` to complete the Ableton Link tempo sync bridge.
+5. Build the Rust/WASM DSP core for sequencing and voice allocation.
+6. Package the standalone app in Tauri once the Rust core exists, then expose a CLAP plugin build target for DAW integration.
 
 ## References
 

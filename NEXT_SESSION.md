@@ -2,9 +2,9 @@
 
 ## Current Baseline
 
-The repo now has a real command-layer foundation instead of only ad hoc state mutation.
+The repo now has a real command-layer foundation instead of only ad hoc state mutation, plus a more reliable modular studio canvas.
 
-Implemented in this round:
+Command-layer work already implemented:
 - Project package helpers in `src/state.js`
   `createProjectPackage()`, `applyProjectPackageToState()`, normalized import/export path
 - Command/history layer in `src/command-bus.js`
@@ -16,6 +16,16 @@ Implemented in this round:
   `planAssistantActions()` in `src/assistant-client.js`
 - Settings migration
   backups + project save/load now go through the package path
+
+Studio canvas work now implemented:
+- module drag no longer steals pointer input from knobs, sliders, faders, ports, or module buttons
+- zoom lens is opt-in and suppressed during normal clicks
+- double-clicking a module body fits it to the viewport
+- each module has a fit-to-screen chrome button
+- Add Module picker is compact and includes a live module navigator
+- dynamically added modules restore after reload with saved IDs, positions, zoom, and selection
+- cable routing restores after reload and cleans up when a connected module is removed
+- `tests/ui-smoke.mjs` is self-contained and starts a temporary local server when `CONFUSYNTH_BASE_URL` is not provided
 
 ## Command-Layer Coverage
 
@@ -53,13 +63,27 @@ Command types currently available include:
 ## Tests Green
 
 Last verified:
-- `npm run test:state`
-- `npm run test:server`
-- `npm run test:ui-smoke`
+- `npm test`
 
-The new state test lives in `tests/state-commands.mjs`.
+The aggregate suite runs:
+- `test:syntax`
+- `test:state`
+- `test:server`
+- `test:ui-smoke`
+
+The UI smoke test now covers module insertion, module navigator focus, saved module restoration, DJ mixer knob/fader dragging, module fit controls, cable restoration after reload, cable cleanup on module removal, and core tab rendering.
 
 ## Next Highest-Value Work
+
+### Module State Persistence
+
+Saved layout now restores modules and cables, but added instruments still need persisted internal state.
+
+Next step should be:
+1. define a module state serialization contract for dynamic modules
+2. add save/restore hooks to DJ mixer and standalone instrument modules
+3. include module state in project package export/import, not only local layout storage
+4. extend `tests/ui-smoke.mjs` with one parameter-change reload assertion per representative module
 
 ### Pattern Deep Migration
 
@@ -82,12 +106,15 @@ Next step should be:
 
 - normalize remaining direct mutation in `settings`
 - add an in-app assistant action preview/apply flow on top of `/api/assistant/actions/plan`
-- improve asset packaging so exported project files can eventually carry sample-backed state more reliably
+- improve asset packaging so exported project files can carry sample-backed and module-backed state more reliably
+- add a manual mobile/responsive pass for the compact picker, transport keyboard, overlays, and studio toolbar
 
 ## Validation To Do Later
 
 - Real audio pass
   init audio, transport, recorder capture/load, sample playback
+- Real routing pass
+  module-to-mixer audio routing after reload, multiple cable colors, right-click cable removal
 - Real MIDI/device pass
   MIDI out rebinding, clock start/stop, hardware sync behavior
 - Manual browser pass on all tabs after the deeper `pattern.js` migration
