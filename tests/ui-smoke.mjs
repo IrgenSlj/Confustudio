@@ -204,6 +204,32 @@ try {
   const mixerSelectedFromNavigator = await page.evaluate((id) => document.getElementById(id)?.classList.contains('module-selected'), mixerModuleId);
   assert(mixerSelectedFromNavigator, 'Module picker navigator did not select the requested module', { mixerModuleId });
 
+  const persistedModules = await page.evaluate(() => ({
+    count: document.querySelectorAll('.studio-module').length,
+    mixerId: document.querySelector('.studio-module[data-module-type="djmixer"]')?.id || '',
+    robotId: document.querySelector('.studio-module[data-module-type="figure-robot"]')?.id || '',
+  }));
+  assert(persistedModules.mixerId && persistedModules.robotId, 'Expected dynamic modules before reload persistence check', persistedModules);
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector(`#${persistedModules.mixerId} .djmixer-chassis`, { timeout: 5000 });
+  await page.waitForSelector(`#${persistedModules.robotId} .studio-figure`, { timeout: 5000 });
+  const restoredModules = await page.evaluate((expected) => ({
+    count: document.querySelectorAll('.studio-module').length,
+    hasMixer: Boolean(document.getElementById(expected.mixerId)),
+    hasRobot: Boolean(document.getElementById(expected.robotId)),
+    mixerLoaded: Boolean(document.querySelector(`#${CSS.escape(expected.mixerId)} .djmixer-chassis`)),
+    robotLoaded: Boolean(document.querySelector(`#${CSS.escape(expected.robotId)} .studio-figure`)),
+  }), persistedModules);
+  assert(
+    restoredModules.count >= persistedModules.count
+      && restoredModules.hasMixer
+      && restoredModules.hasRobot
+      && restoredModules.mixerLoaded
+      && restoredModules.robotLoaded,
+    'Saved studio modules were not restored after reload',
+    { persistedModules, restoredModules }
+  );
+
   const mixerKnobBefore = await page.evaluate(() => {
     const mod = document.querySelector('.studio-module[data-module-type="djmixer"]');
     const knob = mod?.querySelector('.djm-knob');

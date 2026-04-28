@@ -340,6 +340,20 @@ export function initStudio() {
     } catch (_) {}
   }
 
+  function moduleById(id) {
+    if (!id) return null;
+    const mod = document.getElementById(id);
+    return mod && canvas.contains(mod) && mod.classList.contains('studio-module') ? mod : null;
+  }
+
+  function applySavedLayoutItem(mod, item) {
+    if (!mod || !item) return;
+    mod.style.left = item.left || '0px';
+    mod.style.top = item.top || '0px';
+    mod.style.zoom = item.zoom && item.zoom !== 1 ? item.zoom : '';
+    if (item.type) mod.dataset.moduleType = item.type;
+  }
+
   function applyTransform() {
     canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
     const indicator = document.getElementById('zoom-level');
@@ -425,12 +439,22 @@ export function initStudio() {
       const layout = JSON.parse(raw);
       if (!Array.isArray(layout)) return false;
       layout.forEach((item) => {
-        const mod = canvas.querySelector(`#${item.id}`);
+        if (!item?.id) return;
+        const type = item.type || 'synth';
+        let mod = moduleById(item.id);
+        if (!mod && item.id !== 'module-0') {
+          mod = addModule(type, {
+            id: item.id,
+            left: item.left,
+            top: item.top,
+            zoom: item.zoom,
+            select: false,
+            fit: false,
+            persist: false,
+          });
+        }
         if (!mod) return;
-        mod.style.left = item.left || '0px';
-        mod.style.top = item.top || '0px';
-        if (item.zoom && item.zoom !== 1) mod.style.zoom = item.zoom;
-        if (item.type) mod.dataset.moduleType = item.type;
+        applySavedLayoutItem(mod, item);
         if (item.selected) _restoredSelectedModuleId = item.id;
       });
       hasRestoredLayout = true;
@@ -1109,15 +1133,25 @@ export function initStudio() {
     document.body.append(picker);
   }
 
-  function addModule(type) {
+  function addModule(type, options = {}) {
+    const {
+      id = `module-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      left = null,
+      top = null,
+      zoom = 1,
+      select = true,
+      fit = true,
+      persist = true,
+    } = options;
     const mod = document.createElement('div');
     mod.className = 'studio-module';
     mod.dataset.moduleType = type;
-    mod.id = `module-${Date.now()}`;
+    mod.id = id;
     mod.style.position = 'absolute';
     const pos = getSpawnPosition();
-    mod.style.left = `${pos.x}px`;
-    mod.style.top = `${pos.y}px`;
+    mod.style.left = left != null ? String(left) : `${pos.x}px`;
+    mod.style.top = top != null ? String(top) : `${pos.y}px`;
+    if (zoom && zoom !== 1) mod.style.zoom = zoom;
     enableModuleDrag(mod);
     attachModuleChrome(mod);
 
@@ -1196,14 +1230,21 @@ export function initStudio() {
     }
 
     canvas.appendChild(mod);
-    selectModule(mod, { focus: false });
-    if (_autoZoom) {
-      _userHasPanned = false;
-      fitToWindow({ force: true });
+    if (select) {
+      selectModule(mod, { focus: false });
     } else {
-      clampViewport();
+      updateSelectionUi();
     }
-    saveLayout();
+    if (fit) {
+      if (_autoZoom) {
+        _userHasPanned = false;
+        fitToWindow({ force: true });
+      } else {
+        clampViewport();
+      }
+    }
+    if (persist) saveLayout();
+    return mod;
   }
 
   function _spawnDefaultMixer() {
