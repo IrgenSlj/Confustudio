@@ -10,6 +10,7 @@ const CABLE_COLORS = [
   '#ff8844', // orange
   '#aa44ff', // purple
 ];
+const STUDIO_CABLES_KEY = 'confustudio-studio-cables-v1';
 
 let _colorIdx = 0;
 function nextColor() {
@@ -48,6 +49,104 @@ export function initCables() {
 
   const cables = []; // { id, fromEl, toEl, color, group }
   let dragging = null; // { fromEl, color, tempPath, tempDot, pointerId }
+  let pendingCableRestore = [];
+  let cableRestoreTimer = null;
+  let cableRestoreAttempts = 0;
+
+  function portRef(el) {
+    const moduleEl = el?.closest?.('.studio-module');
+    const portName = el?.dataset?.port;
+    if (!moduleEl?.id || !portName) return null;
+    const matchingPorts = [...moduleEl.querySelectorAll('.port, .djm-port')]
+      .filter((port) => port.dataset.port === portName);
+    return {
+      moduleId: moduleEl.id,
+      port: portName,
+      index: Math.max(0, matchingPorts.indexOf(el)),
+    };
+  }
+
+  function resolvePortRef(ref) {
+    if (!ref?.moduleId || !ref?.port) return null;
+    const moduleEl = document.getElementById(ref.moduleId);
+    if (!moduleEl?.classList?.contains('studio-module')) return null;
+    const matchingPorts = [...moduleEl.querySelectorAll('.port, .djm-port')]
+      .filter((port) => port.dataset.port === ref.port);
+    return matchingPorts[ref.index || 0] || matchingPorts[0] || null;
+  }
+
+  function cableMatchesRef(cable, saved) {
+    const from = portRef(cable.fromEl);
+    const to = portRef(cable.toEl);
+    return from?.moduleId === saved?.from?.moduleId
+      && from?.port === saved?.from?.port
+      && (from?.index || 0) === (saved?.from?.index || 0)
+      && to?.moduleId === saved?.to?.moduleId
+      && to?.port === saved?.to?.port
+      && (to?.index || 0) === (saved?.to?.index || 0);
+  }
+
+  function serializeCable(cable) {
+    const from = portRef(cable.fromEl);
+    const to = portRef(cable.toEl);
+    if (!from || !to) return null;
+    return {
+      id: cable.id,
+      color: cable.color,
+      from,
+      to,
+    };
+  }
+
+  function saveCables() {
+    try {
+      const saved = cables.map(serializeCable).filter(Boolean);
+      localStorage.setItem(STUDIO_CABLES_KEY, JSON.stringify(saved));
+    } catch (_) {}
+  }
+
+  function scheduleCableRestore() {
+    if (!pendingCableRestore.length || cableRestoreTimer) return;
+    cableRestoreTimer = window.setTimeout(() => {
+      cableRestoreTimer = null;
+      restorePendingCables();
+    }, 160);
+  }
+
+  function restorePendingCables() {
+    if (!pendingCableRestore.length) return;
+    let restoredAny = false;
+    pendingCableRestore = pendingCableRestore.filter((saved) => {
+      if (cables.some((cable) => cableMatchesRef(cable, saved))) return false;
+      const fromEl = resolvePortRef(saved.from);
+      const toEl = resolvePortRef(saved.to);
+      if (!fromEl || !toEl) return true;
+      addCable(fromEl, toEl, {
+        id: saved.id,
+        color: saved.color,
+        persist: false,
+      });
+      restoredAny = true;
+      return false;
+    });
+    if (restoredAny) saveCables();
+    if (pendingCableRestore.length && cableRestoreAttempts < 40) {
+      cableRestoreAttempts += 1;
+      scheduleCableRestore();
+    }
+  }
+
+  function loadSavedCables() {
+    try {
+      const raw = localStorage.getItem(STUDIO_CABLES_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (!Array.isArray(saved)) return;
+      pendingCableRestore = saved.filter((entry) => entry?.from && entry?.to);
+      cableRestoreAttempts = 0;
+      scheduleCableRestore();
+    } catch (_) {}
+  }
 
   function getPortAnchor(el, wr) {
     const er = el.getBoundingClientRect();
@@ -230,9 +329,17 @@ export function initCables() {
     cable.plugTo.setAttribute('transform', `translate(${b.x},${b.y}) rotate(${toAngle}) translate(0,16)`);
   }
 
-  function addCable(fromEl, toEl) {
+  function addCable(fromEl, toEl, options = {}) {
+    const {
+      id = `cable-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      color = nextColor(),
+      persist = true,
+    } = options;
+    const savedRef = { from: portRef(fromEl), to: portRef(toEl) };
+    const existingCable = cables.find((cable) => cableMatchesRef(cable, savedRef));
+    if (existingCable) return existingCable;
+
     const NS = 'http://www.w3.org/2000/svg';
-    const color = nextColor();
 
     // Wrapping group for the whole cable
     const group = document.createElementNS(NS, 'g');
@@ -250,7 +357,7 @@ export function initCables() {
 
     svg.appendChild(group);
 
-    const cable = { id: Date.now(), fromEl, toEl, color, group, layers, plugFrom, plugTo };
+    const cable = { id, fromEl, toEl, color, group, layers, plugFrom, plugTo };
     cables.push(cable);
     drawCable(cable);
 
@@ -298,9 +405,12 @@ export function initCables() {
       e.preventDefault();
       removeCable(cable);
     });
+
+    if (persist) saveCables();
+    return cable;
   }
 
-  function removeCable(cable) {
+  function removeCable(cable, { persist = true } = {}) {
     if (!cable) return;
     if (cable._audioRouted && cable._engine && cable._sourceNode) {
       try {
@@ -316,6 +426,7 @@ export function initCables() {
     cable.group?.remove();
     const idx = cables.indexOf(cable);
     if (idx >= 0) cables.splice(idx, 1);
+    if (persist) saveCables();
   }
 
   // Port hover: add glow class
@@ -434,9 +545,11 @@ export function initCables() {
   // Observe for new ports (when modules are added dynamically)
   const observer = new MutationObserver(() => {
     document.querySelectorAll('.port, .djm-port').forEach(attachPort);
+    restorePendingCables();
   });
   observer.observe(document.body, { childList: true, subtree: true });
   document.querySelectorAll('.port, .djm-port').forEach(attachPort);
+  loadSavedCables();
 
   // Auto-connect handler (used for pre-wired first-run setup)
   document.addEventListener('cable:autoconnect', (e) => {

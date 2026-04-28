@@ -295,8 +295,8 @@ try {
     const modules = [...document.querySelectorAll('.studio-module')];
     const primary = modules.find((mod) => mod.id === 'module-0');
     const mixer = modules.find((mod) => mod.dataset.moduleType === 'djmixer');
-    const fromEl = primary?.querySelector('.port');
-    const toEl = mixer?.querySelector('.djm-port, .port');
+    const fromEl = primary?.querySelector('.port[data-port="audio-out"], .port');
+    const toEl = mixer?.querySelector('.djm-port[data-port="ch1-in"], .djm-port, .port');
     if (!fromEl || !toEl) return false;
     document.dispatchEvent(new CustomEvent('cable:autoconnect', { detail: { fromEl, toEl } }));
     return true;
@@ -305,6 +305,12 @@ try {
   await page.waitForTimeout(150);
   const cableCountBeforeRemoval = await page.locator('#studio-cables .cable-group').count();
   assert(cableCountBeforeRemoval >= 1, 'Expected at least one cable before module removal', { cableCountBeforeRemoval });
+
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector(`#${persistedModules.mixerId} .djmixer-chassis`, { timeout: 5000 });
+  await page.waitForFunction(() => document.querySelectorAll('#studio-cables .cable-group').length >= 1, null, { timeout: 5000 });
+  const cableCountAfterReload = await page.locator('#studio-cables .cable-group').count();
+  assert(cableCountAfterReload >= 1, 'Saved cable connection was not restored after reload', { cableCountAfterReload });
 
   await page.locator('.studio-module[data-module-type="djmixer"] .module-remove-btn').click();
   await page.waitForTimeout(250);
