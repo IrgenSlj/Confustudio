@@ -289,7 +289,7 @@ export const KNOB_MAPS = {
     { label: 'DlyTime', param: 'delayTime',      min: 0,   max: 1,    step: 0.01 },
     { label: 'DlyFb',   param: 'delayFeedback',  min: 0,   max: 0.95, step: 0.01 },
     { label: 'RevSize', param: 'reverbSize',      min: 0.1, max: 3,    step: 0.1  },
-    { label: 'RevMix',  param: 'reverbMix',       min: 0,   max: 1,    step: 0.01 },
+    { label: 'RevMix',  param: 'convReverbMix',   min: 0,   max: 1,    step: 0.01 },
     { label: 'LfoRate', param: 'lfoRate',          min: 0.1, max: 30,   step: 0.1  },
     { label: 'LfoDep',  param: 'lfoDepth',         min: 0,   max: 1,    step: 0.01 },
     { label: 'Drive',   param: 'drive',            min: 0,   max: 1,    step: 0.01 },

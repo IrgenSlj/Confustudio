@@ -1345,13 +1345,9 @@ async function ensureAudio() {
   state.engine.setBpm(state.bpm ?? 120);
   state.engine.initWorklets(); // async — loads cs-resampler worklet in background
   state.engine.setMasterLevel(state.masterLevel);
-  if (state.reverbType && state.engine?.setReverbPreset) {
-    state.engine.setReverbPreset(state.reverbType);
-  }
-
-  // Restore convolution reverb preset and mix
+  const reverbPreset = state.convReverbPreset || state.reverbType || 'room';
   if (state.engine?.setReverbConvPreset) {
-    state.engine.setReverbConvPreset(state.convReverbPreset ?? 'room');
+    state.engine.setReverbConvPreset(reverbPreset);
   }
   if (state.engine?.setReverbConvMix) {
     state.engine.setReverbConvMix(state.convReverbMix ?? 0.3);
@@ -3397,8 +3393,8 @@ function applyMacro(i) {
       break;
     }
     case 'reverb': {
-      state.reverbMix = v;
-      if (state.engine?.setReverbMix) state.engine.setReverbMix(v);
+      state.convReverbMix = v;
+      if (state.engine?.setReverbConvMix) state.engine.setReverbConvMix(v);
       break;
     }
     case 'swing': {

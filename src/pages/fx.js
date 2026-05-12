@@ -17,26 +17,10 @@ const CONV_REVERB_PRESETS = {
   studio: { mix: 0.18, preDelay: 0  },
 };
 
-// Legacy Freeverb presets (kept for the Schroeder-Moorer reverb fallback path)
-const REVERB_TYPES = ['room', 'hall', 'plate', 'spring', 'cathedral'];
-const REVERB_LABELS = { room: 'Room', hall: 'Hall', plate: 'Plate', spring: 'Spring', cathedral: 'Cathedral' };
-const REVERB_PRESETS = {
-  room:      { roomSize: 0.50, damping: 0.7, preDelay: 0,     wet: 0.22 },
-  hall:      { roomSize: 0.84, damping: 0.3, preDelay: 0.02,  wet: 0.28 },
-  plate:     { roomSize: 0.76, damping: 0.2, preDelay: 0.005, wet: 0.25 },
-  spring:    { roomSize: 0.40, damping: 0.9, preDelay: 0,     wet: 0.30 },
-  cathedral: { roomSize: 0.95, damping: 0.1, preDelay: 0.04,  wet: 0.32 },
-};
 function _reverbPresetInfo(type) {
-  // Check convolution preset first, then legacy
-  if (CONV_REVERB_PRESETS[type]) {
-    const p = CONV_REVERB_PRESETS[type];
-    const pre = p.preDelay > 0 ? ` pre:${p.preDelay}ms` : '';
-    return `conv:${type} mix:${Math.round(p.mix * 100)}%${pre}`;
-  }
-  const p = REVERB_PRESETS[type] ?? REVERB_PRESETS.room;
-  const pre = p.preDelay > 0 ? ` pre:${Math.round(p.preDelay * 1000)}ms` : '';
-  return `size:${p.roomSize.toFixed(2)} damp:${p.damping.toFixed(1)}${pre}`;
+  const p = CONV_REVERB_PRESETS[type];
+  if (!p) return String(type);
+  return `${p.description} — ${p.roomSizeLabel}, ${p.dampingLabel}`;
 }
 
 const DELAY_SYNC_DIVS = ['1/32', '1/16', '1/8', '1/4', '1/2', '1/1'];
@@ -626,11 +610,11 @@ export default {
     presetBar.style.cssText = 'display:flex;gap:4px;align-items:center;margin-bottom:8px;flex-shrink:0;flex-wrap:wrap';
 
     const BUILTIN_PRESETS = [
-      { name: 'Clean', values: { eqLow: 0, eqMid: 0, eqHigh: 0, reverbMix: 0, delayWet: 0, chorusMix: 0 }, comp: { threshold: -18 } },
-      { name: 'Warm',  values: { eqLow: 3, eqMid: -1, eqHigh: -2, reverbMix: 0.1 }, comp: { threshold: -20 } },
-      { name: 'Space', values: { reverbMix: 0.4, reverbSize: 0.8, delayWet: 0.2, chorusMix: 0.15, chorusDepth: 0.5 }, comp: {} },
+      { name: 'Clean', values: { eqLow: 0, eqMid: 0, eqHigh: 0, convReverbMix: 0, delayWet: 0, chorusMix: 0 }, comp: { threshold: -18 } },
+      { name: 'Warm',  values: { eqLow: 3, eqMid: -1, eqHigh: -2, convReverbMix: 0.1 }, comp: { threshold: -20 } },
+      { name: 'Space', values: { convReverbMix: 0.4, delayWet: 0.2, chorusMix: 0.15, chorusDepth: 0.5 }, comp: {} },
       { name: 'Punch', values: { eqLow: 2 }, comp: { threshold: -24, ratio: 8, attack: 0.001, release: 0.1 } },
-      { name: 'Lo-Fi', values: { eqHigh: -6, reverbMix: 0.05 }, track: { bitDepth: 8, srDiv: 4 } },
+      { name: 'Lo-Fi', values: { eqHigh: -6, convReverbMix: 0.05 }, track: { bitDepth: 8, srDiv: 4 } },
     ];
 
     const presetLabel = document.createElement('span');
@@ -722,7 +706,7 @@ export default {
           eqLow:     t.eqLow     ?? 0,
           eqMid:     t.eqMid     ?? 0,
           eqHigh:    t.eqHigh    ?? 0,
-          reverbMix: state.reverbMix  ?? 0.22,
+          convReverbMix: state.convReverbMix  ?? 0.3,
           delayWet:  state.delayWet   ?? 0.3,
           chorusMix: state.chorusMix  ?? 0,
           bitDepth:  t.bitDepth  ?? 16,
@@ -753,29 +737,25 @@ export default {
       if (_bypassed) {
         // Store current values and mute wet signals
         _bypassStore = {
-          reverbMix:     state.reverbMix     ?? 0.22,
+          convReverbMix: state.convReverbMix ?? 0.3,
           delayWet:      state.delayWet      ?? 0.3,
           chorusMix:     state.chorusMix     ?? 0,
-          convReverbMix: state.convReverbMix ?? 0.3,
         };
-        if (eng?.setReverbMix)     eng.setReverbMix(0);
+        if (eng?.setReverbConvMix) eng.setReverbConvMix(0);
         if (eng?.setDelayMix)      eng.setDelayMix(0);
         if (eng?.setChorusMix)     eng.setChorusMix(0);
-        if (eng?.setReverbConvMix) eng.setReverbConvMix(0);
         if (eng?.setDelayMix2)     eng.setDelayMix2(0);
         bypassBtn.textContent = 'FX BYPASSED';
         bypassBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;border-color:var(--record);color:var(--record)';
         bypassBtn.classList.add('active');
       } else {
         // Restore saved values
-        const rv  = _bypassStore.reverbMix     ?? state.reverbMix     ?? 0.22;
+        const crv = _bypassStore.convReverbMix ?? state.convReverbMix ?? 0.3;
         const dw  = _bypassStore.delayWet      ?? state.delayWet      ?? 0.3;
         const cm  = _bypassStore.chorusMix     ?? state.chorusMix     ?? 0;
-        const crv = _bypassStore.convReverbMix ?? state.convReverbMix ?? 0.3;
-        if (eng?.setReverbMix)     eng.setReverbMix(rv);
+        if (eng?.setReverbConvMix) eng.setReverbConvMix(crv);
         if (eng?.setDelayMix)      eng.setDelayMix(dw);
         if (eng?.setChorusMix)     eng.setChorusMix(cm);
-        if (eng?.setReverbConvMix) eng.setReverbConvMix(crv);
         if (eng?.setDelayMix2)     eng.setDelayMix2(state.delayWet ?? 0.3);
         bypassBtn.textContent = 'BYPASS ALL FX';
         bypassBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem';
@@ -978,25 +958,6 @@ export default {
         return;
       }
 
-      // ── Reverb type ─────────────────────────────────────────────────────────
-      const reverbBtn = e.target.closest('[data-reverb-type]');
-      if (reverbBtn) {
-        const rt = reverbBtn.dataset.reverbType;
-        state.reverbType = rt;
-        container.querySelectorAll('[data-reverb-type]').forEach(b =>
-          b.classList.toggle('active', b.dataset.reverbType === rt)
-        );
-        const eng = window._confustudioEngine ?? state.engine;
-        if (eng?.setReverbPreset) eng.setReverbPreset(rt);
-        else if (eng?.setReverbType) eng.setReverbType(rt);
-        // Update preset info label
-        const infoEl = container.querySelector('[data-reverb-preset-info]');
-        if (infoEl) infoEl.textContent = _reverbPresetInfo(rt);
-        emit('state:change', { path: 'reverbType', value: rt });
-        saveState(state);
-        return;
-      }
-
       // ── Delay sync toggle ────────────────────────────────────────────────────
       const syncToggle = e.target.closest('[data-delay-sync-toggle]');
       if (syncToggle) {
@@ -1128,7 +1089,7 @@ export default {
   knobMap: [
     { label: 'RevRoom', param: 'reverbSize',    min: 0.1,  max: 0.98, step: 0.01 },
     { label: 'RevDamp', param: 'reverbDamping', min: 0,    max: 1,    step: 0.01 },
-    { label: 'RevMix',  param: 'reverbMix',     min: 0,    max: 1,    step: 0.01 },
+    { label: 'RevMix',  param: 'convReverbMix', min: 0,    max: 1,    step: 0.01 },
     { label: 'DlyTime', param: 'delayTime',     min: 0.01, max: 1.4,  step: 0.01 },
     { label: 'DlyFb',   param: 'delayFeedback', min: 0,    max: 0.95, step: 0.01 },
     { label: 'ChrRate', param: 'chorusRate',    min: 0.1,  max: 8,    step: 0.1  },
@@ -1166,15 +1127,11 @@ function _syncEQSliderDisplays(container, track) {
 function _applyGlobal(param, v, state) {
   const eng = window._confustudioEngine ?? state.engine;
   if (!eng) return;
-  if (param === 'reverbSize'        && eng.setReverbRoomSize)   eng.setReverbRoomSize(v);
-  if (param === 'reverbDamping'     && eng.setReverbDamping)    eng.setReverbDamping(v);
-  if (param === 'reverbPreDelay'    && eng.setReverbPreDelay)   eng.setReverbPreDelay(v);
   if (param === 'delayTime'         && eng.setDelayTime)        { eng.setDelayTime(v); eng.setDelayTime2?.(v); }
   if (param === 'delayFeedback'     && eng.setDelayFeedback)    { eng.setDelayFeedback(v); eng.setDelayFeedback2?.(v); }
   if (param === 'delayFilterFreq'   && eng.setDelayFilter2)     eng.setDelayFilter2(v);
   if (param === 'delayWet'          && eng.setDelayMix)         { eng.setDelayMix(v); eng.setDelayMix2?.(v); }
   if (param === 'masterLevel'       && eng.setMasterLevel)      eng.setMasterLevel(v);
-  if (param === 'reverbMix'         && eng.setReverbMix)        eng.setReverbMix(v);
   if (param === 'convReverbMix'     && eng.setReverbConvMix)    eng.setReverbConvMix(v);
   if (param === 'convReverbPreDelay'&& eng.setReverbPreDelay)   eng.setReverbPreDelay(v);
   if (param === 'masterDrive'       && eng.setMasterDrive)      eng.setMasterDrive(v);

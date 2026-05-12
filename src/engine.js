@@ -122,17 +122,11 @@ export class AudioEngine {
     this._trackReverbSendGains = [];
     this._trackDelaySendGains  = [];
 
-    // Freeverb-inspired Schroeder-Moorer reverb (pure Web Audio node graph)
-    this.reverbRoomSize = 0.84; // comb feedback gain (0–0.98)
-    this.reverbDamping = 0.5;   // lowpass cutoff ratio in comb feedback (0–1)
-    this.reverbWet = context.createGain();
-    this.reverbWet.gain.value = 0.22;
-
-    // reverbInput is the entry point for tracks; alias this.reverb for back-compat
+    // reverbInput is the entry point for the per-step reverb send from tracks;
+    // routes into reverbSendBus → convolution reverb for unified reverb path.
     this.reverbInput = context.createGain();
     this.reverb = this.reverbInput; // backward compatibility
-
-    this._buildReverbGraph();
+    this.reverbInput.connect(this.reverbSendBus);
 
     // Per-track active legato source — keyed by track index (or track object identity)
     // Stores { osc, output, stopTime } for the currently ringing oscillator on legato tracks
@@ -171,9 +165,6 @@ export class AudioEngine {
     this.delayFeedback2.connect(this.delayNode);
     this.delayNode.connect(this.delayWet2);
     this.delayWet2.connect(this.master);
-
-    // Freeverb wet to master
-    this.reverbWet.connect(this.master);
 
     // Convolution reverb send bus routing — connected after masterLimiter is wired below
     this.reverbSendBus.connect(this.reverbConvolver);
@@ -378,7 +369,7 @@ export class AudioEngine {
   _resolveModParam(destId, trackIndex, trackBuses) {
     switch (destId) {
       case 'master_reverb':
-        return this.reverbWet?.gain ?? null;
+        return this.reverbConvWet?.gain ?? null;
       case 'master_delay':
         return this.delayWet2?.gain ?? null;
       case 'master_cutoff':
