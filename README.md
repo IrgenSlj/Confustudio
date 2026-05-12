@@ -204,7 +204,7 @@ What is implemented:
 - ADSR envelope, LFO (cutoff/volume/pan targets), per-track filter (LP/BP/HP), drive, pan.
 - Parameter locks per step, scene A/B crossfader morphing.
 - 8 banks × 16 patterns per bank, arranger / song mode.
-- Freeverb reverb (Schroeder-Moorer, 8 comb + 4 allpass native nodes).
+- Convolution reverb (room, hall, plate, spring, cave, studio) with per-track send.
 - Delay with feedback, per-track reverb and delay sends.
 - Per-track bitcrusher (BITS) and sample rate reduction (SRR) controls.
 - AudioWorklet sinc resampler (`cs-resampler`) — 4-point cubic Hermite interpolation for pitched samples.
@@ -223,6 +223,7 @@ What is implemented:
 - ESLint + Prettier tooling added (`eslint.config.js`, `.prettierrc`, `npm run lint`/`format`).
 - Dead code `readBody()` removed from `server.mjs`.
 - Phase 1 mechanical splits complete — 6 largest files extracted into 11 new modules. Total JS lines reduced from ~34,258 to ~29,178.
+- Phase 2 reverb collapse complete — legacy Freeverb graph removed, convolution-only reverb with backward-compat stubs.
 - Project package helpers now normalize save/load/backup flows.
 - A command/history layer exists in `src/command-bus.js`.
 - The app exposes `window.confustudioCommands.execute(...)` for bounded command execution.
@@ -254,7 +255,7 @@ All 6 largest source files split. No logic changes.
 
 ### Phase 2: Unify Mutation & Clean State
 
-- Collapse dual reverb paths (keep convolution, remove legacy Freeverb graph)
+- ~~Collapse dual reverb paths (keep convolution, remove legacy Freeverb graph)~~
 - Extract magic strings to constants (`STATE_PATHS.js`, `EVENTS.js`)
 - Consolidate 84 `window._*` globals into single `__CONFUSTUDIO__` namespace
 - Fix legacy dual delay routing

@@ -13,13 +13,14 @@ Server starts clean on `http://127.0.0.1:4173`.
 ## Codebase Metrics
 
 | Metric | Value |
-|---|---|
-| Total JS/ESM lines | 29,178 |
+|---|---|---|
+| Total JS/ESM lines | ~28,965 |
 | Files over 1000 lines | 8 |
-| Largest file | `app.js` (3667) |
+| Largest file | `app.js` (3663) |
 | `window._*` globals | 84 across 15 files |
 | Dead code | removed |
-| Dual reverb impls | Freeverb + convolution (both connected) |
+| Dual reverb impls | collapsed — convolution only |
+| Legacy delay routing | still present |
 | Test suites | 4 (syntax, state, server, ui-smoke) |
 | ESLint/Prettier | configured |
 
@@ -40,7 +41,7 @@ Server starts clean on `http://127.0.0.1:4173`.
 2. CSS injected via JS strings in every page module — can't inspect in DevTools, no autocomplete
 3. 84 `window._*` globals — implicit coupling, no import graph
 4. Ad-hoc state mutation bypasses the command/history layer in most page modules
-5. Dual reverb implementations — every reverb change touches two systems
+5. Legacy delay routing — two delay paths (send/return + legacy); every delay change may need dual edits
 6. Magic strings everywhere (`state.crossfader`, `emit('step:toggle')`...) — rename breaks silently
 
 ## Development Roadmap
@@ -63,13 +64,13 @@ Goal: Reduce cognitive load. Every file under 1200 lines. Pure extraction.
 - Files over 1000 lines reduced from 12 to 8
 - No logic changes. Pure extraction.
 
-### Phase 2: Unify Mutation & Clean State (next sprint)
+### Phase 2: Unify Mutation & Clean State (in progress)
 ```
 Goal: Single authoritative path for all state mutations.
-Estimate: 4-6 hours
+Estimate: 2–4 hours remaining
 ```
 
-1. Collapse to single reverb path (keep convolution, remove Freeverb graph)
+1. ~~Collapse to single reverb path (keep convolution, remove Freeverb graph)~~ ✓
 2. Extract magic strings to constants (`STATE_PATHS.js`, `EVENTS.js`)
 3. Consolidate `window._*` globals into a single `__CONFUSTUDIO__` namespace object
 4. Fix legacy delay routing (two delay paths; keep send/return, remove legacy)
