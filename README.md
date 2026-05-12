@@ -227,14 +227,51 @@ What is implemented:
 - Studio interaction coverage now verifies module insertion, module navigator focus, reload restoration, knob/fader dragging, double-click module fit, cable restoration, and cable cleanup.
 - Automated coverage includes `test:syntax`, `test:state`, `test:server`, and `test:ui-smoke`; `npm test` runs the full set.
 
-## Recommended Next Build Steps
+## Development Roadmap
 
-1. Finish the deeper `pattern.js` migration to the command/history layer, especially step-editor internals, selection tools, random fill, morph, and track-row inline edits.
-2. Persist per-module parameter state in the project package so restored modules keep their actual instrument settings, not only their layout and routing.
-3. Add an in-app assistant action preview/apply flow on top of `/api/assistant/actions/plan`.
-4. Integrate `node-abletonlink` into `server.mjs` to complete the Ableton Link tempo sync bridge.
-5. Build the Rust/WASM DSP core for sequencing and voice allocation.
-6. Package the standalone app in Tauri once the Rust core exists, then expose a CLAP plugin build target for DAW integration.
+### Phase 0: Tooling & Housekeeping (current sprint)
+
+- Add ESLint + Prettier for consistent code
+- Remove dead code (`readBody()` in `server.mjs`)
+- Tighten `.gitignore` patterns
+- Run lint autofix across the tree
+
+### Phase 1: Mechanical Splits (current sprint)
+
+Split the largest source files to keep every module under 1200 lines:
+
+| File | Lines | Splits |
+|---|---|---|
+| `app.js` | 3880 | `app.js` + `recorder.js` + `history-ui.js` |
+| `engine.js` | 1971 | `engine.js` + `engine-reverb.js` + `engine-midi.js` |
+| `settings.js` | 2418 | `settings.js` + `settings-midi.js` + `settings-project.js` |
+| `pattern.js` | 2226 | `pattern.js` + `pattern-tools.js` |
+| `studio.js` | 1603 | `studio.js` + `studio-modules.js` + `studio-overlay.js` |
+| `sound.js` | 2016 | `sound.js` + `sound-sample.js` |
+
+### Phase 2: Unify Mutation & Clean State
+
+- Collapse dual reverb paths (keep convolution, remove legacy Freeverb graph)
+- Extract magic strings to constants (`STATE_PATHS.js`, `EVENTS.js`)
+- Consolidate 84 `window._*` globals into single `__CONFUSTUDIO__` namespace
+- Fix legacy dual delay routing
+- Add command types for step/selection operations
+
+### Phase 3: Persistence
+
+- Module state serialization: save/restore actual instrument parameters
+- Deep migration of `pattern.js` step editor internals to command/history layer
+- Normalize remaining direct mutation in settings page
+
+### Phase 4: Feature Delivery
+
+- In-app assistant action preview/apply on top of `/api/assistant/actions/plan`
+- Real Ableton Link tempo sync via `node-ateletonlink`
+- Asset packaging: exported projects carry sample and module state
+- Mobile/responsive layout pass
+- Rust/WASM DSP core (long-term)
+
+See `NEXT_SESSION.md` for detailed status and session handoff.
 
 ## References
 

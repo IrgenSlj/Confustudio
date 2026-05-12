@@ -1,121 +1,116 @@
 # Next Session
 
-## Current Baseline
+## Verified Baseline (May 2026)
 
-The repo now has a real command-layer foundation instead of only ad hoc state mutation, plus a more reliable modular studio canvas.
+All tests green:
+- `npm run test:syntax` — 125 files, ok
+- `npm run test:state` — command bus + state round-trip, ok
+- `npm run test:server` — all API routes, ok
+- `npm run test:ui-smoke` — Playwright module/cable/layout/interaction coverage, ok
 
-Command-layer work already implemented:
-- Project package helpers in `src/state.js`
-  `createProjectPackage()`, `applyProjectPackageToState()`, normalized import/export path
-- Command/history layer in `src/command-bus.js`
-  snapshot/restore, undo/redo-ready state capture, bounded studio commands
-- App integration in `src/app.js`
-  `window.confustudioCommands.execute(...)` plus history controller hookup
-- Assistant action planning
-  `POST /api/assistant/actions/plan` in `server.mjs`
-  `planAssistantActions()` in `src/assistant-client.js`
-- Settings migration
-  backups + project save/load now go through the package path
+Server starts clean on `http://127.0.0.1:4173`.
 
-Studio canvas work now implemented:
-- module drag no longer steals pointer input from knobs, sliders, faders, ports, or module buttons
-- zoom lens is opt-in and suppressed during normal clicks
-- double-clicking a module body fits it to the viewport
-- each module has a fit-to-screen chrome button
-- Add Module picker is compact and includes a live module navigator
-- dynamically added modules restore after reload with saved IDs, positions, zoom, and selection
-- cable routing restores after reload and cleans up when a connected module is removed
-- `tests/ui-smoke.mjs` is self-contained and starts a temporary local server when `CONFUSYNTH_BASE_URL` is not provided
+## Codebase Metrics
 
-## Command-Layer Coverage
+| Metric | Value |
+|---|---|
+| Total JS/ESM lines | 34,258 |
+| Files over 1000 lines | 12 |
+| Largest file | `app.js` (3880) |
+| `window._*` globals | 84 across 15 files |
+| Dead code | `readBody()` in `server.mjs:681` |
+| Dual reverb impls | Freeverb + convolution (both connected) |
+| Test suites | 4 (syntax, state, server, ui-smoke) |
 
-Already moved onto structured commands:
-- `scenes`
-  copy, clear, capture, rename, apply, swap
-- `arranger`
-  reset, quick-add, rename, duplicate, insert, bars, repeat, follow action, jump target, BPM override, time signature, mute, track mutes, color, templates
-- `banks`
-  pattern duplicate, copy-to-slot, JSON import, MIDI import, pattern rename, follow action change, clear
-- `pattern` top-level tools
-  follow action, Euclid generate/all, track paste, track clear
+## Architecture Assessment
 
-Command types currently available include:
-- `set-project-meta`
-- `set-transport`
-- `set-pattern-length`
-- `update-pattern-meta`
-- `replace-pattern`
-- `set-track-param`
-- `replace-track-steps`
-- `set-step`
-- `clear-track`
-- `duplicate-pattern`
-- `generate-drum-pattern`
-- `generate-euclid`
-- `set-scene-name`
-- `set-scene-payload`
-- `swap-scenes`
-- `apply-scene`
-- `add-arranger-section`
-- `replace-arranger`
-- `update-arranger-section`
+**Strengths:**
+- Working audio engine with voice stealing, sidechain, per-track FX, MIDI I/O
+- Command bus with undo/redo history (100-deep)
+- Modular studio canvas with cable routing, persistence, module picker
+- Server-side assistant bridge (OpenAI, Anthropic, Ollama, local)
+- Project package import/export with schema versioning
+- State forward-fill on load (handles schema drift)
+- AudioWorklet support (resampler, bitcrusher, plaits, clouds, rings)
 
-## Tests Green
+**Frictions (ranked by time wasted per change):**
+1. 12 files over 1000 lines — can't hold any page module in working memory
+2. CSS injected via JS strings in every page module — can't inspect in DevTools, no autocomplete
+3. 84 `window._*` globals — implicit coupling, no import graph
+4. Ad-hoc state mutation bypasses the command/history layer in most page modules
+5. Dual reverb implementations — every reverb change touches two systems
+6. No ESLint/Prettier — inconsistent formatting, unused variables slip through
+7. Magic strings everywhere (`state.crossfader`, `emit('step:toggle')`...) — rename breaks silently
 
-Last verified:
-- `npm test`
+## Development Roadmap
 
-The aggregate suite runs:
-- `test:syntax`
-- `test:state`
-- `test:server`
-- `test:ui-smoke`
+### Phase 0: Tooling & Housekeeping (this sprint)
+```
+Goal: Reduce friction per edit. Zero behavior changes.
+Estimate: 3-4 hours
+```
 
-The UI smoke test now covers module insertion, module navigator focus, saved module restoration, DJ mixer knob/fader dragging, module fit controls, cable restoration after reload, cable cleanup on module removal, and core tab rendering.
+1. Add ESLint + Prettier (`npm init @eslint/config`, `.prettierrc`)
+2. Remove dead code (`readBody()` in `server.mjs:681`)
+3. Tighten `.gitignore` — add `.env*`, `*.log`, `.vscode/`
+4. Run ESLint autofix across the tree
 
-## Next Highest-Value Work
+### Phase 1: Mechanical Splits (this sprint)
+```
+Goal: Reduce cognitive load. Every file under 1200 lines. Pure extraction.
+Estimate: 6-8 hours
+```
 
-### Module State Persistence
+| Current | Split into |
+|---|---|
+| `app.js` (3880) | `app.js` + `recorder.js` + `history-ui.js` |
+| `engine.js` (1971) | `engine.js` + `engine-reverb.js` + `engine-midi.js` |
+| `settings.js` (2418) | `settings.js` + `settings-midi.js` + `settings-project.js` |
+| `pattern.js` (2226) | `pattern.js` + `pattern-tools.js` |
+| `studio.js` (1603) | `studio.js` + `studio-modules.js` + `studio-overlay.js` |
+| `sound.js` (2016) | `sound.js` + `sound-sample.js` |
 
-Saved layout now restores modules and cables, but added instruments still need persisted internal state.
+No logic changes. No new features. File references via existing import paths only.
 
-Next step should be:
-1. define a module state serialization contract for dynamic modules
-2. add save/restore hooks to DJ mixer and standalone instrument modules
-3. include module state in project package export/import, not only local layout storage
-4. extend `tests/ui-smoke.mjs` with one parameter-change reload assertion per representative module
+### Phase 2: Unify Mutation & Clean State (next sprint)
+```
+Goal: Single authoritative path for all state mutations.
+Estimate: 4-6 hours
+```
 
-### Pattern Deep Migration
+1. Collapse to single reverb path (keep convolution, remove Freeverb graph)
+2. Extract magic strings to constants (`STATE_PATHS.js`, `EVENTS.js`)
+3. Consolidate `window._*` globals into a single `__CONFUSTUDIO__` namespace object
+4. Fix legacy delay routing (two delay paths; keep send/return, remove legacy)
+5. Add command types for step/selection operations (migration prep)
 
-This is the biggest remaining mutation-heavy surface.
+### Phase 3: Persistence (next sprint)
+```
+Goal: Save/restore everything — not just layout.
+Estimate: 6-8 hours
+```
 
-Still mostly direct mutation:
-- per-step editor internals in `src/pages/pattern.js`
-- step context-menu edits
-- multi-step selection tools
-- random fill
-- morph
-- several track-row inline edits
+1. Define module state serialization contract for dynamic modules (djmixer, polysynth, etc.)
+2. Add save/restore hooks → include module param state in project package
+3. Deep migration of `pattern.js` step editor, selection tools, random fill, morph to command bus
+4. Normalize remaining direct mutation in settings page to command/history layer
 
-Next step should be:
-1. add command types for richer step/selection operations
-2. migrate step editor + selection tools in `pattern.js`
-3. keep UI smoke green while expanding `tests/state-commands.mjs`
+### Phase 4: Feature Delivery (next)
+```
+Goal: Visible user-facing capabilities.
+Estimate: ongoing
+```
 
-### After Pattern
+1. In-app assistant action preview/apply flow on top of `/api/assistant/actions/plan`
+2. Integrate `node-abletonlink` for real Ableton Link tempo sync
+3. Asset packaging — exported projects carry sample-backed and module-backed state
+4. Mobile/responsive pass for compact picker, transport keyboard, overlays
+5. Rust/WASM DSP core for sequencing and voice allocation (long-term)
 
-- normalize remaining direct mutation in `settings`
-- add an in-app assistant action preview/apply flow on top of `/api/assistant/actions/plan`
-- improve asset packaging so exported project files can carry sample-backed and module-backed state more reliably
-- add a manual mobile/responsive pass for the compact picker, transport keyboard, overlays, and studio toolbar
+## Decision Log
 
-## Validation To Do Later
-
-- Real audio pass
-  init audio, transport, recorder capture/load, sample playback
-- Real routing pass
-  module-to-mixer audio routing after reload, multiple cable colors, right-click cable removal
-- Real MIDI/device pass
-  MIDI out rebinding, clock start/stop, hardware sync behavior
-- Manual browser pass on all tabs after the deeper `pattern.js` migration
-- Desktop shell pass with project import/export and persistence
+- **No TypeScript**: Would touch every file, break the build, minimal value before API surface stabilizes
+- **No Vite**: Current static file server is zero-config, zero-build. Adding a build step now is premature optimization
+- **No state management library**: Command bus exists and works. Replace it when proven insufficient, not before
+- **No comprehensive test coverage**: Test critical paths + regression anchors. 100% coverage on a rapidly changing prototype wastes velocity
+- **Skip full undo migration**: Defer perfect undo to v2. Formalize direct mutation patterns for simple operations instead of blocking on architecture purity
