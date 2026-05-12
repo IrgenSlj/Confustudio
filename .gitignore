@@ -6,4 +6,10 @@ yarn-error.log*
 pnpm-debug.log*
 .env
 .env.local
+.env.*
 .claude/worktrees/
+*.log
+.vscode/
+dist/
+build/
+.DS_Store?

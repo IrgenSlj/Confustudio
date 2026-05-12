@@ -220,6 +220,9 @@ What is implemented:
 
 ## Recent Architecture Work
 
+- ESLint + Prettier tooling added (`eslint.config.js`, `.prettierrc`, `npm run lint`/`format`).
+- Dead code `readBody()` removed from `server.mjs`.
+- Phase 1 mechanical splits complete — 6 largest files extracted into 11 new modules. Total JS lines reduced from ~34,258 to ~29,178.
 - Project package helpers now normalize save/load/backup flows.
 - A command/history layer exists in `src/command-bus.js`.
 - The app exposes `window.confustudioCommands.execute(...)` for bounded command execution.
@@ -229,25 +232,25 @@ What is implemented:
 
 ## Development Roadmap
 
-### Phase 0: Tooling & Housekeeping (current sprint)
+### Phase 0: Tooling & Housekeeping (completed)
 
-- Add ESLint + Prettier for consistent code
-- Remove dead code (`readBody()` in `server.mjs`)
-- Tighten `.gitignore` patterns
-- Run lint autofix across the tree
+- ESLint + Prettier configured for consistent code
+- Dead code (`readBody()` in `server.mjs`) removed
+- `.gitignore` tightened with `*.log`, `.vscode/`, `dist/` patterns
+- Lint autofix run across the tree
 
-### Phase 1: Mechanical Splits (current sprint)
+### Phase 1: Mechanical Splits (completed)
 
-Split the largest source files to keep every module under 1200 lines:
+All 6 largest source files split. No logic changes.
 
-| File | Lines | Splits |
-|---|---|---|
-| `app.js` | 3880 | `app.js` + `recorder.js` + `history-ui.js` |
-| `engine.js` | 1971 | `engine.js` + `engine-reverb.js` + `engine-midi.js` |
-| `settings.js` | 2418 | `settings.js` + `settings-midi.js` + `settings-project.js` |
-| `pattern.js` | 2226 | `pattern.js` + `pattern-tools.js` |
-| `studio.js` | 1603 | `studio.js` + `studio-modules.js` + `studio-overlay.js` |
-| `sound.js` | 2016 | `sound.js` + `sound-sample.js` |
+| File | Lines (before) | Lines (after) | Extracted into |
+|---|---|---|---|
+| `app.js` | 3880 | 3667 | `recorder.js`, `history-ui.js` |
+| `engine.js` | 1971 | 1612 | `engine-reverb.js`, `engine-midi.js` |
+| `settings.js` | 2418 | 1643 | `settings-midi.js`, `settings-project.js` |
+| `pattern.js` | 2226 | 1969 | `pattern-tools.js` |
+| `studio.js` | 1603 | 594 | `studio-modules.js`, `studio-overlay.js` |
+| `sound.js` | 2016 | 1375 | `sound-sample.js` |
 
 ### Phase 2: Unify Mutation & Clean State
 

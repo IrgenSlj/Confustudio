@@ -68,7 +68,7 @@ export function createDrumMachine(audioContext) {
   let _seqStep = 0;
   let _running = false;
   let _syncMode = false;
-  let _standaloneTimer = null;
+  const _standaloneTimer = null;
   let _standaloneBPM = 120;
   let _masterVolume = 0.8;
   let _swing = 0; // 0–1
@@ -648,8 +648,8 @@ export function createDrumMachine(audioContext) {
   }
 
   // ── Standalone transport (look-ahead scheduler) ───────────────────────────
-  let _scheduleAheadTime = 0.1; // seconds
-  let _lookaheadMs       = 25;  // ms between scheduler calls
+  const _scheduleAheadTime = 0.1; // seconds
+  const _lookaheadMs       = 25;  // ms between scheduler calls
   let _nextStepTime      = 0;
   let _schedTimer        = null;
 

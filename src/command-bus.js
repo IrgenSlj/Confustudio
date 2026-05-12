@@ -138,9 +138,9 @@ function euclidean(beats, steps) {
   if (beats <= 0) return Array(steps).fill(false);
   if (beats >= steps) return Array(steps).fill(true);
   beats = Math.min(beats, steps);
-  let pattern = [];
-  let counts = [];
-  let remainders = [];
+  const pattern = [];
+  const counts = [];
+  const remainders = [];
   let divisor = steps - beats;
   remainders.push(beats);
   let level = 0;

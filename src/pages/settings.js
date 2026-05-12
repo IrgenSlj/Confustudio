@@ -1,8 +1,6 @@
 // src/pages/settings.js — MIDI, clock, audio, storage, sync, version
 
 import {
-  applyProjectPackageToState,
-  createProjectPackage,
   saveState,
   getActivePattern,
   APP_DISPLAY_VERSION,
@@ -10,6 +8,8 @@ import {
   RECORDER_SLOT_COUNT,
 } from '../state.js';
 import { chatAssistant, fetchAssistantProviders, buildAssistantPrompt } from '../assistant-client.js';
+import { renderMidiSection } from './settings-midi.js';
+import { renderProjectSection } from './settings-project.js';
 
 const VERSION_LABEL = `${APP_DISPLAY_VERSION} · schema ${PROJECT_SCHEMA_VERSION}`;
 
@@ -102,57 +102,7 @@ if (!document.getElementById('_settings-extra-css')) {
   document.head.append(s);
 }
 
-// ─── Stem Export ──────────────────────────────────────────────────────────────
 
-/** Encode a Float32Array AudioBuffer as a 16-bit PCM WAV Blob. */
-function _audioBufferToWavBlob(buffer) {
-  const numChannels = buffer.numberOfChannels;
-  const sampleRate  = buffer.sampleRate;
-  const numFrames   = buffer.length;
-  const bytesPerSample = 2;
-  const dataByteLen = numFrames * numChannels * bytesPerSample;
-  const ab = new ArrayBuffer(44 + dataByteLen);
-  const view = new DataView(ab);
-
-  function writeStr(offset, str) {
-    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
-  }
-  function writeU16(offset, v) { view.setUint16(offset, v, true); }
-  function writeU32(offset, v) { view.setUint32(offset, v, true); }
-
-  writeStr(0,  'RIFF');
-  writeU32(4,  36 + dataByteLen);
-  writeStr(8,  'WAVE');
-  writeStr(12, 'fmt ');
-  writeU32(16, 16);           // subchunk1 size
-  writeU16(20, 1);            // PCM
-  writeU16(22, numChannels);
-  writeU32(24, sampleRate);
-  writeU32(28, sampleRate * numChannels * bytesPerSample);
-  writeU16(32, numChannels * bytesPerSample);
-  writeU16(34, 16);           // bits per sample
-  writeStr(36, 'data');
-  writeU32(40, dataByteLen);
-
-  let offset = 44;
-  for (let i = 0; i < numFrames; i++) {
-    for (let ch = 0; ch < numChannels; ch++) {
-      const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
-      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
-      offset += 2;
-    }
-  }
-  return new Blob([ab], { type: 'audio/wav' });
-}
-
-function _downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 function _getRecorderEditMeta(state, slotIndex) {
   const meta = state.recorderSlotsMeta?.[slotIndex] || {};
@@ -294,149 +244,7 @@ function _drawRecorderWaveform(canvas, buffer, trimStart = 0, trimEnd = 1) {
   ctx.fillRect(endX - 2, 0, 4, cssHeight);
 }
 
-/**
- * Show the stem export modal. Renders each track to a separate WAV using
- * engine-provided offline rendering hooks. When those hooks are absent, the
- * UI stays read-only instead of exporting silent placeholder files.
- */
-function _showStemExportModal(state, emit, container) {
-  // Remove any existing modal
-  document.getElementById('_sc-stem-modal')?.remove();
 
-  const overlay = document.createElement('div');
-  overlay.id = '_sc-stem-modal';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center';
-
-  const modal = document.createElement('div');
-  modal.style.cssText = 'background:var(--surface,#1a1a1a);border:1px solid var(--border,#333);border-radius:8px;padding:16px 20px;min-width:280px;max-width:380px;font-family:var(--font-mono,monospace)';
-
-  const title = document.createElement('div');
-  title.style.cssText = 'font-size:0.7rem;font-weight:700;color:var(--screen-text,#f0c640);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px';
-  title.textContent = 'EXPORT STEMS';
-
-  const desc = document.createElement('div');
-  desc.style.cssText = 'font-size:0.56rem;color:var(--muted,#888);line-height:1.6;margin-bottom:10px';
-  desc.textContent = 'Renders each track to a separate WAV file using OfflineAudioContext. All tracks share the current pattern length and BPM.';
-
-  const tracks = state.project?.banks?.[state.activeBank]?.patterns?.[state.activePattern]?.kit?.tracks ?? [];
-  const bpm = state.bpm ?? 120;
-  const bars = state.recorderBarCount ?? 4;
-  const beatsPerBar = 4;
-  const durationSec = (bars * beatsPerBar * 60) / bpm;
-  const sampleRate = state.audioContext?.sampleRate ?? 44100;
-  const eng = window._confustudioEngine ?? state.engine;
-  const stemRenderingAvailable = Boolean(eng?.renderTrackStem || eng?.renderOfflineTrack);
-
-  const infoEl = document.createElement('div');
-  infoEl.style.cssText = 'font-size:0.54rem;color:var(--screen-text,#f0c640);margin-bottom:12px;padding:6px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;background:rgba(0,0,0,0.3)';
-  infoEl.innerHTML = `<span style="opacity:0.7">BPM:</span> ${bpm} &nbsp; <span style="opacity:0.7">Bars:</span> ${bars} &nbsp; <span style="opacity:0.7">Duration:</span> ${durationSec.toFixed(2)}s &nbsp; <span style="opacity:0.7">Rate:</span> ${sampleRate}Hz`;
-
-  if (!stemRenderingAvailable) {
-    desc.textContent = 'Per-track offline rendering is not implemented in the current engine build yet. Stem export stays disabled until engine render hooks are available.';
-  }
-
-  const trackList = document.createElement('div');
-  trackList.style.cssText = 'display:flex;flex-direction:column;gap:3px;margin-bottom:12px';
-
-  // Track checkboxes
-  const checkboxes = [];
-  tracks.forEach((trk, ti) => {
-    const row = document.createElement('label');
-    row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:0.56rem;color:var(--fg,#ccc);cursor:pointer;padding:2px 0';
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = true;
-    cb.dataset.trackIndex = String(ti);
-    checkboxes.push(cb);
-    const name = document.createElement('span');
-    name.textContent = `T${ti+1}: ${trk.name ?? `Track ${ti+1}`}`;
-    row.append(cb, name);
-    trackList.append(row);
-  });
-
-  const progressEl = document.createElement('div');
-  progressEl.style.cssText = 'font-size:0.54rem;color:var(--accent,#5add71);min-height:18px;margin-bottom:8px';
-
-  const btnRow = document.createElement('div');
-  btnRow.style.cssText = 'display:flex;gap:6px;justify-content:flex-end';
-
-  const cancelBtn = document.createElement('button');
-  cancelBtn.className = 'ctx-btn';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.addEventListener('click', () => overlay.remove());
-
-  const exportBtn = document.createElement('button');
-  exportBtn.className = 'seq-btn';
-  exportBtn.textContent = stemRenderingAvailable ? 'Export WAV' : 'Unavailable';
-  exportBtn.style.cssText = 'font-size:0.6rem;font-weight:700';
-  exportBtn.disabled = !stemRenderingAvailable;
-
-  if (!stemRenderingAvailable) {
-    progressEl.style.color = 'var(--muted,#888)';
-    progressEl.textContent = 'Stem export is blocked until offline track rendering is implemented in the engine.';
-  }
-
-  exportBtn.addEventListener('click', async () => {
-    if (!stemRenderingAvailable) {
-      progressEl.style.color = 'var(--muted,#888)';
-      progressEl.textContent = 'Stem export is not available in this build yet.';
-      return;
-    }
-    exportBtn.disabled = true;
-    cancelBtn.disabled = true;
-    const selectedIndices = checkboxes.filter(cb => cb.checked).map(cb => parseInt(cb.dataset.trackIndex, 10));
-    if (!selectedIndices.length) {
-      progressEl.textContent = 'No tracks selected.';
-      exportBtn.disabled = false; cancelBtn.disabled = false;
-      return;
-    }
-    const projectName = (state.project?.name ?? 'stem').replace(/[^a-zA-Z0-9_-]/g, '_');
-
-    // Prefer engine's per-track render if available
-    if (eng?.renderTrackStem) {
-      for (let idx = 0; idx < selectedIndices.length; idx++) {
-        const ti = selectedIndices[idx];
-        progressEl.textContent = `Rendering T${ti+1}…  (${idx+1}/${selectedIndices.length})`;
-        try {
-          const buf = await eng.renderTrackStem(ti, durationSec);
-          _downloadBlob(_audioBufferToWavBlob(buf), `${projectName}_T${ti+1}.wav`);
-        } catch (err) {
-          progressEl.textContent = `Error on T${ti+1}: ${err.message}`;
-        }
-      }
-      progressEl.textContent = `Done — ${selectedIndices.length} stem(s) exported.`;
-      exportBtn.disabled = false; cancelBtn.disabled = false;
-      return;
-    }
-
-    try {
-      for (let idx = 0; idx < selectedIndices.length; idx++) {
-        const ti = selectedIndices[idx];
-        progressEl.textContent = `Rendering T${ti+1}…  (${idx+1}/${selectedIndices.length})`;
-        const offCtx = new OfflineAudioContext(2, Math.ceil(sampleRate * durationSec), sampleRate);
-        await eng.renderOfflineTrack(offCtx, ti);
-        const rendered = await offCtx.startRendering();
-        const filename = `${projectName}_T${ti+1}.wav`;
-        _downloadBlob(_audioBufferToWavBlob(rendered), filename);
-      }
-      progressEl.style.color = 'var(--live,#5add71)';
-      progressEl.textContent = `${selectedIndices.length} stem(s) exported.`;
-    } catch (err) {
-      progressEl.style.color = 'var(--record,#f05b52)';
-      progressEl.textContent = 'Export failed: ' + (err.message ?? err);
-    }
-    exportBtn.disabled = false;
-    cancelBtn.disabled = false;
-  });
-
-  btnRow.append(cancelBtn, exportBtn);
-  modal.append(title, desc, infoEl, trackList, progressEl, btnRow);
-  overlay.append(modal);
-  document.body.append(overlay);
-
-  // Close on backdrop click
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-}
 
 // ─── Keyboard Shortcuts Reference ─────────────────────────────────────────────
 const ALL_SHORTCUTS = [
@@ -865,140 +673,9 @@ export default {
       }
     }
 
-    // ── MIDI Output Routing section ──────────────────────────────────────────
-    const midiSection = container.querySelector('.settings-section');
-    if (midiSection) {
-      // ── MIDI Reconnect button ───────────────────────────────────────────────
-      const midiReconnectBtn = document.createElement('button');
-      midiReconnectBtn.className = 'screen-btn';
-      midiReconnectBtn.textContent = '↺ Reconnect MIDI devices';
-      midiReconnectBtn.title = 'Re-scan for MIDI devices if a device was plugged in after app load';
-      midiReconnectBtn.style.cssText = 'margin-top:8px;width:100%';
 
-      midiReconnectBtn.addEventListener('click', async () => {
-        midiReconnectBtn.textContent = '…Scanning';
-        midiReconnectBtn.disabled = true;
-        try {
-          const access = await navigator.requestMIDIAccess({ sysex: false });
-          // Trigger re-render of MIDI section by emitting state change
-          emit('state:change', { path: 'midiInput', value: state.midiInput });
-          midiReconnectBtn.textContent = '✓ Devices refreshed';
-        } catch (e) {
-          midiReconnectBtn.textContent = '⚠ MIDI access denied';
-        }
-        setTimeout(() => {
-          midiReconnectBtn.disabled = false;
-          midiReconnectBtn.textContent = '↺ Reconnect MIDI devices';
-        }, 2000);
-      });
 
-      midiSection.append(midiReconnectBtn);
 
-      const midiRoutingSection = document.createElement('div');
-      midiRoutingSection.style.cssText = 'margin-top:10px;border-top:1px solid var(--border);padding-top:8px';
-      const midiRoutingTitle = document.createElement('div');
-      midiRoutingTitle.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);margin-bottom:6px';
-      midiRoutingTitle.textContent = 'MIDI OUTPUT ROUTING';
-      midiRoutingSection.append(midiRoutingTitle);
-
-      // 8 track rows
-      for (let ti = 0; ti < 8; ti++) {
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:3px';
-        const label = document.createElement('span');
-        label.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted);min-width:40px';
-        label.textContent = `TRK ${ti + 1}`;
-
-        const select = document.createElement('select');
-        select.style.cssText = 'font-size:0.48rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px';
-
-        // Off + channels 1-16
-        const offOpt = document.createElement('option');
-        offOpt.value = '0'; offOpt.textContent = 'Off (internal)';
-        select.append(offOpt);
-
-        for (let ch = 1; ch <= 16; ch++) {
-          const opt = document.createElement('option');
-          opt.value = String(ch); opt.textContent = `Ch ${ch}`;
-          select.append(opt);
-        }
-
-        const currentCh = state.midiOutputChannels?.[ti] ?? 0;
-        select.value = String(currentCh);
-
-        select.addEventListener('change', () => {
-          if (!state.midiOutputChannels) state.midiOutputChannels = new Array(8).fill(0);
-          state.midiOutputChannels[ti] = parseInt(select.value);
-          emit('state:change', { param: 'midiOutputChannels', value: state.midiOutputChannels });
-        });
-
-        row.append(label, select);
-        midiRoutingSection.append(row);
-      }
-
-      midiSection.append(midiRoutingSection);
-    }
-
-    // ── Project metadata section ─────────────────────────────────────────────
-    if (!state.project.createdAt) state.project.createdAt = Date.now();
-
-    const metaSection = document.createElement('div');
-    metaSection.className = 'settings-section';
-    metaSection.style.cssText = 'flex-shrink:0;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)';
-    metaSection.dataset.settingsTab = 'PROJECT';
-    metaSection.innerHTML = `
-      <div class="settings-label">PROJECT INFO</div>
-      <div class="settings-row">
-        <label>Name</label>
-        <input type="text" value="${(state.project.name ?? '').replace(/"/g, '&quot;')}" id="proj-name-input" style="flex:1;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:2px 5px;font-family:var(--font-mono);font-size:0.55rem">
-      </div>
-      <div class="settings-row">
-        <label>Author</label>
-        <input type="text" value="${(state.project.author ?? '').replace(/"/g, '&quot;')}" id="proj-author-input" style="flex:1;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:2px 5px;font-family:var(--font-mono);font-size:0.55rem">
-      </div>
-      <div class="settings-row">
-        <label>BPM</label>
-        <input type="number" min="40" max="240" value="${state.bpm ?? 120}" id="proj-bpm-input" style="width:52px;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:2px 5px;font-family:var(--font-mono);font-size:0.55rem">
-      </div>
-      <div class="settings-row">
-        <label>Notes</label>
-        <textarea id="proj-desc-input" rows="2" style="flex:1;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:2px 5px;font-family:var(--font-mono);font-size:0.52rem;resize:vertical">${state.project.description ?? ''}</textarea>
-      </div>
-      <div class="settings-row" style="color:var(--muted);font-size:0.48rem;font-family:var(--font-mono)">
-        Created: ${state.project.createdAt ? new Date(state.project.createdAt).toLocaleDateString() : 'Unknown'}
-      </div>
-    `;
-    container.append(metaSection);
-
-    // Wire metadata inputs
-    metaSection.querySelector('#proj-name-input').addEventListener('input', e => {
-      if (state.project) {
-        state.project.name = e.target.value;
-        const topbarEl = document.getElementById('project-name');
-        if (topbarEl) topbarEl.textContent = e.target.value || 'CONFUstudio';
-        saveState(state);
-      }
-    });
-    metaSection.querySelector('#proj-author-input').addEventListener('blur', e => {
-      if (state.project) {
-        state.project.author = e.target.value;
-        saveState(state);
-      }
-    });
-    metaSection.querySelector('#proj-bpm-input').addEventListener('change', e => {
-      const v = Math.max(40, Math.min(240, parseInt(e.target.value, 10) || 120));
-      e.target.value = v;
-      state.bpm = v;
-      emit('state:change', { path: 'bpm', value: v });
-      if (state.abletonLink) publishLinkBpm(state, v);
-      saveState(state);
-    });
-    metaSection.querySelector('#proj-desc-input').addEventListener('blur', e => {
-      if (state.project) {
-        state.project.description = e.target.value;
-        saveState(state);
-      }
-    });
 
     const recorderSlotIndex = state.selectedRecorderSlot ?? 0;
     const recorderWaveform = container.querySelector('#recorder-waveform');
@@ -1193,7 +870,7 @@ export default {
           emit('toast', { msg: 'No recorder slot loaded' });
           return;
         }
-        const sliceSelect = root.querySelector('#recorder-slice-count');
+        const sliceSelect = document.querySelector('#recorder-slice-count');
         const sliceCount = Math.max(2, Math.min(8, parseInt(sliceSelect?.value || '4', 10) || 4));
         const trackLen = Math.max(1, track.trackLength || pattern.length || track.steps.length || 16);
         const candidateSteps = track.steps.slice(0, trackLen);
@@ -1235,308 +912,11 @@ export default {
       }
     });
 
-    // ── MIDI clock live status display ───────────────────────────────────────
-    // Update the #midi-clock-status span every second with live BPM or no-signal text.
-    // The interval is registered on container._cleanup so it is cleared on page change.
-    if (container._midiClockStatusInterval) {
-      clearInterval(container._midiClockStatusInterval);
-      container._midiClockStatusInterval = null;
-    }
-    function updateMidiClockStatusDisplay() {
-      const statusEl = container.querySelector('#midi-clock-status');
-      if (!statusEl) return;
-      if (state._midiClockReceiving && state._midiClockBpm != null) {
-        statusEl.style.color = 'var(--accent)';
-        statusEl.textContent = `\u2713 ${state._midiClockBpm.toFixed(1)} BPM`;
-      } else {
-        statusEl.style.color = 'var(--muted)';
-        statusEl.textContent = '\u2014 no signal';
-      }
-    }
-    updateMidiClockStatusDisplay(); // run immediately on render
-    container._midiClockStatusInterval = setInterval(updateMidiClockStatusDisplay, 1000);
-    // Register cleanup so navigating away clears the interval
-    const _prevCleanup = container._cleanup;
-    container._cleanup = () => {
-      clearInterval(container._midiClockStatusInterval);
-      container._midiClockStatusInterval = null;
-      container._cleanupPerf?.();
-      _prevCleanup?.();
-    };
 
-    // ── MIDI Learn section ───────────────────────────────────────────────────
-    if (!state.midiLearnMap) state.midiLearnMap = {};
 
-    const midiLearnSection = document.createElement('div');
-    midiLearnSection.style.cssText = 'margin-top:10px;flex-shrink:0;border-top:1px solid var(--border);padding-top:8px';
-    midiLearnSection.dataset.settingsTab = 'MIDI';
 
-    const learnHeader = document.createElement('div');
-    learnHeader.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px';
 
-    const learnTitle = document.createElement('span');
-    learnTitle.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em';
-    learnTitle.textContent = 'MIDI Learn';
 
-    const learnToggle = document.createElement('button');
-    learnToggle.className = 'ctx-btn' + (state.midiLearnMode ? ' active' : '');
-    learnToggle.textContent = state.midiLearnMode ? 'Learning…' : 'MIDI Learn Mode';
-    learnToggle.style.marginLeft = 'auto';
-    learnToggle.addEventListener('click', () => {
-      state.midiLearnMode = !state.midiLearnMode;
-      learnToggle.classList.toggle('active', state.midiLearnMode);
-      learnToggle.textContent = state.midiLearnMode ? 'Learning…' : 'MIDI Learn Mode';
-      learnStatus.style.display = state.midiLearnMode ? '' : 'none';
-      saveState(state);
-    });
-
-    learnHeader.append(learnTitle, learnToggle);
-    midiLearnSection.append(learnHeader);
-
-    const learnStatus = document.createElement('div');
-    learnStatus.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--accent);margin-bottom:6px;display:' + (state.midiLearnMode ? '' : 'none');
-    learnStatus.textContent = 'Move a CC knob on your controller…';
-    midiLearnSection.append(learnStatus);
-
-    const mappings = Object.entries(state.midiLearnMap);
-    if (mappings.length > 0) {
-      const table = document.createElement('div');
-      table.style.cssText = 'display:grid;grid-template-columns:auto 1fr;gap:2px 8px;margin-bottom:6px';
-      const hCC = document.createElement('span');
-      hCC.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);text-transform:uppercase';
-      hCC.textContent = 'CC';
-      const hParam = document.createElement('span');
-      hParam.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);text-transform:uppercase';
-      hParam.textContent = 'Parameter';
-      table.append(hCC, hParam);
-      mappings.forEach(([cc, param]) => {
-        const ccEl = document.createElement('span');
-        ccEl.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--accent)';
-        ccEl.textContent = cc;
-        const paramEl = document.createElement('span');
-        paramEl.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--screen-text)';
-        paramEl.textContent = param;
-        table.append(ccEl, paramEl);
-      });
-      midiLearnSection.append(table);
-    } else {
-      const noMappings = document.createElement('div');
-      noMappings.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--muted);margin-bottom:6px';
-      noMappings.textContent = 'No mappings yet.';
-      midiLearnSection.append(noMappings);
-    }
-
-    // ── MIDI Learn table with per-row delete + learning highlight ─────────────
-    function renderMidiLearnTable() {
-      // Remove previous table/no-mappings element
-      midiLearnSection.querySelectorAll('.midi-learn-table, .midi-learn-empty').forEach(el => el.remove());
-
-      const mappings = Object.entries(state.midiLearnMap);
-      if (mappings.length > 0) {
-        const table = document.createElement('div');
-        table.className = 'midi-learn-table';
-        table.style.cssText = 'display:grid;grid-template-columns:auto 60px 1fr auto;gap:2px 6px;margin-bottom:6px;align-items:center';
-
-        // Headers
-        const hCC = document.createElement('span');
-        hCC.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);text-transform:uppercase';
-        hCC.textContent = 'CC';
-        const hBar = document.createElement('span');
-        hBar.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);text-transform:uppercase';
-        hBar.textContent = 'Level';
-        const hParam = document.createElement('span');
-        hParam.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);text-transform:uppercase';
-        hParam.textContent = 'Parameter';
-        const hDel = document.createElement('span');
-        table.append(hCC, hBar, hParam, hDel);
-
-        mappings.forEach(([cc, param]) => {
-          const isLearning = state.midiLearnMode && state.midiLearnTarget === param;
-          const ccEl = document.createElement('span');
-          ccEl.style.cssText = `font-family:var(--font-mono);font-size:0.56rem;color:${isLearning ? 'var(--live)' : 'var(--accent)'}`;
-          if (isLearning) ccEl.style.fontWeight = 'bold';
-          ccEl.textContent = cc;
-
-          // CC bar cell
-          const barCell = document.createElement('div');
-          barCell.style.cssText = 'width:60px;padding:1px 4px';
-          const bar = document.createElement('div');
-          bar.style.cssText = `height:4px;background:var(--accent);border-radius:2px;width:${Math.round((parseInt(cc) / 127) * 60)}px;opacity:0.7`;
-          barCell.append(bar);
-
-          const paramEl = document.createElement('span');
-          paramEl.style.cssText = `font-family:var(--font-mono);font-size:0.56rem;color:${isLearning ? 'var(--live)' : 'var(--screen-text)'}`;
-          if (isLearning) paramEl.style.fontWeight = 'bold';
-          paramEl.textContent = param;
-          const delBtn = document.createElement('button');
-          delBtn.className = 'ctx-btn';
-          delBtn.textContent = '×';
-          delBtn.title = 'Remove mapping';
-          delBtn.style.cssText = 'font-size:0.65rem;padding:0 4px;line-height:1;color:var(--record);border-color:rgba(240,91,82,0.3)';
-          delBtn.addEventListener('click', () => {
-            delete state.midiLearnMap[cc];
-            saveState(state);
-            renderMidiLearnTable();
-          });
-          if (isLearning) {
-            [ccEl, paramEl].forEach(el => el.classList?.add?.('learning'));
-            ccEl.style.background = 'rgba(0,200,100,0.08)';
-            paramEl.style.background = 'rgba(0,200,100,0.08)';
-          }
-          table.append(ccEl, barCell, paramEl, delBtn);
-        });
-        midiLearnSection.insertBefore(table, midiLearnActionBar);
-      } else {
-        const noMappings = document.createElement('div');
-        noMappings.className = 'midi-learn-empty';
-        noMappings.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--muted);margin-bottom:6px';
-        noMappings.textContent = 'No mappings yet.';
-        midiLearnSection.insertBefore(noMappings, midiLearnActionBar);
-      }
-    }
-
-    // Action bar: Clear All, Export, Import
-    const midiLearnActionBar = document.createElement('div');
-    midiLearnActionBar.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;margin-top:4px';
-
-    const clearBtn = document.createElement('button');
-    clearBtn.className = 'seq-btn';
-    clearBtn.textContent = 'Clear All';
-    clearBtn.style.cssText = 'font-size:0.58rem;border-color:rgba(240,91,82,0.3);color:var(--record)';
-    clearBtn.addEventListener('click', () => {
-      if (!confirm('Clear all MIDI learn mappings?')) return;
-      state.midiLearnMap = {};
-      saveState(state);
-      renderMidiLearnTable();
-      emit('state:change', { path: 'midiLearnMap', value: {} });
-    });
-
-    const exportMidiBtn = document.createElement('button');
-    exportMidiBtn.className = 'seq-btn';
-    exportMidiBtn.textContent = 'Export Map';
-    exportMidiBtn.style.cssText = 'font-size:0.58rem';
-    exportMidiBtn.addEventListener('click', () => {
-      const json = JSON.stringify(state.midiLearnMap, null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `midi-map-${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    });
-
-    const importMidiInput = document.createElement('input');
-    importMidiInput.type = 'file';
-    importMidiInput.accept = '.json';
-    importMidiInput.style.display = 'none';
-    importMidiInput.addEventListener('change', () => {
-      const file = importMidiInput.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = ev => {
-        try {
-          const map = JSON.parse(ev.target.result);
-          if (typeof map !== 'object' || Array.isArray(map)) throw new Error('Expected an object');
-          state.midiLearnMap = map;
-          saveState(state);
-          renderMidiLearnTable();
-          emit('state:change', { path: 'midiLearnMap', value: map });
-        } catch (err) {
-          alert('Invalid MIDI map file: ' + err.message);
-        }
-      };
-      reader.readAsText(file);
-    });
-    const importMidiBtn = document.createElement('button');
-    importMidiBtn.className = 'seq-btn';
-    importMidiBtn.textContent = 'Import Map';
-    importMidiBtn.style.cssText = 'font-size:0.58rem';
-    importMidiBtn.addEventListener('click', () => importMidiInput.click());
-
-    midiLearnActionBar.append(clearBtn, exportMidiBtn, importMidiInput, importMidiBtn);
-    midiLearnSection.append(midiLearnActionBar);
-
-    renderMidiLearnTable();
-
-    container.append(midiLearnSection);
-
-    // ── Project Backups ───────────────────────────────────────────────────────
-    const backupSection = document.createElement('div');
-    backupSection.className = 'settings-section';
-    backupSection.style.cssText = 'flex-shrink:0;border-top:1px solid var(--border);padding-top:8px;margin-top:8px';
-    backupSection.dataset.settingsTab = 'PROJECT';
-
-    function renderBackups() {
-      backupSection.innerHTML = '<div class="settings-label">BACKUPS</div>';
-      const actionRow = document.createElement('div');
-      actionRow.style.cssText = 'display:flex;gap:4px;margin-bottom:6px';
-      const backupBtn = document.createElement('button');
-      backupBtn.className = 'ctx-btn';
-      backupBtn.textContent = 'Backup Now';
-      backupBtn.addEventListener('click', () => {
-        const now = Date.now();
-        const key = `confustudio_backup_${now}`;
-        localStorage.setItem(key, JSON.stringify(createProjectPackage(state, { backup: true, timestamp: now })));
-        emit('toast', { msg: 'Backup saved' });
-        renderBackups();
-      });
-      actionRow.append(backupBtn);
-      backupSection.append(actionRow);
-
-      const keys = Object.keys(localStorage)
-        .filter(k => k.startsWith('confustudio_backup_') || k.startsWith('confusynth_backup_'))
-        .sort((a, b) => b.localeCompare(a))
-        .slice(0, 5);
-
-      if (keys.length === 0) {
-        const none = document.createElement('div');
-        none.style.cssText = 'font-family:var(--font-mono);font-size:0.55rem;color:var(--muted)';
-        none.textContent = 'No backups';
-        backupSection.append(none);
-      } else {
-        keys.forEach(key => {
-          let backup = null;
-          try { backup = JSON.parse(localStorage.getItem(key)); } catch (_) {}
-          const rawTs = backup?.timestamp
-            ?? backup?.savedAt
-            ?? parseInt(key.replace('confustudio_backup_', '').replace('confusynth_backup_', ''), 10);
-          const date = new Date(rawTs ?? Date.now());
-          const dateStr = date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-          const label = isNaN(date.getTime()) ? key : dateStr;
-          const row = document.createElement('div');
-          row.style.cssText = 'display:flex;align-items:center;gap:4px;margin-bottom:3px';
-          const lbl = document.createElement('span');
-          lbl.style.cssText = 'font-family:var(--font-mono);font-size:0.55rem;color:var(--muted);flex:1';
-          lbl.textContent = label;
-          const restoreBtn = document.createElement('button');
-          restoreBtn.className = 'ctx-btn';
-          restoreBtn.textContent = 'Restore';
-          restoreBtn.style.fontSize = '0.5rem';
-          restoreBtn.addEventListener('click', () => {
-            if (!confirm('Restore this backup? Current project will be lost.')) return;
-            try {
-              const proj = JSON.parse(localStorage.getItem(key));
-              applyProjectPackageToState(state, proj);
-              saveState(state);
-              emit('state:change', { path: 'scale', value: state.scale });
-              emit('toast', { msg: 'Backup restored' });
-            } catch(e) { emit('toast', { msg: 'Restore failed' }); }
-          });
-          const delBtn = document.createElement('button');
-          delBtn.className = 'ctx-btn';
-          delBtn.textContent = '×';
-          delBtn.style.cssText = 'font-size:0.5rem;color:var(--muted)';
-          delBtn.addEventListener('click', () => {
-            localStorage.removeItem(key);
-            renderBackups();
-          });
-          row.append(lbl, restoreBtn, delBtn);
-          backupSection.append(row);
-        });
-      }
-    }
-    renderBackups();
-    container.append(backupSection);
 
     const recorderSection = document.createElement('div');
     recorderSection.className = 'settings-section';
@@ -1804,56 +1184,9 @@ export default {
     perfSection.append(latRow);
     container.append(perfSection);
 
-    // ── MIDI Programs ─────────────────────────────────────────────────────────
-    const progSection = document.createElement('div');
-    progSection.className = 'settings-section';
-    progSection.dataset.settingsTab = 'MIDI';
-    progSection.innerHTML = '<div class="settings-label">MIDI PROGRAMS (0=off)</div>';
-    const progGrid = document.createElement('div');
-    progGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:3px;';
-    const tracks = state.project.banks[state.activeBank].patterns[state.activePattern].kit.tracks;
-    tracks.forEach((trk, ti) => {
-      const row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:0.52rem;color:var(--muted)';
-      const prog = trk.midiProgram != null ? trk.midiProgram + 1 : 0;
-      row.innerHTML = `<span>T${ti+1}</span><input type="number" min="0" max="128" value="${prog}" style="width:38px;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 3px;font-family:var(--font-mono);font-size:0.52rem">`;
-      row.querySelector('input').addEventListener('change', e => {
-        const v = parseInt(e.target.value) || 0;
-        trk.midiProgram = v > 0 ? v - 1 : null;
-        if (v > 0) {
-          const eng = window._confustudioEngine;
-          if (eng?.sendProgramChange) eng.sendProgramChange(state.midiChannel ?? 1, v - 1);
-        }
-        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
-      });
-      progGrid.append(row);
-    });
-    progSection.append(progGrid);
-    container.append(progSection);
 
-    // ── MIDI Channels ────────────────────────────────────────────────────────
-    const midiChSection = document.createElement('div');
-    midiChSection.className = 'settings-section';
-    midiChSection.dataset.settingsTab = 'MIDI';
-    midiChSection.innerHTML = '<div class="settings-label">MIDI CHANNELS (0=global)</div>';
-    const midiChGrid = document.createElement('div');
-    midiChGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:3px;';
-    tracks.forEach((trk, ti) => {
-      const val = trk.midiChannel ?? 0;
-      const row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:0.52rem;color:var(--muted)';
-      row.innerHTML = `<span>T${ti+1}</span><input type="number" min="0" max="16" value="${val}"
-        style="width:38px;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 3px;font-family:var(--font-mono);font-size:0.52rem">`;
-      row.querySelector('input').addEventListener('change', e => {
-        const v = parseInt(e.target.value) || 0;
-        trk.midiChannel = v > 0 ? v : null;
-        emit('state:change', { path: 'trackMidiChannel', value: { trackIndex: ti, midiChannel: trk.midiChannel } });
-        saveState(state);
-      });
-      midiChGrid.append(row);
-    });
-    midiChSection.append(midiChGrid);
-    container.append(midiChSection);
+
+
 
     // ── Performance Monitor ──────────────────────────────────────────────────
     const perfMonitorSection = container.querySelector('#perf-section');
@@ -1935,118 +1268,7 @@ export default {
     const _savedAccent = localStorage.getItem('confustudio-accent') ?? localStorage.getItem('confusynth-accent');
     if (_savedAccent) document.documentElement.style.setProperty('--live', _savedAccent);
 
-    // ── Presets ──────────────────────────────────────────────────────────────
-    const presetsSection = document.createElement('div');
-    presetsSection.style.cssText = 'margin-top:10px;flex-shrink:0;border-top:1px solid var(--border);padding-top:8px';
-    presetsSection.dataset.settingsTab = 'PROJECT';
 
-    const presetsTitle = document.createElement('span');
-    presetsTitle.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px';
-    presetsTitle.textContent = 'Presets';
-    presetsSection.append(presetsTitle);
-
-    const presetBar = document.createElement('div');
-    presetBar.className = 'preset-bar';
-
-    // Save Project
-    const saveBtn = document.createElement('button');
-    saveBtn.className = 'seq-btn';
-    saveBtn.textContent = 'Save Project';
-    saveBtn.addEventListener('click', () => {
-      const json = JSON.stringify(createProjectPackage(state), null, 2);
-      const blob = new Blob([json], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${state.project.name ?? 'confustudio'}-${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    });
-
-    // Load Project
-    const loadInput = document.createElement('input');
-    loadInput.type = 'file';
-    loadInput.accept = '.json';
-    loadInput.style.display = 'none';
-    loadInput.addEventListener('change', () => {
-      const file = loadInput.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = e => {
-        try {
-          const project = JSON.parse(e.target.result);
-          applyProjectPackageToState(state, project);
-          saveState(state);
-          emit('state:change', { path: 'action_renderPage', value: true });
-        } catch (err) {
-          alert('Invalid project file: ' + err.message);
-        }
-      };
-      reader.readAsText(file);
-    });
-    const loadBtn = document.createElement('button');
-    loadBtn.className = 'seq-btn';
-    loadBtn.textContent = 'Load Project';
-    loadBtn.addEventListener('click', () => loadInput.click());
-
-    // Save Kit
-    const saveKitBtn = document.createElement('button');
-    saveKitBtn.className = 'seq-btn';
-    saveKitBtn.textContent = 'Save Kit';
-    saveKitBtn.addEventListener('click', () => {
-      const kit = getActivePattern(state).kit;
-      const blob = new Blob([JSON.stringify(kit, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `kit-${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    });
-
-    // Load Kit
-    const loadKitInput = document.createElement('input');
-    loadKitInput.type = 'file';
-    loadKitInput.accept = '.json';
-    loadKitInput.style.display = 'none';
-    loadKitInput.addEventListener('change', () => {
-      const file = loadKitInput.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = e => {
-        try {
-          const kit = JSON.parse(e.target.result);
-          getActivePattern(state).kit = kit;
-          saveState(state);
-          emit('state:change', { path: 'action_renderPage', value: true });
-        } catch (err) {
-          alert('Invalid kit file: ' + err.message);
-        }
-      };
-      reader.readAsText(file);
-    });
-    const loadKitBtn = document.createElement('button');
-    loadKitBtn.className = 'seq-btn';
-    loadKitBtn.textContent = 'Load Kit';
-    loadKitBtn.addEventListener('click', () => loadKitInput.click());
-
-    // Export MIDI
-    const exportMidiFileBtn = document.createElement('button');
-    exportMidiFileBtn.className = 'seq-btn';
-    exportMidiFileBtn.textContent = 'Export MIDI';
-    exportMidiFileBtn.title = 'Export active pattern as Standard MIDI File (Ctrl+Shift+E)';
-    exportMidiFileBtn.addEventListener('click', () => {
-      if (typeof window.exportMidi === 'function') window.exportMidi(state);
-    });
-
-    // Export Stems
-    const exportStemsBtn = document.createElement('button');
-    exportStemsBtn.className = 'seq-btn';
-    exportStemsBtn.textContent = 'Export Stems';
-    exportStemsBtn.title = 'Render each track to a separate WAV file when offline engine rendering is available';
-    exportStemsBtn.addEventListener('click', () => _showStemExportModal(state, emit, container));
-
-    presetBar.append(saveBtn, loadInput, loadBtn, saveKitBtn, loadKitInput, loadKitBtn, exportMidiFileBtn, exportStemsBtn);
-    presetsSection.append(presetBar);
-    container.append(presetsSection);
 
     // ── Theme selector ───────────────────────────────────────────────────────
     const themeAccentColors = { default: '#8fba4e', blue: '#4e8fbf', red: '#bf4e4e', mono: '#aaa' };
@@ -2398,6 +1620,9 @@ export default {
     if (state.abletonLink && !state._linkStream) {
       connectLink(state, emit);
     }
+
+    renderMidiSection(container, state, emit);
+    renderProjectSection(container, state, emit, publishLinkBpm);
 
     // Apply initial tab visibility after all sections are in the DOM
     updateTabVisibility();

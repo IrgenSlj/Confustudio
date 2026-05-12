@@ -14,7 +14,7 @@ export function createAcidMachine(audioContext) {
   [0, 2, 4, 7, 8, 10, 12, 14].forEach(i => { _steps[i].active = true; });
 
   let _running = false;
-  let _currentStep = -1;
+  const _currentStep = -1;
   let _prevFreq = 110;
   let _slideActive = false;   // true when the previous step had slide=true
   let _waveform = 'sawtooth';

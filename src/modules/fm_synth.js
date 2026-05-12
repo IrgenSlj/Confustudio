@@ -120,7 +120,7 @@ export function createFMSynth(audioContext) {
 
   // ── State ──────────────────────────────────────────────────────────────────
   let _algoIdx = 1; // default: Twin
-  let _opParams = [
+  const _opParams = [
     { ratio: 1, fine: 0, level: 0.8, a: 0.002, d: 0.3, s: 0.7, r: 0.5, feedback: 0.1 },
     { ratio: 2, fine: 0, level: 0.6, a: 0.002, d: 0.3, s: 0.5, r: 0.4, feedback: 0 },
     { ratio: 1, fine: 0, level: 0.5, a: 0.002, d: 0.3, s: 0.4, r: 0.4, feedback: 0 },

@@ -10,7 +10,9 @@ import { renderKnobs, KNOB_MAPS } from './knobs.js';
 import { initStudio } from './studio.js';
 import { initCables } from './cables.js';
 import { initBackground } from './background.js';
-import { captureCommandState, createHistoryController, executeStudioCommands } from './command-bus.js';
+import { captureCommandState, executeStudioCommands } from './command-bus.js';
+import { resetRecorderSlotMeta, cloneJson, captureRecorderSlot, loadRecorderSlotToTrack, exportRecorderSlot } from './recorder.js';
+import { initHistoryUI } from './history-ui.js';
 
 // Page modules
 import patternPage  from './pages/pattern.js';
@@ -57,21 +59,6 @@ window.startMidiLearn = function startMidiLearn(param, setter) {
   window._midiLearnTarget = { param, setter };
   showToast('Wiggle a knob…', 4000);
 };
-
-function resetRecorderSlotMeta(slotIndex) {
-  return {
-    name: `Slot ${slotIndex + 1}`,
-    source: null,
-    trackIndex: null,
-    durationSec: 0,
-    createdAt: null,
-    trimStart: 0,
-    trimEnd: 1,
-    reversed: false,
-    normalized: false,
-    editedAt: null,
-  };
-}
 
 // ─────────────────────────────────────────────
 // PERFORMANCE OVERLAY (backtick toggle)
@@ -247,7 +234,7 @@ let _schedNextTime = 0;
 let _schedStepIdx  = 0;  // kept for backward compat; mirrors _trackStepIdx[0]
 let _trackStepIdx  = Array(8).fill(0); // per-track step counters for polyrhythm
 let _schedRafId    = null;
-let _oscAnimRef    = { id: null };
+const _oscAnimRef    = { id: null };
 let _saveTimer     = null;
 let _lastRenderedPage = null;
 
@@ -258,6 +245,13 @@ state._fillActive = false;
 state._selectedSteps = new Set();
 
 const LEGACY_STORAGE_KEY = 'confusynth-v2';
+
+// ─────────────────────────────────────────────
+// UNDO / REDO HISTORY
+// ─────────────────────────────────────────────
+const history = initHistoryUI(state, showToast);
+const { pushHistory, undoHistory, redoHistory, historyController,
+        updateUndoIndicator, syncHistoryMeta, markCheckpoint } = history;
 
 function runStudioCommands(commands, label = 'Studio edit') {
   const list = Array.isArray(commands) ? commands : [commands];
@@ -297,76 +291,6 @@ window.confustudioCommands = {
 };
 
 // ─────────────────────────────────────────────
-// UNDO / REDO HISTORY
-// ─────────────────────────────────────────────
-const historyController = createHistoryController(100);
-let _historyIdx = -1;
-let _historyTotal = 0;
-let _checkpoints = []; // {historyIdx, label, timestamp}
-
-function syncHistoryMeta() {
-  const meta = historyController.getMeta();
-  _historyIdx = meta.index;
-  _historyTotal = meta.total;
-  _checkpoints = meta.checkpoints;
-}
-
-function pushHistory(state) {
-  historyController.push(state);
-  syncHistoryMeta();
-  updateUndoIndicator();
-}
-
-function undoHistory(state) {
-  if (!historyController.undo(state)) return;
-  syncHistoryMeta();
-  updateUndoIndicator();
-}
-
-function redoHistory(state) {
-  if (!historyController.redo(state)) return;
-  syncHistoryMeta();
-  updateUndoIndicator();
-}
-
-function markCheckpoint(label) {
-  const entry = historyController.markCheckpoint(label);
-  if (!entry) return;
-  syncHistoryMeta();
-  updateUndoIndicator();
-  showToast(`Checkpoint: ${entry.label}`);
-}
-
-function updateUndoIndicator() {
-  let ind = document.getElementById('undo-indicator');
-  if (!ind) {
-    ind = document.createElement('span');
-    ind.id = 'undo-indicator';
-    ind.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted);padding:0 4px;line-height:36px;cursor:default;';
-    const stopBtn = document.getElementById('btn-stop');
-    if (stopBtn?.parentNode) stopBtn.parentNode.insertBefore(ind, stopBtn.nextSibling);
-  }
-  const available = _historyIdx;
-  const total = _historyTotal;
-  ind.textContent = total > 0 ? `\u21BA${available}` : '';
-  ind.style.color = available > 0 ? 'var(--screen-text)' : 'var(--muted)';
-  // Build tooltip listing named checkpoints
-  if (_checkpoints.length > 0) {
-    const lines = _checkpoints
-      .slice()
-      .sort((a, b) => a.historyIdx - b.historyIdx)
-      .map(c => {
-        const marker = c.historyIdx === _historyIdx ? '> ' : '  ';
-        const time = new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        return `${marker}[${c.historyIdx}] ${c.label} (${time})`;
-      });
-    ind.title = lines.join('\n');
-  } else {
-    ind.title = '';
-  }
-}
-
-// ─────────────────────────────────────────────
 // DOM REFS
 // ─────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -402,152 +326,6 @@ const el = {
   signalMeter:   $('signal-meter'),
   masterVolume:  $('master-volume'),
 };
-
-function cloneJson(value) {
-  return JSON.parse(JSON.stringify(value));
-}
-
-function getRecorderDurationMs(bars = state.recorderBarCount ?? 4) {
-  const bpm = Math.max(40, Number(state.bpm) || 120);
-  const safeBars = Math.max(1, Math.min(32, Number(bars) || 4));
-  return Math.round((240000 / bpm) * safeBars);
-}
-
-async function captureRecorderSlot(slotIndex, options = {}) {
-  await ensureAudio();
-  if (!state.engine?.master || !state.audioContext || state._recorderCaptureActive) return false;
-
-  const bars = options.bars ?? state.recorderBarCount ?? 4;
-  const durationMs = getRecorderDurationMs(bars);
-  const mediaDest = state.audioContext.createMediaStreamDestination();
-  const mimeType = [
-    'audio/webm;codecs=opus',
-    'audio/webm',
-  ].find((type) => window.MediaRecorder?.isTypeSupported?.(type)) || '';
-
-  state.engine.master.connect(mediaDest);
-  const recorder = new MediaRecorder(mediaDest.stream, mimeType ? { mimeType } : undefined);
-  const chunks = [];
-  state._recorderCaptureActive = { slotIndex, startedAt: Date.now(), durationMs };
-
-  return new Promise((resolve) => {
-    recorder.ondataavailable = (event) => {
-      if (event.data?.size) chunks.push(event.data);
-    };
-    recorder.onerror = () => {
-      state._recorderCaptureActive = null;
-      try { state.engine.master.disconnect(mediaDest); } catch (_) {}
-      showToast('Capture failed');
-      resolve(false);
-    };
-    recorder.onstop = async () => {
-      state._recorderCaptureActive = null;
-      try { state.engine.master.disconnect(mediaDest); } catch (_) {}
-      const blob = new Blob(chunks, { type: mimeType || 'audio/webm' });
-      if (!blob.size) {
-        showToast('Capture empty');
-        resolve(false);
-        return;
-      }
-      try {
-        const arrayBuffer = await blob.arrayBuffer();
-        const decoded = await state.audioContext.decodeAudioData(arrayBuffer.slice(0));
-        state.recorderBuffers[slotIndex] = decoded;
-        state.recorderSlotsMeta[slotIndex] = {
-          ...state.recorderSlotsMeta[slotIndex],
-          source: options.source ?? 'master',
-          trackIndex: options.trackIndex ?? null,
-          durationSec: decoded.duration,
-          createdAt: Date.now(),
-          bars,
-        };
-        scheduleSave();
-        renderPage();
-        showToast(`Captured slot ${slotIndex + 1}`);
-        resolve(true);
-      } catch (error) {
-        console.warn('Recorder decode failed:', error);
-        showToast('Capture decode failed');
-        resolve(false);
-      }
-    };
-
-    recorder.start();
-    showToast(`Capturing ${bars} bars…`, Math.max(1400, durationMs));
-    setTimeout(() => {
-      if (recorder.state !== 'inactive') recorder.stop();
-    }, durationMs);
-  });
-}
-
-function loadRecorderSlotToTrack(slotIndex, trackIndex = state.selectedTrackIndex) {
-  const buffer = state.recorderBuffers?.[slotIndex];
-  const track = getActivePattern(state).kit.tracks[trackIndex];
-  if (!buffer || !track) return false;
-  track.machine = 'sample';
-  track.sampleBuffer = buffer;
-  track.sampleStart = 0;
-  track.sampleEnd = 1;
-  track.loopStart = 0;
-  track.loopEnd = 1;
-  track.loopEnabled = false;
-  scheduleSave();
-  renderPage();
-  showToast(`Loaded slot ${slotIndex + 1} → T${trackIndex + 1}`);
-  return true;
-}
-
-function exportRecorderSlot(slotIndex) {
-  const buffer = state.recorderBuffers?.[slotIndex];
-  if (!buffer) return false;
-  const channels = [];
-  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-    channels.push(buffer.getChannelData(ch));
-  }
-  const wav = encodeWav(channels, buffer.sampleRate);
-  const blob = new Blob([wav], { type: 'audio/wav' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `confustudio-slot-${slotIndex + 1}.wav`;
-  a.click();
-  URL.revokeObjectURL(url);
-  return true;
-}
-
-function encodeWav(channelData, sampleRate) {
-  const channels = channelData.length;
-  const frameCount = channelData[0]?.length ?? 0;
-  const bytesPerSample = 2;
-  const blockAlign = channels * bytesPerSample;
-  const buffer = new ArrayBuffer(44 + frameCount * blockAlign);
-  const view = new DataView(buffer);
-  const writeString = (offset, text) => {
-    for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i));
-  };
-  writeString(0, 'RIFF');
-  view.setUint32(4, 36 + frameCount * blockAlign, true);
-  writeString(8, 'WAVE');
-  writeString(12, 'fmt ');
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, channels, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * blockAlign, true);
-  view.setUint16(32, blockAlign, true);
-  view.setUint16(34, 16, true);
-  writeString(36, 'data');
-  view.setUint32(40, frameCount * blockAlign, true);
-  let offset = 44;
-  for (let i = 0; i < frameCount; i++) {
-    for (let ch = 0; ch < channels; ch++) {
-      const sample = Math.max(-1, Math.min(1, channelData[ch][i] ?? 0));
-      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
-      offset += 2;
-    }
-  }
-  return buffer;
-}
 
 function moveArrangerSection(index, delta) {
   const nextIndex = index + delta;
@@ -1134,23 +912,30 @@ function emit(type, payload = {}) {
 
     case 'recorder:capture':
       captureRecorderSlot(
+        state,
         payload.slotIndex ?? state.selectedRecorderSlot ?? 0,
         {
           bars: payload.bars ?? state.recorderBarCount ?? 4,
           source: payload.source ?? 'master',
           trackIndex: payload.trackIndex ?? state.selectedTrackIndex,
-        }
+        },
+        recorderDeps
       );
       break;
 
     case 'recorder:load':
-      if (!loadRecorderSlotToTrack(payload.slotIndex ?? state.selectedRecorderSlot ?? 0, payload.trackIndex ?? state.selectedTrackIndex)) {
+      if (!loadRecorderSlotToTrack(
+        state,
+        payload.slotIndex ?? state.selectedRecorderSlot ?? 0,
+        payload.trackIndex ?? state.selectedTrackIndex,
+        recorderDeps
+      )) {
         showToast('No captured slot');
       }
       break;
 
     case 'recorder:export':
-      if (!exportRecorderSlot(payload.slotIndex ?? state.selectedRecorderSlot ?? 0)) {
+      if (!exportRecorderSlot(state, payload.slotIndex ?? state.selectedRecorderSlot ?? 0)) {
         showToast('No captured slot');
       }
       break;
@@ -2800,6 +2585,8 @@ function scheduleSave() {
   _saveTimer = setTimeout(() => saveState(state), 400);
 }
 
+const recorderDeps = { showToast, scheduleSave, renderPage, ensureAudio };
+
 // ─────────────────────────────────────────────
 // NUMERIC DRAG UTILITY
 // ─────────────────────────────────────────────
@@ -3088,19 +2875,19 @@ function bindUI() {
         redoHistory(state);
         renderPage();
         saveState(state);
-        showToast('\u21AA Redo (' + _historyIdx + '/' + (_historyTotal - 1) + ')');
+        showToast('\u21AA Redo (' + history.historyIdx + '/' + (history.historyTotal - 1) + ')');
       } else {
         undoHistory(state);
         renderPage();
         saveState(state);
-        showToast('\u21A9 Undo (' + _historyIdx + '/' + (_historyTotal - 1) + ')');
+        showToast('\u21A9 Undo (' + history.historyIdx + '/' + (history.historyTotal - 1) + ')');
       }
       e.preventDefault();
     } else if (e.key === 'y' || e.key === 'Y') {
       redoHistory(state);
       renderPage();
       saveState(state);
-      showToast('\u21AA Redo (' + _historyIdx + '/' + (_historyTotal - 1) + ')');
+      showToast('\u21AA Redo (' + history.historyIdx + '/' + (history.historyTotal - 1) + ')');
       e.preventDefault();
     } else if (e.key === 'm' || e.key === 'M') {
       e.preventDefault();

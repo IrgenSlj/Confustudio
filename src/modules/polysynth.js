@@ -73,13 +73,13 @@ export function createPolysynth(audioContext) {
 
   // ── Hold pedal / Latch ─────────────────────────────────────────────────────
   let _holdActive = false;
-  let _heldNotes = new Set(); // midi notes currently held by latch
+  const _heldNotes = new Set(); // midi notes currently held by latch
 
   // ── Arpeggiator ────────────────────────────────────────────────────────────
   let _arpActive = false;
   let _arpNotes = [];        // currently arpeggiated note pool
   let _arpIdx = 0;
-  let _arpDir = 1;           // for UP-DOWN mode
+  const _arpDir = 1;           // for UP-DOWN mode
   let _arpMode = 'UP';       // UP | DOWN | UP-DOWN | RANDOM
   let _arpRate = '1/8';      // 1/4 | 1/8 | 1/16
   let _arpTimer = null;

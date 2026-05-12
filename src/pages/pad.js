@@ -34,8 +34,8 @@ let _holdMode       = false;
 let _stepRecMode    = false;
 let _assignMode     = false;
 let _assignPadIdx   = null; // which pad is waiting for track assignment
-let _padAssignments = Array.from({ length: 16 }, (_, i) => i % 8); // pad → track index
-let _heldPads       = new Set(); // pads currently held (for hold mode)
+const _padAssignments = Array.from({ length: 16 }, (_, i) => i % 8); // pad → track index
+const _heldPads       = new Set(); // pads currently held (for hold mode)
 let _midiLearnMode  = false;
 let _midiLearnPad   = null;
 let _padMode        = 'drum'; // 'drum' | 'melodic'
