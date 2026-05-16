@@ -1,4 +1,5 @@
 import { BANK_COUNT, PATTERN_COUNT, TRACK_COUNT, createStep, normalizeProject } from './state.js';
+import { getGenreStepWeights } from './pages/pattern-tools.js';
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
@@ -270,6 +271,153 @@ export function executeStudioCommand(state, command) {
   );
 
   switch (type) {
+    case 'set-setting': {
+      const key = String(command.key || '').trim();
+      if (!key || key.startsWith('_')) return { changed: false, summary: 'Invalid setting key' };
+      state[key] = command.value;
+      return { changed: true, summary: `Updated ${key}` };
+    }
+
+    case 'select-bank': {
+      const nextBank = bankIndex;
+      const nextPattern =
+        command.patternIndex !== undefined
+          ? clamp(command.patternIndex, 0, PATTERN_COUNT - 1, 0)
+          : 0;
+      state.activeBank = nextBank;
+      state.activePattern = nextPattern;
+      return { changed: true, summary: `Selected bank ${nextBank + 1}` };
+    }
+
+    case 'select-pattern': {
+      state.activeBank = bankIndex;
+      state.activePattern = patternIndex;
+      if (command.trackIndex !== undefined) {
+        state.selectedTrackIndex = clamp(
+          command.trackIndex,
+          0,
+          TRACK_COUNT - 1,
+          state.selectedTrackIndex ?? 0,
+        );
+      }
+      return { changed: true, summary: `Selected pattern ${patternIndex + 1}` };
+    }
+
+    case 'select-track': {
+      state.selectedTrackIndex = trackIndex;
+      return { changed: true, summary: `Selected track ${trackIndex + 1}` };
+    }
+
+    case 'toggle-step': {
+      const track = getTrack(state, bankIndex, patternIndex, trackIndex);
+      const step = track?.steps?.[clamp(command.stepIndex, 0, (track?.steps?.length ?? 1) - 1, 0)];
+      if (!step) return { changed: false, summary: 'Step not found' };
+      if (command.shiftKey) {
+        step.accent = !step.accent;
+      } else {
+        step.active = !step.active;
+      }
+      return { changed: true, summary: 'Toggled step' };
+    }
+
+    case 'cycle-step-probability': {
+      const track = getTrack(state, bankIndex, patternIndex, trackIndex);
+      const step = track?.steps?.[clamp(command.stepIndex, 0, (track?.steps?.length ?? 1) - 1, 0)];
+      if (!step) return { changed: false, summary: 'Step not found' };
+      const nextLevels = [1, 0.75, 0.5, 0.25];
+      const idx = nextLevels.indexOf(step.probability);
+      step.probability = nextLevels[(idx + 1) % nextLevels.length];
+      return { changed: true, summary: 'Cycled step probability' };
+    }
+
+    case 'randomize-track-steps': {
+      const track = getTrack(state, bankIndex, patternIndex, trackIndex);
+      const pattern = getPattern(state, bankIndex, patternIndex);
+      if (!track || !pattern) return { changed: false, summary: 'Track not found' };
+      const density = clamp(command.density ?? state.randomizeDensity ?? 0.5, 0, 1, 0.5);
+      const genre = String(command.genre || state.randomizeGenre || 'random');
+      const len = track.trackLength > 0 ? track.trackLength : pattern.length;
+      const weights = getGenreStepWeights(genre, trackIndex, len);
+      track.steps.slice(0, len).forEach((step, stepIndex) => {
+        const probability = density * (weights[stepIndex] ?? 1);
+        step.active = Math.random() < probability;
+        step.accent = step.active && Math.random() < 0.25;
+      });
+      return { changed: true, summary: `Randomized track ${trackIndex + 1}` };
+    }
+
+    case 'randomize-all-tracks': {
+      const pattern = getPattern(state, bankIndex, patternIndex);
+      if (!pattern) return { changed: false, summary: 'Pattern not found' };
+      const density = clamp(command.density ?? state.randomizeDensity ?? 0.5, 0, 1, 0.5);
+      const genre = String(command.genre || state.randomizeGenre || 'random');
+      pattern.kit.tracks.forEach((track, ti) => {
+        const len = track.trackLength > 0 ? track.trackLength : pattern.length;
+        const weights = getGenreStepWeights(genre, ti, len);
+        track.steps.slice(0, len).forEach((step, stepIndex) => {
+          const probability = density * (weights[stepIndex] ?? 1);
+          step.active = Math.random() < probability;
+          step.accent = step.active && Math.random() < 0.25;
+        });
+      });
+      return { changed: true, summary: 'Randomized all tracks' };
+    }
+
+    case 'fill-track-steps': {
+      const track = getTrack(state, bankIndex, patternIndex, trackIndex);
+      if (!track) return { changed: false, summary: 'Track not found' };
+      const interval = clamp(command.interval ?? 4, 1, 64, 4);
+      const len = track.trackLength > 0 ? track.trackLength : getPattern(state, bankIndex, patternIndex)?.length ?? 16;
+      track.steps.slice(0, len).forEach((step, stepIndex) => {
+        step.active = stepIndex % interval === 0;
+      });
+      return { changed: true, summary: `Filled track ${trackIndex + 1}` };
+    }
+
+    case 'mutate-track-steps': {
+      const track = getTrack(state, bankIndex, patternIndex, trackIndex);
+      if (!track) return { changed: false, summary: 'Track not found' };
+      const len = track.trackLength > 0 ? track.trackLength : getPattern(state, bankIndex, patternIndex)?.length ?? 16;
+      const flips = clamp(command.flips ?? 1 + Math.floor(Math.random() * 2), 1, len, 1);
+      for (let i = 0; i < flips; i++) {
+        const stepIndex = Math.floor(Math.random() * len);
+        const step = track.steps[stepIndex];
+        if (step) step.active = !step.active;
+      }
+      return { changed: true, summary: `Mutated track ${trackIndex + 1}` };
+    }
+
+    case 'quantize-track-steps': {
+      const track = getTrack(state, bankIndex, patternIndex, trackIndex);
+      if (!track) return { changed: false, summary: 'Track not found' };
+      const grid = clamp(command.grid ?? 1, 1, 64, 1);
+      const len = track.trackLength > 0 ? track.trackLength : getPattern(state, bankIndex, patternIndex)?.length ?? 16;
+      const newActive = new Set();
+      track.steps.slice(0, len).forEach((step, stepIndex) => {
+        if (step.active) {
+          const snapped = (Math.round(stepIndex / grid) * grid) % len;
+          newActive.add(snapped);
+        }
+      });
+      track.steps.slice(0, len).forEach((step, stepIndex) => {
+        step.active = newActive.has(stepIndex);
+      });
+      return { changed: true, summary: `Quantized track ${trackIndex + 1}` };
+    }
+
+    case 'humanize-track-steps': {
+      const track = getTrack(state, bankIndex, patternIndex, trackIndex);
+      if (!track) return { changed: false, summary: 'Track not found' };
+      const amount = clamp(command.amount ?? 0.2, 0, 1, 0.2);
+      const len = track.trackLength > 0 ? track.trackLength : getPattern(state, bankIndex, patternIndex)?.length ?? 16;
+      track.steps.slice(0, len).forEach((step) => {
+        if (!step.active) return;
+        step.microTime = (Math.random() - 0.5) * amount;
+        step.velocity = Math.max(0.3, Math.min(1, (step.velocity ?? 1) + (Math.random() - 0.5) * 0.3));
+      });
+      return { changed: true, summary: `Humanized track ${trackIndex + 1}` };
+    }
+
     case 'set-project-meta': {
       if (command.name !== undefined) state.project.name = String(command.name || '').slice(0, 120);
       if (command.author !== undefined) state.project.author = String(command.author || '').slice(0, 120);
@@ -308,6 +456,16 @@ export function executeStudioCommand(state, command) {
       if (command.note !== undefined) step.note = clamp(command.note, 0, 127, step.note ?? 60);
       if (command.velocity !== undefined) step.velocity = clamp(command.velocity, 0, 1, step.velocity ?? 1);
       if (command.gate !== undefined) step.gate = clamp(command.gate, 0.05, 1, step.gate ?? 0.5);
+      if (command.microTime !== undefined) step.microTime = clamp(command.microTime, -0.5, 0.5, step.microTime ?? 0);
+      if (command.retrig !== undefined) step.retrig = clamp(command.retrig, 1, 8, step.retrig ?? 1);
+      if (command.trigCondition !== undefined) step.trigCondition = String(command.trigCondition || 'always');
+      if (command.mute !== undefined) step.mute = Boolean(command.mute);
+      if (command.paramLocks !== undefined) {
+        step.paramLocks =
+          command.paramLocks && typeof command.paramLocks === 'object' && !Array.isArray(command.paramLocks)
+            ? { ...command.paramLocks }
+            : {};
+      }
       return { changed: true, summary: `Updated step ${stepIndex + 1}` };
     }
 

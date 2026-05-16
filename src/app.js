@@ -426,6 +426,13 @@ function setNestedStateValue(path, value) {
   return false;
 }
 
+function executeStudioCommand(command, label = '') {
+  const execute = window.confustudioCommands?.execute;
+  if (typeof execute !== 'function') return false;
+  const result = execute(command, label);
+  return Boolean(result?.changed);
+}
+
 function handleAction(path, value, pattern) {
   switch (path) {
     case 'action_copy':
@@ -439,28 +446,28 @@ function handleAction(path, value, pattern) {
 
     case 'action_paste':
       if (state.copyBuffer?.type !== 'steps') return true;
-      pushHistory(state);
-      pattern.kit.tracks[state.selectedTrackIndex].steps.forEach((step, index) => {
-        const source = state.copyBuffer.data[index];
-        if (source) Object.assign(step, source);
-      });
-      scheduleSave();
-      renderPage();
-      renderTrackStrip();
-      showToast('Pasted');
+      runStudioCommands(
+        {
+          type: 'replace-track-steps',
+          bankIndex: state.activeBank,
+          patternIndex: state.activePattern,
+          trackIndex: state.selectedTrackIndex,
+          steps: state.copyBuffer.data,
+        },
+        'Pasted',
+      );
       return true;
 
     case 'action_clear':
-      pushHistory(state);
-      pattern.kit.tracks[state.selectedTrackIndex].steps.forEach((step) => {
-        step.active = false;
-        step.accent = false;
-        step.paramLocks = {};
-      });
-      scheduleSave();
-      renderPage();
-      renderTrackStrip();
-      showToast('Cleared');
+      runStudioCommands(
+        {
+          type: 'clear-track',
+          bankIndex: state.activeBank,
+          patternIndex: state.activePattern,
+          trackIndex: state.selectedTrackIndex,
+        },
+        'Cleared',
+      );
       return true;
 
     case 'action_snapshot':
@@ -650,13 +657,17 @@ function handleAction(path, value, pattern) {
 
     case 'action_trackPaste': {
       if (!state._trackCopyBuffer) return true;
-      pushHistory(state);
       const ti = value?.trackIndex ?? state.selectedTrackIndex;
-      pattern.kit.tracks[ti].steps = JSON.parse(JSON.stringify(state._trackCopyBuffer));
-      scheduleSave();
-      renderPage();
-      renderTrackStrip();
-      showToast('Track steps pasted');
+      runStudioCommands(
+        {
+          type: 'replace-track-steps',
+          bankIndex: state.activeBank,
+          patternIndex: state.activePattern,
+          trackIndex: ti,
+          steps: state._trackCopyBuffer,
+        },
+        'Track steps pasted',
+      );
       return true;
     }
 
@@ -711,6 +722,7 @@ function publishLinkBpmToServer(bpm) {
 
 function handleStateChange(path, value, pattern) {
   if (path === 'bpm') {
+    if (executeStudioCommand({ type: 'set-transport', bpm: value }, 'Updated tempo')) return;
     state.bpm = Math.max(40, Math.min(240, parseFloat(value)));
     if (state.engine?.setBpm) state.engine.setBpm(state.bpm);
     publishLinkBpmToServer(state.bpm);
@@ -718,6 +730,64 @@ function handleStateChange(path, value, pattern) {
     updateTopbar();
     scheduleSave();
     return;
+  }
+
+  if (path === 'length' || path === 'patternLength') {
+    if (
+      executeStudioCommand(
+        {
+          type: 'set-pattern-length',
+          bankIndex: state.activeBank,
+          patternIndex: state.activePattern,
+          length: value,
+        },
+        'Updated pattern length',
+      )
+    ) {
+      return;
+    }
+    pattern.length = Math.max(4, Math.min(64, Number(value)));
+    state.patternLength = pattern.length;
+    scheduleSave();
+    renderPage();
+    renderTrackStrip();
+    return;
+  }
+
+  if (path === 'activeBank') {
+    if (executeStudioCommand({ type: 'select-bank', bankIndex: value }, 'Selected bank')) return;
+  }
+
+  if (path === 'activePattern') {
+    if (
+      executeStudioCommand(
+        { type: 'select-pattern', bankIndex: state.activeBank, patternIndex: value },
+        'Selected pattern',
+      )
+    ) {
+      return;
+    }
+  }
+
+  if (path === 'selectedTrackIndex') {
+    if (executeStudioCommand({ type: 'select-track', trackIndex: value }, 'Selected track')) return;
+  }
+
+  if (
+    [
+      'metronome',
+      'midiChannel',
+      'midiClockOut',
+      'clockSource',
+      'abletonLink',
+      'cueMonitorEnabled',
+      'oscMode',
+      'masterLimiter',
+      'recorderBarCount',
+      'cueLevel',
+    ].includes(path)
+  ) {
+    if (executeStudioCommand({ type: 'set-setting', key: path, value }, `Updated ${path}`)) return;
   }
 
   if (path === 'maxVoicesGlobal') {
@@ -1029,27 +1099,35 @@ function emit(type, payload = {}) {
     // ── Steps ──
     case 'step:toggle': {
       if (state.patternLocked) return; // ignore when locked
-      const step = pattern.kit.tracks[state.selectedTrackIndex].steps[payload.stepIndex];
-      if (!step) break;
-      pushHistory(state);
-      if (payload.shiftKey) {
-        step.accent = !step.accent;
-      } else {
-        step.active = !step.active;
+      if (
+        runStudioCommands(
+          {
+            type: 'toggle-step',
+            bankIndex: state.activeBank,
+            patternIndex: state.activePattern,
+            trackIndex: state.selectedTrackIndex,
+            stepIndex: payload.stepIndex,
+            shiftKey: payload.shiftKey,
+          },
+          'Toggled step',
+        ).changed
+      ) {
+        renderPlayhead();
       }
-      scheduleSave();
-      renderPage();
-      renderPlayhead();
       break;
     }
 
     case 'step:prob': {
-      const step = getActiveStep(state, payload.stepIndex);
-      if (!step) break;
-      const idx = PROB_LEVELS.indexOf(step.probability);
-      step.probability = PROB_LEVELS[(idx + 1) % PROB_LEVELS.length];
-      scheduleSave();
-      renderPage();
+      runStudioCommands(
+        {
+          type: 'cycle-step-probability',
+          bankIndex: state.activeBank,
+          patternIndex: state.activePattern,
+          trackIndex: state.selectedTrackIndex,
+          stepIndex: payload.stepIndex,
+        },
+        'Updated step probability',
+      );
       break;
     }
 
@@ -1124,12 +1202,21 @@ function emit(type, payload = {}) {
     }
 
     case 'track:select':
+      if (executeStudioCommand({ type: 'select-track', trackIndex: payload.trackIndex }, 'Selected track')) break;
       state.selectedTrackIndex = payload.trackIndex;
       state._selectedSteps = new Set(); // clear selection when switching tracks
       renderAll();
       break;
 
     case 'track:cycle':
+      if (
+        executeStudioCommand(
+          { type: 'select-track', trackIndex: (state.selectedTrackIndex + payload.delta + TRACK_COUNT) % TRACK_COUNT },
+          'Selected track',
+        )
+      ) {
+        break;
+      }
       state.selectedTrackIndex = (state.selectedTrackIndex + payload.delta + TRACK_COUNT) % TRACK_COUNT;
       renderAll();
       break;
@@ -1183,12 +1270,21 @@ function emit(type, payload = {}) {
 
     // ── Bank/Pattern ──
     case 'bank:select':
+      if (executeStudioCommand({ type: 'select-bank', bankIndex: payload.bankIndex }, 'Selected bank')) break;
       state.activeBank = payload.bankIndex;
       state.activePattern = 0;
       renderAll();
       break;
 
     case 'pattern:select':
+      if (
+        executeStudioCommand(
+          { type: 'select-pattern', bankIndex: state.activeBank, patternIndex: payload.patternIndex },
+          'Selected pattern',
+        )
+      ) {
+        break;
+      }
       state.activePattern = payload.patternIndex;
       renderAll();
       break;
@@ -1224,40 +1320,32 @@ function emit(type, payload = {}) {
       break;
 
     case 'pattern:randomize': {
-      pushHistory(state);
-      const density = state.randomizeDensity ?? 0.5;
-      const genre = state.randomizeGenre ?? 'random';
       const ti = payload.trackIndex ?? state.selectedTrackIndex;
-      const trk = pattern.kit.tracks[ti];
-      const len = trk.trackLength > 0 ? trk.trackLength : pattern.length;
-      const weights = patternPage._getGenreStepWeights(genre, ti, len);
-      trk.steps.slice(0, len).forEach((s, si) => {
-        const p = density * weights[si];
-        s.active = Math.random() < p;
-        s.accent = s.active && Math.random() < 0.25;
-      });
-      scheduleSave();
-      renderPage();
-      showToast(`Rnd T${ti + 1} (${genre})`);
+      runStudioCommands(
+        {
+          type: 'randomize-track-steps',
+          bankIndex: state.activeBank,
+          patternIndex: state.activePattern,
+          trackIndex: ti,
+          density: state.randomizeDensity ?? 0.5,
+          genre: state.randomizeGenre ?? 'random',
+        },
+        `Rnd T${ti + 1} (${state.randomizeGenre ?? 'random'})`,
+      );
       break;
     }
 
     case 'pattern:randomizeAll': {
-      pushHistory(state);
-      const density = state.randomizeDensity ?? 0.5;
-      const genre = state.randomizeGenre ?? 'random';
-      pattern.kit.tracks.forEach((trk, ti) => {
-        const len = trk.trackLength > 0 ? trk.trackLength : pattern.length;
-        const weights = patternPage._getGenreStepWeights(genre, ti, len);
-        trk.steps.slice(0, len).forEach((s, si) => {
-          const p = density * weights[si];
-          s.active = Math.random() < p;
-          s.accent = s.active && Math.random() < 0.25;
-        });
-      });
-      scheduleSave();
-      renderPage();
-      showToast(`Rnd ALL (${genre} ${Math.round(density * 100)}%)`);
+      runStudioCommands(
+        {
+          type: 'randomize-all-tracks',
+          bankIndex: state.activeBank,
+          patternIndex: state.activePattern,
+          density: state.randomizeDensity ?? 0.5,
+          genre: state.randomizeGenre ?? 'random',
+        },
+        `Rnd ALL (${state.randomizeGenre ?? 'random'} ${Math.round((state.randomizeDensity ?? 0.5) * 100)}%)`,
+      );
       break;
     }
 

@@ -194,7 +194,11 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
   strip.className = 'mx-track-strip' + (ti === state.selectedTrackIndex ? ' selected' : '');
   strip.style.setProperty('--tc', color);
 
-  strip.addEventListener('click', () => emit('state:change', { path: 'selectedTrackIndex', value: ti }));
+  strip.addEventListener('click', () => {
+    if (!window.confustudioCommands?.execute?.({ type: 'select-track', trackIndex: ti }, `Selected track ${ti + 1}`)) {
+      emit('state:change', { path: 'selectedTrackIndex', value: ti });
+    }
+  });
 
   // Track name
   const nameRow = document.createElement('div');

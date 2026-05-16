@@ -18,7 +18,6 @@ import {
   shouldHideLensForTarget,
   shouldStudioCaptureGesture,
   showModulePicker,
-  spawnDefaultMixer,
   MIN_SCALE,
   MAX_SCALE,
   STUDIO_VIEW_KEY,
@@ -347,9 +346,6 @@ export function initStudio() {
   requestAnimationFrame(() =>
     requestAnimationFrame(() => {
       fitToWindow(S, { force: true });
-      if (!hasLayout) {
-        spawnDefaultMixer(S);
-      }
     }),
   );
 

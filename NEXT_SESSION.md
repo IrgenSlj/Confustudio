@@ -13,6 +13,17 @@ All tests green:
 `npm run format` — clean (Prettier matches across the tree).
 Server starts clean on `http://127.0.0.1:4173`.
 
+## Current Sprint Todo
+
+- [x] Fix the clean-start studio layout regression.
+- [x] Add command-bus selection actions for bank, pattern, and track navigation.
+- [x] Route bank and mixer selection UI through the command bus when available.
+- [x] Route common pattern edit actions and step toggles through the command bus.
+- [x] Route pattern metadata, step inspector, and batch edit tools through the command bus.
+- [ ] Extract shared state and event strings into constants for the remaining page modules.
+- [ ] Sweep the remaining direct state edits in `pattern.js`, `settings.js`, and transport handlers into command helpers.
+- [ ] Add tests for selection-driven navigation and history coverage.
+
 ## Codebase Metrics
 
 | Metric                | Value                                                          |

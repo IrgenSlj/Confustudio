@@ -2,6 +2,13 @@
 
 import { saveState, createProjectPackage, applyProjectPackageToState, getActivePattern } from '../state.js';
 
+function executeStudioCommand(command, label) {
+  const execute = window.confustudioCommands?.execute;
+  if (typeof execute !== 'function') return false;
+  const result = execute(command, label);
+  return Boolean(result?.changed);
+}
+
 // ─── Stem Export ──────────────────────────────────────────────────────────────
 
 /** Encode a Float32Array AudioBuffer as a 16-bit PCM WAV Blob. */
@@ -261,8 +268,10 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
   metaSection.querySelector('#proj-bpm-input').addEventListener('change', (e) => {
     const v = Math.max(40, Math.min(240, parseInt(e.target.value, 10) || 120));
     e.target.value = v;
-    state.bpm = v;
-    emit('state:change', { path: 'bpm', value: v });
+    if (!executeStudioCommand({ type: 'set-transport', bpm: v }, 'Updated project tempo')) {
+      state.bpm = v;
+      emit('state:change', { path: 'bpm', value: v });
+    }
     if (state.abletonLink) publishLinkBpm(state, v);
     saveState(state);
   });

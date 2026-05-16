@@ -703,9 +703,16 @@ export default {
       btn.className = 'bank-tab' + (bi === activeBank ? ' active' : '');
       btn.textContent = letter;
       btn.addEventListener('click', () => {
-        emit('state:change', { path: 'activeBank', value: bi });
-        emit('state:change', { path: 'activePattern', value: 0 });
-        this.render(container, { ...state, activeBank: bi, activePattern: 0 }, emit);
+        if (
+          !executeCommands(
+            { type: 'select-bank', bankIndex: bi },
+            `Selected bank ${letter}`,
+          )
+        ) {
+          emit('state:change', { path: 'activeBank', value: bi });
+          emit('state:change', { path: 'activePattern', value: 0 });
+          this.render(container, { ...state, activeBank: bi, activePattern: 0 }, emit);
+        }
       });
       bankRow.append(btn);
     });
@@ -839,9 +846,20 @@ export default {
       btn.append(followBadge, clearBtn);
 
       btn.addEventListener('click', () => {
-        emit('state:change', { path: 'activeBank', value: activeBank });
-        emit('state:change', { path: 'activePattern', value: pi });
-        this.render(container, { ...state, activePattern: pi }, emit);
+        if (
+          !executeCommands(
+            {
+              type: 'select-pattern',
+              bankIndex: activeBank,
+              patternIndex: pi,
+            },
+            `Selected pattern ${String(pi + 1).padStart(2, '0')}`,
+          )
+        ) {
+          emit('state:change', { path: 'activeBank', value: activeBank });
+          emit('state:change', { path: 'activePattern', value: pi });
+          this.render(container, { ...state, activePattern: pi }, emit);
+        }
       });
 
       btn.addEventListener('dblclick', (e) => {

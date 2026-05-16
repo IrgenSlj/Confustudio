@@ -26,6 +26,18 @@ export default {
       }
       return null;
     };
+    const commitStepPatch = (stepIndex, patch, label) =>
+      executeCommands(
+        {
+          type: 'set-step',
+          bankIndex: state.activeBank,
+          patternIndex: state.activePattern,
+          trackIndex: selTi,
+          stepIndex,
+          ...patch,
+        },
+        label,
+      );
     const rerenderPattern = () => emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
 
     function cloneStepData(step) {
@@ -95,8 +107,10 @@ export default {
       stepCountSel.style.opacity = '0.4';
     }
     patLockBtn.addEventListener('click', () => {
-      state.patternLengthLocked = !state.patternLengthLocked;
-      const locked = state.patternLengthLocked;
+      const locked = !state.patternLengthLocked;
+      if (!executeCommands({ type: 'set-setting', key: 'patternLengthLocked', value: locked }, 'Updated pattern lock')) {
+        state.patternLengthLocked = locked;
+      }
       patLockBtn.textContent = locked ? '🔒' : '🔓';
       patLockBtn.title = locked ? 'Pattern length locked — click to unlock' : 'Click to lock pattern length';
       patLockBtn.style.borderColor = locked ? 'var(--accent)' : '#444';
@@ -210,8 +224,10 @@ export default {
       gateInput.addEventListener('input', () => {
         const v = parseFloat(gateInput.value);
         gateSpan.textContent = Math.round(v * 100) + '%';
-        track.steps[stepIndex].gate = v;
-        emit('step:plock', { stepIndex, param: 'gate', value: v });
+        if (!commitStepPatch(stepIndex, { gate: v }, 'Updated gate')) {
+          track.steps[stepIndex].gate = v;
+          emit('step:plock', { stepIndex, param: 'gate', value: v });
+        }
       });
       panel.append(gateRow);
 
@@ -231,8 +247,10 @@ export default {
       retrigInput.addEventListener('input', () => {
         const v = parseInt(retrigInput.value);
         retrigSpan.textContent = v + 'x';
-        track.steps[stepIndex].retrig = v;
-        emit('step:plock', { stepIndex, param: 'retrig', value: v });
+        if (!commitStepPatch(stepIndex, { retrig: v }, 'Updated retrig')) {
+          track.steps[stepIndex].retrig = v;
+          emit('step:plock', { stepIndex, param: 'retrig', value: v });
+        }
       });
       panel.append(retrigRow);
 
@@ -251,7 +269,9 @@ export default {
       noteInput.addEventListener('input', () => {
         const v = parseInt(noteInput.value, 10);
         noteSpan.textContent = midiToNoteName(v);
-        emit('step:plock', { stepIndex, param: 'note', value: v });
+        if (!commitStepPatch(stepIndex, { note: v }, 'Updated note')) {
+          emit('step:plock', { stepIndex, param: 'note', value: v });
+        }
       });
       panel.append(noteRow);
 
@@ -269,8 +289,10 @@ export default {
       const probSpan = probRow.querySelector('span');
       probInput.addEventListener('input', () => {
         const v = parseFloat(probInput.value);
-        track.steps[stepIndex].probability = v;
         probSpan.textContent = Math.round(v * 100) + '%';
+        if (!commitStepPatch(stepIndex, { probability: v }, 'Updated probability')) {
+          track.steps[stepIndex].probability = v;
+        }
         rerenderPattern();
       });
       panel.append(probRow);
@@ -290,7 +312,9 @@ export default {
         condSelect.append(opt);
       });
       condSelect.addEventListener('change', () => {
-        track.steps[stepIndex].trigCondition = condSelect.value;
+        if (!commitStepPatch(stepIndex, { trigCondition: condSelect.value }, 'Updated trig condition')) {
+          track.steps[stepIndex].trigCondition = condSelect.value;
+        }
         rerenderPattern();
       });
       condRow.append(condLabel, condSelect);
@@ -333,16 +357,22 @@ export default {
       pasteBtn.style.opacity = state._stepClipboard ? '1' : '0.45';
       pasteBtn.addEventListener('click', () => {
         if (!state._stepClipboard) return;
-        Object.assign(track.steps[stepIndex], cloneStepData(state._stepClipboard));
-        rerenderPattern();
+        if (
+          !commitStepPatch(stepIndex, cloneStepData(state._stepClipboard), `Pasted step ${stepIndex + 1}`)
+        ) {
+          Object.assign(track.steps[stepIndex], cloneStepData(state._stepClipboard));
+          rerenderPattern();
+        }
       });
       const clearBtn = document.createElement('button');
       clearBtn.className = 'seq-btn';
       clearBtn.textContent = 'Clear Locks';
       clearBtn.addEventListener('click', () => {
-        track.steps[stepIndex].paramLocks = {};
-        delete track.steps[stepIndex].paramLocks.note;
-        rerenderPattern();
+        if (!commitStepPatch(stepIndex, { paramLocks: {} }, 'Cleared param locks')) {
+          track.steps[stepIndex].paramLocks = {};
+          delete track.steps[stepIndex].paramLocks.note;
+          rerenderPattern();
+        }
       });
       const selectBtn = document.createElement('button');
       selectBtn.className = 'seq-btn';
@@ -462,10 +492,25 @@ export default {
       recArmBtn.style.color = trk.recArmed ? 'var(--live, #f44)' : 'var(--muted, #555)';
       recArmBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        trk.recArmed = !trk.recArmed;
-        recArmBtn.classList.toggle('armed', trk.recArmed);
-        recArmBtn.style.color = trk.recArmed ? 'var(--live, #f44)' : 'var(--muted, #555)';
-        recArmBtn.title = trk.recArmed ? 'Disarm track from recording' : 'Arm track for recording';
+        const next = !trk.recArmed;
+        if (
+          !executeCommands(
+            {
+              type: 'set-track-param',
+              bankIndex: state.activeBank,
+              patternIndex: state.activePattern,
+              trackIndex: ti,
+              param: 'recArmed',
+              value: next,
+            },
+            next ? 'Armed track' : 'Disarmed track',
+          )
+        ) {
+          trk.recArmed = next;
+        }
+        recArmBtn.classList.toggle('armed', next);
+        recArmBtn.style.color = next ? 'var(--live, #f44)' : 'var(--muted, #555)';
+        recArmBtn.title = next ? 'Disarm track from recording' : 'Arm track for recording';
         emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
       });
       labelRow2.append(recArmBtn);
@@ -501,8 +546,23 @@ export default {
       stepCountSel.addEventListener('change', (e) => {
         e.stopPropagation();
         const n = parseInt(e.target.value);
-        trk.stepCount = n === (pattern.length ?? 16) ? null : n;
-        emit('track:change', { trackIndex: ti, param: 'stepCount', value: trk.stepCount });
+        const next = n === (pattern.length ?? 16) ? null : n;
+        if (
+          !executeCommands(
+            {
+              type: 'set-track-param',
+              bankIndex: state.activeBank,
+              patternIndex: state.activePattern,
+              trackIndex: ti,
+              param: 'stepCount',
+              value: next,
+            },
+            'Updated track step count',
+          )
+        ) {
+          trk.stepCount = next;
+          emit('track:change', { trackIndex: ti, param: 'stepCount', value: trk.stepCount });
+        }
         // Trigger a re-render by emitting a no-op length change (same value, causes renderPage)
         emit('state:change', { path: 'length', value: pattern.length });
       });
@@ -543,7 +603,21 @@ export default {
           input.select();
           const commit = () => {
             const newName = input.value.trim() || `T${ti + 1}`;
-            trk.name = newName;
+            if (
+              !executeCommands(
+                {
+                  type: 'set-track-param',
+                  bankIndex: state.activeBank,
+                  patternIndex: state.activePattern,
+                  trackIndex: ti,
+                  param: 'name',
+                  value: newName,
+                },
+                'Renamed track',
+              )
+            ) {
+              trk.name = newName;
+            }
             input.replaceWith(labelTextEl);
             labelTextEl.textContent = newName;
             emit('state:change', { param: 'trackName' });
@@ -593,7 +667,21 @@ export default {
             swatch.title = hex;
             swatch.addEventListener('click', (ev) => {
               ev.stopPropagation();
-              trk.color = hex;
+              if (
+                !executeCommands(
+                  {
+                    type: 'set-track-param',
+                    bankIndex: state.activeBank,
+                    patternIndex: state.activePattern,
+                    trackIndex: ti,
+                    param: 'color',
+                    value: hex,
+                  },
+                  'Updated track color',
+                )
+              ) {
+                trk.color = hex;
+              }
               row.style.setProperty('--track-color', hex);
               popover.remove();
               emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
@@ -613,7 +701,21 @@ export default {
           resetSwatch.append(resetX);
           resetSwatch.addEventListener('click', (ev) => {
             ev.stopPropagation();
-            delete trk.color;
+            if (
+              !executeCommands(
+                {
+                  type: 'set-track-param',
+                  bankIndex: state.activeBank,
+                  patternIndex: state.activePattern,
+                  trackIndex: ti,
+                  param: 'color',
+                  value: null,
+                },
+                'Reset track color',
+              )
+            ) {
+              delete trk.color;
+            }
             row.style.setProperty('--track-color', TRACK_COLORS[ti]);
             popover.remove();
             emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
@@ -889,9 +991,12 @@ export default {
           probSlider.value = String(step.probability ?? 1);
           probSlider.style.cssText = 'width:100%;accent-color:var(--accent)';
           probSlider.addEventListener('input', () => {
-            step.probability = parseFloat(probSlider.value);
-            probValSpan.textContent = `${Math.round(step.probability * 100)}%`;
-            emit('state:change', { param: 'pattern' });
+            const next = parseFloat(probSlider.value);
+            probValSpan.textContent = `${Math.round(next * 100)}%`;
+            if (!commitStepPatch(si, { probability: next }, 'Updated probability')) {
+              step.probability = next;
+              emit('state:change', { param: 'pattern' });
+            }
           });
           probWrap.append(probLabel, probSlider);
           menu.append(probWrap);
@@ -912,7 +1017,9 @@ export default {
             item.className = 'ctx-item' + ((step.trigCondition ?? 'always') === cond ? ' active' : '');
             item.textContent = label;
             item.addEventListener('click', () => {
-              step.trigCondition = cond;
+              if (!commitStepPatch(si, { trigCondition: cond }, 'Updated trig condition')) {
+                step.trigCondition = cond;
+              }
               emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
               menu.remove();
             });
@@ -940,8 +1047,11 @@ export default {
             if (raw === null) return;
             const v = Math.max(0, Math.min(127, parseInt(raw, 10)));
             if (!isNaN(v)) {
-              step.velocity = v / 127;
-              emit('state:change', { param: 'pattern' });
+              const next = v / 127;
+              if (!commitStepPatch(si, { velocity: next }, 'Updated velocity')) {
+                step.velocity = next;
+                emit('state:change', { param: 'pattern' });
+              }
             }
           });
 
@@ -950,8 +1060,11 @@ export default {
             if (raw === null) return;
             const v = Math.max(0, Math.min(100, parseInt(raw, 10)));
             if (!isNaN(v)) {
-              step.gate = v / 100;
-              emit('state:change', { param: 'pattern' });
+              const next = v / 100;
+              if (!commitStepPatch(si, { gate: next }, 'Updated gate')) {
+                step.gate = next;
+                emit('state:change', { param: 'pattern' });
+              }
             }
           });
 
@@ -963,14 +1076,19 @@ export default {
             if (raw === null) return;
             const v = Math.max(-50, Math.min(50, parseInt(raw, 10)));
             if (!isNaN(v)) {
-              step.microTime = v / 100;
-              emit('state:change', { param: 'pattern' });
+              const next = v / 100;
+              if (!commitStepPatch(si, { microTime: next }, 'Updated microtime')) {
+                step.microTime = next;
+                emit('state:change', { param: 'pattern' });
+              }
             }
           });
 
           makeActionItem('Clear param locks', () => {
-            step.paramLocks = {};
-            emit('state:change', { param: 'pattern' });
+            if (!commitStepPatch(si, { paramLocks: {} }, 'Cleared param locks')) {
+              step.paramLocks = {};
+              emit('state:change', { param: 'pattern' });
+            }
           });
 
           document.body.append(menu);
@@ -1647,8 +1765,11 @@ export default {
     densityLabel.textContent = Math.round(density * 100) + '%';
 
     densitySlider.addEventListener('input', () => {
-      state.randomizeDensity = parseFloat(densitySlider.value);
-      densityLabel.textContent = Math.round(state.randomizeDensity * 100) + '%';
+      const next = parseFloat(densitySlider.value);
+      if (!executeCommands({ type: 'set-setting', key: 'randomizeDensity', value: next }, 'Updated randomize density')) {
+        state.randomizeDensity = next;
+      }
+      densityLabel.textContent = Math.round((state.randomizeDensity ?? next) * 100) + '%';
     });
 
     const genreSelect = document.createElement('select');
@@ -1663,7 +1784,9 @@ export default {
       genreSelect.append(opt);
     });
     genreSelect.addEventListener('change', () => {
-      state.randomizeGenre = genreSelect.value;
+      if (!executeCommands({ type: 'set-setting', key: 'randomizeGenre', value: genreSelect.value }, 'Updated randomize genre')) {
+        state.randomizeGenre = genreSelect.value;
+      }
     });
 
     const rndAllBtn = document.createElement('button');
@@ -1671,7 +1794,20 @@ export default {
     rndAllBtn.textContent = 'RND ALL';
     rndAllBtn.title = 'Randomize all tracks with current density';
     rndAllBtn.addEventListener('click', () => {
-      emit('pattern:randomizeAll', {});
+      if (
+        !executeCommands(
+          {
+            type: 'randomize-all-tracks',
+            bankIndex: state.activeBank,
+            patternIndex: state.activePattern,
+            density: state.randomizeDensity ?? 0.5,
+            genre: state.randomizeGenre ?? 'random',
+          },
+          `Rnd ALL (${state.randomizeGenre ?? 'random'} ${Math.round((state.randomizeDensity ?? 0.5) * 100)}%)`,
+        )
+      ) {
+        emit('pattern:randomizeAll', {});
+      }
     });
 
     rndGroup.append(densitySlider, densityLabel, genreSelect, rndAllBtn);
@@ -1796,7 +1932,10 @@ export default {
       qSelect.append(opt);
     });
     qSelect.addEventListener('change', () => {
-      state.quantizeGrid = parseInt(qSelect.value);
+      const next = parseInt(qSelect.value);
+      if (!executeCommands({ type: 'set-setting', key: 'quantizeGrid', value: next }, 'Updated quantize grid')) {
+        state.quantizeGrid = next;
+      }
     });
 
     const quantizeBtn = document.createElement('button');
@@ -1804,18 +1943,31 @@ export default {
     quantizeBtn.textContent = 'Quant';
     quantizeBtn.addEventListener('click', () => {
       const grid = state.quantizeGrid ?? 1;
-      const trackLen = track.trackLength || pattern.length;
-      const newActive = new Set();
-      track.steps.slice(0, trackLen).forEach((s, si) => {
-        if (s.active) {
-          const snapped = (Math.round(si / grid) * grid) % trackLen;
-          newActive.add(snapped);
-        }
-      });
-      track.steps.slice(0, trackLen).forEach((s, si) => {
-        s.active = newActive.has(si);
-      });
-      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      if (
+        !executeCommands(
+          {
+            type: 'quantize-track-steps',
+            bankIndex: state.activeBank,
+            patternIndex: state.activePattern,
+            trackIndex: selTi,
+            grid,
+          },
+          `Quantized T${selTi + 1}`,
+        )
+      ) {
+        const trackLen = track.trackLength || pattern.length;
+        const newActive = new Set();
+        track.steps.slice(0, trackLen).forEach((s, si) => {
+          if (s.active) {
+            const snapped = (Math.round(si / grid) * grid) % trackLen;
+            newActive.add(snapped);
+          }
+        });
+        track.steps.slice(0, trackLen).forEach((s, si) => {
+          s.active = newActive.has(si);
+        });
+        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      }
     });
     actionsDiv.append(qSelect, quantizeBtn);
 
@@ -1837,17 +1989,33 @@ export default {
     }
     humanizeLabel.textContent = `±${Math.round(humanizeAmtInit * 100)}% ${humanizeDesc(humanizeAmtInit)}`;
     humanizeDiv.querySelector('input').addEventListener('input', (e) => {
-      state.humanizeAmount = parseFloat(e.target.value);
-      humanizeLabel.textContent = `±${Math.round(state.humanizeAmount * 100)}% ${humanizeDesc(state.humanizeAmount)}`;
+      const next = parseFloat(e.target.value);
+      if (!executeCommands({ type: 'set-setting', key: 'humanizeAmount', value: next }, 'Updated humanize amount')) {
+        state.humanizeAmount = next;
+      }
+      humanizeLabel.textContent = `±${Math.round((state.humanizeAmount ?? next) * 100)}% ${humanizeDesc(state.humanizeAmount ?? next)}`;
     });
     humanizeDiv.querySelector('button').addEventListener('click', () => {
       const amt = state.humanizeAmount ?? 0.2;
-      const len = track.trackLength || pattern.length;
-      track.steps.slice(0, len).forEach((s) => {
-        if (!s.active) return;
-        s.microTime = (Math.random() - 0.5) * amt;
-        s.velocity = Math.max(0.3, Math.min(1, (s.velocity ?? 1) + (Math.random() - 0.5) * 0.3));
-      });
+      if (
+        !executeCommands(
+          {
+            type: 'humanize-track-steps',
+            bankIndex: state.activeBank,
+            patternIndex: state.activePattern,
+            trackIndex: selTi,
+            amount: amt,
+          },
+          `Humanized T${selTi + 1}`,
+        )
+      ) {
+        const len = track.trackLength || pattern.length;
+        track.steps.slice(0, len).forEach((s) => {
+          if (!s.active) return;
+          s.microTime = (Math.random() - 0.5) * amt;
+          s.velocity = Math.max(0.3, Math.min(1, (s.velocity ?? 1) + (Math.random() - 0.5) * 0.3));
+        });
+      }
       humanizeLabel.textContent = `±${Math.round(amt * 100)}% ${humanizeDesc(amt)}`;
       emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
     });
@@ -1864,14 +2032,27 @@ export default {
       btn.textContent = `/${n}`;
       btn.title = `Activate every ${n} steps`;
       btn.addEventListener('click', () => {
-        const bank = state.activeBank,
-          pat = state.activePattern,
-          ti = state.selectedTrackIndex;
-        const currentTrack = state.project.banks[bank].patterns[pat].kit.tracks[ti];
-        currentTrack.steps.forEach((s, i) => {
-          s.active = i % n === 0;
-        });
-        emit('state:change', { param: 'pattern' });
+        if (
+          !executeCommands(
+            {
+              type: 'fill-track-steps',
+              bankIndex: state.activeBank,
+              patternIndex: state.activePattern,
+              trackIndex: state.selectedTrackIndex,
+              interval: n,
+            },
+            `Filled every ${n} steps`,
+          )
+        ) {
+          const bank = state.activeBank,
+            pat = state.activePattern,
+            ti = state.selectedTrackIndex;
+          const currentTrack = state.project.banks[bank].patterns[pat].kit.tracks[ti];
+          currentTrack.steps.forEach((s, i) => {
+            s.active = i % n === 0;
+          });
+          emit('state:change', { param: 'pattern' });
+        }
       });
       fillRow.append(btn);
     });
@@ -2003,7 +2184,21 @@ export default {
     randomizeBtn.innerHTML = '&#127922; RANDOM';
     randomizeBtn.title = 'Randomize current track steps with density + scale';
     randomizeBtn.addEventListener('click', () => {
-      randomizeTrack(state.selectedTrackIndex, _randomizeDensity);
+      if (
+        !executeCommands(
+          {
+            type: 'randomize-track-steps',
+            bankIndex: state.activeBank,
+            patternIndex: state.activePattern,
+            trackIndex: state.selectedTrackIndex,
+            density: _randomizeDensity,
+            genre: state.randomizeGenre ?? 'random',
+          },
+          `Rnd T${state.selectedTrackIndex + 1}`,
+        )
+      ) {
+        randomizeTrack(state.selectedTrackIndex, _randomizeDensity);
+      }
     });
 
     // MUTATE button
@@ -2012,7 +2207,19 @@ export default {
     mutateBtn.innerHTML = '&#10033; MUTATE';
     mutateBtn.title = 'Slightly mutate current track (flip 1-2 random steps)';
     mutateBtn.addEventListener('click', () => {
-      mutateTrack(state.selectedTrackIndex);
+      if (
+        !executeCommands(
+          {
+            type: 'mutate-track-steps',
+            bankIndex: state.activeBank,
+            patternIndex: state.activePattern,
+            trackIndex: state.selectedTrackIndex,
+          },
+          `Mutated T${state.selectedTrackIndex + 1}`,
+        )
+      ) {
+        mutateTrack(state.selectedTrackIndex);
+      }
     });
 
     randomizeWrap.append(rndLabel, densityBtns, randomizeBtn, mutateBtn);

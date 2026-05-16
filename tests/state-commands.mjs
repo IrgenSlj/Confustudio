@@ -24,13 +24,27 @@ assert.equal(imported.project.banks.length, 8);
 
 const before = captureCommandState(imported);
 const result = executeStudioCommands(imported, [
+  { type: 'select-bank', bankIndex: 2 },
+  { type: 'select-pattern', bankIndex: 1, patternIndex: 7, trackIndex: 5 },
+  { type: 'select-track', trackIndex: 3 },
+  { type: 'set-setting', key: 'metronome', value: true },
+  { type: 'set-setting', key: 'midiChannel', value: 11 },
+  { type: 'toggle-step', bankIndex: 0, patternIndex: 0, trackIndex: 2, stepIndex: 0 },
+  { type: 'cycle-step-probability', bankIndex: 0, patternIndex: 0, trackIndex: 2, stepIndex: 0 },
   { type: 'set-transport', bpm: 128, swing: 0.14 },
   { type: 'set-project-meta', description: 'Structured command coverage' },
-  { type: 'set-pattern-length', length: 32 },
-  { type: 'update-pattern-meta', name: 'Groove Lab', followAction: 'loop' },
-  { type: 'generate-drum-pattern', trackIndex: 0, length: 16, style: 'broken', density: 0.8 },
-  { type: 'generate-euclid', trackIndex: 1, beats: 5, steps: 16, offset: 2 },
-  { type: 'replace-track-steps', trackIndex: 2, steps: [{ active: true, note: 67, velocity: 0.75 }] },
+  { type: 'fill-track-steps', bankIndex: 0, patternIndex: 0, trackIndex: 4, interval: 4 },
+  { type: 'set-pattern-length', bankIndex: 0, patternIndex: 0, length: 32 },
+  { type: 'update-pattern-meta', bankIndex: 0, patternIndex: 0, name: 'Groove Lab', followAction: 'loop' },
+  { type: 'generate-drum-pattern', bankIndex: 0, patternIndex: 0, trackIndex: 0, length: 16, style: 'broken', density: 0.8 },
+  { type: 'generate-euclid', bankIndex: 0, patternIndex: 0, trackIndex: 1, beats: 5, steps: 16, offset: 2 },
+  {
+    type: 'replace-track-steps',
+    bankIndex: 0,
+    patternIndex: 0,
+    trackIndex: 2,
+    steps: [{ active: true, note: 67, velocity: 0.75, probability: 0.75 }],
+  },
   { type: 'add-arranger-section', sceneIdx: 2, bars: 8, name: 'Drop A' },
   { type: 'set-scene-name', sceneIndex: 0, name: 'Intro A' },
   { type: 'set-scene-payload', sceneIndex: 1, scene: { name: 'Lift', tracks: [{ cutoff: 2400, volume: 0.8 }] } },
@@ -38,12 +52,22 @@ const result = executeStudioCommands(imported, [
 ]);
 
 assert.equal(result.changed, true);
+assert.equal(imported.activeBank, 1);
+assert.equal(imported.activePattern, 7);
+assert.equal(imported.selectedTrackIndex, 3);
+assert.equal(imported.metronome, true);
+assert.equal(imported.midiChannel, 11);
+assert.equal(imported.project.banks[0].patterns[0].kit.tracks[2].steps[0].active, true);
+assert.equal(imported.project.banks[0].patterns[0].kit.tracks[2].steps[0].probability, 0.75);
 assert.equal(imported.bpm, 128);
 assert.equal(imported.swing, 0.14);
 assert.equal(imported.project.description, 'Structured command coverage');
 assert.equal(imported.project.banks[0].patterns[0].length, 32);
 assert.equal(imported.project.banks[0].patterns[0].name, 'Groove Lab');
 assert.equal(imported.project.banks[0].patterns[0].followAction, 'loop');
+assert.equal(imported.project.banks[0].patterns[0].kit.tracks[4].steps[0].active, true);
+assert.equal(imported.project.banks[0].patterns[0].kit.tracks[4].steps[1].active, false);
+assert.equal(imported.project.banks[0].patterns[0].kit.tracks[4].steps[4].active, true);
 assert.equal(imported.arranger.length, 1);
 assert.equal(imported.arranger[0].name, 'Drop A');
 assert.equal(imported.arranger[0].repeat, 2);

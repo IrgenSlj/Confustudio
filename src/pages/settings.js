@@ -67,6 +67,13 @@ function connectLink(state, emit) {
   };
 }
 
+function executeStudioCommand(command, label) {
+  const execute = window.confustudioCommands?.execute;
+  if (typeof execute !== 'function') return false;
+  const result = execute(command, label);
+  return Boolean(result?.changed);
+}
+
 // ─── Inject Settings CSS (once) ───────────────────────────────────────────────
 if (!document.getElementById('_settings-extra-css')) {
   const s = document.createElement('style');
@@ -743,55 +750,69 @@ export default {
 
       if (action === 'midiClockOut') {
         const next = !state.midiClockOut;
-        state.midiClockOut = next;
         btn.classList.toggle('active', next);
         btn.textContent = next ? 'ON' : 'OFF';
-        if (next && state.engine?.startMidiClock) state.engine.startMidiClock(state.bpm);
-        else if (!next && state.engine?.stopMidiClock) state.engine.stopMidiClock();
-        saveState(state);
+        if (!executeStudioCommand({ type: 'set-setting', key: 'midiClockOut', value: next }, 'Updated MIDI clock out')) {
+          state.midiClockOut = next;
+          saveState(state);
+        }
+        if (state.midiClockOut && state.engine?.startMidiClock) state.engine.startMidiClock(state.bpm);
+        else if (!state.midiClockOut && state.engine?.stopMidiClock) state.engine.stopMidiClock();
       }
 
       if (action === 'clockSource') {
         const src = btn.dataset.value;
-        state.clockSource = src;
         container
           .querySelectorAll('[data-action="clockSource"]')
           .forEach((b) => b.classList.toggle('active', b.dataset.value === src));
-        saveState(state);
+        if (!executeStudioCommand({ type: 'set-setting', key: 'clockSource', value: src }, 'Updated clock source')) {
+          state.clockSource = src;
+          saveState(state);
+        }
       }
 
       if (action === 'abletonLink') {
         const next = !state.abletonLink;
-        state.abletonLink = next;
         btn.classList.toggle('active', next);
         btn.textContent = next ? 'ON' : 'OFF';
+        if (!executeStudioCommand({ type: 'set-setting', key: 'abletonLink', value: next }, 'Updated Ableton Link')) {
+          state.abletonLink = next;
+          saveState(state);
+        }
         if (next) {
           connectLink(state, emit);
           publishLinkBpm(state, state.bpm);
         } else {
           disconnectLink(state);
         }
-        saveState(state);
       }
 
       if (action === 'cueMonitor') {
         const next = !(state.cueMonitorEnabled !== false);
-        state.cueMonitorEnabled = next;
         btn.classList.toggle('active', next);
         btn.textContent = next ? 'ON' : 'OFF';
+        if (
+          !executeStudioCommand(
+            { type: 'set-setting', key: 'cueMonitorEnabled', value: next },
+            'Updated cue monitor',
+          )
+        ) {
+          state.cueMonitorEnabled = next;
+          saveState(state);
+        }
         const tracks = state.project?.banks?.[state.activeBank]?.patterns?.[state.activePattern]?.kit?.tracks || [];
         const anyCue = tracks.some((track) => track.cue);
         state.engine?.setCueMonitorEnabled?.(next && anyCue);
-        saveState(state);
       }
 
       if (action === 'metronome') {
         const next = !state.metronome;
-        state.metronome = next;
         btn.classList.toggle('active', next);
         btn.textContent = next ? 'On' : 'Off';
-        emit('state:change', { path: 'metronome', value: next });
-        saveState(state);
+        if (!executeStudioCommand({ type: 'set-setting', key: 'metronome', value: next }, 'Updated metronome')) {
+          state.metronome = next;
+          saveState(state);
+        }
       }
 
       if (action === 'initAudio') {
@@ -1043,11 +1064,12 @@ export default {
       btn.className = 'seq-btn' + ((state.oscMode ?? 'wave') === mode ? ' active' : '');
       btn.textContent = mode === 'wave' ? 'Wave' : mode === 'spectrum' ? 'Spectrum' : 'XY';
       btn.addEventListener('click', () => {
-        state.oscMode = mode;
         oscBtns.forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
-        emit('state:change', { path: 'oscMode', value: mode });
-        saveState(state);
+        if (!executeStudioCommand({ type: 'set-setting', key: 'oscMode', value: mode }, 'Updated oscilloscope mode')) {
+          state.oscMode = mode;
+          saveState(state);
+        }
       });
       oscBtns.push(btn);
       oscModeBar.append(btn);
@@ -1068,13 +1090,15 @@ export default {
       limiterBtn.className = 'ctx-btn' + (state.masterLimiter ? ' active' : '');
       limiterBtn.textContent = state.masterLimiter ? 'ON' : 'OFF';
       limiterBtn.addEventListener('click', () => {
-        state.masterLimiter = !state.masterLimiter;
+        const next = !state.masterLimiter;
         const eng = window._confustudioEngine;
+        if (!executeStudioCommand({ type: 'set-setting', key: 'masterLimiter', value: next }, 'Updated limiter')) {
+          state.masterLimiter = next;
+          saveState(state);
+        }
         if (eng?.setLimiter) eng.setLimiter(state.masterLimiter);
         limiterBtn.classList.toggle('active', state.masterLimiter);
         limiterBtn.textContent = state.masterLimiter ? 'ON' : 'OFF';
-        emit('state:change', { path: 'masterLimiter', value: state.masterLimiter });
-        saveState(state);
       });
       limiterRow.append(limiterLabel, limiterBtn);
       audioSection.append(limiterRow);
@@ -1153,8 +1177,11 @@ export default {
       bufferNote.textContent = '(restart required)';
 
       bufferSelect.addEventListener('change', () => {
-        state.audioBufferSize = parseInt(bufferSelect.value);
-        emit('state:change', { param: 'audioBufferSize', value: state.audioBufferSize });
+        const next = parseInt(bufferSelect.value);
+        if (!executeStudioCommand({ type: 'set-setting', key: 'audioBufferSize', value: next }, 'Updated buffer size')) {
+          state.audioBufferSize = next;
+          emit('state:change', { param: 'audioBufferSize', value: state.audioBufferSize });
+        }
       });
 
       bufferRow.append(bufferLabel, bufferSelect, bufferNote);
@@ -1644,9 +1671,11 @@ export default {
       if (action === 'midiChannel') {
         const v = Math.max(1, Math.min(16, parseInt(el.value, 10) || 1));
         el.value = v;
-        state.midiChannel = v;
-        emit('state:change', { path: 'midiChannel', value: v });
-        saveState(state);
+        if (!executeStudioCommand({ type: 'set-setting', key: 'midiChannel', value: v }, 'Updated MIDI channel')) {
+          state.midiChannel = v;
+          emit('state:change', { path: 'midiChannel', value: v });
+          saveState(state);
+        }
       }
 
       if (action === 'midiOutput') {
@@ -1663,14 +1692,22 @@ export default {
       }
 
       if (action === 'recorderBars') {
-        state.recorderBarCount = Math.max(1, Math.min(32, parseInt(el.value, 10) || 4));
-        saveState(state);
+        const next = Math.max(1, Math.min(32, parseInt(el.value, 10) || 4));
+        if (!executeStudioCommand({ type: 'set-setting', key: 'recorderBarCount', value: next }, 'Updated recorder bars')) {
+          state.recorderBarCount = next;
+          saveState(state);
+        }
       }
 
       if (action === 'cueLevel') {
-        state.cueLevel = Math.max(0, Math.min(2, parseFloat(el.value) || 0));
-        state.engine?.setCueGain?.(state.cueLevel);
-        saveState(state);
+        const next = Math.max(0, Math.min(2, parseFloat(el.value) || 0));
+        if (!executeStudioCommand({ type: 'set-setting', key: 'cueLevel', value: next }, 'Updated cue level')) {
+          state.cueLevel = next;
+          state.engine?.setCueGain?.(state.cueLevel);
+          saveState(state);
+        } else {
+          state.engine?.setCueGain?.(state.cueLevel);
+        }
       }
     });
 
