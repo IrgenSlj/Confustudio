@@ -489,7 +489,9 @@ function handleAction(path, value, pattern) {
       return true;
 
     case 'action_loadSample':
-      if (typeof value === 'number') state.selectedTrackIndex = value;
+      if (typeof value === 'number') {
+        executeStudioCommand({ type: 'select-track', trackIndex: value }, 'Selected track');
+      }
       el.sampleFile?.click();
       return true;
 
@@ -1204,9 +1206,7 @@ function emit(type, payload = {}) {
 
     case 'track:select':
       if (executeStudioCommand({ type: 'select-track', trackIndex: payload.trackIndex }, 'Selected track')) break;
-      state.selectedTrackIndex = payload.trackIndex;
-      state._selectedSteps = new Set(); // clear selection when switching tracks
-      renderAll();
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.SELECTED_TRACK_INDEX, value: payload.trackIndex });
       break;
 
     case 'track:cycle':
@@ -1218,8 +1218,10 @@ function emit(type, payload = {}) {
       ) {
         break;
       }
-      state.selectedTrackIndex = (state.selectedTrackIndex + payload.delta + TRACK_COUNT) % TRACK_COUNT;
-      renderAll();
+      emit(EVENTS.STATE_CHANGE, {
+        path: STATE_PATHS.SELECTED_TRACK_INDEX,
+        value: (state.selectedTrackIndex + payload.delta + TRACK_COUNT) % TRACK_COUNT,
+      });
       break;
 
     case 'track:mute': {
@@ -1272,9 +1274,8 @@ function emit(type, payload = {}) {
     // ── Bank/Pattern ──
     case 'bank:select':
       if (executeStudioCommand({ type: 'select-bank', bankIndex: payload.bankIndex }, 'Selected bank')) break;
-      state.activeBank = payload.bankIndex;
-      state.activePattern = 0;
-      renderAll();
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.ACTIVE_BANK, value: payload.bankIndex });
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.ACTIVE_PATTERN, value: 0 });
       break;
 
     case 'pattern:select':
@@ -1286,8 +1287,7 @@ function emit(type, payload = {}) {
       ) {
         break;
       }
-      state.activePattern = payload.patternIndex;
-      renderAll();
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.ACTIVE_PATTERN, value: payload.patternIndex });
       break;
 
     // ── Pattern operations ──
@@ -1449,10 +1449,14 @@ function emit(type, payload = {}) {
       // Switch to the scene/pattern for this section
       const seekSection = state.arranger[seekSectionIdx];
       if (seekSection != null) {
-        state.activePattern = Math.max(0, Math.min(15, seekSection.sceneIdx ?? 0));
+        const nextPattern = Math.max(0, Math.min(15, seekSection.sceneIdx ?? 0));
+        if (!executeStudioCommand({ type: 'select-pattern', bankIndex: state.activeBank, patternIndex: nextPattern }, 'Selected pattern')) {
+          emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.ACTIVE_PATTERN, value: nextPattern });
+        }
         if (state.bpmOverride && seekSection.bpmOverride) {
-          state.bpm = seekSection.bpmOverride;
-          updateTopbar();
+          if (!executeStudioCommand({ type: 'set-transport', bpm: seekSection.bpmOverride }, 'Updated tempo')) {
+            emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.BPM, value: seekSection.bpmOverride });
+          }
         }
       }
       renderPage();
@@ -2385,8 +2389,9 @@ function tapTempo() {
     const avg = intervals.reduce((a, b) => a + b, 0) / intervals.length;
     const bpm = Math.round(60000 / avg);
     const clamped = Math.max(40, Math.min(240, bpm));
-    state.bpm = clamped;
-    emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.BPM, value: clamped });
+    if (!executeStudioCommand({ type: 'set-transport', bpm: clamped }, 'Updated tempo')) {
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.BPM, value: clamped });
+    }
     const tapBtn = document.getElementById('btn-tap');
     if (tapBtn) {
       tapBtn.textContent = clamped + ' BPM';
@@ -3109,8 +3114,11 @@ function bindUI() {
       item.addEventListener('click', () => {
         menu.remove();
         window.startMidiLearn('bpm', (normalized) => {
-          state.bpm = Math.round(40 + normalized * 200);
-          state.engine?.setBpm?.(state.bpm);
+          const nextBpm = Math.round(40 + normalized * 200);
+          if (!executeStudioCommand({ type: 'set-transport', bpm: nextBpm }, 'Updated tempo')) {
+            state.bpm = nextBpm;
+            state.engine?.setBpm?.(state.bpm);
+          }
           updateTopbar();
           saveState(state);
         });
