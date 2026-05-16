@@ -99,4 +99,25 @@ assert.equal(imported.bpm, before.bpm);
 assert.equal(history.redo(imported), true);
 assert.equal(imported.bpm, 135);
 
+const selectionHistory = createHistoryController(10);
+selectionHistory.push(imported);
+const selectionBaseline = captureCommandState(imported);
+executeStudioCommands(imported, [
+  { type: 'select-bank', bankIndex: 4 },
+  { type: 'select-pattern', bankIndex: 4, patternIndex: 9 },
+  { type: 'select-track', trackIndex: 6 },
+]);
+selectionHistory.push(imported);
+assert.equal(imported.activeBank, 4);
+assert.equal(imported.activePattern, 9);
+assert.equal(imported.selectedTrackIndex, 6);
+assert.equal(selectionHistory.undo(imported), true);
+assert.equal(imported.activeBank, selectionBaseline.activeBank);
+assert.equal(imported.activePattern, selectionBaseline.activePattern);
+assert.equal(imported.selectedTrackIndex, selectionBaseline.selectedTrackIndex);
+assert.equal(selectionHistory.redo(imported), true);
+assert.equal(imported.activeBank, 4);
+assert.equal(imported.activePattern, 9);
+assert.equal(imported.selectedTrackIndex, 6);
+
 console.log(JSON.stringify({ ok: true }, null, 2));

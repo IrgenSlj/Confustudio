@@ -1,6 +1,7 @@
 // src/pages/settings-project.js — project import/export section
 
 import { saveState, createProjectPackage, applyProjectPackageToState, getActivePattern } from '../state.js';
+import { EVENTS, STATE_PATHS } from '../constants.js';
 
 function executeStudioCommand(command, label) {
   const execute = window.confustudioCommands?.execute;
@@ -270,7 +271,7 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
     e.target.value = v;
     if (!executeStudioCommand({ type: 'set-transport', bpm: v }, 'Updated project tempo')) {
       state.bpm = v;
-      emit('state:change', { path: 'bpm', value: v });
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.BPM, value: v });
     }
     if (state.abletonLink) publishLinkBpm(state, v);
     saveState(state);
@@ -348,7 +349,7 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
             const proj = JSON.parse(localStorage.getItem(key));
             applyProjectPackageToState(state, proj);
             saveState(state);
-            emit('state:change', { path: 'scale', value: state.scale });
+            emit(EVENTS.STATE_CHANGE, { path: 'scale', value: state.scale });
             emit('toast', { msg: 'Backup restored' });
           } catch (e) {
             emit('toast', { msg: 'Restore failed' });
@@ -410,7 +411,7 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
         const project = JSON.parse(e.target.result);
         applyProjectPackageToState(state, project);
         saveState(state);
-        emit('state:change', { path: 'action_renderPage', value: true });
+        emit(EVENTS.STATE_CHANGE, { path: 'action_renderPage', value: true });
       } catch (err) {
         alert('Invalid project file: ' + err.message);
       }
@@ -448,7 +449,7 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
         const kit = JSON.parse(e.target.result);
         getActivePattern(state).kit = kit;
         saveState(state);
-        emit('state:change', { path: 'action_renderPage', value: true });
+        emit(EVENTS.STATE_CHANGE, { path: 'action_renderPage', value: true });
       } catch (err) {
         alert('Invalid kit file: ' + err.message);
       }

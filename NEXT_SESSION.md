@@ -22,7 +22,7 @@ Server starts clean on `http://127.0.0.1:4173`.
 - [x] Route pattern metadata, step inspector, and batch edit tools through the command bus.
 - [ ] Extract shared state and event strings into constants for the remaining page modules.
 - [ ] Sweep the remaining direct state edits in `pattern.js`, `settings.js`, and transport handlers into command helpers.
-- [ ] Add tests for selection-driven navigation and history coverage.
+- [x] Add tests for selection-driven navigation and history coverage.
 
 ## Codebase Metrics
 

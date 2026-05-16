@@ -1,0 +1,30 @@
+export const EVENTS = Object.freeze({
+  STATE_CHANGE: 'state:change',
+  BANK_SELECT: 'bank:select',
+  PATTERN_SELECT: 'pattern:select',
+  TRACK_SELECT: 'track:select',
+  TRACK_CHANGE: 'track:change',
+  STEP_TOGGLE: 'step:toggle',
+  STEP_PROB: 'step:prob',
+  PATTERN_RANDOMIZE: 'pattern:randomize',
+  PATTERN_RANDOMIZE_ALL: 'pattern:randomizeAll',
+  ACTION_COPY: 'action_copy',
+  ACTION_PASTE: 'action_paste',
+  ACTION_CLEAR: 'action_clear',
+  ACTION_TRACK_PASTE: 'action_trackPaste',
+  TOAST: 'toast',
+  PAGE_SET: 'page:set',
+});
+
+export const STATE_PATHS = Object.freeze({
+  BPM: 'bpm',
+  LENGTH: 'length',
+  PATTERN_LENGTH: 'patternLength',
+  ACTIVE_BANK: 'activeBank',
+  ACTIVE_PATTERN: 'activePattern',
+  SELECTED_TRACK_INDEX: 'selectedTrackIndex',
+  EUCLID_BEATS: 'euclidBeats',
+  MIDI_CHANNEL: 'midiChannel',
+  PATTERN_LENGTH_LOCKED: 'patternLengthLocked',
+  TRACKS: 'tracks',
+});

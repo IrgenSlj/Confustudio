@@ -1,6 +1,7 @@
 // src/pages/pattern.js — Multi-track step sequencer with euclidean + p-lock
 
 import { TRACK_COLORS } from '../state.js';
+import { EVENTS, STATE_PATHS } from '../constants.js';
 
 import {
   getGenreStepWeights,
@@ -38,7 +39,7 @@ export default {
         },
         label,
       );
-    const rerenderPattern = () => emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+    const rerenderPattern = () => emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
 
     function cloneStepData(step) {
       return {
@@ -73,7 +74,7 @@ export default {
     });
     globalStepSel.addEventListener('change', (e) => {
       const n = parseInt(e.target.value);
-      emit('state:change', { path: 'length', value: n });
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.LENGTH, value: n });
     });
     header.append(globalStepSel);
 
@@ -90,7 +91,7 @@ export default {
       stepCountSel.append(opt);
     });
     stepCountSel.addEventListener('change', () => {
-      emit('state:change', { path: 'patternLength', value: parseInt(stepCountSel.value) });
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.PATTERN_LENGTH, value: parseInt(stepCountSel.value) });
     });
     header.append(stepCountSel);
 
@@ -119,7 +120,7 @@ export default {
       stepCountSel.disabled = locked;
       globalStepSel.style.opacity = locked ? '0.4' : '1';
       stepCountSel.style.opacity = locked ? '0.4' : '1';
-      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
     });
     header.append(patLockBtn);
 
@@ -154,7 +155,7 @@ export default {
       ) {
         pattern.followAction = faSelect.value;
       }
-      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
     });
     followDiv.append(faSelect);
     header.append(followDiv);
@@ -449,7 +450,7 @@ export default {
       randBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         // Delegate to app.js so pushHistory is called there
-        emit('pattern:randomize', { trackIndex: ti });
+        emit(EVENTS.PATTERN_RANDOMIZE, { trackIndex: ti });
       });
       labelRow2.append(randBtn);
 
@@ -467,7 +468,7 @@ export default {
         multiGrid.querySelectorAll('.mtg-row.track-copying').forEach((r) => {
           if (r !== row) r.classList.remove('track-copying');
         });
-        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+        emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
         emit('toast', { msg: 'Track steps copied' });
       });
       labelRow2.append(copyBtn);
@@ -480,7 +481,7 @@ export default {
       pasteBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         if (!state._trackCopyBuffer) return;
-        emit('state:change', { path: 'action_trackPaste', value: { trackIndex: ti } });
+        emit(EVENTS.STATE_CHANGE, { path: 'action_trackPaste', value: { trackIndex: ti } });
       });
       labelRow2.append(pasteBtn);
 
@@ -511,7 +512,7 @@ export default {
         recArmBtn.classList.toggle('armed', next);
         recArmBtn.style.color = next ? 'var(--live, #f44)' : 'var(--muted, #555)';
         recArmBtn.title = next ? 'Disarm track from recording' : 'Arm track for recording';
-        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+        emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
       });
       labelRow2.append(recArmBtn);
 
@@ -527,7 +528,7 @@ export default {
         currentTrack.steps.forEach((s) => {
           if (s.active) s.velocity = 0.5 + Math.random() * 0.5; // 50-100%
         });
-        emit('state:change', { param: 'pattern' });
+        emit(EVENTS.STATE_CHANGE, { param: 'pattern' });
       });
       labelRow2.append(velRandBtn);
 
@@ -561,10 +562,10 @@ export default {
           )
         ) {
           trk.stepCount = next;
-          emit('track:change', { trackIndex: ti, param: 'stepCount', value: trk.stepCount });
+          emit(EVENTS.TRACK_CHANGE, { trackIndex: ti, param: 'stepCount', value: trk.stepCount });
         }
         // Trigger a re-render by emitting a no-op length change (same value, causes renderPage)
-        emit('state:change', { path: 'length', value: pattern.length });
+        emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.LENGTH, value: pattern.length });
       });
       labelRow1.append(stepCountSel);
 
@@ -574,7 +575,7 @@ export default {
 
       labelWrap.style.cursor = 'pointer';
       labelWrap.title = 'Click to select track; click label text to expand/collapse step details';
-      labelWrap.addEventListener('click', () => emit('track:select', { trackIndex: ti }));
+      labelWrap.addEventListener('click', () => emit(EVENTS.TRACK_SELECT, { trackIndex: ti }));
 
       const labelTextEl = labelWrap.querySelector('.mtg-label');
       if (labelTextEl) {
@@ -590,7 +591,7 @@ export default {
             state._expandedTracks.add(ti);
           }
           // Re-render the step row to show/hide velocity bars
-          emit('state:change', { param: 'velocity' });
+          emit(EVENTS.STATE_CHANGE, { param: 'velocity' });
         });
         labelTextEl.addEventListener('dblclick', (e) => {
           e.stopPropagation();
@@ -620,7 +621,7 @@ export default {
             }
             input.replaceWith(labelTextEl);
             labelTextEl.textContent = newName;
-            emit('state:change', { param: 'trackName' });
+            emit(EVENTS.STATE_CHANGE, { param: 'trackName' });
           };
           input.addEventListener('blur', commit);
           input.addEventListener('keydown', (ev) => {
@@ -684,7 +685,7 @@ export default {
               }
               row.style.setProperty('--track-color', hex);
               popover.remove();
-              emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+              emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
             });
             popover.append(swatch);
           });
@@ -718,7 +719,7 @@ export default {
             }
             row.style.setProperty('--track-color', TRACK_COLORS[ti]);
             popover.remove();
-            emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+            emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
           });
           popover.append(resetSwatch);
           document.body.append(popover);
@@ -889,14 +890,14 @@ export default {
           step.active = dragActivating;
           btn.classList.toggle('active', step.active);
           btn._blockNextClick = true; // prevent the subsequent click from double-toggling
-          emit('state:change', { param: 'pattern' });
+          emit(EVENTS.STATE_CHANGE, { param: 'pattern' });
         });
 
         btn.addEventListener('mouseenter', () => {
           if (!isDragging || dragActivating === null) return;
           step.active = dragActivating;
           btn.classList.toggle('active', step.active);
-          emit('state:change', { param: 'pattern' });
+          emit(EVENTS.STATE_CHANGE, { param: 'pattern' });
         });
 
         btn.addEventListener('mouseenter', () => {
@@ -922,7 +923,7 @@ export default {
             step.velocity = Math.max(0.05, Math.min(1.0, startVel + delta));
             btn.style.setProperty('--vel', step.velocity);
             btn.title = `Step ${si + 1} vel:${Math.round(step.velocity * 100)}%`;
-            emit('state:change', { param: 'velocity' });
+            emit(EVENTS.STATE_CHANGE, { param: 'velocity' });
           };
 
           const onUp = () => {
@@ -941,12 +942,12 @@ export default {
             return;
           }
           if (ti !== state.selectedTrackIndex) {
-            emit('track:select', { trackIndex: ti });
+            emit(EVENTS.TRACK_SELECT, { trackIndex: ti });
           }
           if (e.altKey) {
             // Alt+click = toggle mute on this step
             step.mute = !step.mute;
-            emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+            emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
           } else if (e.shiftKey) {
             // Shift+click = toggle step in selection set
             if (!state._selectedSteps) state._selectedSteps = new Set();
@@ -955,9 +956,9 @@ export default {
             } else {
               state._selectedSteps.add(si);
             }
-            emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+            emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
           } else {
-            emit('step:toggle', { stepIndex: si, shiftKey: false });
+            emit(EVENTS.STEP_TOGGLE, { stepIndex: si, shiftKey: false });
           }
         });
 
@@ -995,7 +996,7 @@ export default {
             probValSpan.textContent = `${Math.round(next * 100)}%`;
             if (!commitStepPatch(si, { probability: next }, 'Updated probability')) {
               step.probability = next;
-              emit('state:change', { param: 'pattern' });
+              emit(EVENTS.STATE_CHANGE, { param: 'pattern' });
             }
           });
           probWrap.append(probLabel, probSlider);
@@ -1020,7 +1021,7 @@ export default {
               if (!commitStepPatch(si, { trigCondition: cond }, 'Updated trig condition')) {
                 step.trigCondition = cond;
               }
-              emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+              emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
               menu.remove();
             });
             menu.append(item);
@@ -1050,7 +1051,7 @@ export default {
               const next = v / 127;
               if (!commitStepPatch(si, { velocity: next }, 'Updated velocity')) {
                 step.velocity = next;
-                emit('state:change', { param: 'pattern' });
+                emit(EVENTS.STATE_CHANGE, { param: 'pattern' });
               }
             }
           });
@@ -1063,7 +1064,7 @@ export default {
               const next = v / 100;
               if (!commitStepPatch(si, { gate: next }, 'Updated gate')) {
                 step.gate = next;
-                emit('state:change', { param: 'pattern' });
+                emit(EVENTS.STATE_CHANGE, { param: 'pattern' });
               }
             }
           });
@@ -1079,7 +1080,7 @@ export default {
               const next = v / 100;
               if (!commitStepPatch(si, { microTime: next }, 'Updated microtime')) {
                 step.microTime = next;
-                emit('state:change', { param: 'pattern' });
+                emit(EVENTS.STATE_CHANGE, { param: 'pattern' });
               }
             }
           });
@@ -1087,7 +1088,7 @@ export default {
           makeActionItem('Clear param locks', () => {
             if (!commitStepPatch(si, { paramLocks: {} }, 'Cleared param locks')) {
               step.paramLocks = {};
-              emit('state:change', { param: 'pattern' });
+              emit(EVENTS.STATE_CHANGE, { param: 'pattern' });
             }
           });
 
@@ -1157,7 +1158,7 @@ export default {
               window.removeEventListener('pointerup', onMicroUp);
               if (dragged) {
                 btn._blockNextClick = true;
-                emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+                emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
               }
             }
             window.addEventListener('pointermove', onMicroMove);
@@ -1212,7 +1213,7 @@ export default {
           if (velDragging) {
             velDragging = false;
             btn._blockNextClick = true;
-            emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+            emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
             return;
           }
           velDragging = false;
@@ -1255,7 +1256,7 @@ export default {
         const onUp = () => {
           window.removeEventListener('pointermove', onMove);
           window.removeEventListener('pointerup', onUp);
-          emit('track:change', { param: 'trackLength', value: currentLen });
+          emit(EVENTS.TRACK_CHANGE, { param: 'trackLength', value: currentLen });
         };
         window.addEventListener('pointermove', onMove);
         window.addEventListener('pointerup', onUp);
@@ -1373,7 +1374,7 @@ export default {
     const trackLenInput = trackLenDiv.querySelector('input');
     trackLenInput.addEventListener('change', () => {
       const v = Math.max(0, Math.min(64, parseInt(trackLenInput.value) || 0));
-      emit('track:change', { param: 'trackLength', value: v });
+      emit(EVENTS.TRACK_CHANGE, { param: 'trackLength', value: v });
     });
     toolbar.prepend(trackLenDiv);
 
@@ -1571,7 +1572,7 @@ export default {
         state.euclidBeats = beats;
         state.euclidOffset = offset;
       }
-      emit('state:change', { path: 'euclidBeats', value: beats });
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: beats });
     });
 
     allBtn.addEventListener('click', () => {
@@ -1601,7 +1602,7 @@ export default {
         state.euclidBeats = beats;
         state.euclidOffset = 0;
       }
-      emit('state:change', { path: 'euclidBeats', value: beats });
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: beats });
       emit('toast', { msg: 'Applied to all 8 tracks' });
     });
 
@@ -1613,7 +1614,7 @@ export default {
     copyBtn2.textContent = 'Copy';
     copyBtn2.title = 'Copy current track steps (C)';
     copyBtn2.addEventListener('click', () => {
-      emit('state:change', { path: 'action_copy', value: true });
+      emit(EVENTS.STATE_CHANGE, { path: 'action_copy', value: true });
       copyBtn2.style.background = 'rgba(90,221,113,0.3)';
       setTimeout(() => {
         copyBtn2.style.background = '';
@@ -1642,7 +1643,7 @@ export default {
           'Pasted steps',
         )
       ) {
-        emit('state:change', { path: 'action_paste', value: true });
+        emit(EVENTS.STATE_CHANGE, { path: 'action_paste', value: true });
       }
       pasteBtn2.style.background = 'rgba(90,221,113,0.3)';
       setTimeout(() => {
@@ -1667,7 +1668,7 @@ export default {
           'Cleared track',
         )
       ) {
-        emit('state:change', { path: 'action_clear', value: true });
+        emit(EVENTS.STATE_CHANGE, { path: 'action_clear', value: true });
       }
     });
     actionsDiv.append(clearBtn2);
@@ -1680,7 +1681,7 @@ export default {
     lockBtn.title = 'Lock/unlock pattern for morph source';
     lockBtn.addEventListener('click', () => {
       state.patternLocked = !state.patternLocked;
-      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
     });
     actionsDiv.prepend(lockBtn);
 
@@ -1689,7 +1690,7 @@ export default {
     fillBtn.textContent = 'Fill';
     fillBtn.title = 'Fill pattern with active track steps (hold for options)';
     fillBtn.style.color = state._fillActive ? 'var(--live)' : '';
-    fillBtn.addEventListener('click', () => emit('state:change', { path: 'action_fill', value: true }));
+    fillBtn.addEventListener('click', () => emit(EVENTS.STATE_CHANGE, { path: 'action_fill', value: true }));
     actionsDiv.prepend(fillBtn);
 
     // ── Randomize Fill button ─────────────────────────────────────────────────
@@ -1714,7 +1715,7 @@ export default {
           s.accent = s.active && Math.random() < 0.25;
         });
       });
-      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
     });
     // Insert after fillBtn (fillBtn is prepended, so insert after it)
     fillBtn.insertAdjacentElement('afterend', randFillBtn);
@@ -1742,7 +1743,7 @@ export default {
           }
         });
       });
-      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
     });
     actionsDiv.append(morphBtn);
 
@@ -1806,7 +1807,7 @@ export default {
           `Rnd ALL (${state.randomizeGenre ?? 'random'} ${Math.round((state.randomizeDensity ?? 0.5) * 100)}%)`,
         )
       ) {
-        emit('pattern:randomizeAll', {});
+        emit(EVENTS.PATTERN_RANDOMIZE_ALL, {});
       }
     });
 
@@ -1827,7 +1828,7 @@ export default {
       clearSelBtn.textContent = 'Clear Sel';
       clearSelBtn.addEventListener('click', () => {
         state._selectedSteps = new Set();
-        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+        emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
       });
       actionsDiv.append(clearSelBtn);
 
@@ -1966,7 +1967,7 @@ export default {
         track.steps.slice(0, trackLen).forEach((s, si) => {
           s.active = newActive.has(si);
         });
-        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+        emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
       }
     });
     actionsDiv.append(qSelect, quantizeBtn);
@@ -2017,7 +2018,7 @@ export default {
         });
       }
       humanizeLabel.textContent = `±${Math.round(amt * 100)}% ${humanizeDesc(amt)}`;
-      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
     });
     actionsDiv.append(humanizeDiv);
 
@@ -2051,7 +2052,7 @@ export default {
           currentTrack.steps.forEach((s, i) => {
             s.active = i % n === 0;
           });
-          emit('state:change', { param: 'pattern' });
+          emit(EVENTS.STATE_CHANGE, { param: 'pattern' });
         }
       });
       fillRow.append(btn);
@@ -2257,7 +2258,7 @@ export default {
           step.note = getRandomNoteInScale(si);
         }
       });
-      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
     }
 
     function mutateTrack(trackIndex) {
@@ -2268,7 +2269,7 @@ export default {
         const si = Math.floor(Math.random() * len);
         currentTrack.steps[si].active = !currentTrack.steps[si].active;
       }
-      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
     }
 
     toolbar.append(euclidDiv, actionsDiv);

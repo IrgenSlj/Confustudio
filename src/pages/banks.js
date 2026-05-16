@@ -1,5 +1,7 @@
 // src/pages/banks.js — Bank/Pattern browser
 
+import { EVENTS, STATE_PATHS } from '../constants.js';
+
 const BANK_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
 // ─── Pattern Chain State ───────────────────────────────────────────────────────
@@ -398,8 +400,8 @@ export default {
       const isOnA = patternCompareA && curr.bank === patternCompareA.bank && curr.pattern === patternCompareA.pattern;
       const target = isOnA ? patternCompareB : patternCompareA;
       if (target) {
-        emit('bank:select', { bankIndex: target.bank });
-        emit('pattern:select', { patternIndex: target.pattern });
+        emit(EVENTS.BANK_SELECT, { bankIndex: target.bank });
+        emit(EVENTS.PATTERN_SELECT, { patternIndex: target.pattern });
       }
     });
 
@@ -709,8 +711,8 @@ export default {
             `Selected bank ${letter}`,
           )
         ) {
-          emit('state:change', { path: 'activeBank', value: bi });
-          emit('state:change', { path: 'activePattern', value: 0 });
+          emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.ACTIVE_BANK, value: bi });
+          emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.ACTIVE_PATTERN, value: 0 });
           this.render(container, { ...state, activeBank: bi, activePattern: 0 }, emit);
         }
       });
@@ -801,7 +803,7 @@ export default {
         }
         const icons = { next: '→', loop: '↺', stop: '■', random: '?' };
         followBadge.textContent = icons[nextFollowAction];
-        emit('state:change', { param: 'followAction' });
+        emit(EVENTS.STATE_CHANGE, { param: 'followAction' });
       });
       btn.style.position = 'relative';
 
@@ -839,7 +841,7 @@ export default {
               s.active = false;
             }),
           );
-          emit('state:change', { param: 'pattern' });
+          emit(EVENTS.STATE_CHANGE, { param: 'pattern' });
           this.render(container, state, emit);
         }
       });
@@ -856,8 +858,8 @@ export default {
             `Selected pattern ${String(pi + 1).padStart(2, '0')}`,
           )
         ) {
-          emit('state:change', { path: 'activeBank', value: activeBank });
-          emit('state:change', { path: 'activePattern', value: pi });
+          emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.ACTIVE_BANK, value: activeBank });
+          emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.ACTIVE_PATTERN, value: pi });
           this.render(container, { ...state, activePattern: pi }, emit);
         }
       });
@@ -891,7 +893,7 @@ export default {
             const bank = state.project.banks[activeBank];
             bank.patterns[pi].name = nextName;
           }
-          emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+          emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
           this.render(container, { ...state }, emit);
         };
 
@@ -951,7 +953,7 @@ export default {
           )
         ) {
           patterns[targetIdx] = JSON.parse(JSON.stringify(patterns[pi]));
-          emit('state:change', { path: 'scale', value: state.scale });
+          emit(EVENTS.STATE_CHANGE, { path: 'scale', value: state.scale });
           emit('toast', { msg: `Duplicated to slot ${String(targetIdx + 1).padStart(2, '0')}` });
         }
       });
@@ -969,7 +971,7 @@ export default {
     copyBtn.className = 'seq-btn';
     copyBtn.textContent = 'Copy';
     copyBtn.addEventListener('click', () =>
-      emit('state:change', { path: 'action_copyPattern', value: { bank: activeBank, pattern: activePattern } }),
+      emit(EVENTS.STATE_CHANGE, { path: 'action_copyPattern', value: { bank: activeBank, pattern: activePattern } }),
     );
 
     const pasteBtn = document.createElement('button');
@@ -978,7 +980,7 @@ export default {
     pasteBtn.disabled = !hasPatternCopy;
     pasteBtn.style.opacity = hasPatternCopy ? '1' : '0.4';
     pasteBtn.addEventListener('click', () =>
-      emit('state:change', { path: 'action_pastePattern', value: { bank: activeBank, pattern: activePattern } }),
+      emit(EVENTS.STATE_CHANGE, { path: 'action_pastePattern', value: { bank: activeBank, pattern: activePattern } }),
     );
 
     actions.append(copyBtn, pasteBtn);
@@ -1032,7 +1034,7 @@ export default {
         )
       ) {
         state.project.banks[targetBank].patterns[targetPat] = JSON.parse(JSON.stringify(src));
-        emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+        emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
       }
     });
 
@@ -1106,7 +1108,7 @@ export default {
             ) {
               const target = state.project.banks[activeBank].patterns[activePattern];
               Object.assign(target, JSON.parse(JSON.stringify(imported)));
-              emit('state:change', { path: 'scale', value: state.scale });
+              emit(EVENTS.STATE_CHANGE, { path: 'scale', value: state.scale });
               emit('toast', { msg: 'Pattern imported' });
             }
           } catch (err) {
@@ -1198,7 +1200,7 @@ export default {
               `MIDI imported: ${notesImported} notes`,
             )
           ) {
-            emit('state:change', { path: 'scale', value: state.scale });
+            emit(EVENTS.STATE_CHANGE, { path: 'scale', value: state.scale });
             emit('toast', { msg: `MIDI imported: ${notesImported} notes` });
           }
         };

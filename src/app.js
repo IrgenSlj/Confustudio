@@ -22,6 +22,7 @@ import { initStudio } from './studio.js';
 import { initCables } from './cables.js';
 import { initBackground } from './background.js';
 import { captureCommandState, executeStudioCommands } from './command-bus.js';
+import { EVENTS, STATE_PATHS } from './constants.js';
 import {
   resetRecorderSlotMeta,
   cloneJson,
@@ -2385,7 +2386,7 @@ function tapTempo() {
     const bpm = Math.round(60000 / avg);
     const clamped = Math.max(40, Math.min(240, bpm));
     state.bpm = clamped;
-    emit('state:change', { path: 'bpm', value: clamped });
+    emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.BPM, value: clamped });
     const tapBtn = document.getElementById('btn-tap');
     if (tapBtn) {
       tapBtn.textContent = clamped + ' BPM';
@@ -2557,7 +2558,7 @@ function renderTrackStrip() {
     card.addEventListener('click', (e) => {
       if (e.shiftKey) emit('track:mute', { trackIndex: i });
       else if (e.altKey) emit('track:solo', { trackIndex: i });
-      else emit('track:select', { trackIndex: i });
+      else emit(EVENTS.TRACK_SELECT, { trackIndex: i });
     });
     el.trackStrip.append(card);
   });
@@ -2633,7 +2634,7 @@ function renderTrackSelector() {
       row.append(grpDot);
     }
 
-    row.addEventListener('click', () => emit('track:select', { trackIndex: i }));
+    row.addEventListener('click', () => emit(EVENTS.TRACK_SELECT, { trackIndex: i }));
     el_cs.append(row);
   });
 
@@ -3059,7 +3060,7 @@ function bindUI() {
   // BPM edit
   if (el.bpmInput) {
     el.bpmInput.addEventListener('input', (e) => {
-      emit('state:change', { path: 'bpm', value: Number(e.target.value) });
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.BPM, value: Number(e.target.value) });
     });
     addNumericDrag(el.bpmInput);
   }
@@ -3128,12 +3129,12 @@ function bindUI() {
   }
   if (el.bpmDec)
     el.bpmDec.addEventListener('click', () => {
-      emit('state:change', { path: 'bpm', value: state.bpm - 1 });
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.BPM, value: state.bpm - 1 });
       if (el.bpmInput) el.bpmInput.value = state.bpm;
     });
   if (el.bpmInc)
     el.bpmInc.addEventListener('click', () => {
-      emit('state:change', { path: 'bpm', value: state.bpm + 1 });
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.BPM, value: state.bpm + 1 });
       if (el.bpmInput) el.bpmInput.value = state.bpm;
     });
 
@@ -3452,7 +3453,7 @@ function bindUI() {
       if (_digit !== undefined) {
         e.preventDefault();
         state.selectedTrackIndex = _digit;
-        emit('track:select', { trackIndex: _digit });
+        emit(EVENTS.TRACK_SELECT, { trackIndex: _digit });
         return;
       }
       if (e.code === 'Digit9') {
@@ -3501,12 +3502,12 @@ function bindUI() {
       }
       if (e.key === 'Home') {
         e.preventDefault();
-        emit('bank:select', { bankIndex: 0 });
+        emit(EVENTS.BANK_SELECT, { bankIndex: 0 });
         return;
       }
       if (e.key === 'End') {
         e.preventDefault();
-        emit('bank:select', { bankIndex: 7 });
+        emit(EVENTS.BANK_SELECT, { bankIndex: 7 });
         return;
       }
     }
@@ -3541,7 +3542,7 @@ function bindUI() {
             return `${Math.max(24, Math.min(96, midi + delta))}_${si}`;
           }),
         );
-        emit('state:change', { path: 'rollScroll', value: state.rollScroll ?? 0.5 });
+        emit(EVENTS.STATE_CHANGE, { path: 'rollScroll', value: state.rollScroll ?? 0.5 });
         return;
       }
     }
@@ -3603,7 +3604,7 @@ function bindUI() {
         // Ctrl+1-8: recall scene (set as A, crossfader to 0)
         if (e.ctrlKey && !e.shiftKey && !e.metaKey) {
           e.preventDefault();
-          emit('state:change', { path: 'scene_recall', value: { idx } });
+          emit(EVENTS.STATE_CHANGE, { path: 'scene_recall', value: { idx } });
           showToast(`Recall Scene ${String.fromCharCode(65 + idx)}`);
           return;
         }

@@ -10,6 +10,7 @@ import {
 import { chatAssistant, fetchAssistantProviders, buildAssistantPrompt } from '../assistant-client.js';
 import { renderMidiSection } from './settings-midi.js';
 import { renderProjectSection } from './settings-project.js';
+import { EVENTS, STATE_PATHS } from '../constants.js';
 
 const VERSION_LABEL = `${APP_DISPLAY_VERSION} · schema ${PROJECT_SCHEMA_VERSION}`;
 
@@ -57,7 +58,7 @@ function connectLink(state, emit) {
       state._linkSuppressPublish = true;
       state.bpm = msg.bpm;
       if (state.engine?.startMidiClock) state.engine.startMidiClock(msg.bpm);
-      emit('state:change', { path: 'bpm', value: msg.bpm });
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.BPM, value: msg.bpm });
     } catch (_) {
       state._linkSuppressPublish = false;
     }
@@ -602,7 +603,7 @@ export default {
       btn.style.cssText = 'font-size:0.5rem;padding:3px 10px';
       btn.addEventListener('click', () => {
         state._settingsTab = tab;
-        emit('state:change', { param: 'settingsTab' });
+        emit(EVENTS.STATE_CHANGE, { param: 'settingsTab' });
         updateTabVisibility();
       });
       setTabBar.append(btn);
@@ -816,13 +817,13 @@ export default {
       }
 
       if (action === 'initAudio') {
-        emit('state:change', { path: 'action_initAudio', value: true });
+        emit(EVENTS.STATE_CHANGE, { path: 'action_initAudio', value: true });
       }
 
       if (action === 'selectRecorderSlot') {
         state.selectedRecorderSlot = Math.max(0, parseInt(btn.dataset.value, 10) || 0);
         saveState(state);
-        emit('state:change', { path: 'action_renderPage', value: true });
+        emit(EVENTS.STATE_CHANGE, { path: 'action_renderPage', value: true });
       }
 
       if (action === 'captureRecorder') {
@@ -857,7 +858,7 @@ export default {
           editedAt: null,
         };
         saveState(state);
-        emit('state:change', { path: 'action_renderPage', value: true });
+        emit(EVENTS.STATE_CHANGE, { path: 'action_renderPage', value: true });
       }
 
       if (action === 'normalizeRecorder') {
@@ -870,7 +871,7 @@ export default {
           state.recorderSlotsMeta[slotIndex].durationSec = state.recorderBuffers[slotIndex].duration;
         }
         saveState(state);
-        emit('state:change', { path: 'action_renderPage', value: true });
+        emit(EVENTS.STATE_CHANGE, { path: 'action_renderPage', value: true });
       }
 
       if (action === 'reverseRecorder') {
@@ -887,7 +888,7 @@ export default {
           state.recorderSlotsMeta[slotIndex].durationSec = state.recorderBuffers[slotIndex].duration;
         }
         saveState(state);
-        emit('state:change', { path: 'action_renderPage', value: true });
+        emit(EVENTS.STATE_CHANGE, { path: 'action_renderPage', value: true });
       }
 
       if (action === 'trimRecorder') {
@@ -905,7 +906,7 @@ export default {
           state.recorderSlotsMeta[slotIndex].durationSec = state.recorderBuffers[slotIndex].duration;
         }
         saveState(state);
-        emit('state:change', { path: 'action_renderPage', value: true });
+        emit(EVENTS.STATE_CHANGE, { path: 'action_renderPage', value: true });
       }
 
       if (action === 'sliceRecorderToSteps') {
@@ -952,12 +953,12 @@ export default {
         track.sampleSlices = sliceMarkers;
         saveState(state);
         emit('toast', { msg: `Sliced slot ${slotIndex + 1} → T${trackIndex + 1}` });
-        emit('state:change', { path: 'action_renderPage', value: true });
+        emit(EVENTS.STATE_CHANGE, { path: 'action_renderPage', value: true });
       }
 
       if (action === 'clearStorage') {
         if (confirm('Clear all saved state? This cannot be undone.')) {
-          emit('state:change', { path: 'action_clearStorage', value: true });
+          emit(EVENTS.STATE_CHANGE, { path: 'action_clearStorage', value: true });
         }
       }
     });
@@ -993,7 +994,7 @@ export default {
       selectBtn.addEventListener('click', () => {
         state.selectedRecorderSlot = slotIndex;
         saveState(state);
-        emit('state:change', { param: 'settingsTab' });
+        emit(EVENTS.STATE_CHANGE, { param: 'settingsTab' });
       });
 
       const info = document.createElement('div');
@@ -1013,7 +1014,7 @@ export default {
       cap2Btn.textContent = '2 Bars';
       cap2Btn.disabled = !!state._recorderBusy;
       cap2Btn.addEventListener('click', () => {
-        emit('state:change', { path: 'action_captureRecorderSlot', value: { slot: slotIndex, bars: 2 } });
+        emit(EVENTS.STATE_CHANGE, { path: 'action_captureRecorderSlot', value: { slot: slotIndex, bars: 2 } });
       });
 
       const cap4Btn = document.createElement('button');
@@ -1021,7 +1022,7 @@ export default {
       cap4Btn.textContent = '4 Bars';
       cap4Btn.disabled = !!state._recorderBusy;
       cap4Btn.addEventListener('click', () => {
-        emit('state:change', { path: 'action_captureRecorderSlot', value: { slot: slotIndex, bars: 4 } });
+        emit(EVENTS.STATE_CHANGE, { path: 'action_captureRecorderSlot', value: { slot: slotIndex, bars: 4 } });
       });
 
       const loadBtn = document.createElement('button');
@@ -1029,7 +1030,7 @@ export default {
       loadBtn.textContent = `Load T${(state.selectedTrackIndex ?? 0) + 1}`;
       loadBtn.disabled = !hasBuffer;
       loadBtn.addEventListener('click', () => {
-        emit('state:change', {
+        emit(EVENTS.STATE_CHANGE, {
           path: 'action_assignRecorderSlot',
           value: { slot: slotIndex, trackIndex: state.selectedTrackIndex },
         });
@@ -1041,7 +1042,7 @@ export default {
       clearSlotBtn.disabled = !hasBuffer;
       clearSlotBtn.title = 'Clear recorder slot';
       clearSlotBtn.addEventListener('click', () => {
-        emit('state:change', { path: 'action_clearRecorderSlot', value: { slot: slotIndex } });
+        emit(EVENTS.STATE_CHANGE, { path: 'action_clearRecorderSlot', value: { slot: slotIndex } });
       });
 
       row.append(selectBtn, info, cap2Btn, cap4Btn, loadBtn, clearSlotBtn);
@@ -1180,7 +1181,7 @@ export default {
         const next = parseInt(bufferSelect.value);
         if (!executeStudioCommand({ type: 'set-setting', key: 'audioBufferSize', value: next }, 'Updated buffer size')) {
           state.audioBufferSize = next;
-          emit('state:change', { param: 'audioBufferSize', value: state.audioBufferSize });
+          emit(EVENTS.STATE_CHANGE, { param: 'audioBufferSize', value: state.audioBufferSize });
         }
       });
 
@@ -1221,7 +1222,7 @@ export default {
         if (state.engine) {
           if (profile.settings.lookahead) state.engine.lookahead = profile.settings.lookahead;
         }
-        emit('state:change', { param: 'performanceProfile', value: profile.settings });
+        emit(EVENTS.STATE_CHANGE, { param: 'performanceProfile', value: profile.settings });
         emit('toast', { message: `Profile: ${profile.name}` });
       });
       profileRow.append(btn);
@@ -1252,7 +1253,7 @@ export default {
     latSlider.addEventListener('input', () => {
       state.latencyCompMs = parseInt(latSlider.value);
       latVal.textContent = `${state.latencyCompMs}ms`;
-      emit('state:change', { param: 'latencyCompMs', value: state.latencyCompMs });
+      emit(EVENTS.STATE_CHANGE, { param: 'latencyCompMs', value: state.latencyCompMs });
     });
 
     latRow.append(latLabel, latSlider, latVal);
@@ -1367,7 +1368,7 @@ export default {
         state.customAccent = null;
         state.customScreenText = null;
         saveState(state);
-        emit('state:change', { path: 'action_renderPage', value: true });
+        emit(EVENTS.STATE_CHANGE, { path: 'action_renderPage', value: true });
       });
       themeBar.append(btn);
     });
@@ -1673,7 +1674,7 @@ export default {
         el.value = v;
         if (!executeStudioCommand({ type: 'set-setting', key: 'midiChannel', value: v }, 'Updated MIDI channel')) {
           state.midiChannel = v;
-          emit('state:change', { path: 'midiChannel', value: v });
+          emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.MIDI_CHANNEL, value: v });
           saveState(state);
         }
       }
