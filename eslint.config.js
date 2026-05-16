@@ -19,7 +19,14 @@ export default [
       globals: workletGlobals,
     },
     rules: {
-      'no-unused-vars': ['warn', { args: 'none', caughtErrors: 'none' }],
+      'no-unused-vars': [
+        'warn',
+        {
+          args: 'none',
+          caughtErrors: 'none',
+          varsIgnorePattern: '^_',
+        },
+      ],
       'no-undef': 'off',
     },
   },
@@ -33,7 +40,14 @@ export default [
       },
     },
     rules: {
-      'no-unused-vars': ['warn', { args: 'none', caughtErrors: 'none' }],
+      'no-unused-vars': [
+        'warn',
+        {
+          args: 'none',
+          caughtErrors: 'none',
+          varsIgnorePattern: '^_',
+        },
+      ],
       'no-undef': 'error',
       'no-constant-condition': ['error', { checkLoops: false }],
       'no-empty': ['warn', { allowEmptyCatch: true }],

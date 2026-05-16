@@ -1,4 +1,9 @@
-import { buildAssistantPrompt, chatAssistant, fetchAssistantContext, fetchAssistantProviders } from './assistant-client.js';
+import {
+  buildAssistantPrompt,
+  chatAssistant,
+  fetchAssistantContext,
+  fetchAssistantProviders,
+} from './assistant-client.js';
 
 let _overlay = null;
 
@@ -62,9 +67,13 @@ export async function openManualOverlay(hideZoomLens) {
       'Power the audio engine, set BPM, and choose a page for the current task.',
       'Build or edit the pattern, then shape the selected track in Sound and Mixer.',
       'Use Scenes and Arranger to turn loops into a performance or song structure.',
-      'Call the Assistant when you want producer-style direction grounded in the current project.'
-    ].map((step) => `<li>${step}</li>`).join('');
-    const assistantModes = (assistant.skills || []).map((skill) => `<li><strong>${skill.id}</strong>: ${skill.purpose}</li>`).join('');
+      'Call the Assistant when you want producer-style direction grounded in the current project.',
+    ]
+      .map((step) => `<li>${step}</li>`)
+      .join('');
+    const assistantModes = (assistant.skills || [])
+      .map((skill) => `<li><strong>${skill.id}</strong>: ${skill.purpose}</li>`)
+      .join('');
     const wrapEl = document.createElement('div');
     wrapEl.innerHTML = `
       <div class="studio-overlay-copy">${app.description || 'CONFUstudio is a browser-first studio shell for sequencing, sampling, synthesis, routing, and performance.'}</div>
@@ -125,7 +134,11 @@ export async function openManualOverlay(hideZoomLens) {
     });
     openOverlay(hideZoomLens, 'Guide', wrapEl);
   } catch (error) {
-    openOverlay(hideZoomLens, 'Guide', `<div class="studio-overlay-copy">${error?.message || 'Guide unavailable.'}</div>`);
+    openOverlay(
+      hideZoomLens,
+      'Guide',
+      `<div class="studio-overlay-copy">${error?.message || 'Guide unavailable.'}</div>`,
+    );
   }
 }
 
@@ -166,11 +179,15 @@ export async function openAssistantOverlay(hideZoomLens, buildLiveContext) {
   const providerNote = shell.querySelector('.studio-assistant-provider-note');
 
   const presetPrompts = {
-    producer: 'Act like a senior music producer using CONFUstudio. Turn the current project into a stronger track with concrete next moves in sequencing, sound, scenes, arrangement, and mix.',
-    sound: 'Act like a sound designer. Use CONFUsynth and the studio tools to design a distinctive patch or sample treatment for the current context.',
-    arrangement: 'Act like an arrangement producer. Suggest a full section plan, pattern changes, and scene transitions for the current project.',
+    producer:
+      'Act like a senior music producer using CONFUstudio. Turn the current project into a stronger track with concrete next moves in sequencing, sound, scenes, arrangement, and mix.',
+    sound:
+      'Act like a sound designer. Use CONFUsynth and the studio tools to design a distinctive patch or sample treatment for the current context.',
+    arrangement:
+      'Act like an arrangement producer. Suggest a full section plan, pattern changes, and scene transitions for the current project.',
     mix: 'Act like a mix engineer and producer. Suggest level, panning, FX send, dynamics, and space moves that fit the current project.',
-    workflow: 'Act like a technical studio operator. Give the best next workflow steps inside CONFUstudio page by page, using the current project context.'
+    workflow:
+      'Act like a technical studio operator. Give the best next workflow steps inside CONFUstudio page by page, using the current project context.',
   };
 
   shell.querySelectorAll('[data-preset]').forEach((button) => {
@@ -230,12 +247,15 @@ export async function openAssistantOverlay(hideZoomLens, buildLiveContext) {
       outputEl.textContent = 'Configure an assistant provider before sending prompts.';
       providerStatus.textContent = 'No provider configured';
       providerStatus.classList.add('unconfigured');
-      providerNote.textContent = 'Set up OpenAI, Anthropic, Local OpenAI-compatible, or Ollama in the environment to enable the studio assistant.';
+      providerNote.textContent =
+        'Set up OpenAI, Anthropic, Local OpenAI-compatible, or Ollama in the environment to enable the studio assistant.';
     } else {
-      const activeProvider = providers.find((provider) => provider.id === (data?.defaultProvider || '')) || configuredProviders[0];
+      const activeProvider =
+        providers.find((provider) => provider.id === (data?.defaultProvider || '')) || configuredProviders[0];
       providerStatus.textContent = activeProvider ? `${activeProvider.label} ready` : 'Provider ready';
       providerStatus.classList.remove('unconfigured');
-      providerNote.textContent = 'Provider selection is trimmed to live backends so the panel stays focused on usable studio-assistant routes.';
+      providerNote.textContent =
+        'Provider selection is trimmed to live backends so the panel stays focused on usable studio-assistant routes.';
     }
   } catch (error) {
     providerSelect.innerHTML = '<option value="auto">Auto</option>';

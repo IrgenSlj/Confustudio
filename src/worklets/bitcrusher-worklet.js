@@ -42,7 +42,7 @@ class BitcrusherProcessor extends AudioWorkletProcessor {
       if (this.sampleCount % this.srDiv === 0) {
         for (let ch = 0; ch < output.length; ch++) {
           const inCh = input?.[Math.min(ch, Math.max(0, (input?.length || 1) - 1))] || source;
-          this.held[ch] = Math.round(((inCh?.[i]) ?? 0) * steps) / steps;
+          this.held[ch] = Math.round((inCh?.[i] ?? 0) * steps) / steps;
         }
       }
       for (let ch = 0; ch < output.length; ch++) {

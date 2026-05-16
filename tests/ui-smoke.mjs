@@ -50,7 +50,9 @@ async function startServer() {
 
   const ready = new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
-      reject(new Error(`Timed out waiting for server start.\nSTDOUT:\n${stdout.join('')}\nSTDERR:\n${stderr.join('')}`));
+      reject(
+        new Error(`Timed out waiting for server start.\nSTDOUT:\n${stdout.join('')}\nSTDERR:\n${stderr.join('')}`),
+      );
     }, 10000);
 
     child.stdout.on('data', (chunk) => {
@@ -62,7 +64,11 @@ async function startServer() {
 
     child.once('exit', (code) => {
       clearTimeout(timeout);
-      reject(new Error(`Server exited before ready with code ${code}.\nSTDOUT:\n${stdout.join('')}\nSTDERR:\n${stderr.join('')}`));
+      reject(
+        new Error(
+          `Server exited before ready with code ${code}.\nSTDOUT:\n${stdout.join('')}\nSTDERR:\n${stderr.join('')}`,
+        ),
+      );
     });
   });
 
@@ -72,10 +78,7 @@ async function startServer() {
     baseUrl: `http://127.0.0.1:${port}/`,
     async stop() {
       child.kill('SIGTERM');
-      await Promise.race([
-        once(child, 'exit'),
-        delay(2000).then(() => child.kill('SIGKILL')),
-      ]);
+      await Promise.race([once(child, 'exit'), delay(2000).then(() => child.kill('SIGKILL'))]);
     },
   };
 }
@@ -123,7 +126,11 @@ try {
   assert(initial.hasAddModule && initial.hasFit, 'Studio controls are missing', initial);
   assert(initial.hasGuide && initial.hasAssistant, 'Guide/Assistant entry points are missing', initial);
   assert(initial.lensOffByDefault, 'Zoom lens should be opt-in on clean startup', initial);
-  assert(initial.pageContentRect && initial.pageContentRect.width > 400 && initial.pageContentRect.height > 300, 'Page content area is too small to be usable', initial);
+  assert(
+    initial.pageContentRect && initial.pageContentRect.width > 400 && initial.pageContentRect.height > 300,
+    'Page content area is too small to be usable',
+    initial,
+  );
 
   const wrapBox = await page.locator('#studio-wrap').boundingBox();
   assert(wrapBox, 'Studio viewport is missing');
@@ -132,27 +139,38 @@ try {
   await page.mouse.wheel(-140, 95);
   await page.waitForTimeout(150);
   const transformAfterBgPan = await canvasTransform();
-  assert(transformAfterBgPan !== transformBeforeBgPan, 'Two-finger style pan on empty studio space did not move the viewport', {
-    transformBeforeBgPan,
-    transformAfterBgPan,
-  });
+  assert(
+    transformAfterBgPan !== transformBeforeBgPan,
+    'Two-finger style pan on empty studio space did not move the viewport',
+    {
+      transformBeforeBgPan,
+      transformAfterBgPan,
+    },
+  );
 
   const bezelBox = await page.locator('.screen-bezel').boundingBox();
   assert(bezelBox, 'Primary synth screen is missing');
   const transformBeforeModulePan = await canvasTransform();
-  await page.mouse.move(bezelBox.x + (bezelBox.width * 0.5), bezelBox.y + 24);
+  await page.mouse.move(bezelBox.x + bezelBox.width * 0.5, bezelBox.y + 24);
   await page.mouse.wheel(90, 70);
   await page.waitForTimeout(150);
   const transformAfterModulePan = await canvasTransform();
-  assert(transformAfterModulePan !== transformBeforeModulePan, 'Two-finger style pan on the synth surface did not move the viewport', {
-    transformBeforeModulePan,
-    transformAfterModulePan,
-  });
+  assert(
+    transformAfterModulePan !== transformBeforeModulePan,
+    'Two-finger style pan on the synth surface did not move the viewport',
+    {
+      transformBeforeModulePan,
+      transformAfterModulePan,
+    },
+  );
 
   await page.click('#zoom-in');
   await page.waitForTimeout(150);
   const zoomAfter = await page.textContent('#zoom-level');
-  assert(zoomAfter && zoomAfter !== initial.zoomLabel, 'Zoom-in did not change the viewport zoom label', { before: initial.zoomLabel, after: zoomAfter });
+  assert(zoomAfter && zoomAfter !== initial.zoomLabel, 'Zoom-in did not change the viewport zoom label', {
+    before: initial.zoomLabel,
+    after: zoomAfter,
+  });
 
   await page.click('#add-module');
   await page.waitForTimeout(100);
@@ -190,7 +208,9 @@ try {
   const moduleCountAfterMixerAdd = await page.locator('.studio-module').count();
   assert(moduleCountAfterMixerAdd === 3, 'DJ mixer insertion failed', { moduleCountAfterMixerAdd });
 
-  const mixerModuleId = await page.evaluate(() => document.querySelector('.studio-module[data-module-type="djmixer"]')?.id || '');
+  const mixerModuleId = await page.evaluate(
+    () => document.querySelector('.studio-module[data-module-type="djmixer"]')?.id || '',
+  );
   assert(Boolean(mixerModuleId), 'DJ mixer module id is missing');
   await page.click('#add-module');
   await page.waitForTimeout(100);
@@ -201,7 +221,10 @@ try {
   });
   await page.locator(`#module-picker .mp-module-btn[data-focus-module="${mixerModuleId}"]`).click();
   await page.waitForTimeout(150);
-  const mixerSelectedFromNavigator = await page.evaluate((id) => document.getElementById(id)?.classList.contains('module-selected'), mixerModuleId);
+  const mixerSelectedFromNavigator = await page.evaluate(
+    (id) => document.getElementById(id)?.classList.contains('module-selected'),
+    mixerModuleId,
+  );
   assert(mixerSelectedFromNavigator, 'Module picker navigator did not select the requested module', { mixerModuleId });
 
   const persistedModules = await page.evaluate(() => ({
@@ -209,25 +232,32 @@ try {
     mixerId: document.querySelector('.studio-module[data-module-type="djmixer"]')?.id || '',
     robotId: document.querySelector('.studio-module[data-module-type="figure-robot"]')?.id || '',
   }));
-  assert(persistedModules.mixerId && persistedModules.robotId, 'Expected dynamic modules before reload persistence check', persistedModules);
+  assert(
+    persistedModules.mixerId && persistedModules.robotId,
+    'Expected dynamic modules before reload persistence check',
+    persistedModules,
+  );
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForSelector(`#${persistedModules.mixerId} .djmixer-chassis`, { timeout: 5000 });
   await page.waitForSelector(`#${persistedModules.robotId} .studio-figure`, { timeout: 5000 });
-  const restoredModules = await page.evaluate((expected) => ({
-    count: document.querySelectorAll('.studio-module').length,
-    hasMixer: Boolean(document.getElementById(expected.mixerId)),
-    hasRobot: Boolean(document.getElementById(expected.robotId)),
-    mixerLoaded: Boolean(document.querySelector(`#${CSS.escape(expected.mixerId)} .djmixer-chassis`)),
-    robotLoaded: Boolean(document.querySelector(`#${CSS.escape(expected.robotId)} .studio-figure`)),
-  }), persistedModules);
+  const restoredModules = await page.evaluate(
+    (expected) => ({
+      count: document.querySelectorAll('.studio-module').length,
+      hasMixer: Boolean(document.getElementById(expected.mixerId)),
+      hasRobot: Boolean(document.getElementById(expected.robotId)),
+      mixerLoaded: Boolean(document.querySelector(`#${CSS.escape(expected.mixerId)} .djmixer-chassis`)),
+      robotLoaded: Boolean(document.querySelector(`#${CSS.escape(expected.robotId)} .studio-figure`)),
+    }),
+    persistedModules,
+  );
   assert(
-    restoredModules.count >= persistedModules.count
-      && restoredModules.hasMixer
-      && restoredModules.hasRobot
-      && restoredModules.mixerLoaded
-      && restoredModules.robotLoaded,
+    restoredModules.count >= persistedModules.count &&
+      restoredModules.hasMixer &&
+      restoredModules.hasRobot &&
+      restoredModules.mixerLoaded &&
+      restoredModules.robotLoaded,
     'Saved studio modules were not restored after reload',
-    { persistedModules, restoredModules }
+    { persistedModules, restoredModules },
   );
 
   const mixerKnobBefore = await page.evaluate(() => {
@@ -243,7 +273,9 @@ try {
   assert(mixerKnobBox, 'DJ mixer knob is missing');
   await page.mouse.move(mixerKnobBox.x + mixerKnobBox.width / 2, mixerKnobBox.y + mixerKnobBox.height / 2);
   await page.mouse.down();
-  await page.mouse.move(mixerKnobBox.x + mixerKnobBox.width / 2, mixerKnobBox.y + mixerKnobBox.height / 2 - 80, { steps: 8 });
+  await page.mouse.move(mixerKnobBox.x + mixerKnobBox.width / 2, mixerKnobBox.y + mixerKnobBox.height / 2 - 80, {
+    steps: 8,
+  });
   await page.mouse.up();
   await page.waitForTimeout(100);
   const mixerKnobAfter = await page.evaluate(() => {
@@ -255,19 +287,38 @@ try {
       transform: knob ? getComputedStyle(knob).transform : null,
     };
   });
-  assert(mixerKnobBefore.transform !== mixerKnobAfter.transform, 'DJ mixer knob drag did not rotate the knob', { mixerKnobBefore, mixerKnobAfter });
-  assert(mixerKnobBefore.left === mixerKnobAfter.left && mixerKnobBefore.top === mixerKnobAfter.top, 'Knob drag moved the whole module', { mixerKnobBefore, mixerKnobAfter });
+  assert(mixerKnobBefore.transform !== mixerKnobAfter.transform, 'DJ mixer knob drag did not rotate the knob', {
+    mixerKnobBefore,
+    mixerKnobAfter,
+  });
+  assert(
+    mixerKnobBefore.left === mixerKnobAfter.left && mixerKnobBefore.top === mixerKnobAfter.top,
+    'Knob drag moved the whole module',
+    { mixerKnobBefore, mixerKnobAfter },
+  );
 
-  const mixerFaderBefore = await page.evaluate(() => document.querySelector('.studio-module[data-module-type="djmixer"] .djm-fader')?.value);
-  const mixerFaderBox = await page.locator('.studio-module[data-module-type="djmixer"] .djm-fader').first().boundingBox();
+  const mixerFaderBefore = await page.evaluate(
+    () => document.querySelector('.studio-module[data-module-type="djmixer"] .djm-fader')?.value,
+  );
+  const mixerFaderBox = await page
+    .locator('.studio-module[data-module-type="djmixer"] .djm-fader')
+    .first()
+    .boundingBox();
   assert(mixerFaderBox, 'DJ mixer fader is missing');
   await page.mouse.move(mixerFaderBox.x + mixerFaderBox.width / 2, mixerFaderBox.y + mixerFaderBox.height / 2);
   await page.mouse.down();
-  await page.mouse.move(mixerFaderBox.x + mixerFaderBox.width / 2, mixerFaderBox.y + mixerFaderBox.height - 4, { steps: 8 });
+  await page.mouse.move(mixerFaderBox.x + mixerFaderBox.width / 2, mixerFaderBox.y + mixerFaderBox.height - 4, {
+    steps: 8,
+  });
   await page.mouse.up();
   await page.waitForTimeout(100);
-  const mixerFaderAfter = await page.evaluate(() => document.querySelector('.studio-module[data-module-type="djmixer"] .djm-fader')?.value);
-  assert(mixerFaderBefore !== mixerFaderAfter, 'DJ mixer fader drag did not change the slider value', { mixerFaderBefore, mixerFaderAfter });
+  const mixerFaderAfter = await page.evaluate(
+    () => document.querySelector('.studio-module[data-module-type="djmixer"] .djm-fader')?.value,
+  );
+  assert(mixerFaderBefore !== mixerFaderAfter, 'DJ mixer fader drag did not change the slider value', {
+    mixerFaderBefore,
+    mixerFaderAfter,
+  });
 
   await page.click('#fit-all');
   await page.waitForTimeout(150);
@@ -286,10 +337,14 @@ try {
   await page.locator('.studio-module[data-module-type="djmixer"] .djm-body').dblclick();
   await page.waitForTimeout(150);
   const transformAfterModuleFit = await canvasTransform();
-  assert(transformAfterModuleFit !== transformBeforeModuleFit, 'Double-clicking a module did not fit it to the viewport', {
-    transformBeforeModuleFit,
-    transformAfterModuleFit,
-  });
+  assert(
+    transformAfterModuleFit !== transformBeforeModuleFit,
+    'Double-clicking a module did not fit it to the viewport',
+    {
+      transformBeforeModuleFit,
+      transformAfterModuleFit,
+    },
+  );
 
   const cableCreated = await page.evaluate(() => {
     const modules = [...document.querySelectorAll('.studio-module')];
@@ -304,11 +359,15 @@ try {
   assert(cableCreated, 'Could not find ports to create a cable for removal testing');
   await page.waitForTimeout(150);
   const cableCountBeforeRemoval = await page.locator('#studio-cables .cable-group').count();
-  assert(cableCountBeforeRemoval >= 1, 'Expected at least one cable before module removal', { cableCountBeforeRemoval });
+  assert(cableCountBeforeRemoval >= 1, 'Expected at least one cable before module removal', {
+    cableCountBeforeRemoval,
+  });
 
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForSelector(`#${persistedModules.mixerId} .djmixer-chassis`, { timeout: 5000 });
-  await page.waitForFunction(() => document.querySelectorAll('#studio-cables .cable-group').length >= 1, null, { timeout: 5000 });
+  await page.waitForFunction(() => document.querySelectorAll('#studio-cables .cable-group').length >= 1, null, {
+    timeout: 5000,
+  });
   const cableCountAfterReload = await page.locator('#studio-cables .cable-group').count();
   assert(cableCountAfterReload >= 1, 'Saved cable connection was not restored after reload', { cableCountAfterReload });
 

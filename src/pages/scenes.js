@@ -90,15 +90,22 @@ export default {
 
     function cloneScenePayload(sceneIdx) {
       const scene = state.project.scenes[sceneIdx] ?? {};
-      return JSON.parse(JSON.stringify({
-        ...scene,
-        tracks: scene.tracks ?? [],
-      }));
+      return JSON.parse(
+        JSON.stringify({
+          ...scene,
+          tracks: scene.tracks ?? [],
+        }),
+      );
     }
 
     function copyScene(sourceIdx, targetIdx) {
       const copied = cloneScenePayload(sourceIdx);
-      if (!executeCommands({ type: 'set-scene-payload', sceneIndex: targetIdx, scene: copied }, `Scene ${String.fromCharCode(65 + targetIdx)} updated`)) {
+      if (
+        !executeCommands(
+          { type: 'set-scene-payload', sceneIndex: targetIdx, scene: copied },
+          `Scene ${String.fromCharCode(65 + targetIdx)} updated`,
+        )
+      ) {
         state.project.scenes[targetIdx] = copied;
         state.scenes[targetIdx] = state.project.scenes[targetIdx];
         rerenderScenes();
@@ -112,7 +119,12 @@ export default {
         tracks: Array.from({ length: activePattern.kit.tracks.length }, () => ({})),
         noInterp: [],
       };
-      if (!executeCommands({ type: 'set-scene-payload', sceneIndex: sceneIdx, scene: nextScene }, `Scene ${String.fromCharCode(65 + sceneIdx)} cleared`)) {
+      if (
+        !executeCommands(
+          { type: 'set-scene-payload', sceneIndex: sceneIdx, scene: nextScene },
+          `Scene ${String.fromCharCode(65 + sceneIdx)} cleared`,
+        )
+      ) {
         state.project.scenes[sceneIdx] = nextScene;
         state.scenes[sceneIdx] = state.project.scenes[sceneIdx];
         rerenderScenes();
@@ -120,12 +132,17 @@ export default {
     }
 
     function applySceneToLive(sceneIdx, mode = 'track') {
-      if (!executeCommands({
-        type: 'apply-scene',
-        sceneIndex: sceneIdx,
-        mode,
-        trackIndex: selectedTrackIndex,
-      }, `Applied Scene ${String.fromCharCode(65 + sceneIdx)}`)) {
+      if (
+        !executeCommands(
+          {
+            type: 'apply-scene',
+            sceneIndex: sceneIdx,
+            mode,
+            trackIndex: selectedTrackIndex,
+          },
+          `Applied Scene ${String.fromCharCode(65 + sceneIdx)}`,
+        )
+      ) {
         const sourceScene = state.project.scenes[sceneIdx];
         if (!sourceScene?.tracks) return;
         if (mode === 'all') {
@@ -158,9 +175,10 @@ export default {
     chainBarsInput.min = 1;
     chainBarsInput.max = 64;
     chainBarsInput.value = state.sceneChainBars ?? 4;
-    chainBarsInput.style.cssText = 'width:32px;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--screen-text);font-family:var(--font-mono);font-size:0.52rem;text-align:center;outline:none';
+    chainBarsInput.style.cssText =
+      'width:32px;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--screen-text);font-family:var(--font-mono);font-size:0.52rem;text-align:center;outline:none';
     chainBarsInput.title = 'Bars per scene';
-    chainBarsInput.addEventListener('click', e => e.stopPropagation());
+    chainBarsInput.addEventListener('click', (e) => e.stopPropagation());
     chainBarsInput.addEventListener('change', () => {
       state.sceneChainBars = Math.max(1, Math.min(64, parseInt(chainBarsInput.value) || 4));
     });
@@ -176,10 +194,11 @@ export default {
     // ── Crossfader (improved) ──────────────────────────────────────────────
     const cfWrap = document.createElement('div');
     cfWrap.className = 'scene-xfader-wrap';
-    cfWrap.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(0,0,0,0.2);border-radius:4px;margin-bottom:6px;flex-shrink:0';
+    cfWrap.style.cssText =
+      'display:flex;align-items:center;gap:8px;padding:6px 8px;background:rgba(0,0,0,0.2);border-radius:4px;margin-bottom:6px;flex-shrink:0';
 
-    const sAName = (scenes[sceneA]?.name || `Scene ${String.fromCharCode(65+sceneA)}`).slice(0, 8);
-    const sBName = (scenes[sceneB]?.name || `Scene ${String.fromCharCode(65+sceneB)}`).slice(0, 8);
+    const sAName = (scenes[sceneA]?.name || `Scene ${String.fromCharCode(65 + sceneA)}`).slice(0, 8);
+    const sBName = (scenes[sceneB]?.name || `Scene ${String.fromCharCode(65 + sceneB)}`).slice(0, 8);
 
     const cfLblA = document.createElement('span');
     cfLblA.className = 'scene-xfader-lbl scene-xfader-lbl-a';
@@ -187,21 +206,25 @@ export default {
 
     // Gradient track + slider
     const cfTrackWrap = document.createElement('div');
-    cfTrackWrap.style.cssText = 'flex:1;position:relative;height:10px;border-radius:5px;background:linear-gradient(to right,rgba(240,198,64,0.6),rgba(90,221,113,0.6));border:1px solid rgba(255,255,255,0.1)';
+    cfTrackWrap.style.cssText =
+      'flex:1;position:relative;height:10px;border-radius:5px;background:linear-gradient(to right,rgba(240,198,64,0.6),rgba(90,221,113,0.6));border:1px solid rgba(255,255,255,0.1)';
 
     const cfDot = document.createElement('div');
     cfDot.style.cssText = `position:absolute;top:50%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 0 6px rgba(255,255,255,0.8);left:${crossfader * 100}%;pointer-events:none;transition:left 0.05s`;
     cfTrackWrap.append(cfDot);
 
     const cfSlider = document.createElement('input');
-    cfSlider.type = 'range'; cfSlider.min = '0'; cfSlider.max = '1'; cfSlider.step = '0.01';
+    cfSlider.type = 'range';
+    cfSlider.min = '0';
+    cfSlider.max = '1';
+    cfSlider.step = '0.01';
     cfSlider.value = String(crossfader);
     cfSlider.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;margin:0';
     cfTrackWrap.append(cfSlider);
 
     const cfVal = document.createElement('span');
     cfVal.className = 'scene-xfader-val';
-    const cfPctText = v => v <= 0.01 ? 'Full A' : v >= 0.99 ? 'Full B' : `${Math.round(v * 100)}%`;
+    const cfPctText = (v) => (v <= 0.01 ? 'Full A' : v >= 0.99 ? 'Full B' : `${Math.round(v * 100)}%`);
     cfVal.textContent = cfPctText(crossfader);
 
     const cfLblB = document.createElement('span');
@@ -210,7 +233,7 @@ export default {
 
     cfSlider.addEventListener('input', () => {
       const v = parseFloat(cfSlider.value);
-      cfDot.style.left = (v * 100) + '%';
+      cfDot.style.left = v * 100 + '%';
       cfVal.textContent = cfPctText(v);
       emit('state:change', { path: 'crossfader', value: v });
     });
@@ -226,7 +249,7 @@ export default {
     scenes.forEach((scene, si) => {
       const letter = String.fromCharCode(65 + si);
       const projectScene = state.project.scenes[si];
-      const hasData = projectScene?.tracks && projectScene.tracks.some(t => t && Object.keys(t).length > 0);
+      const hasData = projectScene?.tracks && projectScene.tracks.some((t) => t && Object.keys(t).length > 0);
 
       const card = document.createElement('div');
       card.className = [
@@ -234,7 +257,9 @@ export default {
         si === sceneA ? 'scene-ab-a' : '',
         si === sceneB ? 'scene-ab-b' : '',
         hasData ? 'scene-captured' : '',
-      ].filter(Boolean).join(' ');
+      ]
+        .filter(Boolean)
+        .join(' ');
 
       // Modified dot
       if (state._scenesModified instanceof Set && state._scenesModified.has(si)) {
@@ -292,39 +317,67 @@ export default {
       const capCount = document.createElement('span');
       capCount.className = 'scene-cap-count';
       capCount.textContent = hasData
-        ? (projectScene?.bpm ? `✓ ${Math.round(projectScene.bpm)}BPM` : '✓ captured')
+        ? projectScene?.bpm
+          ? `✓ ${Math.round(projectScene.bpm)}BPM`
+          : '✓ captured'
         : '—';
       const captureBtn = document.createElement('button');
       captureBtn.className = 'scene-cap-btn';
       captureBtn.textContent = 'CAP';
       captureBtn.title = 'Capture current state into this scene';
-      captureBtn.addEventListener('click', e => {
+      captureBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const tracks = getActivePattern(state).kit.tracks;
-        const CAPTURE_PARAMS = ['volume', 'pan', 'cutoff', 'resonance', 'attack', 'decay',
-                                'sustain', 'release', 'reverbSend', 'delaySend', 'pitch'];
+        const CAPTURE_PARAMS = [
+          'volume',
+          'pan',
+          'cutoff',
+          'resonance',
+          'attack',
+          'decay',
+          'sustain',
+          'release',
+          'reverbSend',
+          'delaySend',
+          'pitch',
+        ];
         const nextScene = cloneScenePayload(si);
-        nextScene.tracks = tracks.map(track => {
+        nextScene.tracks = tracks.map((track) => {
           const captured = {};
-          CAPTURE_PARAMS.forEach(p => { if (track[p] !== undefined) captured[p] = track[p]; });
+          CAPTURE_PARAMS.forEach((p) => {
+            if (track[p] !== undefined) captured[p] = track[p];
+          });
           return captured;
         });
         nextScene.bpm = state.bpm;
         nextScene.swing = state.swing;
-        if (!executeCommands({ type: 'set-scene-payload', sceneIndex: si, scene: nextScene }, `Captured Scene ${letter}`)) {
+        if (
+          !executeCommands({ type: 'set-scene-payload', sceneIndex: si, scene: nextScene }, `Captured Scene ${letter}`)
+        ) {
           state.project.scenes[si] = nextScene;
           state.scenes[si] = nextScene;
           emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
         }
         card.style.outline = '2px solid var(--accent)';
-        setTimeout(() => { card.style.outline = ''; }, 500);
+        setTimeout(() => {
+          card.style.outline = '';
+        }, 500);
       });
       footer.append(capCount, captureBtn);
       card.append(footer);
 
       // Hover: live preview + diff tooltip
       const DIFF_PARAMS = ['cutoff', 'decay', 'delaySend', 'pitch', 'volume', 'pan', 'resonance', 'reverbSend'];
-      const DIFF_LABELS = { cutoff:'Cut', decay:'Dec', delaySend:'Dly', pitch:'Pit', volume:'Vol', pan:'Pan', resonance:'Res', reverbSend:'Rev' };
+      const DIFF_LABELS = {
+        cutoff: 'Cut',
+        decay: 'Dec',
+        delaySend: 'Dly',
+        pitch: 'Pit',
+        volume: 'Vol',
+        pan: 'Pan',
+        resonance: 'Res',
+        reverbSend: 'Rev',
+      };
       function buildDiffTooltip(sceneIdx) {
         const previewScene = state.project.scenes[sceneIdx];
         if (!previewScene?.tracks) return null;
@@ -341,11 +394,21 @@ export default {
         if (diffs.length === 0) return null;
         const tip = document.createElement('div');
         tip.style.cssText = [
-          'position:absolute','z-index:100','left:50%','top:calc(100% + 4px)',
-          'transform:translateX(-50%)','min-width:110px','max-width:160px',
-          'background:#1a1a1a','border:1px solid rgba(255,255,255,0.15)',
-          'border-radius:4px','padding:5px 7px','pointer-events:none',
-          'font-family:var(--font-mono)','font-size:0.46rem','color:var(--screen-text)',
+          'position:absolute',
+          'z-index:100',
+          'left:50%',
+          'top:calc(100% + 4px)',
+          'transform:translateX(-50%)',
+          'min-width:110px',
+          'max-width:160px',
+          'background:#1a1a1a',
+          'border:1px solid rgba(255,255,255,0.15)',
+          'border-radius:4px',
+          'padding:5px 7px',
+          'pointer-events:none',
+          'font-family:var(--font-mono)',
+          'font-size:0.46rem',
+          'color:var(--screen-text)',
           'box-shadow:0 4px 12px rgba(0,0,0,0.6)',
         ].join(';');
         diffs.forEach(({ param, scene, live }) => {
@@ -378,19 +441,24 @@ export default {
           Object.assign(track, state._scenePreview.prev);
           state._scenePreview = null;
         }
-        if (_diffTip) { _diffTip.remove(); _diffTip = null; }
+        if (_diffTip) {
+          _diffTip.remove();
+          _diffTip = null;
+        }
       });
 
       // Double-click to rename
-      card.addEventListener('dblclick', e => {
+      card.addEventListener('dblclick', (e) => {
         e.stopPropagation();
         const currentName = state.project.scenes[si]?.name || `Scene ${letter}`;
         const input = document.createElement('input');
         input.type = 'text';
         input.value = currentName;
-        input.style.cssText = 'width:100%;background:transparent;border:none;border-bottom:1px solid var(--accent);color:var(--screen-text);font-family:var(--font-mono);font-size:0.6rem;outline:none';
+        input.style.cssText =
+          'width:100%;background:transparent;border:none;border-bottom:1px solid var(--accent);color:var(--screen-text);font-family:var(--font-mono);font-size:0.6rem;outline:none';
         nameEl.replaceWith(input);
-        input.focus(); input.select();
+        input.focus();
+        input.select();
         const save = () => {
           const name = input.value.trim() || currentName;
           if (!executeCommands({ type: 'set-scene-name', sceneIndex: si, name }, `Renamed Scene ${letter}`)) {
@@ -403,8 +471,11 @@ export default {
           emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
         };
         input.addEventListener('blur', save);
-        input.addEventListener('keydown', e => {
-          if (e.key === 'Enter') { save(); input.blur(); }
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            save();
+            input.blur();
+          }
           if (e.key === 'Escape') input.blur();
           e.stopPropagation();
         });
@@ -477,16 +548,20 @@ export default {
       makeSceneTool('Apply A', () => applySceneToLive(sceneA, 'track'), 'Apply Scene A to selected track'),
       makeSceneTool('Apply B', () => applySceneToLive(sceneB, 'track'), 'Apply Scene B to selected track'),
       makeSceneTool('Apply All A', () => applySceneToLive(sceneA, 'all'), 'Apply Scene A to all tracks'),
-      makeSceneTool('Swap', () => {
-        if (!executeCommands({ type: 'swap-scenes', sceneA, sceneB }, 'Swapped scenes')) {
-          const temp = cloneScenePayload(sceneA);
-          state.project.scenes[sceneA] = cloneScenePayload(sceneB);
-          state.project.scenes[sceneB] = temp;
-          state.scenes[sceneA] = state.project.scenes[sceneA];
-          state.scenes[sceneB] = state.project.scenes[sceneB];
-          rerenderScenes();
-        }
-      }, 'Swap the full contents of Scenes A and B'),
+      makeSceneTool(
+        'Swap',
+        () => {
+          if (!executeCommands({ type: 'swap-scenes', sceneA, sceneB }, 'Swapped scenes')) {
+            const temp = cloneScenePayload(sceneA);
+            state.project.scenes[sceneA] = cloneScenePayload(sceneB);
+            state.project.scenes[sceneB] = temp;
+            state.scenes[sceneA] = state.project.scenes[sceneA];
+            state.scenes[sceneB] = state.project.scenes[sceneB];
+            rerenderScenes();
+          }
+        },
+        'Swap the full contents of Scenes A and B',
+      ),
       makeSceneTool('Clear A', () => clearScene(sceneA), 'Clear the captured data in Scene A'),
       makeSceneTool('Clear B', () => clearScene(sceneB), 'Clear the captured data in Scene B'),
     );
@@ -505,12 +580,13 @@ export default {
     const tA = (sA && sA.tracks[selectedTrackIndex]) || {};
     const tB = (sB && sB.tracks[selectedTrackIndex]) || {};
 
-    INTERP_PARAMS.forEach(param => {
-      const a  = tA[param] ?? 0;
-      const b  = tB[param] ?? 0;
+    INTERP_PARAMS.forEach((param) => {
+      const a = tA[param] ?? 0;
+      const b = tB[param] ?? 0;
       const cv = a + (b - a) * crossfader;
       const row = document.createElement('div');
-      row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;font-family:var(--font-mono);font-size:0.6rem';
+      row.style.cssText =
+        'display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;font-family:var(--font-mono);font-size:0.6rem';
       row.innerHTML = `
         <span style="color:var(--muted);text-transform:uppercase">${param}</span>
         <span style="color:var(--muted)">${Number(a).toFixed(2)}</span>
@@ -535,7 +611,8 @@ export default {
     // Header row — add Interp? column per param
     const headerRow = document.createElement('div');
     headerRow.className = 'sit-row';
-    headerRow.innerHTML = '<span class="sit-cell sit-label">T</span>' +
+    headerRow.innerHTML =
+      '<span class="sit-cell sit-label">T</span>' +
       PARAM_LABELS.map((l, pi) => {
         const param = INTERP_PARAMS[pi];
         const isNoInterp = noInterpList.includes(param);
@@ -546,7 +623,7 @@ export default {
         </span>`;
       }).join('');
     // Wire checkbox events on header
-    headerRow.querySelectorAll('.sit-interp-chk').forEach(chk => {
+    headerRow.querySelectorAll('.sit-interp-chk').forEach((chk) => {
       chk.addEventListener('change', () => {
         emit('state:change', {
           path: 'scene_noInterp',
@@ -564,8 +641,9 @@ export default {
       const xf = state.crossfader ?? 0;
       const row = document.createElement('div');
       row.className = 'sit-row' + (ti === state.selectedTrackIndex ? ' sit-selected' : '');
-      row.innerHTML = `<span class="sit-cell sit-label">T${ti + 1}</span>` +
-        SCENE_PARAMS_LIST.map(param => {
+      row.innerHTML =
+        `<span class="sit-cell sit-label">T${ti + 1}</span>` +
+        SCENE_PARAMS_LIST.map((param) => {
           const a = sceneAObj?.tracks?.[ti]?.[param] ?? trk[param] ?? 0;
           const b = sceneBObj?.tracks?.[ti]?.[param] ?? trk[param] ?? 0;
           const isNoInterp = noInterpList.includes(param);
@@ -591,17 +669,18 @@ export default {
     sceneEditDiv.className = 'scene-edit-panel';
 
     const editTitle = document.createElement('div');
-    editTitle.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em';
+    editTitle.style.cssText =
+      'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em';
     editTitle.textContent = `Edit Scene ${String.fromCharCode(65 + (state.sceneA ?? 0))} · Trk ${(state.selectedTrackIndex ?? 0) + 1}`;
     sceneEditDiv.append(editTitle);
 
     const sceneAData = state.project.scenes[state.sceneA ?? 0];
     const SCENE_PARAMS = [
-      { label: 'Cutoff', param: 'cutoff',     min: 80,   max: 16000, step: 10   },
-      { label: 'Decay',  param: 'decay',       min: 0.01, max: 2,     step: 0.01 },
-      { label: 'Delay',  param: 'delaySend',   min: 0,    max: 1,     step: 0.01 },
-      { label: 'Pitch',  param: 'pitch',       min: 0,    max: 127,   step: 1    },
-      { label: 'Vol',    param: 'volume',      min: 0,    max: 1,     step: 0.01 },
+      { label: 'Cutoff', param: 'cutoff', min: 80, max: 16000, step: 10 },
+      { label: 'Decay', param: 'decay', min: 0.01, max: 2, step: 0.01 },
+      { label: 'Delay', param: 'delaySend', min: 0, max: 1, step: 0.01 },
+      { label: 'Pitch', param: 'pitch', min: 0, max: 127, step: 1 },
+      { label: 'Vol', param: 'volume', min: 0, max: 1, step: 0.01 },
     ];
     const trackData = sceneAData?.tracks?.[state.selectedTrackIndex] ?? {};
     const sceneBData = state.project.scenes[state.sceneB ?? 1];
@@ -621,11 +700,14 @@ export default {
 
       row.innerHTML = `<label>${label}</label><input type="range" min="${min}" max="${max}" step="${step}" value="${val}"><span>${Number(val).toFixed(step < 1 ? 2 : 0)}</span>`;
       const input = row.querySelector('input');
-      const span  = row.querySelector('span');
+      const span = row.querySelector('span');
       input.addEventListener('input', () => {
         const v = parseFloat(input.value);
         span.textContent = v.toFixed(step < 1 ? 2 : 0);
-        if (!sceneAData.tracks) sceneAData.tracks = Array(8).fill(null).map(() => ({}));
+        if (!sceneAData.tracks)
+          sceneAData.tracks = Array(8)
+            .fill(null)
+            .map(() => ({}));
         if (!sceneAData.tracks[state.selectedTrackIndex]) sceneAData.tracks[state.selectedTrackIndex] = {};
         sceneAData.tracks[state.selectedTrackIndex][param] = v;
         emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
@@ -636,7 +718,8 @@ export default {
 
     // ── Compact morph/crossfade row ───────────────────────────────────────────
     const morphXfadeRow = document.createElement('div');
-    morphXfadeRow.style.cssText = 'display:flex;gap:6px;align-items:center;padding:4px 0;border-top:1px solid var(--border);flex-shrink:0';
+    morphXfadeRow.style.cssText =
+      'display:flex;gap:6px;align-items:center;padding:4px 0;border-top:1px solid var(--border);flex-shrink:0';
 
     // Auto-Morph button + bars input
     const morphBtn = document.createElement('button');
@@ -651,17 +734,19 @@ export default {
 
     const morphBarsInput = document.createElement('input');
     morphBarsInput.type = 'number';
-    morphBarsInput.min = 1; morphBarsInput.max = 32;
+    morphBarsInput.min = 1;
+    morphBarsInput.max = 32;
     morphBarsInput.value = state.sceneMorphBars ?? 4;
     morphBarsInput.title = 'Bars';
-    morphBarsInput.style.cssText = 'width:32px;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 3px;font-family:var(--font-mono);font-size:0.48rem;flex-shrink:0';
+    morphBarsInput.style.cssText =
+      'width:32px;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 3px;font-family:var(--font-mono);font-size:0.48rem;flex-shrink:0';
     morphBarsInput.addEventListener('change', () => {
       state.sceneMorphBars = parseInt(morphBarsInput.value) || 4;
     });
 
     // Curve buttons
     const currentCurve = state.morphCurve ?? 'linear';
-    ['linear', 'ease', 'bounce'].forEach(curve => {
+    ['linear', 'ease', 'bounce'].forEach((curve) => {
       const btn = document.createElement('button');
       btn.className = 'curve-btn' + (currentCurve === curve ? ' active' : '');
       btn.textContent = curve.charAt(0).toUpperCase() + curve.slice(1);
@@ -680,7 +765,9 @@ export default {
 
     const xfadeSlider = document.createElement('input');
     xfadeSlider.type = 'range';
-    xfadeSlider.min = '0'; xfadeSlider.max = '1'; xfadeSlider.step = '0.01';
+    xfadeSlider.min = '0';
+    xfadeSlider.max = '1';
+    xfadeSlider.step = '0.01';
     xfadeSlider.value = String(state._sceneXfade ?? 0);
     xfadeSlider.style.cssText = 'flex:1;min-width:0';
 
@@ -695,7 +782,9 @@ export default {
     const xfRecBtn = document.createElement('button');
     xfRecBtn.className = 'seq-btn' + (state.xfRecording ? ' active' : '');
     xfRecBtn.textContent = state.xfRecording ? '● REC' : '○ REC';
-    xfRecBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.44rem;padding:2px 4px;flex-shrink:0' + (state.xfRecording ? ';color:var(--live)' : '');
+    xfRecBtn.style.cssText =
+      'font-family:var(--font-mono);font-size:0.44rem;padding:2px 4px;flex-shrink:0' +
+      (state.xfRecording ? ';color:var(--live)' : '');
     xfRecBtn.addEventListener('click', () => {
       state.xfRecording = !state.xfRecording;
       if (state.xfRecording) {
@@ -710,9 +799,11 @@ export default {
 
     // Morph progress mini-bar
     const morphPreviewBar = document.createElement('div');
-    morphPreviewBar.style.cssText = 'height:3px;background:rgba(255,255,255,0.08);border-radius:2px;position:relative;overflow:hidden;flex-shrink:0';
+    morphPreviewBar.style.cssText =
+      'height:3px;background:rgba(255,255,255,0.08);border-radius:2px;position:relative;overflow:hidden;flex-shrink:0';
     const morphFill = document.createElement('div');
-    morphFill.style.cssText = 'position:absolute;left:0;top:0;height:100%;background:var(--accent);border-radius:2px;width:0%;transition:none';
+    morphFill.style.cssText =
+      'position:absolute;left:0;top:0;height:100%;background:var(--accent);border-radius:2px;width:0%;transition:none';
     morphPreviewBar.append(morphFill);
     container.append(morphPreviewBar);
 
@@ -734,9 +825,9 @@ export default {
   },
 
   knobMap: [
-    { label: 'X-Fade',  param: 'crossfader', min: 0, max: 1, step: 0.01 },
-    { label: 'SceneA',  param: 'sceneA',     min: 0, max: 7, step: 1 },
-    { label: 'SceneB',  param: 'sceneB',     min: 0, max: 7, step: 1 },
+    { label: 'X-Fade', param: 'crossfader', min: 0, max: 1, step: 0.01 },
+    { label: 'SceneA', param: 'sceneA', min: 0, max: 7, step: 1 },
+    { label: 'SceneB', param: 'sceneB', min: 0, max: 7, step: 1 },
     { label: '—', param: null, min: 0, max: 1, step: 1 },
     { label: '—', param: null, min: 0, max: 1, step: 1 },
     { label: '—', param: null, min: 0, max: 1, step: 1 },

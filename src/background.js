@@ -9,8 +9,12 @@ export function initBackground() {
   wrap.insertBefore(canvas, wrap.firstChild);
 
   const ctx = canvas.getContext('2d');
-  let W = 0, H = 0;
-  function resize() { W = canvas.width = wrap.offsetWidth; H = canvas.height = wrap.offsetHeight; }
+  let W = 0,
+    H = 0;
+  function resize() {
+    W = canvas.width = wrap.offsetWidth;
+    H = canvas.height = wrap.offsetHeight;
+  }
   resize();
   window.addEventListener('resize', resize);
 
@@ -25,7 +29,10 @@ export function initBackground() {
 
     const engine = window._confustudioEngine;
     const analyser = engine?.analyser;
-    let bass = 0, mid = 0, high = 0, hasAudio = false;
+    let bass = 0,
+      mid = 0,
+      high = 0,
+      hasAudio = false;
     let waveData = null;
 
     if (analyser) {
@@ -37,17 +44,19 @@ export function initBackground() {
       waveData = _timeBuf;
       hasAudio = true;
 
-      for (let i = 0; i < 4; i++)  bass += _freqBuf[i];
-      for (let i = 4; i < 18; i++) mid  += _freqBuf[i];
+      for (let i = 0; i < 4; i++) bass += _freqBuf[i];
+      for (let i = 4; i < 18; i++) mid += _freqBuf[i];
       for (let i = 18; i < 50; i++) high += _freqBuf[i];
-      bass /= (4 * 255); mid /= (14 * 255); high /= (32 * 255);
+      bass /= 4 * 255;
+      mid /= 14 * 255;
+      high /= 32 * 255;
     }
 
     // Beat detection
     if (bass > 0.55) beatPulse = Math.min(1, beatPulse + 0.4);
     beatPulse = Math.max(0, beatPulse - 0.025);
 
-    phase += hasAudio ? (0.003 + mid * 0.008) : 0.004;
+    phase += hasAudio ? 0.003 + mid * 0.008 : 0.004;
 
     // === Draw ===
 
@@ -61,19 +70,22 @@ export function initBackground() {
 
     // Three undulating wave bands
     const waves = [
-      { yBase: H * 0.72, amp: 45 + bass * 90, freq: 0.0025, spd: 1.0, alpha: 0.08 + bass * 0.10,  hue: 130 },
-      { yBase: H * 0.55, amp: 30 + mid  * 60, freq: 0.0042, spd: 1.6, alpha: 0.06 + mid  * 0.07,  hue: 145 },
-      { yBase: H * 0.38, amp: 18 + high * 40, freq: 0.008,  spd: 2.4, alpha: 0.04 + high * 0.05,  hue: 160 },
+      { yBase: H * 0.72, amp: 45 + bass * 90, freq: 0.0025, spd: 1.0, alpha: 0.08 + bass * 0.1, hue: 130 },
+      { yBase: H * 0.55, amp: 30 + mid * 60, freq: 0.0042, spd: 1.6, alpha: 0.06 + mid * 0.07, hue: 145 },
+      { yBase: H * 0.38, amp: 18 + high * 40, freq: 0.008, spd: 2.4, alpha: 0.04 + high * 0.05, hue: 160 },
     ];
 
     waves.forEach(({ yBase, amp, freq, spd, alpha, hue }) => {
       ctx.beginPath();
       for (let x = 0; x <= W; x += 4) {
-        const y = yBase + Math.sin(x * freq + phase * spd) * amp
-                        + Math.sin(x * freq * 1.7 + phase * spd * 0.6) * amp * 0.3;
-        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        const y =
+          yBase + Math.sin(x * freq + phase * spd) * amp + Math.sin(x * freq * 1.7 + phase * spd * 0.6) * amp * 0.3;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
       }
-      ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+      ctx.lineTo(W, H);
+      ctx.lineTo(0, H);
+      ctx.closePath();
       ctx.fillStyle = `hsla(${hue},55%,28%,${alpha})`;
       ctx.fill();
     });
@@ -87,7 +99,8 @@ export function initBackground() {
       for (let x = 0; x < W; x++) {
         const i = Math.min(waveData.length - 1, x * step);
         const y = H * 0.5 + ((waveData[i] - 128) / 128) * H * (0.25 + bass * 0.25);
-        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
       }
       ctx.stroke();
     }

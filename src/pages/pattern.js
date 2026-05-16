@@ -2,7 +2,14 @@
 
 import { TRACK_COLORS } from '../state.js';
 
-import { GENRE_WEIGHTS, getGenreStepWeights, NOTE_NAMES, midiToNoteName, euclidean, PLOCK_PARAMS, STEP_CONDITIONS, injectPatternCSS } from './pattern-tools.js';
+import {
+  getGenreStepWeights,
+  midiToNoteName,
+  euclidean,
+  PLOCK_PARAMS,
+  STEP_CONDITIONS,
+  injectPatternCSS,
+} from './pattern-tools.js';
 
 export default {
   render(container, state, emit) {
@@ -11,16 +18,15 @@ export default {
     container.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow:hidden;padding:6px 8px;gap:4px';
 
     const pattern = state.project.banks[state.activeBank].patterns[state.activePattern];
-    const selTi   = state.selectedTrackIndex;
-    const track   = pattern.kit.tracks[selTi];
+    const selTi = state.selectedTrackIndex;
+    const track = pattern.kit.tracks[selTi];
     const executeCommands = (commands, label) => {
       if (window.confustudioCommands?.execute) {
         return window.confustudioCommands.execute(commands, label);
       }
       return null;
     };
-    const rerenderPattern = () =>
-      emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
+    const rerenderPattern = () => emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
 
     function cloneStepData(step) {
       return {
@@ -33,7 +39,7 @@ export default {
     const header = document.createElement('div');
     header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-shrink:0';
     const trackLen = track.trackLength > 0 ? track.trackLength : pattern.length;
-    const activeSteps = track.steps.slice(0, trackLen).filter(s => s.active).length;
+    const activeSteps = track.steps.slice(0, trackLen).filter((s) => s.active).length;
     header.innerHTML = `
       <span class="page-title" style="margin:0">${pattern.name}</span>
       <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted)">
@@ -43,16 +49,17 @@ export default {
     `;
     // ── Global pattern step count quick-select ────────────────────────────────
     const globalStepSel = document.createElement('select');
-    globalStepSel.style.cssText = 'font-size:0.5rem;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 4px;font-family:var(--font-mono)';
+    globalStepSel.style.cssText =
+      'font-size:0.5rem;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 4px;font-family:var(--font-mono)';
     globalStepSel.title = 'Global pattern step count';
-    [8, 12, 16, 24, 32, 48, 64].forEach(n => {
+    [8, 12, 16, 24, 32, 48, 64].forEach((n) => {
       const opt = document.createElement('option');
       opt.value = String(n);
       opt.textContent = `${n}st`;
       if (n === (pattern.length ?? 16)) opt.selected = true;
       globalStepSel.append(opt);
     });
-    globalStepSel.addEventListener('change', e => {
+    globalStepSel.addEventListener('change', (e) => {
       const n = parseInt(e.target.value);
       emit('state:change', { path: 'length', value: n });
     });
@@ -60,11 +67,13 @@ export default {
 
     // ── Pattern length quick-select (clear step-count labels) ─────────────────
     const stepCountSel = document.createElement('select');
-    stepCountSel.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px;cursor:pointer';
+    stepCountSel.style.cssText =
+      'font-family:var(--font-mono);font-size:0.52rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px;cursor:pointer';
     stepCountSel.title = 'Set number of steps in pattern';
-    [8, 16, 24, 32, 48, 64].forEach(n => {
+    [8, 16, 24, 32, 48, 64].forEach((n) => {
       const opt = document.createElement('option');
-      opt.value = String(n); opt.textContent = `${n} steps`;
+      opt.value = String(n);
+      opt.textContent = `${n} steps`;
       if (n === pattern.length) opt.selected = true;
       stepCountSel.append(opt);
     });
@@ -81,9 +90,9 @@ export default {
     patLockBtn.title = _patLocked ? 'Pattern length locked — click to unlock' : 'Click to lock pattern length';
     if (_patLocked) {
       globalStepSel.disabled = true;
-      stepCountSel.disabled  = true;
+      stepCountSel.disabled = true;
       globalStepSel.style.opacity = '0.4';
-      stepCountSel.style.opacity  = '0.4';
+      stepCountSel.style.opacity = '0.4';
     }
     patLockBtn.addEventListener('click', () => {
       state.patternLengthLocked = !state.patternLengthLocked;
@@ -91,11 +100,11 @@ export default {
       patLockBtn.textContent = locked ? '🔒' : '🔓';
       patLockBtn.title = locked ? 'Pattern length locked — click to unlock' : 'Click to lock pattern length';
       patLockBtn.style.borderColor = locked ? 'var(--accent)' : '#444';
-      patLockBtn.style.color       = locked ? 'var(--accent)' : 'var(--muted)';
+      patLockBtn.style.color = locked ? 'var(--accent)' : 'var(--muted)';
       globalStepSel.disabled = locked;
-      stepCountSel.disabled  = locked;
+      stepCountSel.disabled = locked;
       globalStepSel.style.opacity = locked ? '0.4' : '1';
-      stepCountSel.style.opacity  = locked ? '0.4' : '1';
+      stepCountSel.style.opacity = locked ? '0.4' : '1';
       emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
     });
     header.append(patLockBtn);
@@ -105,23 +114,30 @@ export default {
     // ── Follow action selector ────────────────────────────────────────────────
     const followDiv = document.createElement('div');
     followDiv.style.cssText = 'display:flex;align-items:center;gap:3px';
-    const FA_OPTIONS = ['loop','next','prev','random','first','stop'];
+    const FA_OPTIONS = ['loop', 'next', 'prev', 'random', 'first', 'stop'];
     followDiv.innerHTML = `<label style="font-family:var(--font-mono);font-size:0.5rem;color:var(--muted)">→</label>`;
     const faSelect = document.createElement('select');
-    faSelect.style.cssText = 'background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 4px;font-family:var(--font-mono);font-size:0.5rem';
-    FA_OPTIONS.forEach(fa => {
+    faSelect.style.cssText =
+      'background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 4px;font-family:var(--font-mono);font-size:0.5rem';
+    FA_OPTIONS.forEach((fa) => {
       const opt = document.createElement('option');
-      opt.value = fa; opt.textContent = fa;
+      opt.value = fa;
+      opt.textContent = fa;
       if (fa === (pattern.followAction ?? 'next')) opt.selected = true;
       faSelect.append(opt);
     });
     faSelect.addEventListener('change', () => {
-      if (!executeCommands({
-        type: 'update-pattern-meta',
-        bankIndex: state.activeBank,
-        patternIndex: state.activePattern,
-        followAction: faSelect.value,
-      }, 'Updated follow action')) {
+      if (
+        !executeCommands(
+          {
+            type: 'update-pattern-meta',
+            bankIndex: state.activeBank,
+            patternIndex: state.activePattern,
+            followAction: faSelect.value,
+          },
+          'Updated follow action',
+        )
+      ) {
         pattern.followAction = faSelect.value;
       }
       emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
@@ -132,14 +148,16 @@ export default {
     // ── Fill mode visual indicator ────────────────────────────────────────────
     if (state._fillActive) {
       const fillBadge = document.createElement('span');
-      fillBadge.style.cssText = 'font-family:var(--font-mono);font-size:0.55rem;color:var(--live);background:rgba(90,221,113,0.15);padding:1px 5px;border-radius:3px;border:1px solid var(--live)';
+      fillBadge.style.cssText =
+        'font-family:var(--font-mono);font-size:0.55rem;color:var(--live);background:rgba(90,221,113,0.15);padding:1px 5px;border-radius:3px;border:1px solid var(--live)';
       fillBadge.textContent = 'FILL';
       header.append(fillBadge);
     }
 
     // ── Outer wrapper ─────────────────────────────────────────────────────────
     const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'position:relative;flex:1;display:flex;flex-direction:column;gap:4px;min-height:0;overflow:hidden';
+    wrapper.style.cssText =
+      'position:relative;flex:1;display:flex;flex-direction:column;gap:4px;min-height:0;overflow:hidden';
     if (state._fillActive) {
       wrapper.style.outline = '2px solid var(--live)';
       wrapper.style.outlineOffset = '-2px';
@@ -148,8 +166,6 @@ export default {
     // ── Multi-track grid ──────────────────────────────────────────────────────
     const multiGrid = document.createElement('div');
     multiGrid.className = 'multi-track-grid';
-
-    let plockPanel = null;
 
     const buildPlockPanel = (stepIndex) => {
       const step = track.steps[stepIndex];
@@ -168,7 +184,7 @@ export default {
         </span>
       `;
       const microInput = microRow.querySelector('input');
-      const microSpan  = microRow.querySelector('span');
+      const microSpan = microRow.querySelector('span');
       microInput.addEventListener('input', () => {
         const v = parseFloat(microInput.value);
         microSpan.textContent = (v >= 0 ? '+' : '') + v.toFixed(2);
@@ -190,7 +206,7 @@ export default {
         </span>
       `;
       const gateInput = gateRow.querySelector('input');
-      const gateSpan  = gateRow.querySelector('span');
+      const gateSpan = gateRow.querySelector('span');
       gateInput.addEventListener('input', () => {
         const v = parseFloat(gateInput.value);
         gateSpan.textContent = Math.round(v * 100) + '%';
@@ -211,7 +227,7 @@ export default {
         </span>
       `;
       const retrigInput = retrigRow.querySelector('input');
-      const retrigSpan  = retrigRow.querySelector('span');
+      const retrigSpan = retrigRow.querySelector('span');
       retrigInput.addEventListener('input', () => {
         const v = parseInt(retrigInput.value);
         retrigSpan.textContent = v + 'x';
@@ -231,7 +247,7 @@ export default {
         </span>
       `;
       const noteInput = noteRow.querySelector('input');
-      const noteSpan  = noteRow.querySelector('span');
+      const noteSpan = noteRow.querySelector('span');
       noteInput.addEventListener('input', () => {
         const v = parseInt(noteInput.value, 10);
         noteSpan.textContent = midiToNoteName(v);
@@ -250,7 +266,7 @@ export default {
         </span>
       `;
       const probInput = probRow.querySelector('input');
-      const probSpan  = probRow.querySelector('span');
+      const probSpan = probRow.querySelector('span');
       probInput.addEventListener('input', () => {
         const v = parseFloat(probInput.value);
         track.steps[stepIndex].probability = v;
@@ -264,7 +280,8 @@ export default {
       const condLabel = document.createElement('label');
       condLabel.textContent = 'Trig';
       const condSelect = document.createElement('select');
-      condSelect.style.cssText = 'flex:1;background:#161a13;color:var(--screen-text);border:1px solid rgba(255,255,255,0.12);border-radius:4px;padding:3px 4px;font-family:var(--font-mono);font-size:0.56rem';
+      condSelect.style.cssText =
+        'flex:1;background:#161a13;color:var(--screen-text);border:1px solid rgba(255,255,255,0.12);border-radius:4px;padding:3px 4px;font-family:var(--font-mono);font-size:0.56rem';
       STEP_CONDITIONS.forEach(({ value, label }) => {
         const opt = document.createElement('option');
         opt.value = value;
@@ -291,7 +308,7 @@ export default {
           </span>
         `;
         const input = row.querySelector('input');
-        const span  = row.querySelector('span');
+        const span = row.querySelector('span');
         input.addEventListener('input', () => {
           const v = parseFloat(input.value);
           span.textContent = v.toFixed(s < 1 ? 2 : 0);
@@ -344,7 +361,6 @@ export default {
       closeBtn.textContent = 'Close';
       closeBtn.addEventListener('click', () => {
         panel.remove();
-        plockPanel = null;
       });
       panel.append(closeBtn);
       return panel;
@@ -356,17 +372,23 @@ export default {
 
     if (!window._patternDragHandlerSet) {
       window._patternDragHandlerSet = true;
-      window.addEventListener('mouseup', () => { isDragging = false; dragActivating = null; });
+      window.addEventListener('mouseup', () => {
+        isDragging = false;
+        dragActivating = null;
+      });
     }
 
     // Render each of the 8 tracks as a row
     pattern.kit.tracks.forEach((trk, ti) => {
-      const isSelected   = ti === selTi;
-      const trackLen     = trk.trackLength > 0 ? trk.trackLength : pattern.length;
+      const isSelected = ti === selTi;
+      const trackLen = trk.trackLength > 0 ? trk.trackLength : pattern.length;
       const trkStepCount = trk.stepCount ?? pattern.length;
       const shortPattern = trkStepCount <= 16;
       const stepBtnSize = shortPattern
-        ? Math.max(22, Math.min(52, Math.floor((Math.max(container.clientWidth, 760) - 96) / Math.max(trkStepCount, 1)) - 2))
+        ? Math.max(
+            22,
+            Math.min(52, Math.floor((Math.max(container.clientWidth, 760) - 96) / Math.max(trkStepCount, 1)) - 2),
+          )
         : 22;
 
       const row = document.createElement('div');
@@ -394,7 +416,7 @@ export default {
       randBtn.className = 'mtg-rand-btn';
       randBtn.title = 'Randomize steps (uses current density + genre)';
       randBtn.textContent = 'R';
-      randBtn.addEventListener('click', e => {
+      randBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         // Delegate to app.js so pushHistory is called there
         emit('pattern:randomize', { trackIndex: ti });
@@ -405,14 +427,14 @@ export default {
       copyBtn.className = 'mtg-rand-btn';
       copyBtn.title = 'Copy track steps';
       copyBtn.textContent = 'C';
-      copyBtn.addEventListener('click', e => {
+      copyBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         state._trackCopyBuffer = JSON.parse(JSON.stringify(trk.steps));
         state._trackCopyIndex = ti;
         // Visual indicator: briefly add dashed outline to this row
         row.classList.add('track-copying');
         // Remove copying class from any previously marked row
-        multiGrid.querySelectorAll('.mtg-row.track-copying').forEach(r => {
+        multiGrid.querySelectorAll('.mtg-row.track-copying').forEach((r) => {
           if (r !== row) r.classList.remove('track-copying');
         });
         emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
@@ -425,7 +447,7 @@ export default {
       pasteBtn.title = 'Paste track steps';
       pasteBtn.textContent = 'P';
       pasteBtn.style.opacity = state._trackCopyBuffer ? '1' : '0.35';
-      pasteBtn.addEventListener('click', e => {
+      pasteBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         if (!state._trackCopyBuffer) return;
         emit('state:change', { path: 'action_trackPaste', value: { trackIndex: ti } });
@@ -438,7 +460,7 @@ export default {
       recArmBtn.title = trk.recArmed ? 'Disarm track from recording' : 'Arm track for recording';
       recArmBtn.textContent = 'REC';
       recArmBtn.style.color = trk.recArmed ? 'var(--live, #f44)' : 'var(--muted, #555)';
-      recArmBtn.addEventListener('click', e => {
+      recArmBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         trk.recArmed = !trk.recArmed;
         recArmBtn.classList.toggle('armed', trk.recArmed);
@@ -453,11 +475,11 @@ export default {
       velRandBtn.className = 'mtg-rand-btn mtg-vel-rand-btn';
       velRandBtn.title = 'Randomize step velocities';
       velRandBtn.textContent = 'VEL';
-      velRandBtn.addEventListener('click', e => {
+      velRandBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const activePattern = state.project.banks[state.activeBank].patterns[state.activePattern];
         const currentTrack = activePattern.kit.tracks[ti];
-        currentTrack.steps.forEach(s => {
+        currentTrack.steps.forEach((s) => {
           if (s.active) s.velocity = 0.5 + Math.random() * 0.5; // 50-100%
         });
         emit('state:change', { param: 'pattern' });
@@ -466,16 +488,17 @@ export default {
 
       // Per-track step count selector (polyrhythm) — placed in label row 1 as a small inline select
       const stepCountSel = document.createElement('select');
-      stepCountSel.style.cssText = 'font-size:0.36rem;background:rgba(255,255,255,0.04);color:var(--muted);border:1px solid rgba(255,255,255,0.08);border-radius:2px;padding:0 1px;width:28px;flex-shrink:0';
+      stepCountSel.style.cssText =
+        'font-size:0.36rem;background:rgba(255,255,255,0.04);color:var(--muted);border:1px solid rgba(255,255,255,0.08);border-radius:2px;padding:0 1px;width:28px;flex-shrink:0';
       stepCountSel.title = 'Track step count (polyrhythm)';
-      [8, 12, 16, 24, 32].forEach(n => {
+      [8, 12, 16, 24, 32].forEach((n) => {
         const opt = document.createElement('option');
         opt.value = String(n);
         opt.textContent = String(n);
         if (n === (trk.stepCount ?? pattern.length ?? 16)) opt.selected = true;
         stepCountSel.append(opt);
       });
-      stepCountSel.addEventListener('change', e => {
+      stepCountSel.addEventListener('change', (e) => {
         e.stopPropagation();
         const n = parseInt(e.target.value);
         trk.stepCount = n === (pattern.length ?? 16) ? null : n;
@@ -498,7 +521,7 @@ export default {
         labelTextEl.style.cursor = 'pointer';
         labelTextEl.title = 'Click to expand/collapse · Double-click to rename';
         labelTextEl.textContent = trk.name || `T${ti + 1}`;
-        labelTextEl.addEventListener('click', e => {
+        labelTextEl.addEventListener('click', (e) => {
           e.stopPropagation();
           if (!state._expandedTracks) state._expandedTracks = new Set();
           if (state._expandedTracks.has(ti)) {
@@ -509,7 +532,7 @@ export default {
           // Re-render the step row to show/hide velocity bars
           emit('state:change', { param: 'velocity' });
         });
-        labelTextEl.addEventListener('dblclick', e => {
+        labelTextEl.addEventListener('dblclick', (e) => {
           e.stopPropagation();
           const input = document.createElement('input');
           input.className = 'mtg-label-input';
@@ -526,8 +549,11 @@ export default {
             emit('state:change', { param: 'trackName' });
           };
           input.addEventListener('blur', commit);
-          input.addEventListener('keydown', ev => {
-            if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+          input.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter') {
+              ev.preventDefault();
+              input.blur();
+            }
             if (ev.key === 'Escape') {
               input.removeEventListener('blur', commit);
               input.replaceWith(labelTextEl);
@@ -536,24 +562,36 @@ export default {
         });
 
         // Right-click label = color picker popover
-        labelTextEl.addEventListener('contextmenu', e => {
+        labelTextEl.addEventListener('contextmenu', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          document.querySelectorAll('.track-color-popover').forEach(p => p.remove());
-          const PALETTE = ['#ff4444','#ff8844','#ffdd44','#aaff44','#44ff88','#44ffdd',
-                           '#44aaff','#4466ff','#aa44ff','#ff44dd','#ff4488','#ffffff'];
+          document.querySelectorAll('.track-color-popover').forEach((p) => p.remove());
+          const PALETTE = [
+            '#ff4444',
+            '#ff8844',
+            '#ffdd44',
+            '#aaff44',
+            '#44ff88',
+            '#44ffdd',
+            '#44aaff',
+            '#4466ff',
+            '#aa44ff',
+            '#ff44dd',
+            '#ff4488',
+            '#ffffff',
+          ];
           const popover = document.createElement('div');
           popover.className = 'track-color-popover';
           popover.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:1200;
             background:#1a1e14;border:1px solid var(--accent);border-radius:5px;padding:6px;
             display:grid;grid-template-columns:repeat(6,1fr);gap:4px;width:136px`;
-          PALETTE.forEach(hex => {
+          PALETTE.forEach((hex) => {
             const swatch = document.createElement('div');
             swatch.style.cssText = `width:18px;height:18px;border-radius:3px;background:${hex};
               cursor:pointer;border:2px solid ${hex === (trk.color ?? '') ? '#fff' : 'transparent'};
               box-sizing:border-box`;
             swatch.title = hex;
-            swatch.addEventListener('click', ev => {
+            swatch.addEventListener('click', (ev) => {
               ev.stopPropagation();
               trk.color = hex;
               row.style.setProperty('--track-color', hex);
@@ -569,10 +607,11 @@ export default {
             box-sizing:border-box;position:relative`;
           resetSwatch.title = 'Reset to default color';
           const resetX = document.createElement('span');
-          resetX.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:0.5rem;color:#0008;font-weight:bold;pointer-events:none';
+          resetX.style.cssText =
+            'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:0.5rem;color:#0008;font-weight:bold;pointer-events:none';
           resetX.textContent = '↺';
           resetSwatch.append(resetX);
-          resetSwatch.addEventListener('click', ev => {
+          resetSwatch.addEventListener('click', (ev) => {
             ev.stopPropagation();
             delete trk.color;
             row.style.setProperty('--track-color', TRACK_COLORS[ti]);
@@ -599,7 +638,8 @@ export default {
         // Group separator every 16 steps when step count exceeds 16
         if (trkStepCount > 16 && si > 0 && si % 16 === 0) {
           const sep = document.createElement('div');
-          sep.style.cssText = 'width:2px;height:18px;background:rgba(255,255,255,0.12);border-radius:1px;flex-shrink:0;align-self:center;margin:0 1px';
+          sep.style.cssText =
+            'width:2px;height:18px;background:rgba(255,255,255,0.12);border-radius:1px;flex-shrink:0;align-self:center;margin:0 1px';
           stepsWrap.append(sep);
         }
 
@@ -611,15 +651,15 @@ export default {
         btn.style.minWidth = `${stepBtnSize}px`;
         btn.style.maxWidth = shortPattern ? '56px' : `${stepBtnSize}px`;
         btn.style.flex = shortPattern ? '1 1 0' : '0 0 auto';
-        if (step.active)                          btn.classList.add('active');
-        if (step.accent)                          btn.classList.add('accent');
-        if (Object.keys(step.paramLocks ?? {}).length)  btn.classList.add('plock');
-        if (si === state.currentStep)             btn.classList.add('playhead');
+        if (step.active) btn.classList.add('active');
+        if (step.accent) btn.classList.add('accent');
+        if (Object.keys(step.paramLocks ?? {}).length) btn.classList.add('plock');
+        if (si === state.currentStep) btn.classList.add('playhead');
         if (state.stepRecordMode && si === (state._stepRecordCursor ?? 0) && ti === selTi)
-                                                  btn.classList.add('step-record-cursor');
-        if (si >= trackLen)                       btn.classList.add('dim');
-        if (step.mute)                            btn.classList.add('step-muted');
-        if (step.trigCondition === 'fill')        btn.classList.add('trig-fill');
+          btn.classList.add('step-record-cursor');
+        if (si >= trackLen) btn.classList.add('dim');
+        if (step.mute) btn.classList.add('step-muted');
+        if (step.trigCondition === 'fill') btn.classList.add('trig-fill');
         if (state._selectedSteps?.has(si) && ti === selTi) btn.classList.add('step-selected');
         // microTime nudge bar — thin accent bar at bottom showing timing offset direction
         if (Math.abs(step.microTime ?? 0) > 0.02) {
@@ -628,14 +668,15 @@ export default {
           const mt = step.microTime;
           microBar.style.cssText = `
             width: ${Math.abs(mt) * 80}%;
-            left: ${mt > 0 ? '50%' : (50 - Math.abs(mt) * 80) + '%'};
+            left: ${mt > 0 ? '50%' : 50 - Math.abs(mt) * 80 + '%'};
           `;
           btn.append(microBar);
         }
         // Micro-timing arrow indicator
         if (Math.abs(step.microTime ?? 0) > 0.05) {
           const microArrow = document.createElement('span');
-          microArrow.style.cssText = 'font-size:0.28rem;position:absolute;top:1px;right:2px;opacity:0.6;pointer-events:none';
+          microArrow.style.cssText =
+            'font-size:0.28rem;position:absolute;top:1px;right:2px;opacity:0.6;pointer-events:none';
           microArrow.textContent = (step.microTime ?? 0) < 0 ? '◂' : '▸';
           btn.append(microArrow);
         }
@@ -645,11 +686,11 @@ export default {
         if (step.active) {
           btn.style.opacity = String(0.4 + vel * 0.6);
         }
-        btn.textContent  = (si % 4 === 0) ? String(si + 1) : '';
+        btn.textContent = si % 4 === 0 ? String(si + 1) : '';
         btn.dataset.prob = String(prob);
         btn.dataset.step = si;
         btn.dataset.track = ti;
-        btn.title = `Step ${si+1}: ${step.active ? 'ON' : 'OFF'}${prob < 1 ? ' · prob '+Math.round(prob*100)+'%' : ''}${step.accent ? ' · accent' : ''}`;
+        btn.title = `Step ${si + 1}: ${step.active ? 'ON' : 'OFF'}${prob < 1 ? ' · prob ' + Math.round(prob * 100) + '%' : ''}${step.accent ? ' · accent' : ''}`;
         if (prob < 1) {
           btn.classList.add('has-prob');
           btn.style.setProperty('--prob', prob);
@@ -669,7 +710,8 @@ export default {
           if (noteMidi != null && step.active) {
             const noteSpan = document.createElement('span');
             noteSpan.className = 'step-note-label';
-            noteSpan.style.cssText = 'font-size:0.32rem;position:absolute;bottom:1px;left:0;right:0;text-align:center;opacity:0.7;pointer-events:none;color:rgba(0,0,0,0.9);font-family:monospace';
+            noteSpan.style.cssText =
+              'font-size:0.32rem;position:absolute;bottom:1px;left:0;right:0;text-align:center;opacity:0.7;pointer-events:none;color:rgba(0,0,0,0.9);font-family:monospace';
             noteSpan.textContent = midiToNoteName(noteMidi);
             btn.append(noteSpan);
           }
@@ -677,7 +719,8 @@ export default {
         // Trig condition badge on active steps (3-char, top-right, amber)
         if (step.trigCondition && step.trigCondition !== 'always' && step.active) {
           const condBadge = document.createElement('span');
-          condBadge.style.cssText = 'position:absolute;top:1px;right:1px;font-size:0.32rem;font-family:var(--font-mono);color:rgba(255,200,100,0.9);line-height:1;pointer-events:none';
+          condBadge.style.cssText =
+            'position:absolute;top:1px;right:1px;font-size:0.32rem;font-family:var(--font-mono);color:rgba(255,200,100,0.9);line-height:1;pointer-events:none';
           condBadge.textContent = step.trigCondition.substring(0, 3).toUpperCase();
           btn.append(condBadge);
         }
@@ -703,33 +746,33 @@ export default {
           btn.classList.add('has-trig-cond');
           btn.dataset.trig = step.trigCondition;
           const condLabels = {
-            '1st':      '1',
-            'not1st':   '¬1',
-            'every2':   '/2',
-            'every3':   '/3',
-            'every4':   '/4',
-            'random50': '?',
-            'random':   '?',
-            'fill':     'F',
-            'not_fill': '¬F',
-            'first':    '1',
-            'not_first':'¬1',
-            '1:2':      '½',
+            '1st': '1',
+            not1st: '¬1',
+            every2: '/2',
+            every3: '/3',
+            every4: '/4',
+            random50: '?',
+            random: '?',
+            fill: 'F',
+            not_fill: '¬F',
+            first: '1',
+            not_first: '¬1',
+            '1:2': '½',
           };
           const condLabel = condLabels[step.trigCondition] ?? step.trigCondition.slice(0, 2);
           btn.dataset.trigCond = condLabel;
           const condColors = {
-            '1st':      '#4af',
-            'not1st':   '#fa4',
-            'every2':   '#4f4',
-            'every3':   '#4f4',
-            'every4':   '#4f4',
-            'random50': '#f44',
-            'random':   '#f44',
-            'fill':     '#af4',
-            'not_fill': '#f84',
-            'first':    '#4af',
-            'not_first':'#fa4',
+            '1st': '#4af',
+            not1st: '#fa4',
+            every2: '#4f4',
+            every3: '#4f4',
+            every4: '#4f4',
+            random50: '#f44',
+            random: '#f44',
+            fill: '#af4',
+            not_fill: '#f84',
+            first: '#4af',
+            not_first: '#fa4',
           };
           btn.style.setProperty('--trig-cond-color', condColors[step.trigCondition] ?? 'var(--accent)');
         }
@@ -765,7 +808,7 @@ export default {
           });
         });
 
-        btn.addEventListener('mousedown', e => {
+        btn.addEventListener('mousedown', (e) => {
           if (!e.shiftKey || !step.active) return;
           e.preventDefault();
           e.stopPropagation();
@@ -776,7 +819,7 @@ export default {
             const delta = (startY - me.clientY) / 80; // 80px = full range
             step.velocity = Math.max(0.05, Math.min(1.0, startVel + delta));
             btn.style.setProperty('--vel', step.velocity);
-            btn.title = `Step ${si+1} vel:${Math.round(step.velocity * 100)}%`;
+            btn.title = `Step ${si + 1} vel:${Math.round(step.velocity * 100)}%`;
             emit('state:change', { param: 'velocity' });
           };
 
@@ -789,7 +832,7 @@ export default {
           window.addEventListener('mouseup', onUp);
         });
 
-        btn.addEventListener('click', e => {
+        btn.addEventListener('click', (e) => {
           e.stopPropagation();
           if (btn._blockNextClick) {
             btn._blockNextClick = false;
@@ -816,12 +859,12 @@ export default {
           }
         });
 
-        btn.addEventListener('contextmenu', e => {
+        btn.addEventListener('contextmenu', (e) => {
           e.preventDefault();
           if (ti !== state.selectedTrackIndex) return;
 
           // Remove any existing context menus
-          document.querySelectorAll('.step-ctx-menu').forEach(m => m.remove());
+          document.querySelectorAll('.step-ctx-menu').forEach((m) => m.remove());
 
           const menu = document.createElement('div');
           menu.className = 'step-ctx-menu';
@@ -885,7 +928,10 @@ export default {
             const item = document.createElement('div');
             item.className = 'ctx-item';
             item.textContent = label;
-            item.addEventListener('click', () => { fn(); menu.remove(); });
+            item.addEventListener('click', () => {
+              fn();
+              menu.remove();
+            });
             menu.append(item);
           };
 
@@ -910,7 +956,10 @@ export default {
           });
 
           makeActionItem('Set microtime…', () => {
-            const raw = prompt(`Micro-time for step ${si + 1} (-50 to +50):`, String(Math.round((step.microTime ?? 0) * 100)));
+            const raw = prompt(
+              `Micro-time for step ${si + 1} (-50 to +50):`,
+              String(Math.round((step.microTime ?? 0) * 100)),
+            );
             if (raw === null) return;
             const v = Math.max(-50, Math.min(50, parseInt(raw, 10)));
             if (!isNaN(v)) {
@@ -927,22 +976,41 @@ export default {
           document.body.append(menu);
           // Close on outside click or Escape
           const closeMenu = () => menu.remove();
-          const onKeyDown = (ev) => { if (ev.key === 'Escape') { closeMenu(); document.removeEventListener('keydown', onKeyDown); } };
+          const onKeyDown = (ev) => {
+            if (ev.key === 'Escape') {
+              closeMenu();
+              document.removeEventListener('keydown', onKeyDown);
+            }
+          };
           document.addEventListener('keydown', onKeyDown);
-          setTimeout(() => document.addEventListener('click', () => { closeMenu(); document.removeEventListener('keydown', onKeyDown); }, { once: true }), 0);
+          setTimeout(
+            () =>
+              document.addEventListener(
+                'click',
+                () => {
+                  closeMenu();
+                  document.removeEventListener('keydown', onKeyDown);
+                },
+                { once: true },
+              ),
+            0,
+          );
         });
 
         // ── Velocity drag + long-press p-lock ─────────────────────────────────
-        let velDragTimer = null, velDragging = false, velStartY = 0, velStartVal = 1;
+        let velDragTimer = null,
+          velDragging = false,
+          velStartY = 0,
+          velStartVal = 1;
         let holdTimer = null;
 
-        btn.addEventListener('pointerdown', e => {
+        btn.addEventListener('pointerdown', (e) => {
           // Alt+drag horizontally = set microTime (early/late nudge)
           if (e.altKey) {
             e.stopPropagation();
             e.preventDefault();
             btn.setPointerCapture(e.pointerId);
-            const startX  = e.clientX;
+            const startX = e.clientX;
             const startMT = step.microTime ?? 0;
             let dragged = false;
             function onMicroMove(ev) {
@@ -960,7 +1028,7 @@ export default {
                 const mt = step.microTime;
                 microBar.style.cssText = `
                   width: ${Math.abs(mt) * 80}%;
-                  left: ${mt > 0 ? '50%' : (50 - Math.abs(mt) * 80) + '%'};
+                  left: ${mt > 0 ? '50%' : 50 - Math.abs(mt) * 80 + '%'};
                 `;
               } else if (microBar) {
                 microBar.remove();
@@ -981,7 +1049,7 @@ export default {
 
           // Velocity drag — only on active steps of the selected track
           if (step.active && ti === selTi) {
-            velStartY   = e.clientY;
+            velStartY = e.clientY;
             velStartVal = step.velocity ?? 1;
             velDragging = false;
             velDragTimer = setTimeout(() => {
@@ -998,13 +1066,12 @@ export default {
           holdTimer = setTimeout(() => {
             if (velDragging) return; // velocity drag took over
             holdTimer = null;
-            wrapper.querySelectorAll('.plock-panel').forEach(p => p.remove());
-            plockPanel = si;
+            wrapper.querySelectorAll('.plock-panel').forEach((p) => p.remove());
             wrapper.append(buildPlockPanel(si));
           }, 500);
         });
 
-        btn.addEventListener('pointermove', e => {
+        btn.addEventListener('pointermove', (e) => {
           if (!velDragging) return;
           const newVel = Math.max(0.05, Math.min(1, velStartVal + (velStartY - e.clientY) / 60));
           step.velocity = newVel;
@@ -1020,7 +1087,7 @@ export default {
           }
         });
 
-        btn.addEventListener('pointerup', e => {
+        btn.addEventListener('pointerup', (e) => {
           clearTimeout(velDragTimer);
           clearTimeout(holdTimer);
           holdTimer = null;
@@ -1047,7 +1114,7 @@ export default {
       const handle = document.createElement('div');
       handle.className = 'track-len-handle';
       handle.title = `Track length: ${trackLen}`;
-      handle.addEventListener('pointerdown', e => {
+      handle.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         handle.setPointerCapture(e.pointerId);
         const startX = e.clientX;
@@ -1055,7 +1122,7 @@ export default {
         const firstBtn = row.querySelector('.step-btn');
         const stepBtnWidth = firstBtn ? firstBtn.offsetWidth + 2 : 18;
         let currentLen = startTrackLen;
-        const onMove = ev => {
+        const onMove = (ev) => {
           const delta = Math.round((ev.clientX - startX) / stepBtnWidth);
           const newLen = Math.max(1, Math.min(64, startTrackLen + delta));
           if (newLen !== currentLen) {
@@ -1077,7 +1144,7 @@ export default {
       });
       row.append(handle);
 
-      const activeCount = trk.steps.slice(0, trkStepCount).filter(s => s.active).length;
+      const activeCount = trk.steps.slice(0, trkStepCount).filter((s) => s.active).length;
       const countBadge = document.createElement('span');
       countBadge.className = 'mtg-count';
       countBadge.textContent = activeCount > 0 ? String(activeCount) : '';
@@ -1093,7 +1160,7 @@ export default {
         const velRow = document.createElement('div');
         // Offset to align with step buttons (label wrap is approx 56px wide)
         velRow.style.cssText = 'display:flex;gap:1px;height:12px;margin-top:1px;padding-left:56px;padding-right:2px';
-        trk.steps.slice(0, trkStepCount).forEach(s => {
+        trk.steps.slice(0, trkStepCount).forEach((s) => {
           const bar = document.createElement('div');
           bar.style.cssText = `flex:1;background:${s.active ? 'var(--accent)' : 'rgba(255,255,255,0.04)'};height:${s.active ? Math.round((s.velocity ?? 1) * 100) : 0}%;align-self:flex-end;border-radius:1px`;
           velRow.append(bar);
@@ -1116,12 +1183,15 @@ export default {
     const runPlayheadHighlight = () => {
       if (!multiGrid.isConnected) {
         // Page was re-rendered; stop looping.
-        if (_playheadRafId) { cancelAnimationFrame(_playheadRafId); _playheadRafId = null; }
+        if (_playheadRafId) {
+          cancelAnimationFrame(_playheadRafId);
+          _playheadRafId = null;
+        }
         return;
       }
       const cur = state.currentStep;
-      stepBtns.forEach(btn => {
-        const isPlaying = (cur >= 0) && (Number(btn.dataset.step) === cur);
+      stepBtns.forEach((btn) => {
+        const isPlaying = cur >= 0 && Number(btn.dataset.step) === cur;
         if (isPlaying) {
           btn.classList.add('step-playing');
           // Probability flicker: trigger only once per new step position
@@ -1148,17 +1218,21 @@ export default {
     // ── Step trigger flash on confustudio:clock ────────────────────────────────
     // Brief white flash on active step buttons when they fire during playback.
     const flashAbort = new AbortController();
-    document.addEventListener('confustudio:clock', e => {
-      if (!multiGrid.isConnected) return;
-      const { step } = e.detail;
-      multiGrid.querySelectorAll(`.step-btn[data-step="${step}"].active`).forEach(btn => {
-        btn.classList.remove('step-flash');
-        // Force reflow so the animation restarts even if already on
-        void btn.offsetWidth;
-        btn.classList.add('step-flash');
-        setTimeout(() => btn.classList.remove('step-flash'), 90);
-      });
-    }, { signal: flashAbort.signal });
+    document.addEventListener(
+      'confustudio:clock',
+      (e) => {
+        if (!multiGrid.isConnected) return;
+        const { step } = e.detail;
+        multiGrid.querySelectorAll(`.step-btn[data-step="${step}"].active`).forEach((btn) => {
+          btn.classList.remove('step-flash');
+          // Force reflow so the animation restarts even if already on
+          void btn.offsetWidth;
+          btn.classList.add('step-flash');
+          setTimeout(() => btn.classList.remove('step-flash'), 90);
+        });
+      },
+      { signal: flashAbort.signal },
+    );
     // Cleanup when page re-renders
     const prevCleanup = container._cleanup;
     container._cleanup = () => {
@@ -1188,7 +1262,7 @@ export default {
     // ── Probability mode indicator ────────────────────────────────────────────
     const probIndicator = document.createElement('span');
     probIndicator.className = 'prob-mode-indicator';
-    const trackHasProb = track?.steps?.some(s => (s.prob ?? s.probability ?? 1) < 1) ?? false;
+    const trackHasProb = track?.steps?.some((s) => (s.prob ?? s.probability ?? 1) < 1) ?? false;
     if (trackHasProb) probIndicator.classList.add('active');
     probIndicator.textContent = 'P%';
     probIndicator.title = trackHasProb
@@ -1203,20 +1277,23 @@ export default {
 
     // ── Euclid canvas visualizer ───────────────────────────────────────────
     const euclidCanvas = document.createElement('canvas');
-    euclidCanvas.width  = 80;
+    euclidCanvas.width = 80;
     euclidCanvas.height = 80;
     euclidCanvas.className = 'euclid-canvas';
     euclidCanvas.title = 'Euclidean pattern preview';
 
     function drawEuclidCircle(canvas, beats, steps, offset, activeSteps) {
       const ctx = canvas.getContext('2d');
-      const W = canvas.width, H = canvas.height;
-      const cx = W / 2, cy = H / 2, r = W / 2 - 10;
+      const W = canvas.width,
+        H = canvas.height;
+      const cx = W / 2,
+        cy = H / 2,
+        r = W / 2 - 10;
       ctx.clearRect(0, 0, W, H);
       // Resolve CSS variables from the document root (canvas cannot use var())
       const cs = getComputedStyle(document.documentElement);
-      const colorAccent  = cs.getPropertyValue('--accent').trim()      || '#f0c640';
-      const colorLive    = cs.getPropertyValue('--live').trim()         || '#5add71';
+      const colorAccent = cs.getPropertyValue('--accent').trim() || '#f0c640';
+      const colorLive = cs.getPropertyValue('--live').trim() || '#5add71';
       // Outer ring — faint guide circle
       ctx.strokeStyle = 'rgba(255,255,255,0.12)';
       ctx.lineWidth = 1;
@@ -1224,24 +1301,22 @@ export default {
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.stroke();
       // Dot radius: scale so dots don't overlap when there are many steps
-      const dotR = Math.max(2, Math.min(5, Math.floor(r * Math.PI / steps * 0.55)));
+      const dotR = Math.max(2, Math.min(5, Math.floor(((r * Math.PI) / steps) * 0.55)));
       // Generate base euclid pattern then rotate
       const base = euclidean(beats, steps);
-      const off  = ((offset % steps) + steps) % steps;
-      const pat  = [...base.slice(off), ...base.slice(0, off)];
+      const off = ((offset % steps) + steps) % steps;
+      const pat = [...base.slice(off), ...base.slice(0, off)];
       for (let i = 0; i < steps; i++) {
         const angle = (i / steps) * Math.PI * 2 - Math.PI / 2;
         const x = cx + r * Math.cos(angle);
         const y = cy + r * Math.sin(angle);
-        const isActive   = pat[i];
-        const isCurrent  = activeSteps ? activeSteps[i] : false;
+        const isActive = pat[i];
+        const isCurrent = activeSteps ? activeSteps[i] : false;
         ctx.beginPath();
         ctx.arc(x, y, dotR, 0, Math.PI * 2);
         if (isActive) {
           // Filled circle — euclidean beat on
-          const fill = (isCurrent && isActive) ? colorAccent
-                     : isActive                ? colorAccent
-                                               : '#666';
+          const fill = isCurrent && isActive ? colorAccent : isActive ? colorAccent : '#666';
           ctx.fillStyle = fill;
           ctx.fill();
         } else {
@@ -1261,16 +1336,10 @@ export default {
 
     // Build current-track active array for overlay
     const euclidTrackLen = track.trackLength > 0 ? track.trackLength : pattern.length;
-    const currentActiveSteps = track.steps.slice(0, euclidTrackLen).map(s => s.active);
+    const currentActiveSteps = track.steps.slice(0, euclidTrackLen).map((s) => s.active);
 
     // Initial draw
-    drawEuclidCircle(
-      euclidCanvas,
-      state.euclidBeats || 4,
-      euclidStepDefault,
-      euclidOffsetDefault,
-      currentActiveSteps
-    );
+    drawEuclidCircle(euclidCanvas, state.euclidBeats || 4, euclidStepDefault, euclidOffsetDefault, currentActiveSteps);
 
     euclidDiv.append(euclidCanvas);
 
@@ -1305,7 +1374,7 @@ export default {
     shiftLeftBtn.addEventListener('click', () => {
       const steps = parseInt(euclidStepsInput.value, 10) || euclidStepDefault;
       let off = parseInt(euclidOffsetInput.value, 10) || 0;
-      off = ((off - 1) + steps) % steps;
+      off = (off - 1 + steps) % steps;
       euclidOffsetInput.value = String(off);
       state.euclidOffset = off;
       refreshCanvas();
@@ -1340,68 +1409,78 @@ export default {
     euclidInputsWrap.append(euclidRow1, euclidRow2);
     euclidDiv.append(euclidInputsWrap);
 
-    const euclidBeatsInput  = euclidRow1.querySelectorAll('input')[0];
-    const euclidStepsInput  = euclidRow1.querySelectorAll('input')[1];
+    const euclidBeatsInput = euclidRow1.querySelectorAll('input')[0];
+    const euclidStepsInput = euclidRow1.querySelectorAll('input')[1];
     const euclidOffsetInput = euclidRow2.querySelector('input');
 
     // Clamp offset max when steps changes
     const refreshCanvas = () => {
-      const beats  = parseInt(euclidBeatsInput.value,  10) || 4;
-      const steps  = parseInt(euclidStepsInput.value,  10) || euclidStepDefault;
+      const beats = parseInt(euclidBeatsInput.value, 10) || 4;
+      const steps = parseInt(euclidStepsInput.value, 10) || euclidStepDefault;
       const offset = parseInt(euclidOffsetInput.value, 10) || 0;
       euclidOffsetInput.max = String(Math.max(0, steps - 1));
       drawEuclidCircle(euclidCanvas, beats, steps, offset, currentActiveSteps);
     };
 
-    euclidBeatsInput.addEventListener('input',  refreshCanvas);
-    euclidStepsInput.addEventListener('input',  refreshCanvas);
+    euclidBeatsInput.addEventListener('input', refreshCanvas);
+    euclidStepsInput.addEventListener('input', refreshCanvas);
     euclidOffsetInput.addEventListener('input', refreshCanvas);
 
     genBtn.addEventListener('click', () => {
-      const beats  = parseInt(euclidBeatsInput.value,  10);
-      const steps  = parseInt(euclidStepsInput.value,  10) || (track.trackLength || pattern.length);
+      const beats = parseInt(euclidBeatsInput.value, 10);
+      const steps = parseInt(euclidStepsInput.value, 10) || track.trackLength || pattern.length;
       const offset = parseInt(euclidOffsetInput.value, 10) || 0;
-      if (!executeCommands({
-        type: 'generate-euclid',
-        bankIndex: state.activeBank,
-        patternIndex: state.activePattern,
-        trackIndex: selTi,
-        beats,
-        steps,
-        offset,
-      }, 'Applied Euclid')) {
-        const base   = euclidean(beats, steps);
-        const off    = ((offset % steps) + steps) % steps;
+      if (
+        !executeCommands(
+          {
+            type: 'generate-euclid',
+            bankIndex: state.activeBank,
+            patternIndex: state.activePattern,
+            trackIndex: selTi,
+            beats,
+            steps,
+            offset,
+          },
+          'Applied Euclid',
+        )
+      ) {
+        const base = euclidean(beats, steps);
+        const off = ((offset % steps) + steps) % steps;
         const result = [...base.slice(off), ...base.slice(0, off)];
         result.forEach((active, i) => {
           if (track.steps[i]) track.steps[i].active = active;
         });
-        state.euclidBeats  = beats;
+        state.euclidBeats = beats;
         state.euclidOffset = offset;
       }
       emit('state:change', { path: 'euclidBeats', value: beats });
     });
 
     allBtn.addEventListener('click', () => {
-      const beats = parseInt(euclidBeatsInput.value,  10);
-      const steps = parseInt(euclidStepsInput.value,  10) || (track.trackLength || pattern.length);
-      if (!executeCommands({
-        type: 'generate-euclid',
-        bankIndex: state.activeBank,
-        patternIndex: state.activePattern,
-        beats,
-        steps,
-        applyToAll: true,
-      }, 'Applied Euclid to all 8 tracks')) {
-        const base  = euclidean(beats, steps);
+      const beats = parseInt(euclidBeatsInput.value, 10);
+      const steps = parseInt(euclidStepsInput.value, 10) || track.trackLength || pattern.length;
+      if (
+        !executeCommands(
+          {
+            type: 'generate-euclid',
+            bankIndex: state.activeBank,
+            patternIndex: state.activePattern,
+            beats,
+            steps,
+            applyToAll: true,
+          },
+          'Applied Euclid to all 8 tracks',
+        )
+      ) {
+        const base = euclidean(beats, steps);
         pattern.kit.tracks.forEach((trk, ti) => {
-          const off    = Math.round(ti * steps / 8);
+          const off = Math.round((ti * steps) / 8);
           const result = [...base.slice(off), ...base.slice(0, off)];
           result.forEach((active, i) => {
             if (trk.steps[i]) trk.steps[i].active = active;
           });
         });
-        state.euclidBeats  = beats;
+        state.euclidBeats = beats;
         state.euclidOffset = 0;
       }
       emit('state:change', { path: 'euclidBeats', value: beats });
@@ -1418,7 +1497,9 @@ export default {
     copyBtn2.addEventListener('click', () => {
       emit('state:change', { path: 'action_copy', value: true });
       copyBtn2.style.background = 'rgba(90,221,113,0.3)';
-      setTimeout(() => { copyBtn2.style.background = ''; }, 400);
+      setTimeout(() => {
+        copyBtn2.style.background = '';
+      }, 400);
     });
     actionsDiv.append(copyBtn2);
 
@@ -1431,17 +1512,24 @@ export default {
       pasteBtn2.style.opacity = '0.4';
     }
     pasteBtn2.addEventListener('click', () => {
-      if (!executeCommands({
-        type: 'replace-track-steps',
-        bankIndex: state.activeBank,
-        patternIndex: state.activePattern,
-        trackIndex: selTi,
-        steps: JSON.parse(JSON.stringify(state.copyBuffer?.data ?? [])),
-      }, 'Pasted steps')) {
+      if (
+        !executeCommands(
+          {
+            type: 'replace-track-steps',
+            bankIndex: state.activeBank,
+            patternIndex: state.activePattern,
+            trackIndex: selTi,
+            steps: JSON.parse(JSON.stringify(state.copyBuffer?.data ?? [])),
+          },
+          'Pasted steps',
+        )
+      ) {
         emit('state:change', { path: 'action_paste', value: true });
       }
       pasteBtn2.style.background = 'rgba(90,221,113,0.3)';
-      setTimeout(() => { pasteBtn2.style.background = ''; }, 400);
+      setTimeout(() => {
+        pasteBtn2.style.background = '';
+      }, 400);
     });
     actionsDiv.append(pasteBtn2);
 
@@ -1450,12 +1538,17 @@ export default {
     clearBtn2.textContent = 'Clear';
     clearBtn2.title = 'Clear all steps on current track';
     clearBtn2.addEventListener('click', () => {
-      if (!executeCommands({
-        type: 'clear-track',
-        bankIndex: state.activeBank,
-        patternIndex: state.activePattern,
-        trackIndex: selTi,
-      }, 'Cleared track')) {
+      if (
+        !executeCommands(
+          {
+            type: 'clear-track',
+            bankIndex: state.activeBank,
+            patternIndex: state.activePattern,
+            trackIndex: selTi,
+          },
+          'Cleared track',
+        )
+      ) {
         emit('state:change', { path: 'action_clear', value: true });
       }
     });
@@ -1478,9 +1571,7 @@ export default {
     fillBtn.textContent = 'Fill';
     fillBtn.title = 'Fill pattern with active track steps (hold for options)';
     fillBtn.style.color = state._fillActive ? 'var(--live)' : '';
-    fillBtn.addEventListener('click', () =>
-      emit('state:change', { path: 'action_fill', value: true })
-    );
+    fillBtn.addEventListener('click', () => emit('state:change', { path: 'action_fill', value: true }));
     actionsDiv.prepend(fillBtn);
 
     // ── Randomize Fill button ─────────────────────────────────────────────────
@@ -1494,13 +1585,13 @@ export default {
     randFillBtn.addEventListener('click', () => {
       if (!state._fillActive) return; // no-op when fill is not active
       // Save snapshot of all tracks' steps before randomizing
-      state._preFillSnapshot = pattern.kit.tracks.map(trk =>
-        trk.steps.map(s => ({ ...s, paramLocks: { ...s.paramLocks } }))
+      state._preFillSnapshot = pattern.kit.tracks.map((trk) =>
+        trk.steps.map((s) => ({ ...s, paramLocks: { ...s.paramLocks } })),
       );
       // Randomize with 50% probability per active step slot
-      pattern.kit.tracks.forEach(trk => {
+      pattern.kit.tracks.forEach((trk) => {
         const len = trk.trackLength > 0 ? trk.trackLength : pattern.length;
-        trk.steps.slice(0, len).forEach(s => {
+        trk.steps.slice(0, len).forEach((s) => {
           s.active = Math.random() < 0.5;
           s.accent = s.active && Math.random() < 0.25;
         });
@@ -1517,7 +1608,10 @@ export default {
     morphBtn.title = 'Morph between two stored patterns';
     morphBtn.addEventListener('click', () => {
       const targetPat = state.patternCompareB;
-      if (!targetPat) { alert('Set Pattern B first (Banks page)'); return; }
+      if (!targetPat) {
+        alert('Set Pattern B first (Banks page)');
+        return;
+      }
       const src = pattern.kit.tracks;
       const dst = state.project.banks[targetPat.bank].patterns[targetPat.pattern].kit.tracks;
       src.forEach((trk, ti) => {
@@ -1558,9 +1652,10 @@ export default {
     });
 
     const genreSelect = document.createElement('select');
-    genreSelect.style.cssText = 'background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 3px;font-family:var(--font-mono);font-size:0.48rem';
+    genreSelect.style.cssText =
+      'background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 3px;font-family:var(--font-mono);font-size:0.48rem';
     genreSelect.title = 'Genre preset for randomization';
-    ['random', 'drums', 'house', 'techno', 'jazz', 'latin'].forEach(g => {
+    ['random', 'drums', 'house', 'techno', 'jazz', 'latin'].forEach((g) => {
       const opt = document.createElement('option');
       opt.value = g;
       opt.textContent = g.charAt(0).toUpperCase() + g.slice(1);
@@ -1586,7 +1681,8 @@ export default {
     const selCount = state._selectedSteps?.size ?? 0;
     if (selCount > 0) {
       const selBadge = document.createElement('span');
-      selBadge.style.cssText = 'font-family:var(--font-mono);font-size:0.55rem;color:var(--accent);padding:1px 5px;border-radius:3px;border:1px solid var(--accent);white-space:nowrap';
+      selBadge.style.cssText =
+        'font-family:var(--font-mono);font-size:0.55rem;color:var(--accent);padding:1px 5px;border-radius:3px;border:1px solid var(--accent);white-space:nowrap';
       selBadge.textContent = `Sel: ${selCount}`;
       actionsDiv.append(selBadge);
 
@@ -1641,7 +1737,9 @@ export default {
       clearLocksBtn.className = 'seq-btn';
       clearLocksBtn.textContent = 'Clr Locks';
       clearLocksBtn.addEventListener('click', () => {
-        withSelectedSteps((step) => { step.paramLocks = {}; });
+        withSelectedSteps((step) => {
+          step.paramLocks = {};
+        });
       });
 
       const probSel = document.createElement('select');
@@ -1655,7 +1753,9 @@ export default {
       });
       probSel.addEventListener('change', () => {
         const value = parseFloat(probSel.value);
-        withSelectedSteps((step) => { step.probability = value; });
+        withSelectedSteps((step) => {
+          step.probability = value;
+        });
       });
 
       const velNudgeBtn = document.createElement('button');
@@ -1684,28 +1784,37 @@ export default {
     const qSelect = document.createElement('select');
     qSelect.className = 'seq-btn';
     qSelect.style.cssText = 'padding:2px 4px;font-family:var(--font-mono);font-size:0.55rem';
-    [{ label: 'Q:1/16', v: 1 }, { label: 'Q:1/8', v: 2 }, { label: 'Q:1/4', v: 4 }].forEach(({ label, v }) => {
+    [
+      { label: 'Q:1/16', v: 1 },
+      { label: 'Q:1/8', v: 2 },
+      { label: 'Q:1/4', v: 4 },
+    ].forEach(({ label, v }) => {
       const opt = document.createElement('option');
-      opt.value = v; opt.textContent = label;
+      opt.value = v;
+      opt.textContent = label;
       if (v === (state.quantizeGrid ?? 1)) opt.selected = true;
       qSelect.append(opt);
     });
-    qSelect.addEventListener('change', () => { state.quantizeGrid = parseInt(qSelect.value); });
+    qSelect.addEventListener('change', () => {
+      state.quantizeGrid = parseInt(qSelect.value);
+    });
 
     const quantizeBtn = document.createElement('button');
     quantizeBtn.className = 'seq-btn';
     quantizeBtn.textContent = 'Quant';
     quantizeBtn.addEventListener('click', () => {
-      const grid    = state.quantizeGrid ?? 1;
+      const grid = state.quantizeGrid ?? 1;
       const trackLen = track.trackLength || pattern.length;
       const newActive = new Set();
       track.steps.slice(0, trackLen).forEach((s, si) => {
         if (s.active) {
-          const snapped = Math.round(si / grid) * grid % trackLen;
+          const snapped = (Math.round(si / grid) * grid) % trackLen;
           newActive.add(snapped);
         }
       });
-      track.steps.slice(0, trackLen).forEach((s, si) => { s.active = newActive.has(si); });
+      track.steps.slice(0, trackLen).forEach((s, si) => {
+        s.active = newActive.has(si);
+      });
       emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
     });
     actionsDiv.append(qSelect, quantizeBtn);
@@ -1727,14 +1836,14 @@ export default {
       return 'heavy';
     }
     humanizeLabel.textContent = `±${Math.round(humanizeAmtInit * 100)}% ${humanizeDesc(humanizeAmtInit)}`;
-    humanizeDiv.querySelector('input').addEventListener('input', e => {
+    humanizeDiv.querySelector('input').addEventListener('input', (e) => {
       state.humanizeAmount = parseFloat(e.target.value);
       humanizeLabel.textContent = `±${Math.round(state.humanizeAmount * 100)}% ${humanizeDesc(state.humanizeAmount)}`;
     });
     humanizeDiv.querySelector('button').addEventListener('click', () => {
       const amt = state.humanizeAmount ?? 0.2;
       const len = track.trackLength || pattern.length;
-      track.steps.slice(0, len).forEach(s => {
+      track.steps.slice(0, len).forEach((s) => {
         if (!s.active) return;
         s.microTime = (Math.random() - 0.5) * amt;
         s.velocity = Math.max(0.3, Math.min(1, (s.velocity ?? 1) + (Math.random() - 0.5) * 0.3));
@@ -1749,15 +1858,19 @@ export default {
     fillRow.style.cssText = 'display:flex;align-items:center;gap:4px';
     fillRow.innerHTML = `<span style="font-size:0.48rem;color:var(--muted);font-family:var(--font-mono)">FILL</span>`;
 
-    [2, 3, 4, 8].forEach(n => {
+    [2, 3, 4, 8].forEach((n) => {
       const btn = document.createElement('button');
       btn.className = 'seq-btn';
       btn.textContent = `/${n}`;
       btn.title = `Activate every ${n} steps`;
       btn.addEventListener('click', () => {
-        const bank = state.activeBank, pat = state.activePattern, ti = state.selectedTrackIndex;
+        const bank = state.activeBank,
+          pat = state.activePattern,
+          ti = state.selectedTrackIndex;
         const currentTrack = state.project.banks[bank].patterns[pat].kit.tracks[ti];
-        currentTrack.steps.forEach((s, i) => { s.active = (i % n === 0); });
+        currentTrack.steps.forEach((s, i) => {
+          s.active = i % n === 0;
+        });
         emit('state:change', { param: 'pattern' });
       });
       fillRow.append(btn);
@@ -1772,7 +1885,7 @@ export default {
     const swing = state.swing ?? 0;
     for (let i = 0; i < 8; i++) {
       const baseX = 4 + i * 7;
-      const offset = (i % 2 === 1) ? swing * 20 : 0;
+      const offset = i % 2 === 1 ? swing * 20 : 0;
       const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       dot.setAttribute('cx', baseX + offset);
       dot.setAttribute('cy', 6);
@@ -1790,31 +1903,33 @@ export default {
     toolbar.append(swingDiv);
 
     // ── STUTTER / Beat-Repeat ─────────────────────────────────────────────────
-    const stutterActive = !!(window._stutterActive);
-    const stutterSize   = window._stutterSize ?? '1/8';
+    const stutterActive = !!window._stutterActive;
+    const stutterSize = window._stutterSize ?? '1/8';
 
     const stutterWrap = document.createElement('div');
     stutterWrap.className = 'stutter-section';
-    stutterWrap.style.cssText = 'display:flex;align-items:center;gap:3px;flex-shrink:0;flex-wrap:wrap;border-left:1px solid #333;padding-left:5px';
+    stutterWrap.style.cssText =
+      'display:flex;align-items:center;gap:3px;flex-shrink:0;flex-wrap:wrap;border-left:1px solid #333;padding-left:5px';
 
     const stutterLabel = document.createElement('span');
-    stutterLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.46rem;color:var(--muted);letter-spacing:0.05em';
+    stutterLabel.style.cssText =
+      'font-family:var(--font-mono);font-size:0.46rem;color:var(--muted);letter-spacing:0.05em';
     stutterLabel.textContent = 'STUTTER';
 
     const stutterSizes = document.createElement('div');
     stutterSizes.className = 'stutter-sizes';
     stutterSizes.style.cssText = 'display:flex;gap:2px';
-    ['1/32','1/16','1/8','1/4','1/2'].forEach(sz => {
+    ['1/32', '1/16', '1/8', '1/4', '1/2'].forEach((sz) => {
       const btn = document.createElement('button');
       btn.className = 'seq-btn stutter-size-btn' + (stutterSize === sz ? ' active' : '');
       btn.dataset.size = sz;
       btn.textContent = sz;
-      btn.style.cssText = btn.style.cssText + (stutterSize === sz
-        ? ';background:var(--accent);color:#000;border-color:var(--accent)'
-        : '');
+      btn.style.cssText =
+        btn.style.cssText +
+        (stutterSize === sz ? ';background:var(--accent);color:#000;border-color:var(--accent)' : '');
       btn.addEventListener('click', () => {
         window._stutterSize = sz;
-        stutterSizes.querySelectorAll('.stutter-size-btn').forEach(b => {
+        stutterSizes.querySelectorAll('.stutter-size-btn').forEach((b) => {
           const on = b.dataset.size === sz;
           b.classList.toggle('active', on);
           b.style.cssText = on ? 'background:var(--accent);color:#000;border-color:var(--accent)' : '';
@@ -1850,7 +1965,8 @@ export default {
 
     // ── RANDOMIZE track ───────────────────────────────────────────────────────
     const randomizeWrap = document.createElement('div');
-    randomizeWrap.style.cssText = 'display:flex;align-items:center;gap:3px;flex-shrink:0;border-left:1px solid #333;padding-left:5px;flex-wrap:wrap';
+    randomizeWrap.style.cssText =
+      'display:flex;align-items:center;gap:3px;flex-shrink:0;border-left:1px solid #333;padding-left:5px;flex-wrap:wrap';
 
     const rndLabel = document.createElement('span');
     rndLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.46rem;color:var(--muted)';
@@ -1865,13 +1981,14 @@ export default {
       const btn = document.createElement('button');
       btn.className = 'seq-btn' + (Math.abs(val - _randomizeDensity) < 0.01 ? ' active' : '');
       btn.textContent = label;
-      btn.style.cssText = Math.abs(val - _randomizeDensity) < 0.01
-        ? 'background:var(--accent);color:#000;border-color:var(--accent)'
-        : '';
+      btn.style.cssText =
+        Math.abs(val - _randomizeDensity) < 0.01
+          ? 'background:var(--accent);color:#000;border-color:var(--accent)'
+          : '';
       btn.addEventListener('click', () => {
         _randomizeDensity = val;
         state._randomizeDensityPad = val;
-        densityBtns.querySelectorAll('button').forEach(b => {
+        densityBtns.querySelectorAll('button').forEach((b) => {
           const active = b.textContent === label;
           b.classList.toggle('active', active);
           b.style.cssText = active ? 'background:var(--accent);color:#000;border-color:var(--accent)' : '';
@@ -1903,14 +2020,14 @@ export default {
 
     // ── Randomize / Mutate helpers ────────────────────────────────────────────
     const SCALE_NOTES = {
-      major:      [0, 2, 4, 5, 7, 9, 11],
-      minor:      [0, 2, 3, 5, 7, 8, 10],
+      major: [0, 2, 4, 5, 7, 9, 11],
+      minor: [0, 2, 3, 5, 7, 8, 10],
       pentatonic: [0, 2, 4, 7, 9],
-      chromatic:  [0,1,2,3,4,5,6,7,8,9,10,11],
+      chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
     };
     function getRandomNoteInScale(si) {
-      const genre  = state.randomizeGenre ?? 'random';
-      const scaleKey = (genre === 'jazz' || genre === 'latin') ? 'minor' : 'major';
+      const genre = state.randomizeGenre ?? 'random';
+      const scaleKey = genre === 'jazz' || genre === 'latin' ? 'minor' : 'major';
       const intervals = SCALE_NOTES[scaleKey];
       const root = 60; // Middle C
       const octShift = Math.floor(si / intervals.length) * 12;
@@ -1923,14 +2040,14 @@ export default {
       const genre = state.randomizeGenre ?? 'random';
       const weights = getGenreStepWeights(genre, trackIndex, len);
       currentTrack.steps.slice(0, len).forEach((step, si) => {
-        const w    = weights[si] ?? 1;
+        const w = weights[si] ?? 1;
         const prob = Math.min(1, density * w + (si % 4 === 0 ? 0.15 : 0));
         step.active = Math.random() < prob;
         if (step.active) {
           // velocity: map 0/1/2 float values used elsewhere (0~low, 1~med, 2~high isn't standard)
           // Use 0-1 float consistent with existing velocity field
           step.velocity = 0.4 + Math.random() * 0.6;
-          step.note     = getRandomNoteInScale(si);
+          step.note = getRandomNoteInScale(si);
         }
       });
       emit('state:change', { path: 'euclidBeats', value: state.euclidBeats });
@@ -1938,8 +2055,8 @@ export default {
 
     function mutateTrack(trackIndex) {
       const currentTrack = pattern.kit.tracks[trackIndex];
-      const len       = currentTrack.trackLength > 0 ? currentTrack.trackLength : pattern.length;
-      const numFlips  = 1 + Math.floor(Math.random() * 2); // 1 or 2
+      const len = currentTrack.trackLength > 0 ? currentTrack.trackLength : pattern.length;
+      const numFlips = 1 + Math.floor(Math.random() * 2); // 1 or 2
       for (let i = 0; i < numFlips; i++) {
         const si = Math.floor(Math.random() * len);
         currentTrack.steps[si].active = !currentTrack.steps[si].active;
@@ -1952,14 +2069,14 @@ export default {
   },
 
   knobMap: [
-    { label: 'BPM',    param: 'bpm',           min: 40,  max: 240,  step: 1 },
-    { label: 'Swing',  param: 'swing',          min: 0,   max: 0.42, step: 0.01 },
-    { label: 'Length', param: 'patternLength',  min: 4,   max: 64,   step: 1 },
-    { label: 'Steps',  param: 'patternLength',  min: 4,   max: 64,   step: 1 },
-    { label: 'Density',param: 'euclidBeats',    min: 1,   max: 16,   step: 1 },
-    { label: 'Shift',  param: 'patternShift',   min: 0,   max: 15,   step: 1 },
-    { label: 'Prob',   param: 'defaultProb',    min: 0,   max: 1,    step: 0.01 },
-    { label: 'Trig',   param: 'trigCondition',  min: 0,   max: 4,    step: 1 },
+    { label: 'BPM', param: 'bpm', min: 40, max: 240, step: 1 },
+    { label: 'Swing', param: 'swing', min: 0, max: 0.42, step: 0.01 },
+    { label: 'Length', param: 'patternLength', min: 4, max: 64, step: 1 },
+    { label: 'Steps', param: 'patternLength', min: 4, max: 64, step: 1 },
+    { label: 'Density', param: 'euclidBeats', min: 1, max: 16, step: 1 },
+    { label: 'Shift', param: 'patternShift', min: 0, max: 15, step: 1 },
+    { label: 'Prob', param: 'defaultProb', min: 0, max: 1, step: 0.01 },
+    { label: 'Trig', param: 'trigCondition', min: 0, max: 4, step: 1 },
   ],
 
   keyboardContext: 'pattern',

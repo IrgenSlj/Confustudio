@@ -1,5 +1,9 @@
 # CONFUstudio
 
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
+[![Node](https://img.shields.io/badge/Node-%3E%3D20-brightgreen)](./package.json)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
+
 CONFUstudio is the broader project and studio shell. CONFUsynth is its default and flagship instrument, focused on sequencing, sampling, live sound transformation, and performable modulation. The project explores a hybrid workflow that blends rhythmic composition, scene-based control, resampling, and flexible routing in a modern open-source stack.
 
 The current prototype runs in the browser, is installable as a PWA for desktop-like use, and includes a small local API bridge for optional OpenAI or Anthropic assistance. It is intentionally compact: plain HTML, CSS, and modern JavaScript on the frontend, plus a dependency-light Node server for static hosting and API proxying.
@@ -244,14 +248,14 @@ What is implemented:
 
 All 6 largest source files split. No logic changes.
 
-| File | Lines (before) | Lines (after) | Extracted into |
-|---|---|---|---|
-| `app.js` | 3880 | 3667 | `recorder.js`, `history-ui.js` |
-| `engine.js` | 1971 | 1612 | `engine-reverb.js`, `engine-midi.js` |
-| `settings.js` | 2418 | 1643 | `settings-midi.js`, `settings-project.js` |
-| `pattern.js` | 2226 | 1969 | `pattern-tools.js` |
-| `studio.js` | 1603 | 594 | `studio-modules.js`, `studio-overlay.js` |
-| `sound.js` | 2016 | 1375 | `sound-sample.js` |
+| File          | Lines (before) | Lines (after) | Extracted into                            |
+| ------------- | -------------- | ------------- | ----------------------------------------- |
+| `app.js`      | 3880           | 3667          | `recorder.js`, `history-ui.js`            |
+| `engine.js`   | 1971           | 1612          | `engine-reverb.js`, `engine-midi.js`      |
+| `settings.js` | 2418           | 1643          | `settings-midi.js`, `settings-project.js` |
+| `pattern.js`  | 2226           | 1969          | `pattern-tools.js`                        |
+| `studio.js`   | 1603           | 594           | `studio-modules.js`, `studio-overlay.js`  |
+| `sound.js`    | 2016           | 1375          | `sound-sample.js`                         |
 
 ### Phase 2: Unify Mutation & Clean State
 
@@ -276,6 +280,14 @@ All 6 largest source files split. No logic changes.
 - Rust/WASM DSP core (long-term)
 
 See `NEXT_SESSION.md` for detailed status and session handoff.
+
+## Contributing
+
+CONFUstudio is open source and contributions are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup, test, and pull request guidelines. All participants are expected to follow the [Code of Conduct](./CODE_OF_CONDUCT.md). For security reports, see [SECURITY.md](./SECURITY.md).
+
+## License
+
+Licensed under the [Apache License, Version 2.0](./LICENSE). See the [NOTICE](./NOTICE) file for required attributions.
 
 ## References
 

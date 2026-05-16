@@ -45,7 +45,8 @@ export function initHistoryUI(state, showToast) {
     if (!ind) {
       ind = document.createElement('span');
       ind.id = 'undo-indicator';
-      ind.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted);padding:0 4px;line-height:36px;cursor:default;';
+      ind.style.cssText =
+        'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted);padding:0 4px;line-height:36px;cursor:default;';
       const stopBtn = document.getElementById('btn-stop');
       if (stopBtn?.parentNode) stopBtn.parentNode.insertBefore(ind, stopBtn.nextSibling);
     }
@@ -57,9 +58,13 @@ export function initHistoryUI(state, showToast) {
       const lines = _checkpoints
         .slice()
         .sort((a, b) => a.historyIdx - b.historyIdx)
-        .map(c => {
+        .map((c) => {
           const marker = c.historyIdx === _historyIdx ? '> ' : '  ';
-          const time = new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          const time = new Date(c.timestamp).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          });
           return `${marker}[${c.historyIdx}] ${c.label} (${time})`;
         });
       ind.title = lines.join('\n');
@@ -90,8 +95,12 @@ export function initHistoryUI(state, showToast) {
     markCheckpoint,
     updateUndoIndicator,
     syncHistoryMeta,
-    get historyIdx() { return _historyIdx; },
-    get historyTotal() { return _historyTotal; },
+    get historyIdx() {
+      return _historyIdx;
+    },
+    get historyTotal() {
+      return _historyTotal;
+    },
     confustudioCommands,
   };
 }

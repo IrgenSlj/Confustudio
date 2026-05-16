@@ -68,7 +68,11 @@
   },
   "manual": {
     "pages": [
-      { "id": "pattern", "title": "Pattern", "purpose": "Step sequencer, trig conditions, probability, fills, and per-step editing." },
+      {
+        "id": "pattern",
+        "title": "Pattern",
+        "purpose": "Step sequencer, trig conditions, probability, fills, and per-step editing."
+      },
       { "id": "pad", "title": "Pads", "purpose": "Performance pads and drum-style triggering." },
       { "id": "piano-roll", "title": "Roll", "purpose": "Note editing and piano-roll sequencing." },
       { "id": "sound", "title": "Sound", "purpose": "Per-track synthesis, sample, and voice shaping controls." },
@@ -76,27 +80,59 @@
       { "id": "fx", "title": "FX", "purpose": "Delay, reverb, saturation, and send/master effects." },
       { "id": "modmatrix", "title": "Mod", "purpose": "Modulation routing and control assignment." },
       { "id": "scenes", "title": "Scenes", "purpose": "Scene A/B morphing and performance snapshots." },
-      { "id": "banks", "title": "Banks", "purpose": "Pattern banks, song organization, import/export, and MIDI export." },
+      {
+        "id": "banks",
+        "title": "Banks",
+        "purpose": "Pattern banks, song organization, import/export, and MIDI export."
+      },
       { "id": "arranger", "title": "Arr", "purpose": "Song/arrangement view and block-based sequencing." },
       { "id": "settings", "title": "Set", "purpose": "Transport, MIDI, assistant, export, and system-level controls." }
     ],
     "modules": [
       { "id": "state", "path": "src/state.js", "summary": "Project schema, defaults, serialization, and persistence." },
-      { "id": "engine", "path": "src/engine.js", "summary": "Web Audio graph, tracks, voices, effects, transport-adjacent scheduling, and MIDI output." },
-      { "id": "app", "path": "src/app.js", "summary": "Bootstrap, routing, scheduling, UI wiring, MIDI learn, and transport control." },
+      {
+        "id": "engine",
+        "path": "src/engine.js",
+        "summary": "Web Audio graph, tracks, voices, effects, transport-adjacent scheduling, and MIDI output."
+      },
+      {
+        "id": "app",
+        "path": "src/app.js",
+        "summary": "Bootstrap, routing, scheduling, UI wiring, MIDI learn, and transport control."
+      },
       { "id": "studio", "path": "src/studio.js", "summary": "Studio canvas, module layout, and workspace controls." },
-      { "id": "keyboard", "path": "src/keyboard.js", "summary": "Keyboard context, live feedback, and page help strips." },
+      {
+        "id": "keyboard",
+        "path": "src/keyboard.js",
+        "summary": "Keyboard context, live feedback, and page help strips."
+      },
       { "id": "pages", "path": "src/pages/*", "summary": "Page-specific editor UIs." },
-      { "id": "worklets", "path": "src/worklets/*", "summary": "Low-latency AudioWorklet processors for resampling and special synth engines." },
+      {
+        "id": "worklets",
+        "path": "src/worklets/*",
+        "summary": "Low-latency AudioWorklet processors for resampling and special synth engines."
+      },
       { "id": "server", "path": "server.mjs", "summary": "Static file host, assistant API, and sample file serving." },
       { "id": "confu-shell", "path": "confu/main.cjs", "summary": "Optional Confu desktop shell." }
     ],
     "audioAndControl": {
       "trackCount": 8,
       "patternLengthRange": "1-64 steps",
-      "routing": ["main stereo out", "cue out", "delay send", "reverb send", "midi out", "sample import", "microphone capture"],
+      "routing": [
+        "main stereo out",
+        "cue out",
+        "delay send",
+        "reverb send",
+        "midi out",
+        "sample import",
+        "microphone capture"
+      ],
       "timeModel": ["BPM transport", "swing", "tap tempo", "step scheduling", "scene morphing", "MIDI clock in/out"],
-      "renderingRules": ["Keep the assistant off the audio thread.", "Treat realtime audio paths as deterministic and low-latency.", "Prefer explicit state changes through the server or UI boundary." ]
+      "renderingRules": [
+        "Keep the assistant off the audio thread.",
+        "Treat realtime audio paths as deterministic and low-latency.",
+        "Prefer explicit state changes through the server or UI boundary."
+      ]
     },
     "persistence": {
       "metadataStore": "localStorage",

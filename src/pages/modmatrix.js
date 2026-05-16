@@ -5,32 +5,32 @@ import { saveState } from '../state.js';
 // ─── Source & Destination Registries ─────────────────────────────────────────
 
 const MOD_SOURCES = [
-  { id: 'lfo1',     label: 'LFO 1',      type: 'lfo' },
-  { id: 'lfo2',     label: 'LFO 2',      type: 'lfo' },
-  { id: 'env1',     label: 'Env 1',      type: 'env' },
-  { id: 'env2',     label: 'Env 2',      type: 'env' },
-  { id: 'velocity', label: 'Velocity',   type: 'perf' },
-  { id: 'note',     label: 'Note Pitch', type: 'perf' },
-  { id: 'stepnum',  label: 'Step #',     type: 'seq' },
-  { id: 'random',   label: 'Random',     type: 'seq' },
-  { id: 'macro1',   label: 'Macro 1',    type: 'macro' },
-  { id: 'macro2',   label: 'Macro 2',    type: 'macro' },
-  { id: 'macro3',   label: 'Macro 3',    type: 'macro' },
-  { id: 'macro4',   label: 'Macro 4',    type: 'macro' },
+  { id: 'lfo1', label: 'LFO 1', type: 'lfo' },
+  { id: 'lfo2', label: 'LFO 2', type: 'lfo' },
+  { id: 'env1', label: 'Env 1', type: 'env' },
+  { id: 'env2', label: 'Env 2', type: 'env' },
+  { id: 'velocity', label: 'Velocity', type: 'perf' },
+  { id: 'note', label: 'Note Pitch', type: 'perf' },
+  { id: 'stepnum', label: 'Step #', type: 'seq' },
+  { id: 'random', label: 'Random', type: 'seq' },
+  { id: 'macro1', label: 'Macro 1', type: 'macro' },
+  { id: 'macro2', label: 'Macro 2', type: 'macro' },
+  { id: 'macro3', label: 'Macro 3', type: 'macro' },
+  { id: 'macro4', label: 'Macro 4', type: 'macro' },
 ];
 
 const MOD_DESTINATIONS = [
-  { id: 'track_cutoff',    label: 'Filter Cutoff', track: true },
-  { id: 'track_resonance', label: 'Filter Res',    track: true },
-  { id: 'track_volume',    label: 'Track Volume',  track: true },
-  { id: 'track_pan',       label: 'Track Pan',     track: true },
-  { id: 'track_pitch',     label: 'Track Pitch',   track: true },
-  { id: 'track_attack',    label: 'Env Attack',    track: true },
-  { id: 'track_decay',     label: 'Env Decay',     track: true },
-  { id: 'master_cutoff',   label: 'Master Cutoff', track: false },
-  { id: 'master_reverb',   label: 'Reverb Mix',    track: false },
-  { id: 'master_delay',    label: 'Delay Mix',     track: false },
-  { id: 'group_volume',    label: 'Group Volume',  track: false },
+  { id: 'track_cutoff', label: 'Filter Cutoff', track: true },
+  { id: 'track_resonance', label: 'Filter Res', track: true },
+  { id: 'track_volume', label: 'Track Volume', track: true },
+  { id: 'track_pan', label: 'Track Pan', track: true },
+  { id: 'track_pitch', label: 'Track Pitch', track: true },
+  { id: 'track_attack', label: 'Env Attack', track: true },
+  { id: 'track_decay', label: 'Env Decay', track: true },
+  { id: 'master_cutoff', label: 'Master Cutoff', track: false },
+  { id: 'master_reverb', label: 'Reverb Mix', track: false },
+  { id: 'master_delay', label: 'Delay Mix', track: false },
+  { id: 'group_volume', label: 'Group Volume', track: false },
 ];
 
 const LFO_SHAPES = ['sine', 'tri', 'sq', 'saw'];
@@ -186,30 +186,34 @@ function ensureModMatrix(state) {
     state.modMatrix = {
       routes: [],
       lfos: [
-        { rate: 1,   shape: 'sine',     amount: 0, sync: false },
+        { rate: 1, shape: 'sine', amount: 0, sync: false },
         { rate: 0.5, shape: 'triangle', amount: 0, sync: false },
       ],
       envs: [
         { attack: 0.01, decay: 0.2, sustain: 0.5, release: 0.3, amount: 0, trigger: 'note' },
-        { attack: 0.1,  decay: 0.5, sustain: 0.3, release: 0.8, amount: 0, trigger: 'note' },
+        { attack: 0.1, decay: 0.5, sustain: 0.3, release: 0.8, amount: 0, trigger: 'note' },
       ],
     };
   }
   if (!Array.isArray(state.modMatrix.routes)) state.modMatrix.routes = [];
   if (!Array.isArray(state.modMatrix.lfos) || state.modMatrix.lfos.length < 2) {
     state.modMatrix.lfos = [
-      { rate: 1,   shape: 'sine',     amount: 0, sync: false },
+      { rate: 1, shape: 'sine', amount: 0, sync: false },
       { rate: 0.5, shape: 'triangle', amount: 0, sync: false },
     ];
   }
   if (!Array.isArray(state.modMatrix.envs) || state.modMatrix.envs.length < 2) {
     state.modMatrix.envs = [
       { attack: 0.01, decay: 0.2, sustain: 0.5, release: 0.3, amount: 0, trigger: 'note' },
-      { attack: 0.1,  decay: 0.5, sustain: 0.3, release: 0.8, amount: 0, trigger: 'note' },
+      { attack: 0.1, decay: 0.5, sustain: 0.3, release: 0.8, amount: 0, trigger: 'note' },
     ];
   }
-  state.modMatrix.lfos.forEach(lfo => { if (!lfo.trigger) lfo.trigger = 'note'; });
-  state.modMatrix.envs.forEach(env => { if (!env.trigger) env.trigger = 'note'; });
+  state.modMatrix.lfos.forEach((lfo) => {
+    if (!lfo.trigger) lfo.trigger = 'note';
+  });
+  state.modMatrix.envs.forEach((env) => {
+    if (!env.trigger) env.trigger = 'note';
+  });
   return state.modMatrix;
 }
 
@@ -220,11 +224,12 @@ function renderSources(el, mm, state, renderPage) {
 
   // Section heading
   const heading = document.createElement('div');
-  heading.style.cssText = 'font-size:0.5rem;font-weight:700;letter-spacing:0.09em;color:rgba(255,255,255,0.25);text-transform:uppercase;padding:2px 4px 4px;flex-shrink:0';
+  heading.style.cssText =
+    'font-size:0.5rem;font-weight:700;letter-spacing:0.09em;color:rgba(255,255,255,0.25);text-transform:uppercase;padding:2px 4px 4px;flex-shrink:0';
   heading.textContent = 'SOURCES';
   el.appendChild(heading);
 
-  MOD_SOURCES.forEach(src => {
+  MOD_SOURCES.forEach((src) => {
     const block = document.createElement('div');
     block.className = 'mm-source-block';
 
@@ -254,7 +259,9 @@ function renderSources(el, mm, state, renderPage) {
       const rateInput = document.createElement('input');
       rateInput.type = 'number';
       rateInput.className = 'mm-lfo-rate';
-      rateInput.min = '0.01'; rateInput.max = '20'; rateInput.step = '0.01';
+      rateInput.min = '0.01';
+      rateInput.max = '20';
+      rateInput.step = '0.01';
       rateInput.value = lfo.rate.toFixed(2);
       rateInput.title = 'Rate (Hz)';
       rateInput.addEventListener('change', () => {
@@ -269,10 +276,14 @@ function renderSources(el, mm, state, renderPage) {
       ctrls.appendChild(rateInput);
 
       // Shape buttons
-      LFO_SHAPES.forEach(sh => {
+      LFO_SHAPES.forEach((sh) => {
         const btn = document.createElement('button');
         const normShape = sh === 'tri' ? 'triangle' : sh === 'sq' ? 'square' : sh === 'saw' ? 'sawtooth' : sh;
-        const isActive = lfo.shape === normShape || (sh === 'tri' && lfo.shape === 'triangle') || (sh === 'sq' && lfo.shape === 'square') || (sh === 'saw' && lfo.shape === 'sawtooth');
+        const isActive =
+          lfo.shape === normShape ||
+          (sh === 'tri' && lfo.shape === 'triangle') ||
+          (sh === 'sq' && lfo.shape === 'square') ||
+          (sh === 'saw' && lfo.shape === 'sawtooth');
         btn.className = 'mm-shape-btn' + (isActive ? ' active' : '');
         btn.textContent = LFO_SHAPE_LABELS[sh];
         btn.addEventListener('click', () => {
@@ -299,7 +310,6 @@ function renderSources(el, mm, state, renderPage) {
       ctrls.appendChild(syncBtn);
 
       block.appendChild(ctrls);
-
     } else if (src.type === 'env') {
       const envIdx = src.id === 'env1' ? 0 : 1;
       const env = mm.envs[envIdx];
@@ -308,10 +318,10 @@ function renderSources(el, mm, state, renderPage) {
       sliders.className = 'mm-env-sliders';
 
       const params = [
-        { key: 'attack',  label: 'A', min: 0.001, max: 4,   step: 0.001 },
-        { key: 'decay',   label: 'D', min: 0.001, max: 4,   step: 0.001 },
-        { key: 'sustain', label: 'S', min: 0,     max: 1,   step: 0.01  },
-        { key: 'release', label: 'R', min: 0.001, max: 8,   step: 0.001 },
+        { key: 'attack', label: 'A', min: 0.001, max: 4, step: 0.001 },
+        { key: 'decay', label: 'D', min: 0.001, max: 4, step: 0.001 },
+        { key: 'sustain', label: 'S', min: 0, max: 1, step: 0.01 },
+        { key: 'release', label: 'R', min: 0.001, max: 8, step: 0.001 },
       ];
 
       params.forEach(({ key, label, min, max, step }) => {
@@ -321,7 +331,9 @@ function renderSources(el, mm, state, renderPage) {
         const sl = document.createElement('input');
         sl.type = 'range';
         sl.className = 'mm-env-slider-range';
-        sl.min = min; sl.max = max; sl.step = step;
+        sl.min = min;
+        sl.max = max;
+        sl.step = step;
         sl.value = env[key];
         sl.title = `${key}: ${env[key]}`;
         sl.addEventListener('input', () => {
@@ -343,7 +355,7 @@ function renderSources(el, mm, state, renderPage) {
       // Trigger selector
       const trigRow = document.createElement('div');
       trigRow.className = 'mm-env-trig-row';
-      ENV_TRIGGERS.forEach(t => {
+      ENV_TRIGGERS.forEach((t) => {
         const btn = document.createElement('button');
         btn.className = 'mm-env-trig-btn' + (env.trigger === t ? ' active' : '');
         btn.textContent = t;
@@ -355,7 +367,6 @@ function renderSources(el, mm, state, renderPage) {
         trigRow.appendChild(btn);
       });
       block.appendChild(trigRow);
-
     } else if (src.type === 'macro') {
       const macroIdx = parseInt(src.id.replace('macro', ''), 10) - 1;
       const macro = state.macros?.[macroIdx];
@@ -363,11 +374,10 @@ function renderSources(el, mm, state, renderPage) {
       barWrap.className = 'mm-macro-bar-wrap';
       const bar = document.createElement('div');
       bar.className = 'mm-macro-bar';
-      const pct = Math.round(((macro?.value ?? 0.5)) * 100);
+      const pct = Math.round((macro?.value ?? 0.5) * 100);
       bar.style.cssText = `width:${pct}%;background:${macro?.color ?? '#f0c640'}`;
       barWrap.appendChild(bar);
       block.appendChild(barWrap);
-
     } else {
       // perf / seq — just a subtle label
       const lbl = document.createElement('div');
@@ -383,16 +393,6 @@ function renderSources(el, mm, state, renderPage) {
 }
 
 // ─── Routes panel ─────────────────────────────────────────────────────────────
-
-function destLabel(destId, trackIndex) {
-  const dest = MOD_DESTINATIONS.find(d => d.id === destId);
-  if (!dest) return destId;
-  return dest.track ? `${dest.label} [T${trackIndex + 1}]` : dest.label;
-}
-
-function srcLabel(sourceId) {
-  return MOD_SOURCES.find(s => s.id === sourceId)?.label ?? sourceId;
-}
 
 function renderRoutes(el, mm, state, renderPage) {
   el.innerHTML = '';
@@ -424,7 +424,7 @@ function renderRoutes(el, mm, state, renderPage) {
     // Source dropdown
     const srcSel = document.createElement('select');
     srcSel.className = 'mm-route-src';
-    MOD_SOURCES.forEach(s => {
+    MOD_SOURCES.forEach((s) => {
       const opt = document.createElement('option');
       opt.value = s.id;
       opt.textContent = s.label;
@@ -446,7 +446,7 @@ function renderRoutes(el, mm, state, renderPage) {
     const destSel = document.createElement('select');
     destSel.className = 'mm-route-dest';
     // Build options grouped by track/global
-    MOD_DESTINATIONS.forEach(d => {
+    MOD_DESTINATIONS.forEach((d) => {
       if (d.track) {
         for (let ti = 0; ti < TRACK_COUNT; ti++) {
           const opt = document.createElement('option');
@@ -459,7 +459,7 @@ function renderRoutes(el, mm, state, renderPage) {
         const opt = document.createElement('option');
         opt.value = `${d.id}__0`;
         opt.textContent = d.label;
-        if (d.id === route.destId && !MOD_DESTINATIONS.find(x => x.id === route.destId)?.track) opt.selected = true;
+        if (d.id === route.destId && !MOD_DESTINATIONS.find((x) => x.id === route.destId)?.track) opt.selected = true;
         destSel.appendChild(opt);
       }
     });
@@ -478,7 +478,9 @@ function renderRoutes(el, mm, state, renderPage) {
     const amtSlider = document.createElement('input');
     amtSlider.type = 'range';
     amtSlider.className = 'mm-route-amount';
-    amtSlider.min = '-100'; amtSlider.max = '100'; amtSlider.step = '1';
+    amtSlider.min = '-100';
+    amtSlider.max = '100';
+    amtSlider.step = '1';
     amtSlider.value = Math.round((route.amount ?? 0.5) * 100);
 
     const amtVal = document.createElement('span');

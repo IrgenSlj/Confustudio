@@ -7,11 +7,7 @@
   "orientation": "landscape",
   "background_color": "#1a1a1a",
   "theme_color": "#4e5f3c",
-  "icons": [
-    {"src": "/public/icon.svg", "sizes": "any", "type": "image/svg+xml"}
-  ],
-  "shortcuts": [
-    {"name": "Open CONFUstudio", "url": "/"}
-  ],
+  "icons": [{ "src": "/public/icon.svg", "sizes": "any", "type": "image/svg+xml" }],
+  "shortcuts": [{ "name": "Open CONFUstudio", "url": "/" }],
   "categories": ["music", "entertainment"]
 }

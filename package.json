@@ -5,6 +5,31 @@
   "type": "module",
   "main": "confu/main.cjs",
   "description": "CONFUstudio — browser-first music studio with CONFUsynth as its flagship instrument.",
+  "license": "Apache-2.0",
+  "author": "IrgenSlj",
+  "homepage": "https://github.com/IrgenSlj/Confustudio#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IrgenSlj/Confustudio.git"
+  },
+  "bugs": {
+    "url": "https://github.com/IrgenSlj/Confustudio/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "music",
+    "audio",
+    "sequencer",
+    "synthesizer",
+    "daw",
+    "web-audio",
+    "audioworklet",
+    "pwa",
+    "midi",
+    "sampler"
+  ],
   "scripts": {
     "start": "node server.mjs",
     "dev": "node --watch server.mjs",

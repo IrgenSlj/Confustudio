@@ -11,12 +11,14 @@ export function createAcidMachine(audioContext) {
   }));
 
   // Default pattern: classic acid bass line
-  [0, 2, 4, 7, 8, 10, 12, 14].forEach(i => { _steps[i].active = true; });
+  [0, 2, 4, 7, 8, 10, 12, 14].forEach((i) => {
+    _steps[i].active = true;
+  });
 
   let _running = false;
   const _currentStep = -1;
   let _prevFreq = 110;
-  let _slideActive = false;   // true when the previous step had slide=true
+  let _slideActive = false; // true when the previous step had slide=true
   let _waveform = 'sawtooth';
   let _currentScale = 'CHROMATIC';
   let _syncBPM = null; // last received BPM from clock
@@ -24,79 +26,158 @@ export function createAcidMachine(audioContext) {
 
   // ── Scale definitions (semitone offsets from root) ─────────────────────────
   const SCALES = {
-    CHROMATIC:   [0,1,2,3,4,5,6,7,8,9,10,11],
-    MAJOR:       [0,2,4,5,7,9,11],
-    MINOR:       [0,2,3,5,7,8,10],
-    PHRYGIAN:    [0,1,3,5,7,8,10],
-    DORIAN:      [0,2,3,5,7,9,10],
-    PENTATONIC:  [0,2,4,7,9],
-    BLUES:       [0,3,5,6,7,10],
+    CHROMATIC: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+    MAJOR: [0, 2, 4, 5, 7, 9, 11],
+    MINOR: [0, 2, 3, 5, 7, 8, 10],
+    PHRYGIAN: [0, 1, 3, 5, 7, 8, 10],
+    DORIAN: [0, 2, 3, 5, 7, 9, 10],
+    PENTATONIC: [0, 2, 4, 7, 9],
+    BLUES: [0, 3, 5, 6, 7, 10],
   };
 
   // ── Preset patterns ────────────────────────────────────────────────────────
   const PRESETS = {
     'Classic Acid': () => {
-      _steps.forEach((s,i) => { s.active=false; s.accent=false; s.slide=false; s.octave=0; });
-      [0,2,4,7,8,10,12,14].forEach(i => { _steps[i].active=true; });
-      _steps[0].note=48; _steps[2].note=48; _steps[4].note=55; _steps[7].note=60;
-      _steps[8].note=48; _steps[8].slide=true; _steps[10].note=51; _steps[12].note=55;
-      _steps[14].note=53; _steps[14].accent=true;
+      _steps.forEach((s, i) => {
+        s.active = false;
+        s.accent = false;
+        s.slide = false;
+        s.octave = 0;
+      });
+      [0, 2, 4, 7, 8, 10, 12, 14].forEach((i) => {
+        _steps[i].active = true;
+      });
+      _steps[0].note = 48;
+      _steps[2].note = 48;
+      _steps[4].note = 55;
+      _steps[7].note = 60;
+      _steps[8].note = 48;
+      _steps[8].slide = true;
+      _steps[10].note = 51;
+      _steps[12].note = 55;
+      _steps[14].note = 53;
+      _steps[14].accent = true;
     },
     'Funk Acid': () => {
-      _steps.forEach(s => { s.active=false; s.accent=false; s.slide=false; s.octave=0; });
-      [1,3,5,7,9,11,13,15].forEach(i => { _steps[i].active=true; });
-      const funk = [48,51,48,55,48,53,48,56];
-      [1,3,5,7,9,11,13,15].forEach((si,n) => { _steps[si].note=funk[n]; });
-      _steps[7].accent=true; _steps[7].slide=true; _steps[15].accent=true;
+      _steps.forEach((s) => {
+        s.active = false;
+        s.accent = false;
+        s.slide = false;
+        s.octave = 0;
+      });
+      [1, 3, 5, 7, 9, 11, 13, 15].forEach((i) => {
+        _steps[i].active = true;
+      });
+      const funk = [48, 51, 48, 55, 48, 53, 48, 56];
+      [1, 3, 5, 7, 9, 11, 13, 15].forEach((si, n) => {
+        _steps[si].note = funk[n];
+      });
+      _steps[7].accent = true;
+      _steps[7].slide = true;
+      _steps[15].accent = true;
     },
     'Techno Acid': () => {
-      _steps.forEach(s => { s.active=false; s.accent=false; s.slide=false; s.octave=0; });
-      [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].forEach(i => { _steps[i].active=true; });
-      const notes=[48,48,51,48,55,48,53,51,48,48,51,55,58,55,53,51];
-      _steps.forEach((s,i) => { s.note=notes[i]; });
-      _steps[3].accent=true; _steps[7].accent=true; _steps[11].accent=true; _steps[15].accent=true;
-      _steps[3].slide=true; _steps[11].slide=true;
+      _steps.forEach((s) => {
+        s.active = false;
+        s.accent = false;
+        s.slide = false;
+        s.octave = 0;
+      });
+      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].forEach((i) => {
+        _steps[i].active = true;
+      });
+      const notes = [48, 48, 51, 48, 55, 48, 53, 51, 48, 48, 51, 55, 58, 55, 53, 51];
+      _steps.forEach((s, i) => {
+        s.note = notes[i];
+      });
+      _steps[3].accent = true;
+      _steps[7].accent = true;
+      _steps[11].accent = true;
+      _steps[15].accent = true;
+      _steps[3].slide = true;
+      _steps[11].slide = true;
     },
-    'Minimal': () => {
-      _steps.forEach(s => { s.active=false; s.accent=false; s.slide=false; s.octave=0; });
-      [0,4,8,12].forEach(i => { _steps[i].active=true; _steps[i].note=48; });
-      _steps[8].accent=true;
+    Minimal: () => {
+      _steps.forEach((s) => {
+        s.active = false;
+        s.accent = false;
+        s.slide = false;
+        s.octave = 0;
+      });
+      [0, 4, 8, 12].forEach((i) => {
+        _steps[i].active = true;
+        _steps[i].note = 48;
+      });
+      _steps[8].accent = true;
     },
     'Arpeggio Up': () => {
-      _steps.forEach(s => { s.active=false; s.accent=false; s.slide=false; s.octave=0; });
-      const arp=[48,51,55,58,60,63,67,70,72,70,67,63,60,58,55,51];
-      _steps.forEach((s,i) => { s.active=true; s.note=arp[i]; });
+      _steps.forEach((s) => {
+        s.active = false;
+        s.accent = false;
+        s.slide = false;
+        s.octave = 0;
+      });
+      const arp = [48, 51, 55, 58, 60, 63, 67, 70, 72, 70, 67, 63, 60, 58, 55, 51];
+      _steps.forEach((s, i) => {
+        s.active = true;
+        s.note = arp[i];
+      });
     },
     'Arpeggio Down': () => {
-      _steps.forEach(s => { s.active=false; s.accent=false; s.slide=false; s.octave=0; });
-      const arp=[72,70,67,63,60,58,55,51,48,51,55,58,60,63,67,70];
-      _steps.forEach((s,i) => { s.active=true; s.note=arp[i]; });
+      _steps.forEach((s) => {
+        s.active = false;
+        s.accent = false;
+        s.slide = false;
+        s.octave = 0;
+      });
+      const arp = [72, 70, 67, 63, 60, 58, 55, 51, 48, 51, 55, 58, 60, 63, 67, 70];
+      _steps.forEach((s, i) => {
+        s.active = true;
+        s.note = arp[i];
+      });
     },
     'Pentatonic Run': () => {
-      _steps.forEach(s => { s.active=false; s.accent=false; s.slide=false; s.octave=0; });
-      const pent=[48,50,52,55,57,60,62,64,67,69,67,64,62,60,57,55];
-      _steps.forEach((s,i) => { s.active=true; s.note=pent[i]; });
-      _steps[7].accent=true; _steps[7].slide=true;
+      _steps.forEach((s) => {
+        s.active = false;
+        s.accent = false;
+        s.slide = false;
+        s.octave = 0;
+      });
+      const pent = [48, 50, 52, 55, 57, 60, 62, 64, 67, 69, 67, 64, 62, 60, 57, 55];
+      _steps.forEach((s, i) => {
+        s.active = true;
+        s.note = pent[i];
+      });
+      _steps[7].accent = true;
+      _steps[7].slide = true;
     },
     'Random Acid': () => {
-      _steps.forEach(s => { s.active=false; s.accent=false; s.slide=false; s.octave=0; });
+      _steps.forEach((s) => {
+        s.active = false;
+        s.accent = false;
+        s.slide = false;
+        s.octave = 0;
+      });
       // Seeded pseudo-random
-      let seed=42;
-      const rand=()=>{ seed=(seed*1664525+1013904223)&0xffffffff; return (seed>>>0)/0xffffffff; };
-      const rootNotes=[48,50,51,53,55,56,58,60];
-      _steps.forEach((s,i) => {
-        s.active = rand()>0.3;
-        s.note = rootNotes[Math.floor(rand()*rootNotes.length)];
-        s.accent = rand()>0.75;
-        s.slide = rand()>0.7;
+      let seed = 42;
+      const rand = () => {
+        seed = (seed * 1664525 + 1013904223) & 0xffffffff;
+        return (seed >>> 0) / 0xffffffff;
+      };
+      const rootNotes = [48, 50, 51, 53, 55, 56, 58, 60];
+      _steps.forEach((s, i) => {
+        s.active = rand() > 0.3;
+        s.note = rootNotes[Math.floor(rand() * rootNotes.length)];
+        s.accent = rand() > 0.75;
+        s.slide = rand() > 0.7;
       });
     },
   };
 
   // Knob values (0–1 normalized)
   const _params = {
-    tune: 0.5,       // center = 0 semitones
-    cutoff: 0.35,    // ~1000 Hz
+    tune: 0.5, // center = 0 semitones
+    cutoff: 0.35, // ~1000 Hz
     resonance: 0.55,
     envMod: 0.6,
     decay: 0.4,
@@ -107,7 +188,6 @@ export function createAcidMachine(audioContext) {
 
   // ── Audio Engine ──────────────────────────────────────────────────────────
   let osc = null;
-  let oscStarted = false;
   const ctx = audioContext;
 
   let filterF1, filterF2, filterF3, resonanceFeedback;
@@ -172,7 +252,6 @@ export function createAcidMachine(audioContext) {
     _applyVolume();
 
     osc.start();
-    oscStarted = true;
   }
 
   function _midiToFreq(midi) {
@@ -200,7 +279,7 @@ export function createAcidMachine(audioContext) {
     if (!ctx) return;
     const cutHz = _getCutoffHz();
     const now = ctx.currentTime;
-    [filterF1, filterF2, filterF3].forEach(f => {
+    [filterF1, filterF2, filterF3].forEach((f) => {
       f.frequency.setTargetAtTime(cutHz, now, 0.01);
     });
     // Resonance feedback: 0 to 0.92
@@ -227,7 +306,7 @@ export function createAcidMachine(audioContext) {
       if (amount === 0) {
         curve[i] = x;
       } else {
-        curve[i] = (Math.PI + amount) * x / (Math.PI + amount * Math.abs(x));
+        curve[i] = ((Math.PI + amount) * x) / (Math.PI + amount * Math.abs(x));
       }
     }
     return curve;
@@ -290,9 +369,7 @@ export function createAcidMachine(audioContext) {
     // VCA gate envelope
     const accentBoost = isAccent ? 1.4 : 1.0;
     const accentLevel = _params.accent;
-    const vcaPeak = isAccent
-      ? Math.min(1.2, 0.7 * accentBoost * (0.5 + accentLevel * 0.5))
-      : 0.7;
+    const vcaPeak = isAccent ? Math.min(1.2, 0.7 * accentBoost * (0.5 + accentLevel * 0.5)) : 0.7;
 
     vcaGain.gain.cancelScheduledValues(now);
     vcaGain.gain.setValueAtTime(0, now);
@@ -309,7 +386,7 @@ export function createAcidMachine(audioContext) {
     const envPeak = cutHz * (1 + _params.envMod * 3);
     const envPeakClamped = Math.min(envPeak, 14000);
 
-    [filterF1, filterF2, filterF3].forEach(f => {
+    [filterF1, filterF2, filterF3].forEach((f) => {
       f.frequency.cancelScheduledValues(now);
       f.frequency.setValueAtTime(cutHz, now);
       f.frequency.linearRampToValueAtTime(envPeakClamped, now + envAttack);
@@ -457,14 +534,18 @@ export function createAcidMachine(audioContext) {
         <div class="acid-machine-ctrl-group">
           <span class="acid-machine-section-label">PRESET</span>
           <select class="acid-machine-preset-select">
-            ${Object.keys(PRESETS).map(n => `<option value="${n}">${n}</option>`).join('')}
+            ${Object.keys(PRESETS)
+              .map((n) => `<option value="${n}">${n}</option>`)
+              .join('')}
           </select>
           <button class="acid-machine-load-preset">LOAD</button>
         </div>
         <div class="acid-machine-ctrl-group">
           <span class="acid-machine-section-label">SCALE</span>
           <select class="acid-machine-scale-select">
-            ${Object.keys(SCALES).map(n => `<option value="${n}" ${n==='CHROMATIC'?'selected':''}>${n}</option>`).join('')}
+            ${Object.keys(SCALES)
+              .map((n) => `<option value="${n}" ${n === 'CHROMATIC' ? 'selected' : ''}>${n}</option>`)
+              .join('')}
           </select>
         </div>
         <div class="acid-machine-ctrl-group">
@@ -733,13 +814,20 @@ export function createAcidMachine(audioContext) {
         const hz = Math.round(300 * Math.pow(10000 / 300, v));
         return hz >= 1000 ? `${(hz / 1000).toFixed(1)}k` : `${hz}Hz`;
       }
-      case 'resonance': return `${Math.round(v * 100)}%`;
-      case 'envMod':    return `${Math.round(v * 100)}%`;
-      case 'decay':     return `${Math.round((0.1 + v * 1.9) * 1000)}ms`;
-      case 'accent':    return `${Math.round(v * 100)}%`;
-      case 'drive':     return `${Math.round(v * 50)}`;
-      case 'volume':    return `${Math.round(v * 100)}%`;
-      default:          return `${Math.round(v * 100)}%`;
+      case 'resonance':
+        return `${Math.round(v * 100)}%`;
+      case 'envMod':
+        return `${Math.round(v * 100)}%`;
+      case 'decay':
+        return `${Math.round((0.1 + v * 1.9) * 1000)}ms`;
+      case 'accent':
+        return `${Math.round(v * 100)}%`;
+      case 'drive':
+        return `${Math.round(v * 50)}`;
+      case 'volume':
+        return `${Math.round(v * 100)}%`;
+      default:
+        return `${Math.round(v * 100)}%`;
     }
   }
 
@@ -766,18 +854,19 @@ export function createAcidMachine(audioContext) {
     }
   }
 
-  el.querySelectorAll('.acid-machine-knob').forEach(knob => {
+  el.querySelectorAll('.acid-machine-knob').forEach((knob) => {
     const param = knob.dataset.param;
     _updateKnobVisual(knob, _params[param] ?? 0.5);
 
-    let startY = 0, startVal = 0;
-    knob.addEventListener('pointerdown', e => {
+    let startY = 0,
+      startVal = 0;
+    knob.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       knob.setPointerCapture(e.pointerId);
       startY = e.clientY;
       startVal = _params[param] ?? 0.5;
     });
-    knob.addEventListener('pointermove', e => {
+    knob.addEventListener('pointermove', (e) => {
       if (!e.buttons) return;
       const delta = (startY - e.clientY) / 150;
       const newVal = Math.max(0, Math.min(1, startVal + delta));
@@ -788,9 +877,9 @@ export function createAcidMachine(audioContext) {
   });
 
   // ── Waveform selector ──────────────────────────────────────────────────────
-  el.querySelectorAll('.acid-machine-wave-btn').forEach(btn => {
+  el.querySelectorAll('.acid-machine-wave-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
-      el.querySelectorAll('.acid-machine-wave-btn').forEach(b => b.classList.remove('active'));
+      el.querySelectorAll('.acid-machine-wave-btn').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
       _waveform = btn.dataset.wave;
       if (osc) osc.type = _waveform;
@@ -798,7 +887,7 @@ export function createAcidMachine(audioContext) {
   });
 
   // ── Scale selector ─────────────────────────────────────────────────────────
-  el.querySelector('.acid-machine-scale-select')?.addEventListener('change', e => {
+  el.querySelector('.acid-machine-scale-select')?.addEventListener('change', (e) => {
     _currentScale = e.target.value;
   });
 
@@ -812,10 +901,10 @@ export function createAcidMachine(audioContext) {
   });
 
   // ── Transpose controls ─────────────────────────────────────────────────────
-  el.querySelectorAll('.acid-machine-oct-transpose').forEach(btn => {
+  el.querySelectorAll('.acid-machine-oct-transpose').forEach((btn) => {
     btn.addEventListener('click', () => {
       const dir = parseInt(btn.dataset.dir);
-      _steps.forEach(s => {
+      _steps.forEach((s) => {
         if (!s.active) return;
         const midi = s.note + s.octave * 12;
         const shifted = Math.max(24, Math.min(96, midi + dir * 12));
@@ -850,11 +939,11 @@ export function createAcidMachine(audioContext) {
     piano.innerHTML = NOTE_NAMES.map((n, i) => {
       const inScale = scaleIntervals.includes(i);
       const isSharp = n.includes('#');
-      return `<button class="acid-machine-pp-key ${isSharp?'sharp':'natural'} ${inScale?'':'out-of-scale'}" data-note-offset="${i}" title="${n}">${n}</button>`;
+      return `<button class="acid-machine-pp-key ${isSharp ? 'sharp' : 'natural'} ${inScale ? '' : 'out-of-scale'}" data-note-offset="${i}" title="${n}">${n}</button>`;
     }).join('');
 
     // Click handler for popup keys
-    piano.querySelectorAll('.acid-machine-pp-key:not(.out-of-scale)').forEach(k => {
+    piano.querySelectorAll('.acid-machine-pp-key:not(.out-of-scale)').forEach((k) => {
       k.addEventListener('click', () => {
         const offset = parseInt(k.dataset.noteOffset);
         const step = _steps[_popupStep];
@@ -869,7 +958,7 @@ export function createAcidMachine(audioContext) {
 
     _popup.style.display = 'block';
     _popup.style.left = `${Math.min(x, window.innerWidth - 160)}px`;
-    _popup.style.top  = `${Math.min(y, window.innerHeight - 80)}px`;
+    _popup.style.top = `${Math.min(y, window.innerHeight - 80)}px`;
   }
 
   // Dismiss popup on outside click
@@ -880,17 +969,17 @@ export function createAcidMachine(audioContext) {
   });
 
   function _attachStepEvents() {
-    el.querySelectorAll('.acid-machine-step').forEach(btn => {
+    el.querySelectorAll('.acid-machine-step').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
         const i = parseInt(btn.dataset.step);
         if (_selectedStep === i) {
           _selectedStep = null;
-          el.querySelectorAll('.acid-machine-step').forEach(b => b.classList.remove('selected'));
+          el.querySelectorAll('.acid-machine-step').forEach((b) => b.classList.remove('selected'));
           _updateNoteEditorDisplay(null);
         } else {
           _selectedStep = i;
-          el.querySelectorAll('.acid-machine-step').forEach(b => b.classList.remove('selected'));
+          el.querySelectorAll('.acid-machine-step').forEach((b) => b.classList.remove('selected'));
           btn.classList.add('selected');
           _updateNoteEditorDisplay(i);
         }
@@ -911,7 +1000,7 @@ export function createAcidMachine(audioContext) {
     });
 
     // Accent/Slide toggle buttons
-    el.querySelectorAll('.acid-machine-flag-btn').forEach(btn => {
+    el.querySelectorAll('.acid-machine-flag-btn').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const i = parseInt(btn.dataset.step);
@@ -931,7 +1020,7 @@ export function createAcidMachine(audioContext) {
     if (stepIdx === null) {
       if (labelEl) labelEl.textContent = '— select a step —';
       if (octValEl) octValEl.textContent = '0';
-      el.querySelectorAll('.acid-machine-note-btn').forEach(b => b.classList.remove('active'));
+      el.querySelectorAll('.acid-machine-note-btn').forEach((b) => b.classList.remove('active'));
       return;
     }
     const step = _steps[stepIdx];
@@ -939,16 +1028,16 @@ export function createAcidMachine(audioContext) {
     if (octValEl) octValEl.textContent = step.octave;
 
     const scaleIntervals = SCALES[_currentScale];
-    el.querySelectorAll('.acid-machine-note-btn').forEach(b => {
+    el.querySelectorAll('.acid-machine-note-btn').forEach((b) => {
       const noteOff = parseInt(b.dataset.noteOffset);
       const inScale = scaleIntervals.includes(noteOff);
-      b.classList.toggle('active', noteOff === (step.note % 12));
+      b.classList.toggle('active', noteOff === step.note % 12);
       b.classList.toggle('out-of-scale', !inScale);
       b.disabled = !inScale;
     });
   }
 
-  el.querySelectorAll('.acid-machine-note-btn').forEach(btn => {
+  el.querySelectorAll('.acid-machine-note-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       if (_selectedStep === null) return;
       const noteOffset = parseInt(btn.dataset.noteOffset);
@@ -959,12 +1048,12 @@ export function createAcidMachine(audioContext) {
       if (stepBtn) stepBtn.textContent = _noteLabel(step);
       _updateNoteEditorDisplay(_selectedStep);
 
-      el.querySelectorAll('.acid-machine-note-btn').forEach(b => b.classList.remove('active'));
+      el.querySelectorAll('.acid-machine-note-btn').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
     });
   });
 
-  el.querySelectorAll('.acid-machine-oct-btn').forEach(btn => {
+  el.querySelectorAll('.acid-machine-oct-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       if (_selectedStep === null) return;
       const step = _steps[_selectedStep];
@@ -993,7 +1082,10 @@ export function createAcidMachine(audioContext) {
   }
 
   function _stopStandalone() {
-    if (_standaloneTimer) { clearInterval(_standaloneTimer); _standaloneTimer = null; }
+    if (_standaloneTimer) {
+      clearInterval(_standaloneTimer);
+      _standaloneTimer = null;
+    }
     if (vcaGain && ctx) {
       vcaGain.gain.cancelScheduledValues(ctx.currentTime);
       vcaGain.gain.setTargetAtTime(0, ctx.currentTime, 0.01);

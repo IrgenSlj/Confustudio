@@ -1,7 +1,7 @@
 // CONFUstudio v3 — AudioEngine module
 // Extracted and enhanced from app.js
 
-const WAVEFORMS = ["sine", "triangle", "sawtooth", "square"];
+const WAVEFORMS = ['sine', 'triangle', 'sawtooth', 'square'];
 
 import { attachReverbMethods } from './engine-reverb.js';
 import { midiOutputs, initMidi, getMidiOutputById, attachMidiMethods } from './engine-midi.js';
@@ -27,13 +27,15 @@ export class AudioEngine {
     this.sidechainGain.gain.value = 1;
     this.sidechainGain.connect(this.master);
     this._sidechainEnabled = false;
-    this._sidechainAmount  = 0.8;   // duck depth (0=none, 1=full mute)
-    this._sidechainRelease = 200;   // release time in ms
+    this._sidechainAmount = 0.8; // duck depth (0=none, 1=full mute)
+    this._sidechainRelease = 200; // release time in ms
     this._sidechainSourceIndex = 0; // track index that triggers ducking
 
     // Sub-mix buses — connect before sidechainGain so all paths are ducked together
-    this.bus1 = context.createGain(); this.bus1.gain.value = 1;
-    this.bus2 = context.createGain(); this.bus2.gain.value = 1;
+    this.bus1 = context.createGain();
+    this.bus1.gain.value = 1;
+    this.bus2 = context.createGain();
+    this.bus2.gain.value = 1;
     this.bus1.connect(this.sidechainGain);
     this.bus2.connect(this.sidechainGain);
 
@@ -72,7 +74,7 @@ export class AudioEngine {
 
     // Master drive saturator — inserted between masterCompressor and masterAnalyser
     this.masterSaturator = context.createWaveShaper();
-    this.masterSaturator.oversample = "2x";
+    this.masterSaturator.oversample = '2x';
     // Default: linear passthrough (no drive)
     this.masterSaturator.curve = null;
 
@@ -92,35 +94,35 @@ export class AudioEngine {
     // ── Send/return delay bus ─────────────────────────────────────────────────
     // delaySendBus → delayNode → delayFilter → delayFeedback2 → delayNode (loop)
     // delayNode also taps → delayWet2 → analyser
-    this.delaySendBus   = context.createGain();
+    this.delaySendBus = context.createGain();
     this.delaySendBus.gain.value = 1;
-    this.delayNode      = context.createDelay(1.4);
+    this.delayNode = context.createDelay(1.4);
     this.delayNode.delayTime.value = 0.28;
-    this.delayFilter    = context.createBiquadFilter();
+    this.delayFilter = context.createBiquadFilter();
     this.delayFilter.type = 'lowpass';
     this.delayFilter.frequency.value = 6000;
     this.delayFilter.Q.value = 0.5;
     this.delayFeedback2 = context.createGain();
     this.delayFeedback2.gain.value = 0.38;
-    this.delayWet2      = context.createGain();
+    this.delayWet2 = context.createGain();
     this.delayWet2.gain.value = 0.28;
 
     // ── Convolution reverb ────────────────────────────────────────────────────
     this.reverbConvolver = context.createConvolver();
-    this.reverbDry       = context.createGain();
+    this.reverbDry = context.createGain();
     this.reverbDry.gain.value = 1;
-    this.reverbConvWet   = context.createGain();  // wet level for convolution path
+    this.reverbConvWet = context.createGain(); // wet level for convolution path
     this.reverbConvWet.gain.value = 0.3;
-    this.reverbPreset    = 'room';
-    this._irCache        = new Map();
+    this.reverbPreset = 'room';
+    this._irCache = new Map();
 
     // Send bus: tracks' reverbSend feeds here → convolver
-    this.reverbSendBus   = context.createGain();
+    this.reverbSendBus = context.createGain();
     this.reverbSendBus.gain.value = 1;
 
     // Per-track send gain nodes — index matches track index, created on first use
     this._trackReverbSendGains = [];
-    this._trackDelaySendGains  = [];
+    this._trackDelaySendGains = [];
 
     // reverbInput is the entry point for the per-step reverb send from tracks;
     // routes into reverbSendBus → convolution reverb for unified reverb path.
@@ -136,7 +138,7 @@ export class AudioEngine {
     // _activeVoices: count of currently ringing voices per track
     // _voiceQueue:   ordered array of active AudioBufferSourceNode / OscillatorNode per track
     this._activeVoices = new Map();
-    this._voiceQueue   = new Map();
+    this._voiceQueue = new Map();
 
     // MIDI output (set externally or via sendMidiNote)
     this.midiOutput = null;
@@ -148,9 +150,9 @@ export class AudioEngine {
     // AudioWorklet readiness flags — set true after initWorklets() resolves
     this._workletReady = false;
     this._bitcrusherReady = false;
-    this._plaitsReady  = false;
-    this._cloudsReady  = false;
-    this._ringsReady   = false;
+    this._plaitsReady = false;
+    this._cloudsReady = false;
+    this._ringsReady = false;
 
     // Routing — legacy delay send bus
     this.delay.connect(this.delayFeedback);
@@ -218,12 +220,12 @@ export class AudioEngine {
     // The mono chorus delay is sent to two StereoPanners: one panned left, one right.
     // Width 0 = both panners at centre (mono), Width 1 = hard L/R (full stereo spread).
     // A gain node sums both panned signals into the chorusWet output.
-    this._chorusPanL         = context.createStereoPanner();
-    this._chorusPanR         = context.createStereoPanner();
-    this._chorusWidthSum     = context.createGain(); // sums both panned stereo paths
+    this._chorusPanL = context.createStereoPanner();
+    this._chorusPanR = context.createStereoPanner();
+    this._chorusWidthSum = context.createGain(); // sums both panned stereo paths
     this._chorusWidthSum.gain.value = 0.5; // -6 dB to compensate for double signal
     this._chorusPanL.pan.value = -0.5; // default width 0.5 → pan ±0.5
-    this._chorusPanR.pan.value =  0.5;
+    this._chorusPanR.pan.value = 0.5;
 
     this.chorusDelay.connect(this._chorusPanL);
     this.chorusDelay.connect(this._chorusPanR);
@@ -320,7 +322,9 @@ export class AudioEngine {
     // Disconnect all previous mod connections
     if (this._modConnections) {
       this._modConnections.forEach(({ lfoGain, param }) => {
-        try { lfoGain.disconnect(param); } catch (_) {}
+        try {
+          lfoGain.disconnect(param);
+        } catch (_) {}
       });
     }
     this._modConnections = [];
@@ -331,15 +335,19 @@ export class AudioEngine {
     if (lfos) {
       if (lfos[0]) {
         this.lfo1.frequency.value = lfos[0].rate ?? 1;
-        try { this.lfo1.type = lfos[0].shape ?? 'sine'; } catch (_) {}
+        try {
+          this.lfo1.type = lfos[0].shape ?? 'sine';
+        } catch (_) {}
       }
       if (lfos[1]) {
         this.lfo2.frequency.value = lfos[1].rate ?? 0.5;
-        try { this.lfo2.type = lfos[1].shape ?? 'triangle'; } catch (_) {}
+        try {
+          this.lfo2.type = lfos[1].shape ?? 'triangle';
+        } catch (_) {}
       }
     }
 
-    routes.forEach(route => {
+    routes.forEach((route) => {
       if (!route.enabled) return;
 
       // Resolve the source to an LFO gain node (only LFOs have AudioNode outputs)
@@ -389,27 +397,19 @@ export class AudioEngine {
   // ——————————————————————————————————————————————
 
   setDelayTime2(s) {
-    this.delayNode.delayTime.setTargetAtTime(
-      Math.max(0.001, Math.min(1.3, s)), this.context.currentTime, 0.01
-    );
+    this.delayNode.delayTime.setTargetAtTime(Math.max(0.001, Math.min(1.3, s)), this.context.currentTime, 0.01);
   }
 
   setDelayFeedback2(v) {
-    this.delayFeedback2.gain.setTargetAtTime(
-      Math.max(0, Math.min(0.85, v)), this.context.currentTime, 0.01
-    );
+    this.delayFeedback2.gain.setTargetAtTime(Math.max(0, Math.min(0.85, v)), this.context.currentTime, 0.01);
   }
 
   setDelayFilter2(freq) {
-    this.delayFilter.frequency.setTargetAtTime(
-      Math.max(500, Math.min(20000, freq)), this.context.currentTime, 0.01
-    );
+    this.delayFilter.frequency.setTargetAtTime(Math.max(500, Math.min(20000, freq)), this.context.currentTime, 0.01);
   }
 
   setDelayMix2(v) {
-    this.delayWet2.gain.setTargetAtTime(
-      Math.max(0, Math.min(1, v)), this.context.currentTime, 0.01
-    );
+    this.delayWet2.gain.setTargetAtTime(Math.max(0, Math.min(1, v)), this.context.currentTime, 0.01);
   }
 
   setDelayFeedback(v) {
@@ -481,10 +481,10 @@ export class AudioEngine {
     const t = this.context.currentTime;
     const c = this.masterCompressor;
     if (threshold !== undefined) c.threshold.setTargetAtTime(threshold, t, 0.01);
-    if (knee      !== undefined) c.knee.setTargetAtTime(knee,           t, 0.01);
-    if (ratio     !== undefined) c.ratio.setTargetAtTime(ratio,         t, 0.01);
-    if (attack    !== undefined) c.attack.setTargetAtTime(attack,       t, 0.01);
-    if (release   !== undefined) c.release.setTargetAtTime(release,     t, 0.01);
+    if (knee !== undefined) c.knee.setTargetAtTime(knee, t, 0.01);
+    if (ratio !== undefined) c.ratio.setTargetAtTime(ratio, t, 0.01);
+    if (attack !== undefined) c.attack.setTargetAtTime(attack, t, 0.01);
+    if (release !== undefined) c.release.setTargetAtTime(release, t, 0.01);
   }
 
   // ——————————————————————————————————————————————
@@ -503,9 +503,9 @@ export class AudioEngine {
     await Promise.all([
       load('/src/worklets/resampler-worklet.js', '_workletReady'),
       load('/src/worklets/bitcrusher-worklet.js', '_bitcrusherReady'),
-      load('/src/worklets/plaits-worklet.js',    '_plaitsReady'),
-      load('/src/worklets/clouds-worklet.js',    '_cloudsReady'),
-      load('/src/worklets/rings-worklet.js',     '_ringsReady'),
+      load('/src/worklets/plaits-worklet.js', '_plaitsReady'),
+      load('/src/worklets/clouds-worklet.js', '_cloudsReady'),
+      load('/src/worklets/rings-worklet.js', '_ringsReady'),
     ]);
   }
 
@@ -576,7 +576,7 @@ export class AudioEngine {
     const duration = 0.015;
 
     const osc = ctx.createOscillator();
-    osc.type = "sine";
+    osc.type = 'sine';
     osc.frequency.value = freq;
 
     const env = ctx.createGain();
@@ -625,7 +625,9 @@ export class AudioEngine {
     const queue = this._voiceQueue.get(trackKey) ?? [];
     while (queue.length >= maxVoices) {
       const oldest = queue.shift();
-      try { oldest.stop(this.context.currentTime + 0.01); } catch (_) {}
+      try {
+        oldest.stop(this.context.currentTime + 0.01);
+      } catch (_) {}
     }
     queue.push(source);
     this._voiceQueue.set(trackKey, queue);
@@ -671,15 +673,15 @@ export class AudioEngine {
     // Velocity curve shaping
     const curve = params.velocityCurve ?? 'linear';
     let finalVel = velScale;
-    if (curve === 'exp')  finalVel = Math.pow(velScale, 2);
+    if (curve === 'exp') finalVel = Math.pow(velScale, 2);
     if (curve === 'comp') finalVel = Math.pow(velScale, 0.5);
     const loudness = (accent ? 1.22 : 1) * params.volume * finalVel * (params.inputGain ?? 1.0);
 
     // Crossfader comes from the track's stored crossfader value or falls back to 0.5
-    const crossfader = typeof params.crossfader === "number" ? params.crossfader : 0.5;
+    const crossfader = typeof params.crossfader === 'number' ? params.crossfader : 0.5;
 
     const sceneA = params.sceneA ?? { cutoff: 3200, decay: 0.28, delaySend: 0.24 };
-    const sceneB = params.sceneB ?? { cutoff: 6400, decay: 0.8,  delaySend: 0.45 };
+    const sceneB = params.sceneB ?? { cutoff: 6400, decay: 0.8, delaySend: 0.45 };
     const cutoff = this.interpolateScene(sceneA.cutoff, sceneB.cutoff, crossfader);
     const decayTime = this.interpolateScene(sceneA.decay, sceneB.decay, crossfader);
     // Per-step gate (0.05–1.0) scales how long the note sustains before release
@@ -690,25 +692,25 @@ export class AudioEngine {
     // Sidechain ducking — when this track is the sidechain source, duck sidechainGain.
     // Uses params.sidechainAmount (from track state) so changes take effect immediately.
     if (params.isSidechainSource && this._sidechainEnabled) {
-      const amount   = typeof params.sidechainAmount === 'number' ? params.sidechainAmount : this._sidechainAmount;
-      const scGain   = this.sidechainGain.gain;
-      const floor    = 1 - Math.max(0, Math.min(1, amount)); // target duck level (e.g. 0.2)
-      const releaseS = this._sidechainRelease / 1000;        // ms → seconds
+      const amount = typeof params.sidechainAmount === 'number' ? params.sidechainAmount : this._sidechainAmount;
+      const scGain = this.sidechainGain.gain;
+      const floor = 1 - Math.max(0, Math.min(1, amount)); // target duck level (e.g. 0.2)
+      const releaseS = this._sidechainRelease / 1000; // ms → seconds
       scGain.cancelScheduledValues(when);
-      scGain.setValueAtTime(1, when);                        // ensure we start from 1
-      scGain.setTargetAtTime(floor, when, 0.003);            // fast attack (~3 ms time constant)
-      scGain.setTargetAtTime(1, when + 0.01, releaseS / 3);  // recover over release window
+      scGain.setValueAtTime(1, when); // ensure we start from 1
+      scGain.setTargetAtTime(floor, when, 0.003); // fast attack (~3 ms time constant)
+      scGain.setTargetAtTime(1, when + 0.01, releaseS / 3); // recover over release window
     }
 
     // MIDI machine — skip audio, send MIDI note
-    if (params.machine === "midi") {
+    if (params.machine === 'midi') {
       this.sendMidiNote(params, note ?? 60, loudness, totalTime);
       return;
     }
 
     // MIDI note output — send on the track's assigned MIDI channel for all non-MIDI machines
     if (this.midiOutput && track.midiChannel) {
-      const ch = (track.midiChannel - 1) & 0x0F;
+      const ch = (track.midiChannel - 1) & 0x0f;
       const noteNum = options.note ?? params.pitch ?? track.note ?? 60;
       const vel = Math.round((options.velocity ?? 1) * 127);
       const delayMs = Math.max(0, (when - this.context.currentTime) * 1000);
@@ -717,7 +719,9 @@ export class AudioEngine {
         try {
           this.midiOutput.send([0x90 | ch, noteNum, vel]);
           setTimeout(() => {
-            try { this.midiOutput.send([0x80 | ch, noteNum, 0]); } catch (e) {}
+            try {
+              this.midiOutput.send([0x80 | ch, noteNum, 0]);
+            } catch (e) {}
           }, gateDurMs);
         } catch (e) {}
       }, delayMs);
@@ -733,16 +737,16 @@ export class AudioEngine {
     const panner = this.context.createStereoPanner();
     panner.pan.value = params.pan;
 
-    const VALID_FILTER_TYPES = ['lowpass','highpass','bandpass','notch','peaking','lowshelf','highshelf'];
+    const VALID_FILTER_TYPES = ['lowpass', 'highpass', 'bandpass', 'notch', 'peaking', 'lowshelf', 'highshelf'];
     const filter = this.context.createBiquadFilter();
-    filter.type = VALID_FILTER_TYPES.includes(params.filterType) ? params.filterType : "lowpass";
+    filter.type = VALID_FILTER_TYPES.includes(params.filterType) ? params.filterType : 'lowpass';
     filter.frequency.value = cutoff;
     // filterQ is the dedicated Q/resonance param; fall back to legacy resonance field
     filter.Q.value = params.filterQ ?? params.resonance ?? 1.0;
 
     const saturator = this.context.createWaveShaper();
     saturator.curve = this.getDriveCurve(params.drive);
-    saturator.oversample = "2x";
+    saturator.oversample = '2x';
 
     // Bit-crusher — inserted between output and panner when bitDepth < 32 or srDiv > 1
     // bitDepth 32 = off (full resolution), lower values quantize to 2^bitDepth levels.
@@ -752,8 +756,8 @@ export class AudioEngine {
 
     // Per-trigger 3-band EQ (lowShelf / peaking / highShelf).
     // Only created when at least one band has a non-trivial gain (abs > 0.1 dB).
-    const eqLow  = params.eqLow  ?? 0;
-    const eqMid  = params.eqMid  ?? 0;
+    const eqLow = params.eqLow ?? 0;
+    const eqMid = params.eqMid ?? 0;
     const eqHigh = params.eqHigh ?? 0;
     const needsEQ = Math.abs(eqLow) > 0.1 || Math.abs(eqMid) > 0.1 || Math.abs(eqHigh) > 0.1;
 
@@ -836,7 +840,7 @@ export class AudioEngine {
     } else {
       const w = Math.max(0, Math.min(2, stereoWidth));
       const splitter = this.context.createChannelSplitter(2);
-      const merger   = this.context.createChannelMerger(2);
+      const merger = this.context.createChannelMerger(2);
       panner.connect(splitter);
 
       if (w < 0.02) {
@@ -847,16 +851,24 @@ export class AudioEngine {
         splitter.connect(merger, 1, 1);
       } else {
         // M-S: L' = L*(1+w)/2 + R*(1-w)/2,  R' = L*(1-w)/2 + R*(1+w)/2
-        const llGain = this.context.createGain(); llGain.gain.value = (1 + w) / 2;
-        const lrGain = this.context.createGain(); lrGain.gain.value = (1 - w) / 2;
-        const rlGain = this.context.createGain(); rlGain.gain.value = (1 - w) / 2;
-        const rrGain = this.context.createGain(); rrGain.gain.value = (1 + w) / 2;
+        const llGain = this.context.createGain();
+        llGain.gain.value = (1 + w) / 2;
+        const lrGain = this.context.createGain();
+        lrGain.gain.value = (1 - w) / 2;
+        const rlGain = this.context.createGain();
+        rlGain.gain.value = (1 - w) / 2;
+        const rrGain = this.context.createGain();
+        rrGain.gain.value = (1 + w) / 2;
         // L source (splitter output 0) feeds both L and R output channels
-        splitter.connect(llGain, 0, 0); llGain.connect(merger, 0, 0); // L->L main
-        splitter.connect(lrGain, 0, 0); lrGain.connect(merger, 0, 1); // L->R cross
+        splitter.connect(llGain, 0, 0);
+        llGain.connect(merger, 0, 0); // L->L main
+        splitter.connect(lrGain, 0, 0);
+        lrGain.connect(merger, 0, 1); // L->R cross
         // R source (splitter output 1) feeds both L and R output channels
-        splitter.connect(rlGain, 1, 0); rlGain.connect(merger, 0, 0); // R->L cross
-        splitter.connect(rrGain, 1, 0); rrGain.connect(merger, 0, 1); // R->R main
+        splitter.connect(rlGain, 1, 0);
+        rlGain.connect(merger, 0, 0); // R->L cross
+        splitter.connect(rrGain, 1, 0);
+        rrGain.connect(merger, 0, 1); // R->R main
       }
       merger.connect(filter);
     }
@@ -865,11 +877,14 @@ export class AudioEngine {
     // Group-assigned tracks route through their group compressor/pan/gain chain.
     // All buses ultimately route through sidechainGain so ducking applies to all audio.
     const gi = params.groupIndex;
-    const busTarget = (gi != null && this.groupCompressors[gi])
-      ? this.groupCompressors[gi]
-      : params.outputBus === 'bus1' ? this.bus1
-      : params.outputBus === 'bus2' ? this.bus2
-      : this.sidechainGain;
+    const busTarget =
+      gi != null && this.groupCompressors[gi]
+        ? this.groupCompressors[gi]
+        : params.outputBus === 'bus1'
+          ? this.bus1
+          : params.outputBus === 'bus2'
+            ? this.bus2
+            : this.sidechainGain;
 
     filter.connect(saturator);
     saturator.connect(busTarget);
@@ -882,11 +897,7 @@ export class AudioEngine {
       cueSend.connect(this.cueOutput);
     }
 
-    const delaySendGain = this.interpolateScene(
-      sceneA.delaySend,
-      sceneB.delaySend,
-      crossfader
-    );
+    const delaySendGain = this.interpolateScene(sceneA.delaySend, sceneB.delaySend, crossfader);
     const delaySend = this.context.createGain();
     delaySend.gain.value = delaySendGain;
     saturator.connect(delaySend);
@@ -922,24 +933,33 @@ export class AudioEngine {
     const hasRoutingFlags = params.lfoToCutoff || params.lfoToVolume || params.lfoToPitch;
     if (lfoActive || hasRoutingFlags) {
       trigLFO = this.context.createOscillator();
-      trigLFO.type = "sine";
+      trigLFO.type = 'sine';
       trigLFO.frequency.value = params.lfoRate ?? 2;
 
       // Legacy single-target routing via lfoTarget
       if (lfoActive) {
         const lfoGain = this.context.createGain();
         trigLFO.connect(lfoGain);
-        if (params.lfoTarget === "cutoff") {
-          lfoGain.gain.value = this._resolveLfoDepthAmount('cutoff', params.lfoDepth, { cutoff: params.cutoff, loudness });
+        if (params.lfoTarget === 'cutoff') {
+          lfoGain.gain.value = this._resolveLfoDepthAmount('cutoff', params.lfoDepth, {
+            cutoff: params.cutoff,
+            loudness,
+          });
           lfoGain.connect(filter.frequency);
-        } else if (params.lfoTarget === "volume") {
-          lfoGain.gain.value = this._resolveLfoDepthAmount('volume', params.lfoDepth, { cutoff: params.cutoff, loudness });
+        } else if (params.lfoTarget === 'volume') {
+          lfoGain.gain.value = this._resolveLfoDepthAmount('volume', params.lfoDepth, {
+            cutoff: params.cutoff,
+            loudness,
+          });
           lfoGain.connect(output.gain);
-        } else if (params.lfoTarget === "pan") {
+        } else if (params.lfoTarget === 'pan') {
           lfoGain.gain.value = this._resolveLfoDepthAmount('pan', params.lfoDepth, { cutoff: params.cutoff, loudness });
           lfoGain.connect(panner.pan);
-        } else if (params.lfoTarget === "pitch") {
-          lfoGain.gain.value = this._resolveLfoDepthAmount('pitch', params.lfoDepth, { cutoff: params.cutoff, loudness });
+        } else if (params.lfoTarget === 'pitch') {
+          lfoGain.gain.value = this._resolveLfoDepthAmount('pitch', params.lfoDepth, {
+            cutoff: params.cutoff,
+            loudness,
+          });
           // pitch routing needs osc.detune — deferred to after osc creation below
           trigLFO._pitchGain = lfoGain;
         }
@@ -969,12 +989,12 @@ export class AudioEngine {
       try {
         const node = new AudioWorkletNode(this.context, 'cs-plaits');
         node.port.postMessage({
-          type:      'trigger',
-          engine:    params.plEngine    ?? 0,
+          type: 'trigger',
+          engine: params.plEngine ?? 0,
           frequency: 440 * Math.pow(2, ((note || 69) - 69) / 12),
-          timbre:    params.plTimbre    ?? 0.5,
+          timbre: params.plTimbre ?? 0.5,
           harmonics: params.plHarmonics ?? 0.5,
-          morph:     params.plMorph     ?? 0.5,
+          morph: params.plMorph ?? 0.5,
           sampleRate: this.context.sampleRate,
         });
         node.connect(output);
@@ -982,16 +1002,23 @@ export class AudioEngine {
         const voiceHandle = {
           stop: (t) => {
             node.port.postMessage({ type: 'stop' });
-            try { node.disconnect(); } catch (_) {}
+            try {
+              node.disconnect();
+            } catch (_) {}
           },
           _worklet: true,
         };
         this._registerVoice(trackKey, voiceHandle, params.maxVoices ?? 8);
-        setTimeout(() => {
-          node.port.postMessage({ type: 'stop' });
-          try { node.disconnect(); } catch (_) {}
-          if (voiceHandle._voiceCleanup) voiceHandle._voiceCleanup();
-        }, (totalTime + 0.3) * 1000);
+        setTimeout(
+          () => {
+            node.port.postMessage({ type: 'stop' });
+            try {
+              node.disconnect();
+            } catch (_) {}
+            if (voiceHandle._voiceCleanup) voiceHandle._voiceCleanup();
+          },
+          (totalTime + 0.3) * 1000,
+        );
         return;
       } catch (_) {}
     }
@@ -1001,36 +1028,48 @@ export class AudioEngine {
       try {
         const node = new AudioWorkletNode(this.context, 'cs-clouds');
         if (params.sampleBuffer) {
-          const ch   = params.sampleBuffer.getChannelData(0);
+          const ch = params.sampleBuffer.getChannelData(0);
           const copy = ch.buffer.slice(0);
           node.port.postMessage(
-            { type: 'load', buffer: copy, sampleRate: params.sampleBuffer.sampleRate, ctxRate: this.context.sampleRate },
-            [copy]
+            {
+              type: 'load',
+              buffer: copy,
+              sampleRate: params.sampleBuffer.sampleRate,
+              ctxRate: this.context.sampleRate,
+            },
+            [copy],
           );
         }
         node.port.postMessage({
-          type:     'trigger',
+          type: 'trigger',
           position: params.clPosition ?? 0.5,
-          size:     params.clSize     ?? 0.3,
-          density:  params.clDensity  ?? 0.5,
-          texture:  params.clTexture  ?? 0.5,
-          pitch:    Math.pow(2, ((note || 60) - 60) / 12),
+          size: params.clSize ?? 0.3,
+          density: params.clDensity ?? 0.5,
+          texture: params.clTexture ?? 0.5,
+          pitch: Math.pow(2, ((note || 60) - 60) / 12),
           duration: totalTime,
         });
         node.connect(output);
         const voiceHandle = {
           stop: () => {
             node.port.postMessage({ type: 'stop' });
-            try { node.disconnect(); } catch (_) {}
+            try {
+              node.disconnect();
+            } catch (_) {}
           },
           _worklet: true,
         };
         this._registerVoice(trackKey, voiceHandle, params.maxVoices ?? 8);
-        setTimeout(() => {
-          node.port.postMessage({ type: 'stop' });
-          try { node.disconnect(); } catch (_) {}
-          if (voiceHandle._voiceCleanup) voiceHandle._voiceCleanup();
-        }, (totalTime + 0.5) * 1000);
+        setTimeout(
+          () => {
+            node.port.postMessage({ type: 'stop' });
+            try {
+              node.disconnect();
+            } catch (_) {}
+            if (voiceHandle._voiceCleanup) voiceHandle._voiceCleanup();
+          },
+          (totalTime + 0.5) * 1000,
+        );
         return;
       } catch (_) {}
     }
@@ -1040,45 +1079,52 @@ export class AudioEngine {
       try {
         const node = new AudioWorkletNode(this.context, 'cs-rings');
         node.port.postMessage({
-          type:       'trigger',
-          frequency:  440 * Math.pow(2, ((note || 69) - 69) / 12),
-          structure:  params.rnStructure  ?? 0.5,
+          type: 'trigger',
+          frequency: 440 * Math.pow(2, ((note || 69) - 69) / 12),
+          structure: params.rnStructure ?? 0.5,
           brightness: params.rnBrightness ?? 0.7,
-          damping:    params.rnDamping    ?? 0.7,
-          exciter:    params.rnExciter    ?? 0,
+          damping: params.rnDamping ?? 0.7,
+          exciter: params.rnExciter ?? 0,
           sampleRate: this.context.sampleRate,
         });
         node.connect(output);
         const voiceHandle = {
           stop: () => {
             node.port.postMessage({ type: 'stop' });
-            try { node.disconnect(); } catch (_) {}
+            try {
+              node.disconnect();
+            } catch (_) {}
           },
           _worklet: true,
         };
         this._registerVoice(trackKey, voiceHandle, params.maxVoices ?? 8);
-        setTimeout(() => {
-          node.port.postMessage({ type: 'stop' });
-          try { node.disconnect(); } catch (_) {}
-          if (voiceHandle._voiceCleanup) voiceHandle._voiceCleanup();
-        }, (totalTime + 0.5) * 1000);
+        setTimeout(
+          () => {
+            node.port.postMessage({ type: 'stop' });
+            try {
+              node.disconnect();
+            } catch (_) {}
+            if (voiceHandle._voiceCleanup) voiceHandle._voiceCleanup();
+          },
+          (totalTime + 0.5) * 1000,
+        );
         return;
       } catch (_) {}
     }
 
     // Sample machine
-    if (params.machine === "sample" && params.sampleBuffer) {
+    if (params.machine === 'sample' && params.sampleBuffer) {
       const sampleStart = params.sampleStart ?? 0;
-      const sampleEnd   = Math.max(sampleStart + 0.001, params.sampleEnd ?? 1);
-      const bufDur      = params.sampleBuffer.duration;
-      const offsetSec   = bufDur * sampleStart;
-      const clipDur     = bufDur * (sampleEnd - sampleStart);
+      const sampleEnd = Math.max(sampleStart + 0.001, params.sampleEnd ?? 1);
+      const bufDur = params.sampleBuffer.duration;
+      const offsetSec = bufDur * sampleStart;
+      const clipDur = bufDur * (sampleEnd - sampleStart);
 
       // Key tracking: when enabled, pitch the sample relative to its stored root note
       // (params.note, set by auto-detect or manually). playbackRate = 2^((played-root)/12).
       // When key tracking is off, play at unity (1.0) regardless of the sequencer note.
       const samplePlaybackRate = params.keyTracking
-        ? Math.pow(2, ((note ?? (params.note ?? 60)) - (params.note ?? 60)) / 12)
+        ? Math.pow(2, ((note ?? params.note ?? 60) - (params.note ?? 60)) / 12)
         : 1;
 
       if (this._workletReady) {
@@ -1088,26 +1134,24 @@ export class AudioEngine {
           outputChannelCount: [channelCount],
         });
         const leftData = params.sampleBuffer.getChannelData(0);
-        const rightData = channelCount > 1
-          ? params.sampleBuffer.getChannelData(1)
-          : null;
+        const rightData = channelCount > 1 ? params.sampleBuffer.getChannelData(1) : null;
         const sr = params.sampleBuffer.sampleRate;
         const ctxRate = this.context.sampleRate;
         const startSample = Math.floor(offsetSec * sr);
-        const endSample   = Math.min(leftData.length, Math.floor((bufDur * sampleEnd) * sr));
+        const endSample = Math.min(leftData.length, Math.floor(bufDur * sampleEnd * sr));
         const leftSlice = params.loopEnabled
           ? leftData.buffer.slice(0)
           : leftData.buffer.slice(
               startSample * Float32Array.BYTES_PER_ELEMENT,
-              endSample   * Float32Array.BYTES_PER_ELEMENT
+              endSample * Float32Array.BYTES_PER_ELEMENT,
             );
         const rightSlice = rightData
-          ? (params.loopEnabled
+          ? params.loopEnabled
             ? rightData.buffer.slice(0)
             : rightData.buffer.slice(
                 startSample * Float32Array.BYTES_PER_ELEMENT,
-                endSample   * Float32Array.BYTES_PER_ELEMENT
-              ))
+                endSample * Float32Array.BYTES_PER_ELEMENT,
+              )
           : null;
         const loopEnabled = !!params.loopEnabled;
         const loopStart = Math.max(0, Math.min(bufDur, (params.loopStart ?? 0) * bufDur));
@@ -1124,19 +1168,28 @@ export class AudioEngine {
             loopEnd: loopEnabled ? loopEnd : 0,
             position: loopEnabled ? startSample : 0,
           },
-          rightSlice ? [leftSlice, rightSlice] : [leftSlice]
+          rightSlice ? [leftSlice, rightSlice] : [leftSlice],
         );
         node.connect(output);
         const voiceHandle = {
-          stop: () => { try { node.disconnect(); } catch (_) {} },
+          stop: () => {
+            try {
+              node.disconnect();
+            } catch (_) {}
+          },
           _worklet: true,
         };
         this._registerVoice(trackKey, voiceHandle, params.maxVoices ?? 8);
         // Disconnect after playback completes — no BufferSource stop() equivalent
-        setTimeout(() => {
-          try { node.disconnect(); } catch (e) {}
-          if (voiceHandle._voiceCleanup) voiceHandle._voiceCleanup();
-        }, (totalTime + 0.1) * 1000);
+        setTimeout(
+          () => {
+            try {
+              node.disconnect();
+            } catch (e) {}
+            if (voiceHandle._voiceCleanup) voiceHandle._voiceCleanup();
+          },
+          (totalTime + 0.1) * 1000,
+        );
       } else {
         // Fallback: native BufferSourceNode (browser linear interpolation)
         const source = this.context.createBufferSource();
@@ -1148,7 +1201,7 @@ export class AudioEngine {
           source.loop = true;
           const bufDurForLoop = params.sampleBuffer.duration;
           source.loopStart = (params.loopStart ?? 0) * bufDurForLoop;
-          source.loopEnd   = (params.loopEnd   ?? 1) * bufDurForLoop;
+          source.loopEnd = (params.loopEnd ?? 1) * bufDurForLoop;
         }
 
         source.connect(output);
@@ -1162,7 +1215,7 @@ export class AudioEngine {
     }
 
     // Noise machine — uses shared buffer, loop=true
-    if (params.machine === "noise") {
+    if (params.machine === 'noise') {
       const source = this.context.createBufferSource();
       source.buffer = this._noiseBuffer;
       source.loop = true;
@@ -1174,7 +1227,7 @@ export class AudioEngine {
     }
 
     // Tone machine (default)
-    const wf = WAVEFORMS.includes(params.waveform) ? params.waveform : "triangle";
+    const wf = WAVEFORMS.includes(params.waveform) ? params.waveform : 'triangle';
     const targetFreq = 440 * Math.pow(2, ((note || 69) - 69) / 12);
 
     // Legato: if there is an active oscillator for this track, slide its pitch
@@ -1200,7 +1253,7 @@ export class AudioEngine {
       output.gain.setValueAtTime(0.0001, when);
     } else {
       const osc = this.context.createOscillator();
-      osc.type = accent ? "sawtooth" : wf;
+      osc.type = accent ? 'sawtooth' : wf;
       osc.frequency.value = targetFreq;
       osc.connect(output);
       osc.start(when);
@@ -1225,10 +1278,13 @@ export class AudioEngine {
       if (params.legato) {
         this._legatoSources.set(legatoKey, { osc, output, stopAt: when + totalTime + 0.02 });
         // Clean up entry after note ends
-        setTimeout(() => {
-          const cur = this._legatoSources.get(legatoKey);
-          if (cur && cur.osc === osc) this._legatoSources.delete(legatoKey);
-        }, (totalTime + 0.1) * 1000);
+        setTimeout(
+          () => {
+            const cur = this._legatoSources.get(legatoKey);
+            if (cur && cur.osc === osc) this._legatoSources.delete(legatoKey);
+          },
+          (totalTime + 0.1) * 1000,
+        );
       }
     }
 
@@ -1283,7 +1339,8 @@ export class AudioEngine {
       });
     };
 
-    return navigator.requestMIDIAccess({ sysex: false })
+    return navigator
+      .requestMIDIAccess({ sysex: false })
       .then((midiAccess) => {
         this._midiAccess = midiAccess;
         attachInputs(midiAccess);
@@ -1291,7 +1348,7 @@ export class AudioEngine {
         return midiAccess;
       })
       .catch((err) => {
-        console.warn("WebMIDI input unavailable:", err);
+        console.warn('WebMIDI input unavailable:', err);
         return null;
       });
   }
@@ -1311,7 +1368,7 @@ export class AudioEngine {
   setMidiClockInput(onClock, onStart, onStop) {
     this._midiClockCallback = onClock;
     this._midiStartCallback = onStart;
-    this._midiStopCallback  = onStop;
+    this._midiStopCallback = onStop;
   }
 
   // Insert or remove the master limiter between masterSaturator and masterEQLow.
@@ -1328,15 +1385,21 @@ export class AudioEngine {
   // Set master 3-band EQ gains (dB, -12 to +12).
   setMasterEQ(low, mid, high) {
     const t = this.context.currentTime;
-    this.masterEQLow.gain.setTargetAtTime(low,  t, 0.01);
-    this.masterEQMid.gain.setTargetAtTime(mid,  t, 0.01);
+    this.masterEQLow.gain.setTargetAtTime(low, t, 0.01);
+    this.masterEQMid.gain.setTargetAtTime(mid, t, 0.01);
     this.masterEQHigh.gain.setTargetAtTime(high, t, 0.01);
   }
 
   // Chorus controls
-  setChorusRate(v)  { this.chorusLFO.frequency.setTargetAtTime(v, this.context.currentTime, 0.01); }
-  setChorusDepth(v) { this.chorusDepthGain.gain.setTargetAtTime(v * 0.02, this.context.currentTime, 0.01); }
-  setChorusMix(v)   { this.chorusWet.gain.setTargetAtTime(v, this.context.currentTime, 0.01); }
+  setChorusRate(v) {
+    this.chorusLFO.frequency.setTargetAtTime(v, this.context.currentTime, 0.01);
+  }
+  setChorusDepth(v) {
+    this.chorusDepthGain.gain.setTargetAtTime(v * 0.02, this.context.currentTime, 0.01);
+  }
+  setChorusMix(v) {
+    this.chorusWet.gain.setTargetAtTime(v, this.context.currentTime, 0.01);
+  }
 
   // Chorus stereo width (0 = mono, 1 = full stereo spread).
   // Moves the L/R panner pair symmetrically: width 0 → pan 0 (mono), width 1 → pan ±1.
@@ -1344,7 +1407,7 @@ export class AudioEngine {
     v = Math.max(0, Math.min(1, v));
     const t = this.context.currentTime;
     if (this._chorusPanL) this._chorusPanL.pan.setTargetAtTime(-v, t, 0.01);
-    if (this._chorusPanR) this._chorusPanR.pan.setTargetAtTime( v, t, 0.01);
+    if (this._chorusPanR) this._chorusPanR.pan.setTargetAtTime(v, t, 0.01);
   }
 
   // ——————————————————————————————————————————————
@@ -1381,7 +1444,7 @@ export class AudioEngine {
   // Send a MIDI Program Change on the given 1-based channel.
   sendProgramChange(channel, program) {
     if (!this.midiOutput) return;
-    this.midiOutput.send([0xC0 | ((channel - 1) & 0x0f), program & 0x7f]);
+    this.midiOutput.send([0xc0 | ((channel - 1) & 0x0f), program & 0x7f]);
   }
 
   // Quickly silence any sustained notes by ramping master gain to 0 and back.
@@ -1396,15 +1459,21 @@ export class AudioEngine {
 
   panic() {
     const ctx = this.context;
-    try { this.master.gain.cancelScheduledValues(ctx.currentTime); } catch(e) {}
+    try {
+      this.master.gain.cancelScheduledValues(ctx.currentTime);
+    } catch (e) {}
     this.master.gain.setTargetAtTime(0, ctx.currentTime, 0.005);
     setTimeout(() => {
       this.master.gain.setTargetAtTime(0.82, ctx.currentTime, 0.05);
     }, 80);
     if (this.midiOutput) {
       for (let ch = 0; ch < 16; ch++) {
-        try { this.midiOutput.send([0xB0 | ch, 123, 0]); } catch(e) {}
-        try { this.midiOutput.send([0xB0 | ch, 120, 0]); } catch(e) {}
+        try {
+          this.midiOutput.send([0xb0 | ch, 123, 0]);
+        } catch (e) {}
+        try {
+          this.midiOutput.send([0xb0 | ch, 120, 0]);
+        } catch (e) {}
       }
     }
   }
@@ -1466,7 +1535,7 @@ let _oscDataBuffer = null;
  * @param {object|null} state — app state; read state.oscMode each frame
  */
 export function drawOscilloscope(canvas, engine, animRef, state) {
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext('2d');
   const W = canvas.width;
   const H = canvas.height;
 

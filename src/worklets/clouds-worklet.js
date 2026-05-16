@@ -49,7 +49,6 @@ class CloudsProcessor extends AudioWorkletProcessor {
         this.source = new Float32Array(msg.buffer);
         this.srcRate = msg.sampleRate;
         this.ctxRate = msg.ctxRate;
-
       } else if (msg.type === 'trigger') {
         const { position, size, density, texture, pitch, duration } = msg;
 
@@ -79,7 +78,6 @@ class CloudsProcessor extends AudioWorkletProcessor {
         for (let i = 0; i < 20; i++) {
           this.grainPool[i].active = false;
         }
-
       } else if (msg.type === 'stop') {
         this.cloudActive = false;
         this.cloudRemaining = 0;
@@ -159,7 +157,7 @@ class CloudsProcessor extends AudioWorkletProcessor {
         if (!grain.active) continue;
 
         // Hann window envelope
-        const env = 0.5 * (1 - Math.cos(TWO_PI * grain.envPhase / grain.envTotal));
+        const env = 0.5 * (1 - Math.cos((TWO_PI * grain.envPhase) / grain.envTotal));
 
         // Read source with linear interpolation (or noise fallback)
         let sample;

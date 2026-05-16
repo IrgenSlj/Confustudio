@@ -1,61 +1,62 @@
-import { createReadStream, existsSync, readFileSync } from "node:fs";
-import { readdir, stat } from "node:fs/promises";
-import http from "node:http";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { createReadStream, existsSync, readFileSync } from 'node:fs';
+import { readdir, stat } from 'node:fs/promises';
+import http from 'node:http';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = __dirname;
-const publicDir = path.join(rootDir, "public");
-const srcDir = path.join(rootDir, "src");
-const docsDir = path.join(rootDir, "docs");
+const publicDir = path.join(rootDir, 'public');
+const docsDir = path.join(rootDir, 'docs');
 const port = Number(process.env.PORT || 4173);
-const host = process.env.HOST || "127.0.0.1";
-const assistantManualPath = path.join(docsDir, "confustudio.manual.json");
-const assistantSystemFallback = "You are the CONFUstudio assistant and production co-pilot. Translate the studio's real sequencing, sampling, synth, routing, scene, arrangement, and mix capabilities into concrete next actions the user can execute immediately.";
+const host = process.env.HOST || '127.0.0.1';
+const assistantManualPath = path.join(docsDir, 'confustudio.manual.json');
+const assistantSystemFallback =
+  "You are the CONFUstudio assistant and production co-pilot. Translate the studio's real sequencing, sampling, synth, routing, scene, arrangement, and mix capabilities into concrete next actions the user can execute immediately.";
 const assistantManual = loadAssistantManual();
 const assistantProviderCatalog = buildProviderCatalog();
 const defaultAssistantProvider = resolveDefaultAssistantProvider();
 const linkClients = new Set();
 const linkState = {
   bpm: 122,
-  sourceId: "server",
-  clockSource: "internal",
+  sourceId: 'server',
+  clockSource: 'internal',
   updatedAt: Date.now(),
 };
 
 const mimeTypes = {
-  ".css": "text/css; charset=utf-8",
-  ".html": "text/html; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".svg": "image/svg+xml; charset=utf-8",
-  ".webmanifest": "application/manifest+json; charset=utf-8",
-  ".wasm": "application/wasm",
-  ".wav": "audio/wav",
-  ".mp3": "audio/mpeg",
-  ".ogg": "audio/ogg",
-  ".flac": "audio/flac"
+  '.css': 'text/css; charset=utf-8',
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
+  '.wasm': 'application/wasm',
+  '.wav': 'audio/wav',
+  '.mp3': 'audio/mpeg',
+  '.ogg': 'audio/ogg',
+  '.flac': 'audio/flac',
 };
 
 const PROVIDER_ALIASES = {
-  local: "local-openai",
-  "local-openai-compatible": "local-openai",
-  openai_compatible: "local-openai",
-  openaiCompatible: "local-openai",
+  local: 'local-openai',
+  'local-openai-compatible': 'local-openai',
+  openai_compatible: 'local-openai',
+  openaiCompatible: 'local-openai',
 };
 
 function buildFallbackManual() {
   return {
-    schemaVersion: "1.0.0",
+    schemaVersion: '1.0.0',
     app: {
-      name: "CONFUstudio",
-      description: "Browser-first open-source digital music studio for sequencing, sampling, synthesis, routing, mixing, and mastering.",
+      name: 'CONFUstudio',
+      description:
+        'Browser-first open-source digital music studio for sequencing, sampling, synthesis, routing, mixing, and mastering.',
     },
     assistant: {
-      defaultRole: "studio assistant",
+      defaultRole: 'studio assistant',
       systemPrompt: assistantSystemFallback,
-      contextSummary: "CONFUstudio is a browser-first digital music studio with CONFUsynth as its flagship instrument.",
+      contextSummary: 'CONFUstudio is a browser-first digital music studio with CONFUsynth as its flagship instrument.',
       skills: [],
       toolSurface: [],
     },
@@ -76,10 +77,10 @@ function buildFallbackManual() {
 function loadAssistantManual() {
   try {
     if (existsSync(assistantManualPath)) {
-      return JSON.parse(readFileSync(assistantManualPath, "utf8"));
+      return JSON.parse(readFileSync(assistantManualPath, 'utf8'));
     }
   } catch (error) {
-    console.warn("[CONFUstudio] Failed to load assistant manual, using fallback:", error);
+    console.warn('[CONFUstudio] Failed to load assistant manual, using fallback:', error);
   }
   return buildFallbackManual();
 }
@@ -87,7 +88,7 @@ function loadAssistantManual() {
 function resolveDefaultAssistantProvider() {
   const configured = normalizeProviderName(process.env.ASSISTANT_PROVIDER);
   if (configured && assistantProviderCatalog[configured]?.configured) return configured;
-  return getConfiguredAssistantProviderIds()[0] || "auto";
+  return getConfiguredAssistantProviderIds()[0] || 'auto';
 }
 
 function normalizeProviderName(provider) {
@@ -97,53 +98,54 @@ function normalizeProviderName(provider) {
 }
 
 function buildProviderCatalog() {
-  const localBaseUrl = process.env.LOCAL_AI_BASE_URL || process.env.ASSISTANT_BASE_URL || process.env.OLLAMA_HOST || null;
+  const localBaseUrl =
+    process.env.LOCAL_AI_BASE_URL || process.env.ASSISTANT_BASE_URL || process.env.OLLAMA_HOST || null;
   return {
     auto: {
-      id: "auto",
-      label: "Auto",
-      description: "Resolve to the first configured provider.",
+      id: 'auto',
+      label: 'Auto',
+      description: 'Resolve to the first configured provider.',
       configured: true,
       default: true,
     },
     openai: {
-      id: "openai",
-      label: "OpenAI",
-      transport: "responses",
+      id: 'openai',
+      label: 'OpenAI',
+      transport: 'responses',
       configured: Boolean(process.env.OPENAI_API_KEY),
-      model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
-      baseUrl: process.env.OPENAI_BASE_URL || "https://api.openai.com",
+      model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
+      baseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com',
     },
     anthropic: {
-      id: "anthropic",
-      label: "Anthropic",
-      transport: "messages",
+      id: 'anthropic',
+      label: 'Anthropic',
+      transport: 'messages',
       configured: Boolean(process.env.ANTHROPIC_API_KEY),
-      model: process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-latest",
-      baseUrl: process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com",
+      model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-latest',
+      baseUrl: process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com',
     },
-    "local-openai": {
-      id: "local-openai",
-      label: "Local OpenAI-compatible",
-      transport: "chat-completions",
+    'local-openai': {
+      id: 'local-openai',
+      label: 'Local OpenAI-compatible',
+      transport: 'chat-completions',
       configured: Boolean(process.env.LOCAL_AI_BASE_URL || process.env.ASSISTANT_BASE_URL),
-      model: process.env.LOCAL_AI_MODEL || process.env.ASSISTANT_MODEL || "local-model",
-      baseUrl: localBaseUrl || "http://127.0.0.1:1234/v1",
+      model: process.env.LOCAL_AI_MODEL || process.env.ASSISTANT_MODEL || 'local-model',
+      baseUrl: localBaseUrl || 'http://127.0.0.1:1234/v1',
     },
     ollama: {
-      id: "ollama",
-      label: "Ollama",
-      transport: "ollama-chat",
+      id: 'ollama',
+      label: 'Ollama',
+      transport: 'ollama-chat',
       configured: Boolean(process.env.OLLAMA_HOST),
-      model: process.env.OLLAMA_MODEL || "llama3.1",
-      baseUrl: process.env.OLLAMA_HOST || "http://127.0.0.1:11434",
+      model: process.env.OLLAMA_MODEL || 'llama3.1',
+      baseUrl: process.env.OLLAMA_HOST || 'http://127.0.0.1:11434',
     },
   };
 }
 
 function resolveAssistantConfig(requestedProvider) {
   const normalized = normalizeProviderName(requestedProvider) || defaultAssistantProvider;
-  if (normalized === "auto") {
+  if (normalized === 'auto') {
     const preferredProvider = getConfiguredAssistantProviderIds()[0];
     return preferredProvider ? assistantProviderCatalog[preferredProvider] : null;
   }
@@ -156,18 +158,15 @@ function resolveAssistantConfig(requestedProvider) {
 
 function getConfiguredAssistantProviderIds() {
   return Object.values(assistantProviderCatalog)
-    .filter((provider) => provider.id !== "auto" && provider.configured)
+    .filter((provider) => provider.id !== 'auto' && provider.configured)
     .map((provider) => provider.id);
 }
 
 function buildAssistantSystemPrompt(bodyContext = null) {
   const assistant = assistantManual.assistant || {};
-  const parts = [
-    assistant.systemPrompt || assistantSystemFallback,
-    assistant.contextSummary || "",
-  ].filter(Boolean);
+  const parts = [assistant.systemPrompt || assistantSystemFallback, assistant.contextSummary || ''].filter(Boolean);
 
-  if (bodyContext && typeof bodyContext === "object") {
+  if (bodyContext && typeof bodyContext === 'object') {
     const contextLines = [];
     if (bodyContext.project?.name) contextLines.push(`Project: ${bodyContext.project.name}`);
     if (bodyContext.page) contextLines.push(`Page: ${bodyContext.page}`);
@@ -176,11 +175,11 @@ function buildAssistantSystemPrompt(bodyContext = null) {
     if (bodyContext.pattern != null) contextLines.push(`Pattern: ${bodyContext.pattern}`);
     if (bodyContext.summary) contextLines.push(`Summary: ${bodyContext.summary}`);
     if (contextLines.length > 0) {
-      parts.push(`Live context:\n${contextLines.join("\n")}`);
+      parts.push(`Live context:\n${contextLines.join('\n')}`);
     }
   }
 
-  return parts.join("\n\n");
+  return parts.join('\n\n');
 }
 
 function buildAssistantContextEnvelope() {
@@ -189,10 +188,10 @@ function buildAssistantContextEnvelope() {
     providers: assistantProviderCatalog,
     defaultProvider: defaultAssistantProvider,
     endpoints: {
-      chat: "/api/assistant/chat",
-      actions: "/api/assistant/actions/plan",
-      context: "/api/assistant/context",
-      providers: "/api/assistant/providers",
+      chat: '/api/assistant/chat',
+      actions: '/api/assistant/actions/plan',
+      context: '/api/assistant/context',
+      providers: '/api/assistant/providers',
     },
   };
 }
@@ -200,99 +199,107 @@ function buildAssistantContextEnvelope() {
 function normalizeAssistantMessages(body) {
   if (Array.isArray(body.messages) && body.messages.length > 0) {
     return body.messages
-      .filter((message) => message && typeof message === "object")
+      .filter((message) => message && typeof message === 'object')
       .map((message) => ({
-        role: String(message.role || "user"),
+        role: String(message.role || 'user'),
         content: normalizeMessageContent(message.content),
       }))
       .filter((message) => message.content);
   }
 
-  if (typeof body.message === "string" && body.message.trim()) {
-    return [{ role: "user", content: body.message.trim() }];
+  if (typeof body.message === 'string' && body.message.trim()) {
+    return [{ role: 'user', content: body.message.trim() }];
   }
 
   return [];
 }
 
 function normalizeMessageContent(content) {
-  if (typeof content === "string") return content.trim();
+  if (typeof content === 'string') return content.trim();
   if (Array.isArray(content)) {
     return content
       .map((entry) => {
-        if (!entry || typeof entry !== "object") return "";
-        if (typeof entry.text === "string") return entry.text;
-        if (typeof entry.content === "string") return entry.content;
-        return "";
+        if (!entry || typeof entry !== 'object') return '';
+        if (typeof entry.text === 'string') return entry.text;
+        if (typeof entry.content === 'string') return entry.content;
+        return '';
       })
       .filter(Boolean)
-      .join("\n")
+      .join('\n')
       .trim();
   }
-  if (content && typeof content === "object") {
-    if (typeof content.text === "string") return content.text.trim();
-    if (typeof content.content === "string") return content.content.trim();
+  if (content && typeof content === 'object') {
+    if (typeof content.text === 'string') return content.text.trim();
+    if (typeof content.content === 'string') return content.content.trim();
   }
-  return "";
+  return '';
 }
 
 function toOpenAIResponsesInput(systemPrompt, messages) {
   return [
     {
-      role: "system",
-      content: [{ type: "input_text", text: systemPrompt }],
+      role: 'system',
+      content: [{ type: 'input_text', text: systemPrompt }],
     },
     ...messages.map((message) => ({
       role: message.role,
-      content: [{ type: "input_text", text: message.content }],
+      content: [{ type: 'input_text', text: message.content }],
     })),
   ];
 }
 
 function toOpenAIChatMessages(systemPrompt, messages) {
   return [
-    { role: "system", content: systemPrompt },
+    { role: 'system', content: systemPrompt },
     ...messages.map((message) => ({ role: message.role, content: message.content })),
   ];
 }
 
 function toAnthropicMessages(messages) {
   return messages
-    .filter((message) => message.role === "user" || message.role === "assistant")
+    .filter((message) => message.role === 'user' || message.role === 'assistant')
     .map((message) => ({ role: message.role, content: message.content }));
 }
 
 function extractOpenAIText(data) {
-  if (typeof data?.output_text === "string" && data.output_text.trim()) {
+  if (typeof data?.output_text === 'string' && data.output_text.trim()) {
     return data.output_text.trim();
   }
   const content = data?.output?.flatMap((item) => item?.content || []) || [];
   const text = content
-    .map((entry) => entry?.text || "")
+    .map((entry) => entry?.text || '')
     .filter(Boolean)
-    .join("\n")
+    .join('\n')
     .trim();
-  return text || "No text response returned.";
+  return text || 'No text response returned.';
 }
 
 function extractChatCompletionText(data) {
   const text = data?.choices?.[0]?.message?.content;
-  if (typeof text === "string" && text.trim()) return text.trim();
+  if (typeof text === 'string' && text.trim()) return text.trim();
   if (Array.isArray(text)) {
-    return text.map((entry) => entry?.text || "").filter(Boolean).join("\n").trim();
+    return text
+      .map((entry) => entry?.text || '')
+      .filter(Boolean)
+      .join('\n')
+      .trim();
   }
-  return "No text response returned.";
+  return 'No text response returned.';
 }
 
 function extractAnthropicText(data) {
-  const text = data?.content?.map((item) => item?.text || "").filter(Boolean).join("\n").trim();
-  return text || "No text response returned.";
+  const text = data?.content
+    ?.map((item) => item?.text || '')
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+  return text || 'No text response returned.';
 }
 
 function extractOllamaText(data) {
   const text = data?.message?.content;
-  if (typeof text === "string" && text.trim()) return text.trim();
-  return "No text response returned.";
+  if (typeof text === 'string' && text.trim()) return text.trim();
+  return 'No text response returned.';
 }
 
 function readJsonBody(req, maxBytes = 128 * 1024) {
@@ -300,10 +307,10 @@ function readJsonBody(req, maxBytes = 128 * 1024) {
     const chunks = [];
     let total = 0;
 
-    req.on("data", (chunk) => {
+    req.on('data', (chunk) => {
       total += chunk.length;
       if (total > maxBytes) {
-        const error = new Error("Request body too large");
+        const error = new Error('Request body too large');
         error.statusCode = 413;
         req.destroy(error);
         return;
@@ -311,27 +318,27 @@ function readJsonBody(req, maxBytes = 128 * 1024) {
       chunks.push(chunk);
     });
 
-    req.on("end", () => {
+    req.on('end', () => {
       if (total === 0) {
         resolve({});
         return;
       }
 
       try {
-        resolve(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
       } catch (error) {
         error.statusCode = 400;
         reject(error);
       }
     });
 
-    req.on("error", reject);
+    req.on('error', reject);
   });
 }
 
 function withTimeout(timeoutMs = 60000) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(new Error("Request timed out")), timeoutMs);
+  const timer = setTimeout(() => controller.abort(new Error('Request timed out')), timeoutMs);
   return {
     signal: controller.signal,
     cancel() {
@@ -344,9 +351,9 @@ async function postJson(url, payload, headers = {}, timeoutMs = 60000) {
   const timeout = withTimeout(timeoutMs);
   try {
     const response = await fetch(url, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
         ...headers,
       },
       body: JSON.stringify(payload),
@@ -403,7 +410,7 @@ Rules:
 }
 
 function extractJsonObject(text) {
-  if (typeof text !== "string" || !text.trim()) return null;
+  if (typeof text !== 'string' || !text.trim()) return null;
   const trimmed = text.trim();
   try {
     return JSON.parse(trimmed);
@@ -416,8 +423,8 @@ function extractJsonObject(text) {
     } catch (_) {}
   }
 
-  const start = trimmed.indexOf("{");
-  const end = trimmed.lastIndexOf("}");
+  const start = trimmed.indexOf('{');
+  const end = trimmed.lastIndexOf('}');
   if (start >= 0 && end > start) {
     try {
       return JSON.parse(trimmed.slice(start, end + 1));
@@ -435,11 +442,11 @@ async function requestAssistantProvider(body, systemPrompt) {
   const maxTokens = Number.isFinite(maxTokensValue) ? maxTokensValue : 300;
 
   if (!providerConfig) {
-    const requestedProvider = normalizeProviderName(body.provider) || "auto";
-    const error = new Error(requestedProvider === "auto"
-      ? "No assistant provider is configured"
-      : `Unknown provider: ${body.provider}`);
-    error.statusCode = requestedProvider === "auto" ? 503 : 400;
+    const requestedProvider = normalizeProviderName(body.provider) || 'auto';
+    const error = new Error(
+      requestedProvider === 'auto' ? 'No assistant provider is configured' : `Unknown provider: ${body.provider}`,
+    );
+    error.statusCode = requestedProvider === 'auto' ? 503 : 400;
     error.payload = {
       providers: Object.keys(assistantProviderCatalog),
       configuredProviders: getConfiguredAssistantProviderIds(),
@@ -447,25 +454,24 @@ async function requestAssistantProvider(body, systemPrompt) {
     throw error;
   }
 
-  const requestBaseUrl = typeof body.baseUrl === "string" && body.baseUrl.trim()
-    ? body.baseUrl.trim()
-    : providerConfig.baseUrl;
+  const requestBaseUrl =
+    typeof body.baseUrl === 'string' && body.baseUrl.trim() ? body.baseUrl.trim() : providerConfig.baseUrl;
 
   if (messages.length === 0) {
-    const error = new Error("message or messages is required");
+    const error = new Error('message or messages is required');
     error.statusCode = 400;
     throw error;
   }
 
-  if (providerConfig.id === "openai") {
+  if (providerConfig.id === 'openai') {
     if (!process.env.OPENAI_API_KEY) {
-      const error = new Error("OPENAI_API_KEY is not configured");
+      const error = new Error('OPENAI_API_KEY is not configured');
       error.statusCode = 400;
       throw error;
     }
 
     const { response, data } = await postJson(
-      `${requestBaseUrl.replace(/\/$/, "")}/v1/responses`,
+      `${requestBaseUrl.replace(/\/$/, '')}/v1/responses`,
       {
         model: body.model || providerConfig.model,
         input: toOpenAIResponsesInput(systemPrompt, messages),
@@ -474,7 +480,7 @@ async function requestAssistantProvider(body, systemPrompt) {
       },
       {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      }
+      },
     );
 
     if (!response.ok) {
@@ -486,15 +492,15 @@ async function requestAssistantProvider(body, systemPrompt) {
     return providerResult(providerConfig.id, body.model || providerConfig.model, extractOpenAIText(data), data);
   }
 
-  if (providerConfig.id === "anthropic") {
+  if (providerConfig.id === 'anthropic') {
     if (!process.env.ANTHROPIC_API_KEY) {
-      const error = new Error("ANTHROPIC_API_KEY is not configured");
+      const error = new Error('ANTHROPIC_API_KEY is not configured');
       error.statusCode = 400;
       throw error;
     }
 
     const { response, data } = await postJson(
-      `${requestBaseUrl.replace(/\/$/, "")}/v1/messages`,
+      `${requestBaseUrl.replace(/\/$/, '')}/v1/messages`,
       {
         model: body.model || providerConfig.model,
         max_tokens: maxTokens,
@@ -503,9 +509,9 @@ async function requestAssistantProvider(body, systemPrompt) {
         messages: toAnthropicMessages(messages),
       },
       {
-        "x-api-key": process.env.ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      }
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
     );
 
     if (!response.ok) {
@@ -517,16 +523,16 @@ async function requestAssistantProvider(body, systemPrompt) {
     return providerResult(providerConfig.id, body.model || providerConfig.model, extractAnthropicText(data), data);
   }
 
-  if (providerConfig.id === "local-openai") {
+  if (providerConfig.id === 'local-openai') {
     const { response, data } = await postJson(
-      `${requestBaseUrl.replace(/\/$/, "")}/chat/completions`,
+      `${requestBaseUrl.replace(/\/$/, '')}/chat/completions`,
       {
         model: body.model || providerConfig.model,
         messages: toOpenAIChatMessages(systemPrompt, messages),
         temperature,
         max_tokens: maxTokens,
       },
-      body.apiKey ? { Authorization: `Bearer ${body.apiKey}` } : {}
+      body.apiKey ? { Authorization: `Bearer ${body.apiKey}` } : {},
     );
 
     if (!response.ok) {
@@ -538,19 +544,16 @@ async function requestAssistantProvider(body, systemPrompt) {
     return providerResult(providerConfig.id, body.model || providerConfig.model, extractChatCompletionText(data), data);
   }
 
-  if (providerConfig.id === "ollama") {
-    const { response, data } = await postJson(
-      `${requestBaseUrl.replace(/\/$/, "")}/api/chat`,
-      {
-        model: body.model || providerConfig.model,
-        messages: toOpenAIChatMessages(systemPrompt, messages),
-        options: {
-          temperature,
-          num_predict: maxTokens,
-        },
-        stream: false,
-      }
-    );
+  if (providerConfig.id === 'ollama') {
+    const { response, data } = await postJson(`${requestBaseUrl.replace(/\/$/, '')}/api/chat`, {
+      model: body.model || providerConfig.model,
+      messages: toOpenAIChatMessages(systemPrompt, messages),
+      options: {
+        temperature,
+        num_predict: maxTokens,
+      },
+      stream: false,
+    });
 
     if (!response.ok) {
       const error = new Error(data?.error?.message || data?.raw || JSON.stringify(data));
@@ -579,15 +582,15 @@ async function handleAssistantProviders(_req, res) {
 
 // COOP/COEP headers — required for SharedArrayBuffer and AudioWorklet coordination
 const ISOLATION_HEADERS = {
-  "Cross-Origin-Opener-Policy": "same-origin",
-  "Cross-Origin-Embedder-Policy": "require-corp"
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Embedder-Policy': 'require-corp',
 };
 
 function sendJson(res, statusCode, data) {
   res.writeHead(statusCode, {
-    "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "no-store",
-    ...ISOLATION_HEADERS
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+    ...ISOLATION_HEADERS,
   });
   res.end(JSON.stringify(data));
 }
@@ -601,7 +604,7 @@ function broadcastLinkState() {
   const payload = { ...linkState };
   for (const client of [...linkClients]) {
     try {
-      writeSse(client, "message", payload);
+      writeSse(client, 'message', payload);
     } catch (_) {
       linkClients.delete(client);
     }
@@ -609,27 +612,27 @@ function broadcastLinkState() {
 }
 
 async function handleLinkStream(req, res, url) {
-  const clientId = url.searchParams.get("clientId") || `link-${Math.random().toString(36).slice(2, 10)}`;
+  const clientId = url.searchParams.get('clientId') || `link-${Math.random().toString(36).slice(2, 10)}`;
   res.writeHead(200, {
-    "Content-Type": "text/event-stream; charset=utf-8",
-    "Cache-Control": "no-store",
-    "Connection": "keep-alive",
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-store',
+    Connection: 'keep-alive',
     ...ISOLATION_HEADERS,
   });
-  res.write(": connected\n\n");
-  writeSse(res, "message", { ...linkState, clientId, connected: true });
+  res.write(': connected\n\n');
+  writeSse(res, 'message', { ...linkState, clientId, connected: true });
   linkClients.add(res);
 
   const heartbeat = setInterval(() => {
     try {
-      res.write(": heartbeat\n\n");
+      res.write(': heartbeat\n\n');
     } catch (_) {
       clearInterval(heartbeat);
       linkClients.delete(res);
     }
   }, 15000);
 
-  req.on("close", () => {
+  req.on('close', () => {
     clearInterval(heartbeat);
     linkClients.delete(res);
   });
@@ -637,7 +640,7 @@ async function handleLinkStream(req, res, url) {
 
 async function handleLinkState(req, res) {
   try {
-    if (req.method === "GET") {
+    if (req.method === 'GET') {
       sendJson(res, 200, linkState);
       return;
     }
@@ -645,8 +648,9 @@ async function handleLinkState(req, res) {
     const body = await readJsonBody(req, 32 * 1024);
     const bpm = Math.max(40, Math.min(240, Number(body.bpm) || linkState.bpm || 122));
     linkState.bpm = bpm;
-    linkState.sourceId = typeof body.sourceId === "string" && body.sourceId.trim() ? body.sourceId.trim() : "server";
-    linkState.clockSource = typeof body.clockSource === "string" && body.clockSource.trim() ? body.clockSource.trim() : "internal";
+    linkState.sourceId = typeof body.sourceId === 'string' && body.sourceId.trim() ? body.sourceId.trim() : 'server';
+    linkState.clockSource =
+      typeof body.clockSource === 'string' && body.clockSource.trim() ? body.clockSource.trim() : 'internal';
     linkState.updatedAt = Date.now();
     broadcastLinkState();
     sendJson(res, 200, { ok: true, ...linkState });
@@ -658,22 +662,22 @@ async function handleLinkState(req, res) {
 async function serveFile(res, filePath) {
   if (!existsSync(filePath)) {
     res.writeHead(404, ISOLATION_HEADERS);
-    res.end("Not found");
+    res.end('Not found');
     return;
   }
 
   const fileStats = await stat(filePath);
   if (!fileStats.isFile()) {
     res.writeHead(403, ISOLATION_HEADERS);
-    res.end("Forbidden");
+    res.end('Forbidden');
     return;
   }
 
   const ext = path.extname(filePath);
   res.writeHead(200, {
-    "Content-Type": mimeTypes[ext] || "application/octet-stream",
-    "Cache-Control": "no-store",
-    ...ISOLATION_HEADERS
+    'Content-Type': mimeTypes[ext] || 'application/octet-stream',
+    'Cache-Control': 'no-store',
+    ...ISOLATION_HEADERS,
   });
   createReadStream(filePath).pipe(res);
 }
@@ -691,13 +695,13 @@ async function handleAssistant(req, res) {
 async function handleAssistantActionPlan(req, res) {
   try {
     const body = await readJsonBody(req);
-    body.message = typeof body.message === "string" ? body.message : "";
-    body.messages = [{ role: "user", content: body.message }];
+    body.message = typeof body.message === 'string' ? body.message : '';
+    body.messages = [{ role: 'user', content: body.message }];
     const result = await requestAssistantProvider(body, buildAssistantActionPlannerPrompt(body.context));
     const plan = extractJsonObject(result.text);
-    if (!plan || typeof plan !== "object") {
+    if (!plan || typeof plan !== 'object') {
       sendJson(res, 502, {
-        error: "Assistant action planner returned invalid JSON",
+        error: 'Assistant action planner returned invalid JSON',
         provider: result.provider,
         model: result.model,
         text: result.text,
@@ -707,9 +711,11 @@ async function handleAssistantActionPlan(req, res) {
     sendJson(res, 200, {
       provider: result.provider,
       model: result.model,
-      summary: typeof plan.summary === "string" ? plan.summary : "",
+      summary: typeof plan.summary === 'string' ? plan.summary : '',
       commands: Array.isArray(plan.commands)
-        ? plan.commands.filter((command) => command && typeof command === "object" && typeof command.type === "string").slice(0, 24)
+        ? plan.commands
+            .filter((command) => command && typeof command === 'object' && typeof command.type === 'string')
+            .slice(0, 24)
         : [],
       text: result.text,
     });
@@ -721,64 +727,64 @@ async function handleAssistantActionPlan(req, res) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
-  if (req.method === "POST" && url.pathname === "/api/assistant/chat") {
+  if (req.method === 'POST' && url.pathname === '/api/assistant/chat') {
     await handleAssistant(req, res);
     return;
   }
 
-  if (req.method === "POST" && url.pathname === "/api/assistant/actions/plan") {
+  if (req.method === 'POST' && url.pathname === '/api/assistant/actions/plan') {
     await handleAssistantActionPlan(req, res);
     return;
   }
 
-  if (req.method === "GET" && url.pathname === "/api/assistant/context") {
+  if (req.method === 'GET' && url.pathname === '/api/assistant/context') {
     await handleAssistantContext(req, res);
     return;
   }
 
-  if (req.method === "GET" && url.pathname === "/api/assistant/providers") {
+  if (req.method === 'GET' && url.pathname === '/api/assistant/providers') {
     await handleAssistantProviders(req, res);
     return;
   }
 
-  if (req.method === "GET" && url.pathname === "/link") {
+  if (req.method === 'GET' && url.pathname === '/link') {
     handleLinkStream(req, res, url);
     return;
   }
 
-  if ((req.method === "GET" || req.method === "POST") && url.pathname === "/api/link/state") {
+  if ((req.method === 'GET' || req.method === 'POST') && url.pathname === '/api/link/state') {
     await handleLinkState(req, res);
     return;
   }
 
-  if (url.pathname === "/" || url.pathname === "/index.html") {
-    await serveFile(res, path.join(rootDir, "index.html"));
+  if (url.pathname === '/' || url.pathname === '/index.html') {
+    await serveFile(res, path.join(rootDir, 'index.html'));
     return;
   }
 
-  if (url.pathname === "/sw.js") {
-    await serveFile(res, path.join(publicDir, "sw.js"));
+  if (url.pathname === '/sw.js') {
+    await serveFile(res, path.join(publicDir, 'sw.js'));
     return;
   }
 
-  if (url.pathname.startsWith("/src/")) {
+  if (url.pathname.startsWith('/src/')) {
     await serveFile(res, path.join(rootDir, url.pathname));
     return;
   }
 
-  if (url.pathname.startsWith("/docs/")) {
+  if (url.pathname.startsWith('/docs/')) {
     await serveFile(res, path.join(rootDir, url.pathname));
     return;
   }
 
-  if (url.pathname.startsWith("/public/")) {
+  if (url.pathname.startsWith('/public/')) {
     await serveFile(res, path.join(rootDir, url.pathname));
     return;
   }
 
-  if (req.method === "GET" && url.pathname === "/api/samples") {
-    const samplesDir = path.join(rootDir, "samples");
-    const audioExts  = new Set(['.wav', '.mp3', '.ogg', '.flac', '.aif', '.aiff']);
+  if (req.method === 'GET' && url.pathname === '/api/samples') {
+    const samplesDir = path.join(rootDir, 'samples');
+    const audioExts = new Set(['.wav', '.mp3', '.ogg', '.flac', '.aif', '.aiff']);
     try {
       const entries = await readdir(samplesDir);
       const results = [];
@@ -805,7 +811,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   res.writeHead(404, ISOLATION_HEADERS);
-  res.end("Not found");
+  res.end('Not found');
 });
 
 server.listen(port, host, () => {

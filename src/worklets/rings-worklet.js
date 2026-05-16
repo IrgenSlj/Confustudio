@@ -47,14 +47,7 @@ class RingsProcessor extends AudioWorkletProcessor {
   }
 
   _handleTrigger(data) {
-    const {
-      frequency,
-      structure,
-      brightness,
-      damping,
-      exciter,
-      sampleRate
-    } = data;
+    const { frequency, structure, brightness, damping, exciter, sampleRate } = data;
 
     this.exciterType = exciter;
     this.exciterFrequency = frequency;
@@ -88,7 +81,7 @@ class RingsProcessor extends AudioWorkletProcessor {
       const Q = 80 * Math.pow(1 - damping, 1.5) + 2;
 
       // Biquad bandpass coefficients
-      const w0 = 2 * Math.PI * fi / sampleRate;
+      const w0 = (2 * Math.PI * fi) / sampleRate;
       const sinW0 = Math.sin(w0);
       const cosW0 = Math.cos(w0);
       const alpha = sinW0 / (2 * Q);
@@ -164,13 +157,12 @@ class RingsProcessor extends AudioWorkletProcessor {
 
       let sum = 0;
       for (let i = 0; i < 8; i++) {
-        const y = (
+        const y =
           this.b0[i] * x +
           this.b1[i] * this.x1[i] +
           this.b2[i] * this.x2[i] -
           this.a1[i] * this.y1[i] -
-          this.a2[i] * this.y2[i]
-        );
+          this.a2[i] * this.y2[i];
         this.x2[i] = this.x1[i];
         this.x1[i] = x;
         this.y2[i] = this.y1[i];

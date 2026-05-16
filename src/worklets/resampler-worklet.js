@@ -19,7 +19,7 @@ class ResamplerProcessor extends AudioWorkletProcessor {
       if (type === 'load') {
         const { channels, playbackRate, sampleRate, ctxRate, loopEnabled, loopStart, loopEnd, position } = event.data;
         this.channels = Array.isArray(channels)
-          ? channels.map((buffer) => buffer ? new Float32Array(buffer) : null)
+          ? channels.map((buffer) => (buffer ? new Float32Array(buffer) : null))
           : [new Float32Array(event.data.buffer)];
         this.position = position ?? 0;
         this.increment = playbackRate * (sampleRate / ctxRate);

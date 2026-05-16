@@ -4,10 +4,10 @@ import { TRACK_COLORS } from '../state.js';
 
 // ── Scales ────────────────────────────────────────────────────────────────────
 const SCALES = {
-  'C Major':      [0, 2, 4, 5, 7, 9, 11],
-  'C Minor':      [0, 2, 3, 5, 7, 8, 10],
-  'Pentatonic':   [0, 2, 4, 7, 9],
-  'Chromatic':    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  'C Major': [0, 2, 4, 5, 7, 9, 11],
+  'C Minor': [0, 2, 3, 5, 7, 8, 10],
+  Pentatonic: [0, 2, 4, 7, 9],
+  Chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
 };
 
 const SCALE_NAMES = Object.keys(SCALES);
@@ -23,22 +23,22 @@ function padNotes(scaleName, octave) {
 }
 
 function midiToNoteName(midi) {
-  const names = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   return names[midi % 12] + (Math.floor(midi / 12) - 1);
 }
 
 // Module-level pad state (persists across renders within a session)
-let _octave         = 5;
-let _scaleName      = 'C Major';
-let _holdMode       = false;
-let _stepRecMode    = false;
-let _assignMode     = false;
-let _assignPadIdx   = null; // which pad is waiting for track assignment
+let _octave = 5;
+let _scaleName = 'C Major';
+let _holdMode = false;
+let _stepRecMode = false;
+let _assignMode = false;
+let _assignPadIdx = null; // which pad is waiting for track assignment
 const _padAssignments = Array.from({ length: 16 }, (_, i) => i % 8); // pad → track index
-const _heldPads       = new Set(); // pads currently held (for hold mode)
-let _midiLearnMode  = false;
-let _midiLearnPad   = null;
-let _padMode        = 'drum'; // 'drum' | 'melodic'
+const _heldPads = new Set(); // pads currently held (for hold mode)
+let _midiLearnMode = false;
+let _midiLearnPad = null;
+let _padMode = 'drum'; // 'drum' | 'melodic'
 
 // ── CSS (injected once) ───────────────────────────────────────────────────────
 let _cssInjected = false;
@@ -272,10 +272,10 @@ export default {
     injectCSS();
     container.innerHTML = '';
     container.className = (container.className || '') + ' pad-controller-page';
-    container.style.cssText = 'display:flex;flex-direction:column;height:100%;background:#0d0d0d;padding:6px 8px;gap:6px;box-sizing:border-box;overflow:hidden';
+    container.style.cssText =
+      'display:flex;flex-direction:column;height:100%;background:#0d0d0d;padding:6px 8px;gap:6px;box-sizing:border-box;overflow:hidden';
 
     const tracks = state.project.banks[state.activeBank].patterns[state.activePattern].kit.tracks;
-    const notes  = padNotes(_scaleName, _octave);
 
     // ── Controls bar ─────────────────────────────────────────────────────────
     const controlsBar = document.createElement('div');
@@ -337,7 +337,7 @@ export default {
     const scaleSelect = document.createElement('select');
     scaleSelect.className = 'pad-scale-select';
     scaleSelect.title = 'Scale for pad notes';
-    SCALE_NAMES.forEach(name => {
+    SCALE_NAMES.forEach((name) => {
       const opt = document.createElement('option');
       opt.value = name;
       opt.textContent = name;
@@ -385,7 +385,8 @@ export default {
     });
 
     controlsBar.append(
-      holdBtn, stepRecBtn,
+      holdBtn,
+      stepRecBtn,
       makeSep(),
       octGroup,
       makeSep(),
@@ -393,7 +394,8 @@ export default {
       makeSep(),
       modeBtn,
       makeSep(),
-      assignBtn, midiLearnBtn
+      assignBtn,
+      midiLearnBtn,
     );
     container.append(controlsBar);
 
@@ -420,20 +422,19 @@ export default {
         let trackIdx, note, noteName, nameLabel;
         if (_padMode === 'melodic') {
           // Melodic mode: all 16 pads → consecutive scale notes → active/first track
-          trackIdx  = state.selectedTrackIndex ?? 0;
-          note      = currentNotes[i];
-          noteName  = midiToNoteName(note);
+          trackIdx = state.selectedTrackIndex ?? 0;
+          note = currentNotes[i];
+          noteName = midiToNoteName(note);
           nameLabel = tracks[trackIdx]?.name ?? `T${trackIdx + 1}`; // show active track name small
         } else {
           // Drum mode: pad i → track i%8, octave shift for pads 8-15
           trackIdx = _padAssignments[i];
           const octShift = Math.floor(i / 8);
-          note     = (currentNotes[i % 8] ?? currentNotes[0]) + octShift * 12;
+          note = (currentNotes[i % 8] ?? currentNotes[0]) + octShift * 12;
           noteName = midiToNoteName(note);
           nameLabel = tracks[trackIdx]?.name ?? `T${trackIdx + 1}`;
         }
 
-        const track = tracks[trackIdx] ?? tracks[0];
         const color = TRACK_COLORS[trackIdx % TRACK_COLORS.length];
 
         const pad = document.createElement('div');
@@ -511,9 +512,11 @@ export default {
           pad.classList.remove('pressed');
           if (_holdMode) return; // sustain
           _heldPads.delete(i);
-          document.dispatchEvent(new CustomEvent('confustudio:note:off', {
-            detail: { note, trackIndex: trackIdx }
-          }));
+          document.dispatchEvent(
+            new CustomEvent('confustudio:note:off', {
+              detail: { note, trackIndex: trackIdx },
+            }),
+          );
         });
 
         pad.addEventListener('pointerleave', () => {
@@ -541,7 +544,7 @@ export default {
     // MIDI learn: capture incoming MIDI note-on events and assign to next learn slot
     function onMidiLearn(e) {
       if (!_midiLearnMode) return;
-      const { note, trackIndex } = e.detail ?? {};
+      const { trackIndex } = e.detail ?? {};
       if (typeof _midiLearnPad === 'number' && _midiLearnPad < 16) {
         if (typeof trackIndex === 'number') _padAssignments[_midiLearnPad] = trackIndex % 8;
         emit('toast', { msg: `MIDI learned: pad ${_midiLearnPad + 1}` });
@@ -568,9 +571,11 @@ export default {
     // ── Trigger helper ────────────────────────────────────────────────────────
     function triggerPad(padIdx, trackIdx, note, velocity, flashOverlay, velBar, color) {
       // 1. Fire confustudio:note:on
-      document.dispatchEvent(new CustomEvent('confustudio:note:on', {
-        detail: { note, velocity, trackIndex: trackIdx, channel: trackIdx }
-      }));
+      document.dispatchEvent(
+        new CustomEvent('confustudio:note:on', {
+          detail: { note, velocity, trackIndex: trackIdx, channel: trackIdx },
+        }),
+      );
 
       // 2. Emit trigger to engine
       emit('trigger:track', { trackIndex: trackIdx, velocity, note });
@@ -597,7 +602,9 @@ export default {
       velBar.style.transform = `scaleX(${velocity})`;
       velBar.style.background = hexWithAlpha(color, 0.85);
       velBar.style.opacity = '1';
-      setTimeout(() => { velBar.style.opacity = '0'; }, 500);
+      setTimeout(() => {
+        velBar.style.opacity = '0';
+      }, 500);
     }
   },
 

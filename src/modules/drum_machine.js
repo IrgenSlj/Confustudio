@@ -7,23 +7,32 @@ export function createDrumMachine(audioContext) {
   // ── Voice names and default patterns ───────────────────────────────────────
   const VOICES = ['BD', 'SD', 'LT', 'MT', 'HT', 'RS', 'CP', 'CB', 'OH', 'CH', 'CY'];
   const VOICE_LABELS = {
-    BD: 'Bass Drum', SD: 'Snare', LT: 'Low Tom', MT: 'Mid Tom', HT: 'Hi Tom',
-    RS: 'Rim Shot', CP: 'Clap', CB: 'Cowbell', OH: 'Open HH', CH: 'Closed HH', CY: 'Cymbal',
+    BD: 'Bass Drum',
+    SD: 'Snare',
+    LT: 'Low Tom',
+    MT: 'Mid Tom',
+    HT: 'Hi Tom',
+    RS: 'Rim Shot',
+    CP: 'Clap',
+    CB: 'Cowbell',
+    OH: 'Open HH',
+    CH: 'Closed HH',
+    CY: 'Cymbal',
   };
 
   // Default pattern: classic 909 house beat
   const DEFAULT_PATTERNS = {
-    BD: [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
-    SD: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
-    LT: [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
-    MT: [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
-    HT: [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
-    RS: [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
-    CP: [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
-    CB: [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
-    OH: [0,0,1,0, 0,0,1,0, 0,0,1,0, 0,0,1,0],
-    CH: [1,0,0,0, 1,0,0,0, 1,0,0,0, 1,0,0,0],
-    CY: [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0],
+    BD: [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+    SD: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+    LT: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    MT: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    HT: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    RS: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    CP: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    CB: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    OH: [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+    CH: [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+    CY: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   };
 
   // ── Pattern slots A/B/C/D ─────────────────────────────────────────────────
@@ -32,9 +41,9 @@ export function createDrumMachine(audioContext) {
 
   // Each slot stores {active, velocity, accent} for all 16 steps × 11 voices
   const _patternSlots = {};
-  PATTERN_SLOTS.forEach(slot => {
+  PATTERN_SLOTS.forEach((slot) => {
     _patternSlots[slot] = {};
-    VOICES.forEach(v => {
+    VOICES.forEach((v) => {
       _patternSlots[slot][v] = Array.from({ length: 16 }, (_, i) => ({
         active: slot === 'A' && DEFAULT_PATTERNS[v][i] === 1,
         velocity: slot === 'A' && DEFAULT_PATTERNS[v][i] === 1 ? 3 : 0,
@@ -76,28 +85,28 @@ export function createDrumMachine(audioContext) {
 
   // ── Audio Engine ─────────────────────────────────────────────────────────
   const _voiceGains = {};
-  const masterGain   = ctx ? ctx.createGain()  : null;
-  const compressor   = ctx ? ctx.createDynamicsCompressor() : null;
-  const outputGain   = ctx ? ctx.createGain()  : null;
+  const masterGain = ctx ? ctx.createGain() : null;
+  const compressor = ctx ? ctx.createDynamicsCompressor() : null;
+  const outputGain = ctx ? ctx.createGain() : null;
 
   if (ctx) {
-    masterGain.gain.value  = _masterVolume;
-    outputGain.gain.value  = 1.0;
+    masterGain.gain.value = _masterVolume;
+    outputGain.gain.value = 1.0;
 
     // Compressor settings — gentle glue comp
     if (compressor) {
       compressor.threshold.value = -6;
-      compressor.knee.value      = 6;
-      compressor.ratio.value     = 4;
-      compressor.attack.value    = 0.005;
-      compressor.release.value   = 0.05;
+      compressor.knee.value = 6;
+      compressor.ratio.value = 4;
+      compressor.attack.value = 0.005;
+      compressor.release.value = 0.05;
       masterGain.connect(compressor);
       compressor.connect(outputGain);
     } else {
       masterGain.connect(outputGain);
     }
 
-    VOICES.forEach(v => {
+    VOICES.forEach((v) => {
       const g = ctx.createGain();
       g.gain.value = _voiceParams[v].volume;
       g.connect(masterGain);
@@ -127,9 +136,7 @@ export function createDrumMachine(audioContext) {
     const curve = new Float32Array(n);
     for (let i = 0; i < n; i++) {
       const x = (i * 2) / n - 1;
-      curve[i] = amount > 0
-        ? (Math.PI + amount) * x / (Math.PI + amount * Math.abs(x))
-        : x;
+      curve[i] = amount > 0 ? ((Math.PI + amount) * x) / (Math.PI + amount * Math.abs(x)) : x;
     }
     return curve;
   }
@@ -143,12 +150,12 @@ export function createDrumMachine(audioContext) {
     if (!ctx) return;
     const p = _voiceParams.BD;
     // Tune: 100–200 Hz start, 40–80 Hz end
-    const startFreq  = 100 + p.tune * 100;
-    const endFreq    = 40  + p.tune * 40;
+    const startFreq = 100 + p.tune * 100;
+    const endFreq = 40 + p.tune * 40;
     // Accent: louder + shorter decay (tighter punch)
-    const decayBase  = 0.2 + p.decay * 0.6; // 200–800ms
-    const decayTime  = accent ? decayBase * 0.8 : decayBase;
-    let   velScale   = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
+    const decayBase = 0.2 + p.decay * 0.6; // 200–800ms
+    const decayTime = accent ? decayBase * 0.8 : decayBase;
+    let velScale = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
     if (accent) velScale = Math.min(1.0, velScale * 1.4);
 
     // ── Main sine body ────────────────────────────────────────────────────
@@ -157,30 +164,30 @@ export function createDrumMachine(audioContext) {
     osc.frequency.setValueAtTime(startFreq, time);
     // Two-segment pitch envelope: fast drop first 50ms then slower
     const midFreq = startFreq + (endFreq - startFreq) * 0.7; // 70% of way at 50ms mark
-    osc.frequency.exponentialRampToValueAtTime(midFreq, time + 0.050);
-    osc.frequency.exponentialRampToValueAtTime(endFreq,  time + decayTime * 0.6);
+    osc.frequency.exponentialRampToValueAtTime(midFreq, time + 0.05);
+    osc.frequency.exponentialRampToValueAtTime(endFreq, time + decayTime * 0.6);
 
     // ── 2× harmonic sine for body ─────────────────────────────────────────
     const osc2 = ctx.createOscillator();
     osc2.type = 'sine';
     osc2.frequency.setValueAtTime(startFreq * 2, time);
-    osc2.frequency.exponentialRampToValueAtTime(midFreq * 2, time + 0.050);
-    osc2.frequency.exponentialRampToValueAtTime(endFreq * 2,  time + decayTime * 0.5);
+    osc2.frequency.exponentialRampToValueAtTime(midFreq * 2, time + 0.05);
+    osc2.frequency.exponentialRampToValueAtTime(endFreq * 2, time + decayTime * 0.5);
 
     const osc2Gain = ctx.createGain();
-    osc2Gain.gain.setValueAtTime(0.20 * velScale, time);
+    osc2Gain.gain.setValueAtTime(0.2 * velScale, time);
     osc2Gain.gain.exponentialRampToValueAtTime(0.001, time + decayTime * 0.4);
 
     // ── Click transient: 3ms highpassed noise burst ───────────────────────
     const clickNoise = _createNoiseSource();
-    const clickHpf   = ctx.createBiquadFilter();
-    clickHpf.type           = 'highpass';
+    const clickHpf = ctx.createBiquadFilter();
+    clickHpf.type = 'highpass';
     clickHpf.frequency.value = 2500;
-    clickHpf.Q.value         = 0.5;
+    clickHpf.Q.value = 0.5;
     const clickGain = ctx.createGain();
     clickGain.gain.setValueAtTime(0, time);
     clickGain.gain.linearRampToValueAtTime(0.35 * velScale, time + 0.0005);
-    clickGain.gain.exponentialRampToValueAtTime(0.001,       time + 0.003);
+    clickGain.gain.exponentialRampToValueAtTime(0.001, time + 0.003);
 
     // ── Main VCA ──────────────────────────────────────────────────────────
     const vca = ctx.createGain();
@@ -194,14 +201,20 @@ export function createDrumMachine(audioContext) {
     ws.oversample = '2x';
 
     osc.connect(ws);
-    osc2.connect(osc2Gain); osc2Gain.connect(ws);
+    osc2.connect(osc2Gain);
+    osc2Gain.connect(ws);
     ws.connect(vca);
-    clickNoise.connect(clickHpf); clickHpf.connect(clickGain); clickGain.connect(_voiceGains.BD);
+    clickNoise.connect(clickHpf);
+    clickHpf.connect(clickGain);
+    clickGain.connect(_voiceGains.BD);
     vca.connect(_voiceGains.BD);
 
-    osc.start(time);       osc.stop(time + decayTime + 0.05);
-    osc2.start(time);      osc2.stop(time + decayTime * 0.45);
-    clickNoise.start(time); clickNoise.stop(time + 0.01);
+    osc.start(time);
+    osc.stop(time + decayTime + 0.05);
+    osc2.start(time);
+    osc2.stop(time + decayTime * 0.45);
+    clickNoise.start(time);
+    clickNoise.stop(time + 0.01);
   }
 
   function _triggerSD(velocity, time, accent) {
@@ -209,10 +222,10 @@ export function createDrumMachine(audioContext) {
     const p = _voiceParams.SD;
     const decayBase = 0.1 + p.decay * 0.25; // 100–350ms
     const decayTime = accent ? decayBase * 0.8 : decayBase;
-    const snappy    = p.snappy ?? 0.5;
-    let   velScale  = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
+    const snappy = p.snappy ?? 0.5;
+    let velScale = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
     if (accent) velScale = Math.min(1.0, velScale * 1.4);
-    const tuneFreq  = 150 + p.tune * 100; // 150–250 Hz
+    const tuneFreq = 150 + p.tune * 100; // 150–250 Hz
 
     // ── Sine body ─────────────────────────────────────────────────────────
     const oscBody = ctx.createOscillator();
@@ -238,10 +251,10 @@ export function createDrumMachine(audioContext) {
 
     // ── Noise body (low BPF ~200-800 Hz) ─────────────────────────────────
     const noiseBody = _createNoiseSource();
-    const bpfLo    = ctx.createBiquadFilter();
-    bpfLo.type          = 'bandpass';
+    const bpfLo = ctx.createBiquadFilter();
+    bpfLo.type = 'bandpass';
     bpfLo.frequency.value = 200 + p.tune * 200; // 200–400 Hz
-    bpfLo.Q.value         = 0.7;
+    bpfLo.Q.value = 0.7;
     const vcaNoiseBody = ctx.createGain();
     vcaNoiseBody.gain.setValueAtTime(0, time);
     vcaNoiseBody.gain.linearRampToValueAtTime(0.3 * velScale * (1 - snappy * 0.3), time + 0.001);
@@ -249,10 +262,10 @@ export function createDrumMachine(audioContext) {
 
     // ── Noise sizzle (high BPF ~2k-8kHz) ─────────────────────────────────
     const noiseSizz = _createNoiseSource();
-    const bpfHi    = ctx.createBiquadFilter();
-    bpfHi.type           = 'bandpass';
+    const bpfHi = ctx.createBiquadFilter();
+    bpfHi.type = 'bandpass';
     bpfHi.frequency.value = 2000 + snappy * 6000; // 2k–8kHz
-    bpfHi.Q.value          = 0.6;
+    bpfHi.Q.value = 0.6;
     const vcaNoiseSizz = ctx.createGain();
     vcaNoiseSizz.gain.setValueAtTime(0, time);
     vcaNoiseSizz.gain.linearRampToValueAtTime(0.5 * velScale * (0.3 + snappy * 0.7), time + 0.001);
@@ -260,25 +273,38 @@ export function createDrumMachine(audioContext) {
 
     // ── Initial click transient (8ms noise burst) ─────────────────────────
     const clickNoise = _createNoiseSource();
-    const clickHpf   = ctx.createBiquadFilter();
-    clickHpf.type           = 'highpass';
+    const clickHpf = ctx.createBiquadFilter();
+    clickHpf.type = 'highpass';
     clickHpf.frequency.value = 3000;
     const clickGain = ctx.createGain();
     clickGain.gain.setValueAtTime(0, time);
     clickGain.gain.linearRampToValueAtTime(0.4 * velScale, time + 0.0005);
     clickGain.gain.exponentialRampToValueAtTime(0.001, time + 0.008);
 
-    oscBody.connect(vcaBody);        vcaBody.connect(_voiceGains.SD);
-    oscBody2.connect(vcaBody2);      vcaBody2.connect(_voiceGains.SD);
-    noiseBody.connect(bpfLo);        bpfLo.connect(vcaNoiseBody);    vcaNoiseBody.connect(_voiceGains.SD);
-    noiseSizz.connect(bpfHi);        bpfHi.connect(vcaNoiseSizz);    vcaNoiseSizz.connect(_voiceGains.SD);
-    clickNoise.connect(clickHpf);    clickHpf.connect(clickGain);    clickGain.connect(_voiceGains.SD);
+    oscBody.connect(vcaBody);
+    vcaBody.connect(_voiceGains.SD);
+    oscBody2.connect(vcaBody2);
+    vcaBody2.connect(_voiceGains.SD);
+    noiseBody.connect(bpfLo);
+    bpfLo.connect(vcaNoiseBody);
+    vcaNoiseBody.connect(_voiceGains.SD);
+    noiseSizz.connect(bpfHi);
+    bpfHi.connect(vcaNoiseSizz);
+    vcaNoiseSizz.connect(_voiceGains.SD);
+    clickNoise.connect(clickHpf);
+    clickHpf.connect(clickGain);
+    clickGain.connect(_voiceGains.SD);
 
-    oscBody.start(time);    oscBody.stop(time + decayTime + 0.05);
-    oscBody2.start(time);   oscBody2.stop(time + decayTime * 0.45);
-    noiseBody.start(time);  noiseBody.stop(time + decayTime + 0.05);
-    noiseSizz.start(time);  noiseSizz.stop(time + decayTime + 0.05);
-    clickNoise.start(time); clickNoise.stop(time + 0.015);
+    oscBody.start(time);
+    oscBody.stop(time + decayTime + 0.05);
+    oscBody2.start(time);
+    oscBody2.stop(time + decayTime * 0.45);
+    noiseBody.start(time);
+    noiseBody.stop(time + decayTime + 0.05);
+    noiseSizz.start(time);
+    noiseSizz.stop(time + decayTime + 0.05);
+    clickNoise.start(time);
+    clickNoise.stop(time + 0.015);
   }
 
   function _triggerTom(voice, baseFreq, decayMs, velocity, time, accent) {
@@ -287,7 +313,7 @@ export function createDrumMachine(audioContext) {
     const freq = baseFreq * Math.pow(2, (p.tune - 0.5) * 1.5);
     const decayBase = (decayMs / 1000) * (0.5 + p.decay);
     const decayTime = accent ? decayBase * 0.8 : decayBase;
-    let velScale    = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
+    let velScale = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
     if (accent) velScale = Math.min(1.0, velScale * 1.4);
 
     const osc = ctx.createOscillator();
@@ -310,7 +336,7 @@ export function createDrumMachine(audioContext) {
   function _triggerRS(velocity, time, accent) {
     if (!ctx) return;
     const p = _voiceParams.RS;
-    let velScale   = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
+    let velScale = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
     if (accent) velScale = Math.min(1.0, velScale * 1.4);
     const freq = 300 + p.tune * 200;
 
@@ -324,8 +350,8 @@ export function createDrumMachine(audioContext) {
     vcaOsc.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
 
     const noise = _createNoiseSource();
-    const hpf   = ctx.createBiquadFilter();
-    hpf.type           = 'highpass';
+    const hpf = ctx.createBiquadFilter();
+    hpf.type = 'highpass';
     hpf.frequency.value = 1000;
 
     const vcaNoise = ctx.createGain();
@@ -333,57 +359,68 @@ export function createDrumMachine(audioContext) {
     vcaNoise.gain.linearRampToValueAtTime(0.3 * velScale, time + 0.0005);
     vcaNoise.gain.exponentialRampToValueAtTime(0.001, time + 0.03);
 
-    osc.connect(vcaOsc); vcaOsc.connect(_voiceGains.RS);
-    noise.connect(hpf); hpf.connect(vcaNoise); vcaNoise.connect(_voiceGains.RS);
+    osc.connect(vcaOsc);
+    vcaOsc.connect(_voiceGains.RS);
+    noise.connect(hpf);
+    hpf.connect(vcaNoise);
+    vcaNoise.connect(_voiceGains.RS);
 
-    osc.start(time); osc.stop(time + 0.06);
-    noise.start(time); noise.stop(time + 0.06);
+    osc.start(time);
+    osc.stop(time + 0.06);
+    noise.start(time);
+    noise.stop(time + 0.06);
   }
 
   function _triggerCP(velocity, time, accent) {
     if (!ctx) return;
     const p = _voiceParams.CP;
-    let velScale   = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
+    let velScale = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
     if (accent) velScale = Math.min(1.0, velScale * 1.4);
     const decayBase = 0.1 + p.decay * 0.2;
     const decayTime = accent ? decayBase * 0.8 : decayBase;
 
     // 5 staggered noise bursts: 0, 10, 20, 35, 60ms (authentic 909 has 5 layers)
-    const delays = [0, 0.010, 0.020, 0.035, 0.060];
+    const delays = [0, 0.01, 0.02, 0.035, 0.06];
     const bpfFreq = 900 + p.tune * 300;
 
     delays.forEach((d, i) => {
       const t = time + d;
       const noise = _createNoiseSource();
       const bpf = ctx.createBiquadFilter();
-      bpf.type           = 'bandpass';
+      bpf.type = 'bandpass';
       bpf.frequency.value = bpfFreq;
-      bpf.Q.value         = 3.0; // increased Q for more punch
+      bpf.Q.value = 3.0; // increased Q for more punch
 
-      const isLast   = i === delays.length - 1;
+      const isLast = i === delays.length - 1;
       const burstLen = isLast ? decayTime : 0.006;
       const vca = ctx.createGain();
       vca.gain.setValueAtTime(0, t);
       vca.gain.linearRampToValueAtTime(0.6 * velScale, t + 0.001);
       vca.gain.exponentialRampToValueAtTime(0.001, t + burstLen);
 
-      noise.connect(bpf); bpf.connect(vca); vca.connect(_voiceGains.CP);
-      noise.start(t); noise.stop(t + burstLen + 0.05);
+      noise.connect(bpf);
+      bpf.connect(vca);
+      vca.connect(_voiceGains.CP);
+      noise.start(t);
+      noise.stop(t + burstLen + 0.05);
 
       // 5ms echo at 30% on the last burst (reverb-style delay)
       if (isLast) {
         const echoNoise = _createNoiseSource();
-        const echoBpf   = ctx.createBiquadFilter();
-        echoBpf.type           = 'bandpass';
+        const echoBpf = ctx.createBiquadFilter();
+        echoBpf.type = 'bandpass';
         echoBpf.frequency.value = bpfFreq;
-        echoBpf.Q.value         = 3.0;
+        echoBpf.Q.value = 3.0;
         const echoVca = ctx.createGain();
         const te = t + 0.005; // 5ms later
         echoVca.gain.setValueAtTime(0, te);
         echoVca.gain.linearRampToValueAtTime(0.18 * velScale, te + 0.001); // 30% of 0.6
         echoVca.gain.exponentialRampToValueAtTime(0.001, te + decayTime * 0.6);
-        echoNoise.connect(echoBpf); echoBpf.connect(echoVca); echoVca.connect(_voiceGains.CP);
-        echoNoise.start(te); echoNoise.stop(te + decayTime * 0.65);
+        echoNoise.connect(echoBpf);
+        echoBpf.connect(echoVca);
+        echoVca.connect(_voiceGains.CP);
+        echoNoise.start(te);
+        echoNoise.stop(te + decayTime * 0.65);
       }
     });
   }
@@ -391,23 +428,23 @@ export function createDrumMachine(audioContext) {
   function _triggerCB(velocity, time, accent) {
     if (!ctx) return;
     const p = _voiceParams.CB;
-    let velScale   = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
+    let velScale = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
     if (accent) velScale = Math.min(1.0, velScale * 1.4);
     const decayBase = 0.3 + p.decay * 0.6;
     const decayTime = accent ? decayBase * 0.8 : decayBase;
-    const tuneMult  = Math.pow(2, (p.tune - 0.5) * 0.5);
+    const tuneMult = Math.pow(2, (p.tune - 0.5) * 0.5);
 
     // 4 square oscillators: 562, 845, 1100, 1480 Hz
     const freqs = [562 * tuneMult, 845 * tuneMult, 1100 * tuneMult, 1480 * tuneMult];
 
     // Shared bandpass centered at 800 Hz
     const bpf = ctx.createBiquadFilter();
-    bpf.type           = 'bandpass';
+    bpf.type = 'bandpass';
     bpf.frequency.value = 800 * tuneMult;
-    bpf.Q.value         = 2.5;
+    bpf.Q.value = 2.5;
     bpf.connect(_voiceGains.CB);
 
-    freqs.forEach(freq => {
+    freqs.forEach((freq) => {
       const osc = ctx.createOscillator();
       osc.type = 'square';
       osc.frequency.value = freq;
@@ -417,10 +454,12 @@ export function createDrumMachine(audioContext) {
       vca.gain.setValueAtTime(0, time);
       vca.gain.linearRampToValueAtTime(0.35 * velScale, time + 0.001);
       vca.gain.exponentialRampToValueAtTime(0.12 * velScale, time + 0.015); // fast first stage
-      vca.gain.exponentialRampToValueAtTime(0.001, time + decayTime);       // slower main
+      vca.gain.exponentialRampToValueAtTime(0.001, time + decayTime); // slower main
 
-      osc.connect(vca); vca.connect(bpf);
-      osc.start(time); osc.stop(time + decayTime + 0.05);
+      osc.connect(vca);
+      vca.connect(bpf);
+      osc.start(time);
+      osc.stop(time + decayTime + 0.05);
     });
   }
 
@@ -428,21 +467,23 @@ export function createDrumMachine(audioContext) {
   const HH_FREQS = [205.3, 309.1, 416.7, 522.4, 633.8, 769.2];
 
   function _makeHHOscs(time, decayTime, velScale, destNode) {
-    HH_FREQS.forEach(freq => {
+    HH_FREQS.forEach((freq) => {
       const osc = ctx.createOscillator();
       osc.type = 'square';
       osc.frequency.value = freq;
 
       // Individual bandpass per oscillator (Q=0.8, freq matches osc)
       const bpf = ctx.createBiquadFilter();
-      bpf.type           = 'bandpass';
+      bpf.type = 'bandpass';
       bpf.frequency.value = freq;
-      bpf.Q.value         = 0.8;
+      bpf.Q.value = 0.8;
 
       const g = ctx.createGain();
       g.gain.value = (0.15 * velScale) / HH_FREQS.length;
 
-      osc.connect(bpf); bpf.connect(g); g.connect(destNode);
+      osc.connect(bpf);
+      bpf.connect(g);
+      g.connect(destNode);
       osc.start(time);
       osc.stop(time + decayTime + 0.05);
     });
@@ -454,12 +495,10 @@ export function createDrumMachine(audioContext) {
   function _triggerOH(velocity, time, accent) {
     if (!ctx) return;
     const p = _voiceParams.OH;
-    let velScale   = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
+    let velScale = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
     if (accent) velScale = Math.min(1.0, velScale * 1.4);
     // Longer decay range with tune: 400–2000ms
-    const decayTime = accent
-      ? (0.4 + p.tune * 1.6) * 0.8
-      : (0.4 + p.tune * 1.6);
+    const decayTime = accent ? (0.4 + p.tune * 1.6) * 0.8 : 0.4 + p.tune * 1.6;
 
     const ohVca = ctx.createGain();
     ohVca.gain.setValueAtTime(0, time);
@@ -469,7 +508,7 @@ export function createDrumMachine(audioContext) {
 
     // Final highpass at 7000 Hz
     const hpf = ctx.createBiquadFilter();
-    hpf.type           = 'highpass';
+    hpf.type = 'highpass';
     hpf.frequency.value = 7000;
     hpf.connect(ohVca);
 
@@ -481,7 +520,7 @@ export function createDrumMachine(audioContext) {
   function _triggerCH(velocity, time, accent) {
     if (!ctx) return;
     const p = _voiceParams.CH;
-    let velScale   = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
+    let velScale = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
     if (accent) velScale = Math.min(1.0, velScale * 1.4);
     const decayTime = 0.04 + p.decay * 0.06; // 40–100ms
 
@@ -501,7 +540,7 @@ export function createDrumMachine(audioContext) {
 
     // Final highpass at 7000 Hz
     const hpf = ctx.createBiquadFilter();
-    hpf.type           = 'highpass';
+    hpf.type = 'highpass';
     hpf.frequency.value = 7000;
     hpf.connect(chVca);
 
@@ -511,12 +550,10 @@ export function createDrumMachine(audioContext) {
   function _triggerCY(velocity, time, accent) {
     if (!ctx) return;
     const p = _voiceParams.CY;
-    let velScale   = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
+    let velScale = velocity === 1 ? 0.5 : velocity === 2 ? 0.75 : 1.0;
     if (accent) velScale = Math.min(1.0, velScale * 1.4);
-    const decayTime = accent
-      ? (1.5 + p.decay * 3.0) * 0.8
-      : (1.5 + p.decay * 3.0); // 1.5–4.5s
-    const tuneMult  = Math.pow(2, (p.tune - 0.5) * 0.5);
+    const decayTime = accent ? (1.5 + p.decay * 3.0) * 0.8 : 1.5 + p.decay * 3.0; // 1.5–4.5s
+    const tuneMult = Math.pow(2, (p.tune - 0.5) * 0.5);
 
     const cyVca = ctx.createGain();
     cyVca.gain.setValueAtTime(0, time);
@@ -526,49 +563,63 @@ export function createDrumMachine(audioContext) {
 
     // Attack click transient
     const clickNoise = _createNoiseSource();
-    const clickHpf   = ctx.createBiquadFilter();
-    clickHpf.type           = 'highpass';
+    const clickHpf = ctx.createBiquadFilter();
+    clickHpf.type = 'highpass';
     clickHpf.frequency.value = 5000;
     const clickGain = ctx.createGain();
     clickGain.gain.setValueAtTime(0, time);
     clickGain.gain.linearRampToValueAtTime(0.25 * velScale, time + 0.0005);
     clickGain.gain.exponentialRampToValueAtTime(0.001, time + 0.004);
-    clickNoise.connect(clickHpf); clickHpf.connect(clickGain); clickGain.connect(_voiceGains.CY);
-    clickNoise.start(time); clickNoise.stop(time + 0.008);
+    clickNoise.connect(clickHpf);
+    clickHpf.connect(clickGain);
+    clickGain.connect(_voiceGains.CY);
+    clickNoise.start(time);
+    clickNoise.stop(time + 0.008);
 
-    const CY_FREQS = [205.3 * tuneMult, 309.1 * tuneMult, 416.7 * tuneMult,
-                      522.4 * tuneMult * 1.02, 633.8 * tuneMult * 1.01, 769.2 * tuneMult];
+    const CY_FREQS = [
+      205.3 * tuneMult,
+      309.1 * tuneMult,
+      416.7 * tuneMult,
+      522.4 * tuneMult * 1.02,
+      633.8 * tuneMult * 1.01,
+      769.2 * tuneMult,
+    ];
 
     const bpf = ctx.createBiquadFilter();
-    bpf.type           = 'bandpass';
+    bpf.type = 'bandpass';
     bpf.frequency.value = 6000 * tuneMult;
-    bpf.Q.value         = 0.3;
+    bpf.Q.value = 0.3;
 
     const hpf = ctx.createBiquadFilter();
-    hpf.type           = 'highpass';
+    hpf.type = 'highpass';
     hpf.frequency.value = 4000;
 
     // Noise sizzle layer
-    const noise    = _createNoiseSource();
+    const noise = _createNoiseSource();
     const noiseBpf = ctx.createBiquadFilter();
-    noiseBpf.type           = 'bandpass';
+    noiseBpf.type = 'bandpass';
     noiseBpf.frequency.value = 8000;
-    noiseBpf.Q.value         = 1.0;
+    noiseBpf.Q.value = 1.0;
     const noiseVca = ctx.createGain();
     noiseVca.gain.setValueAtTime(0, time);
     noiseVca.gain.linearRampToValueAtTime(0.15 * velScale, time + 0.002);
     noiseVca.gain.exponentialRampToValueAtTime(0.001, time + decayTime * 0.7);
-    noise.connect(noiseBpf); noiseBpf.connect(noiseVca); noiseVca.connect(cyVca);
-    noise.start(time); noise.stop(time + decayTime * 0.75);
+    noise.connect(noiseBpf);
+    noiseBpf.connect(noiseVca);
+    noiseVca.connect(cyVca);
+    noise.start(time);
+    noise.stop(time + decayTime * 0.75);
 
-    CY_FREQS.forEach(freq => {
+    CY_FREQS.forEach((freq) => {
       const osc = ctx.createOscillator();
       osc.type = 'square';
       osc.frequency.value = freq;
       const g = ctx.createGain();
       g.gain.value = 0.15 / CY_FREQS.length;
-      osc.connect(g); g.connect(bpf);
-      osc.start(time); osc.stop(time + decayTime + 0.05);
+      osc.connect(g);
+      g.connect(bpf);
+      osc.start(time);
+      osc.stop(time + decayTime + 0.05);
     });
 
     bpf.connect(hpf);
@@ -584,52 +635,73 @@ export function createDrumMachine(audioContext) {
   function _applyMuteGain(voice) {
     if (!ctx || !_voiceGains[voice]) return;
     const audible = _isVoiceAudible(voice);
-    _voiceGains[voice].gain.setTargetAtTime(
-      audible ? _voiceParams[voice].volume : 0,
-      ctx.currentTime, 0.01
-    );
+    _voiceGains[voice].gain.setTargetAtTime(audible ? _voiceParams[voice].volume : 0, ctx.currentTime, 0.01);
   }
 
   function _refreshAllMuteGains() {
-    VOICES.forEach(v => _applyMuteGain(v));
+    VOICES.forEach((v) => _applyMuteGain(v));
   }
 
   // ── Master trigger dispatcher ─────────────────────────────────────────────
   function _triggerVoice(voice, velocity, time, accent) {
     if (!ctx) return;
-    const now    = time ?? ctx.currentTime;
-    const v      = velocity ?? 3;
-    const ac     = accent ?? false;
-    const p      = _voiceParams[voice];
+    const now = time ?? ctx.currentTime;
+    const v = velocity ?? 3;
+    const ac = accent ?? false;
+    const p = _voiceParams[voice];
 
     if (!_isVoiceAudible(voice)) return;
 
     _flashPad(voice);
     _flashVU(voice);
 
-    window.dispatchEvent(new CustomEvent('confustudio:note:on', {
-      detail: { source: 'drum_machine', voice, velocity: v, time: now },
-    }));
+    window.dispatchEvent(
+      new CustomEvent('confustudio:note:on', {
+        detail: { source: 'drum_machine', voice, velocity: v, time: now },
+      }),
+    );
 
     switch (voice) {
-      case 'BD': _triggerBD(v, now, ac); break;
-      case 'SD': _triggerSD(v, now, ac); break;
-      case 'LT': _triggerTom('LT', 80  + p.tune * 60,  200, v, now, ac); break;
-      case 'MT': _triggerTom('MT', 110 + p.tune * 80,  180, v, now, ac); break;
-      case 'HT': _triggerTom('HT', 160 + p.tune * 100, 160, v, now, ac); break;
-      case 'RS': _triggerRS(v, now, ac); break;
-      case 'CP': _triggerCP(v, now, ac); break;
-      case 'CB': _triggerCB(v, now, ac); break;
-      case 'OH': _triggerOH(v, now, ac); break;
-      case 'CH': _triggerCH(v, now, ac); break;
-      case 'CY': _triggerCY(v, now, ac); break;
+      case 'BD':
+        _triggerBD(v, now, ac);
+        break;
+      case 'SD':
+        _triggerSD(v, now, ac);
+        break;
+      case 'LT':
+        _triggerTom('LT', 80 + p.tune * 60, 200, v, now, ac);
+        break;
+      case 'MT':
+        _triggerTom('MT', 110 + p.tune * 80, 180, v, now, ac);
+        break;
+      case 'HT':
+        _triggerTom('HT', 160 + p.tune * 100, 160, v, now, ac);
+        break;
+      case 'RS':
+        _triggerRS(v, now, ac);
+        break;
+      case 'CP':
+        _triggerCP(v, now, ac);
+        break;
+      case 'CB':
+        _triggerCB(v, now, ac);
+        break;
+      case 'OH':
+        _triggerOH(v, now, ac);
+        break;
+      case 'CH':
+        _triggerCH(v, now, ac);
+        break;
+      case 'CY':
+        _triggerCY(v, now, ac);
+        break;
     }
   }
 
   // ── Sequencer step trigger ────────────────────────────────────────────────
   function _triggerStep(stepIdx, schedTime) {
     const now = schedTime ?? (ctx ? ctx.currentTime : 0);
-    VOICES.forEach(voice => {
+    VOICES.forEach((voice) => {
       const step = _steps[voice][stepIdx];
       if (step.active && step.velocity > 0) {
         _triggerVoice(voice, step.velocity, now, step.accent);
@@ -641,7 +713,7 @@ export function createDrumMachine(audioContext) {
   // ── Swing offset helper ───────────────────────────────────────────────────
   function _swingOffset(stepIdx, stepDurationSec) {
     // Odd steps (0-indexed: 1, 3, 5...) are delayed
-    if (_swing > 0 && (stepIdx % 2) === 1) {
+    if (_swing > 0 && stepIdx % 2 === 1) {
       return _swing * stepDurationSec * 0.33;
     }
     return 0;
@@ -649,12 +721,12 @@ export function createDrumMachine(audioContext) {
 
   // ── Standalone transport (look-ahead scheduler) ───────────────────────────
   const _scheduleAheadTime = 0.1; // seconds
-  const _lookaheadMs       = 25;  // ms between scheduler calls
-  let _nextStepTime      = 0;
-  let _schedTimer        = null;
+  const _lookaheadMs = 25; // ms between scheduler calls
+  let _nextStepTime = 0;
+  let _schedTimer = null;
 
   function _getStepDuration() {
-    return (60 / _standaloneBPM) / 4; // 16th note
+    return 60 / _standaloneBPM / 4; // 16th note
   }
 
   function _scheduleNext() {
@@ -662,20 +734,23 @@ export function createDrumMachine(audioContext) {
     while (_nextStepTime < ctx.currentTime + _scheduleAheadTime) {
       const swingDelay = _swingOffset(_seqStep, stepDur);
       _triggerStep(_seqStep, _nextStepTime + swingDelay);
-      _seqStep    = (_seqStep + 1) % 16;
+      _seqStep = (_seqStep + 1) % 16;
       _nextStepTime += stepDur;
     }
   }
 
   function _startStandalone() {
     if (_schedTimer) clearInterval(_schedTimer);
-    _seqStep      = 0;
+    _seqStep = 0;
     _nextStepTime = ctx ? ctx.currentTime : 0;
-    _schedTimer   = setInterval(_scheduleNext, _lookaheadMs);
+    _schedTimer = setInterval(_scheduleNext, _lookaheadMs);
   }
 
   function _stopStandalone() {
-    if (_schedTimer) { clearInterval(_schedTimer); _schedTimer = null; }
+    if (_schedTimer) {
+      clearInterval(_schedTimer);
+      _schedTimer = null;
+    }
     _highlightStep(-1);
   }
 
@@ -690,9 +765,7 @@ export function createDrumMachine(audioContext) {
     }
     if (_schedTimer) _stopStandalone();
     const s = typeof step === 'number' ? step % 16 : _seqStep;
-    const schedTime = (typeof clockTime === 'number' && ctx)
-      ? clockTime
-      : (ctx ? ctx.currentTime : 0);
+    const schedTime = typeof clockTime === 'number' && ctx ? clockTime : ctx ? ctx.currentTime : 0;
     const stepDur = _getStepDuration();
     const swingDelay = _swingOffset(s, stepDur);
     _triggerStep(s, schedTime + swingDelay);
@@ -1139,17 +1212,19 @@ export function createDrumMachine(audioContext) {
   el.dataset.moduleType = 'drum_machine';
 
   // Pad row HTML: each pad gets a VU meter + mute button
-  const padsHtml = VOICES.map(v => `
+  const padsHtml = VOICES.map(
+    (v) => `
     <div class="drum-machine-pad-wrap">
       <div class="drum-machine-pad" data-voice="${v}" title="${VOICE_LABELS[v]}"></div>
       <div class="drum-machine-vu"><div class="drum-machine-vu-bar" data-vu="${v}"></div></div>
       <span class="drum-machine-pad-label">${v}</span>
       <button class="drum-machine-mute-btn" data-mute="${v}" title="Mute/Solo ${v}">M</button>
     </div>
-  `).join('');
+  `,
+  ).join('');
 
   // Voice knob mini-rows: tune + decay + volume + optional snappy per voice
-  const voiceKnobsHtml = VOICES.map(v => {
+  const voiceKnobsHtml = VOICES.map((v) => {
     const p = _voiceParams[v];
     const knobAngle = (val) => -135 + val * 270;
     const hasSnappy = v === 'SD';
@@ -1165,12 +1240,16 @@ export function createDrumMachine(audioContext) {
                style="--r: ${knobAngle(p.decay)}deg" title="${v} Decay"></div>
           <span class="drum-machine-mini-label">DEC</span>
         </div>
-        ${hasSnappy ? `
+        ${
+          hasSnappy
+            ? `
         <div class="drum-machine-mini-knob-wrap">
           <div class="drum-machine-mini-knob" data-voice="${v}" data-param="snappy"
                style="--r: ${knobAngle(p.snappy ?? 0.5)}deg" title="${v} Snappy"></div>
           <span class="drum-machine-mini-label">SNP</span>
-        </div>` : ''}
+        </div>`
+            : ''
+        }
         <div class="drum-machine-mini-knob-wrap">
           <div class="drum-machine-mini-knob" data-voice="${v}" data-param="volume"
                style="--r: ${knobAngle(p.volume)}deg" title="${v} Volume"></div>
@@ -1181,14 +1260,13 @@ export function createDrumMachine(audioContext) {
   }).join('');
 
   // Step sequencer rows — each step has an accent-dot child element
-  const seqRowsHtml = VOICES.map(v => {
+  const seqRowsHtml = VOICES.map((v) => {
     const stepsHtml = Array.from({ length: 16 }, (_, i) => {
       const step = _steps[v][i];
       let cls = '';
       if (step.active) {
-        cls = step.velocity === 1 ? 'active active-low'
-            : step.velocity === 2 ? 'active active-mid'
-            : 'active active-high';
+        cls =
+          step.velocity === 1 ? 'active active-low' : step.velocity === 2 ? 'active active-mid' : 'active active-high';
       }
       if (step.accent) cls += ' accented';
       return `<div class="drum-machine-step ${cls}" data-voice="${v}" data-step="${i}"><span class="accent-dot"></span></div>`;
@@ -1202,8 +1280,8 @@ export function createDrumMachine(audioContext) {
   }).join('');
 
   // Pattern slot buttons HTML
-  const patternSlotsHtml = PATTERN_SLOTS.map(s =>
-    `<button class="drum-machine-slot-btn${s === 'A' ? ' active' : ''}" data-slot="${s}">${s}</button>`
+  const patternSlotsHtml = PATTERN_SLOTS.map(
+    (s) => `<button class="drum-machine-slot-btn${s === 'A' ? ' active' : ''}" data-slot="${s}">${s}</button>`,
   ).join('');
 
   el.innerHTML = `
@@ -1253,7 +1331,7 @@ export function createDrumMachine(audioContext) {
   }
 
   // Initialize knob rotations
-  el.querySelectorAll('.drum-machine-mini-knob').forEach(knob => {
+  el.querySelectorAll('.drum-machine-mini-knob').forEach((knob) => {
     const voice = knob.dataset.voice;
     const param = knob.dataset.param;
     const val = _voiceParams[voice]?.[param] ?? 0.5;
@@ -1265,23 +1343,24 @@ export function createDrumMachine(audioContext) {
 
   // ── Knob drag interaction ─────────────────────────────────────────────────
   function _attachKnobDrag(knobEl, getter, setter) {
-    let startY = 0, startVal = 0;
-    knobEl.addEventListener('pointerdown', e => {
+    let startY = 0,
+      startVal = 0;
+    knobEl.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       knobEl.setPointerCapture(e.pointerId);
-      startY   = e.clientY;
+      startY = e.clientY;
       startVal = getter();
     });
-    knobEl.addEventListener('pointermove', e => {
+    knobEl.addEventListener('pointermove', (e) => {
       if (!e.buttons) return;
-      const delta  = (startY - e.clientY) / 150;
+      const delta = (startY - e.clientY) / 150;
       const newVal = Math.max(0, Math.min(1, startVal + delta));
       setter(newVal);
       _setKnobRotation(knobEl, newVal);
     });
   }
 
-  el.querySelectorAll('.drum-machine-mini-knob').forEach(knob => {
+  el.querySelectorAll('.drum-machine-mini-knob').forEach((knob) => {
     const voice = knob.dataset.voice;
     const param = knob.dataset.param;
     _attachKnobDrag(
@@ -1294,7 +1373,7 @@ export function createDrumMachine(audioContext) {
             _voiceGains[voice].gain.setTargetAtTime(val, ctx.currentTime, 0.02);
           }
         }
-      }
+      },
     );
   });
 
@@ -1305,19 +1384,21 @@ export function createDrumMachine(audioContext) {
     (val) => {
       _masterVolume = val;
       if (ctx && masterGain) masterGain.gain.setTargetAtTime(val, ctx.currentTime, 0.02);
-    }
+    },
   );
 
   const swingKnob = el.querySelector(`#${_id}-swing`);
   _attachKnobDrag(
     swingKnob,
     () => _swing,
-    (val) => { _swing = val; }
+    (val) => {
+      _swing = val;
+    },
   );
 
   // ── BPM display ───────────────────────────────────────────────────────────
   const bpmDisplay = el.querySelector(`#${_id}-bpm`);
-  bpmDisplay?.addEventListener('wheel', e => {
+  bpmDisplay?.addEventListener('wheel', (e) => {
     e.preventDefault();
     _standaloneBPM = Math.max(40, Math.min(280, _standaloneBPM - Math.sign(e.deltaY)));
     bpmDisplay.textContent = _standaloneBPM;
@@ -1335,8 +1416,8 @@ export function createDrumMachine(audioContext) {
   });
 
   // ── Pad triggers ─────────────────────────────────────────────────────────
-  el.querySelectorAll('.drum-machine-pad').forEach(pad => {
-    pad.addEventListener('pointerdown', e => {
+  el.querySelectorAll('.drum-machine-pad').forEach((pad) => {
+    pad.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       if (ctx && ctx.state === 'suspended') ctx.resume();
       _triggerVoice(pad.dataset.voice, 3, undefined, false);
@@ -1344,34 +1425,34 @@ export function createDrumMachine(audioContext) {
   });
 
   // ── Step buttons — left-click cycles velocity, right-click toggles accent ─
-  el.querySelectorAll('.drum-machine-step').forEach(stepEl => {
-    stepEl.addEventListener('click', e => {
+  el.querySelectorAll('.drum-machine-step').forEach((stepEl) => {
+    stepEl.addEventListener('click', (e) => {
       e.preventDefault();
       const voice = stepEl.dataset.voice;
-      const i     = parseInt(stepEl.dataset.step);
-      const step  = _steps[voice][i];
+      const i = parseInt(stepEl.dataset.step);
+      const step = _steps[voice][i];
 
       if (!step.active) {
-        step.active   = true;
+        step.active = true;
         step.velocity = 3;
       } else if (step.velocity === 3) {
         step.velocity = 2;
       } else if (step.velocity === 2) {
         step.velocity = 1;
       } else {
-        step.active   = false;
+        step.active = false;
         step.velocity = 0;
-        step.accent   = false;
+        step.accent = false;
       }
 
       _updateStepEl(stepEl, step);
     });
 
-    stepEl.addEventListener('contextmenu', e => {
+    stepEl.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       const voice = stepEl.dataset.voice;
-      const i     = parseInt(stepEl.dataset.step);
-      const step  = _steps[voice][i];
+      const i = parseInt(stepEl.dataset.step);
+      const step = _steps[voice][i];
       if (!step.active) return;
       step.accent = !step.accent;
       _updateStepEl(stepEl, step);
@@ -1379,11 +1460,11 @@ export function createDrumMachine(audioContext) {
   });
 
   function _updateStepEl(stepEl, step) {
-    stepEl.classList.toggle('active',      step.active);
-    stepEl.classList.toggle('active-low',  step.active && step.velocity === 1);
-    stepEl.classList.toggle('active-mid',  step.active && step.velocity === 2);
+    stepEl.classList.toggle('active', step.active);
+    stepEl.classList.toggle('active-low', step.active && step.velocity === 1);
+    stepEl.classList.toggle('active-mid', step.active && step.velocity === 2);
     stepEl.classList.toggle('active-high', step.active && step.velocity === 3);
-    stepEl.classList.toggle('accented',    step.active && step.accent);
+    stepEl.classList.toggle('accented', step.active && step.accent);
   }
 
   // ── Pattern slot switching ────────────────────────────────────────────────
@@ -1394,47 +1475,47 @@ export function createDrumMachine(audioContext) {
     _steps = _patternSlots[slot];
 
     // Update slot button highlights
-    el.querySelectorAll('.drum-machine-slot-btn').forEach(btn => {
+    el.querySelectorAll('.drum-machine-slot-btn').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.slot === slot);
     });
 
     // Refresh all step button visuals
-    el.querySelectorAll('.drum-machine-step').forEach(stepEl => {
+    el.querySelectorAll('.drum-machine-step').forEach((stepEl) => {
       const voice = stepEl.dataset.voice;
-      const i     = parseInt(stepEl.dataset.step);
+      const i = parseInt(stepEl.dataset.step);
       _updateStepEl(stepEl, _steps[voice][i]);
     });
   }
 
-  el.querySelectorAll('.drum-machine-slot-btn').forEach(btn => {
+  el.querySelectorAll('.drum-machine-slot-btn').forEach((btn) => {
     btn.addEventListener('click', () => _switchSlot(btn.dataset.slot));
   });
 
   el.querySelector(`#${_id}-copy`)?.addEventListener('click', () => {
     // Deep copy current slot
     _clipboardPattern = {};
-    VOICES.forEach(v => {
-      _clipboardPattern[v] = _steps[v].map(s => ({ ...s }));
+    VOICES.forEach((v) => {
+      _clipboardPattern[v] = _steps[v].map((s) => ({ ...s }));
     });
   });
 
   el.querySelector(`#${_id}-paste`)?.addEventListener('click', () => {
     if (!_clipboardPattern) return;
-    VOICES.forEach(v => {
-      _steps[v] = _clipboardPattern[v].map(s => ({ ...s }));
+    VOICES.forEach((v) => {
+      _steps[v] = _clipboardPattern[v].map((s) => ({ ...s }));
       _patternSlots[_activeSlot][v] = _steps[v];
     });
     // Refresh UI
-    el.querySelectorAll('.drum-machine-step').forEach(stepEl => {
+    el.querySelectorAll('.drum-machine-step').forEach((stepEl) => {
       const voice = stepEl.dataset.voice;
-      const i     = parseInt(stepEl.dataset.step);
+      const i = parseInt(stepEl.dataset.step);
       _updateStepEl(stepEl, _steps[voice][i]);
     });
   });
 
   // ── Mute / Solo buttons ───────────────────────────────────────────────────
-  el.querySelectorAll('.drum-machine-mute-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
+  el.querySelectorAll('.drum-machine-mute-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const voice = btn.dataset.mute;
       if (_soloVoice === voice) {
@@ -1445,7 +1526,7 @@ export function createDrumMachine(audioContext) {
       } else if (e.shiftKey) {
         // Shift+click: solo
         _soloVoice = voice;
-        el.querySelectorAll('.drum-machine-mute-btn').forEach(b => {
+        el.querySelectorAll('.drum-machine-mute-btn').forEach((b) => {
           b.classList.remove('muted', 'solo');
           b.textContent = 'M';
         });
@@ -1510,7 +1591,7 @@ export function createDrumMachine(audioContext) {
 
   // ── Step highlight ─────────────────────────────────────────────────────────
   function _highlightStep(stepIdx) {
-    el.querySelectorAll('.drum-machine-step').forEach(s => {
+    el.querySelectorAll('.drum-machine-step').forEach((s) => {
       s.classList.toggle('playing', parseInt(s.dataset.step) === stepIdx);
     });
   }
@@ -1534,11 +1615,13 @@ export function createDrumMachine(audioContext) {
     bar.classList.remove('fade');
     bar.classList.add('flash');
     // Use double rAF to let the browser apply the 'flash' class first
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      bar.classList.remove('flash');
-      bar.classList.add('fade');
-      _vuTimers[voice] = setTimeout(() => bar.classList.remove('fade'), 280);
-    }));
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        bar.classList.remove('flash');
+        bar.classList.add('fade');
+        _vuTimers[voice] = setTimeout(() => bar.classList.remove('fade'), 280);
+      }),
+    );
   }
 
   // ── Cable autoconnect ─────────────────────────────────────────────────────

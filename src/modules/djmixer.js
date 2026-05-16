@@ -50,7 +50,7 @@ export function createDJMixer(audioContext) {
         </div>
         <div class="djm-fader-wrap">
           <div class="djm-level-meter" data-ch="1">
-            ${Array.from({length:12}, (_,i) => `<span class="djm-seg" data-seg="${i+1}"></span>`).join('')}
+            ${Array.from({ length: 12 }, (_, i) => `<span class="djm-seg" data-seg="${i + 1}"></span>`).join('')}
           </div>
           <input type="range" class="djm-fader" data-param="fader" data-ch="1"
             orient="vertical" min="0" max="1" step="0.01" value="1" />
@@ -114,7 +114,7 @@ export function createDJMixer(audioContext) {
         </div>
         <div class="djm-fader-wrap">
           <div class="djm-level-meter" data-ch="2">
-            ${Array.from({length:12}, (_,i) => `<span class="djm-seg" data-seg="${i+1}"></span>`).join('')}
+            ${Array.from({ length: 12 }, (_, i) => `<span class="djm-seg" data-seg="${i + 1}"></span>`).join('')}
           </div>
           <input type="range" class="djm-fader" data-param="fader" data-ch="2"
             orient="vertical" min="0" max="1" step="0.01" value="1" />
@@ -127,21 +127,29 @@ export function createDJMixer(audioContext) {
   let ch1, ch2, masterGain, xfCh1, xfCh2;
 
   function makeChannel(ctx) {
-    const input   = ctx.createGain();
+    const input = ctx.createGain();
     // GAIN TRIM — ±6 dB level-matching gain before EQ (knob centre = 0 dB)
-    const trim    = ctx.createGain(); trim.gain.value = 1;
-    const hiEQ    = ctx.createBiquadFilter(); hiEQ.type = 'highshelf'; hiEQ.frequency.value = 10000;
-    const midEQ   = ctx.createBiquadFilter(); midEQ.type = 'peaking';  midEQ.frequency.value = 1000; midEQ.Q.value = 1;
-    const loEQ    = ctx.createBiquadFilter(); loEQ.type  = 'lowshelf';  loEQ.frequency.value = 200;
+    const trim = ctx.createGain();
+    trim.gain.value = 1;
+    const hiEQ = ctx.createBiquadFilter();
+    hiEQ.type = 'highshelf';
+    hiEQ.frequency.value = 10000;
+    const midEQ = ctx.createBiquadFilter();
+    midEQ.type = 'peaking';
+    midEQ.frequency.value = 1000;
+    midEQ.Q.value = 1;
+    const loEQ = ctx.createBiquadFilter();
+    loEQ.type = 'lowshelf';
+    loEQ.frequency.value = 200;
 
     // Filter sweep node: HPF/LPF depending on knob direction
     // Centre = flat (bypass via 0dB shelf), left = LPF darkens, right = HPF brightens
-    const filter  = ctx.createBiquadFilter();
-    filter.type   = 'lowpass';
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
     filter.frequency.value = ctx.sampleRate / 2; // fully open = flat
 
-    const fader   = ctx.createGain();
-    const output  = ctx.createGain();
+    const fader = ctx.createGain();
+    const output = ctx.createGain();
 
     // AnalyserNode for per-channel peak metering
     const analyser = ctx.createAnalyser();
@@ -149,12 +157,19 @@ export function createDJMixer(audioContext) {
     analyser.smoothingTimeConstant = 0.1;
     const _peakBuf = new Float32Array(analyser.fftSize);
 
-    input.connect(trim); trim.connect(hiEQ); hiEQ.connect(midEQ); midEQ.connect(loEQ);
-    loEQ.connect(filter); filter.connect(fader); fader.connect(output);
+    input.connect(trim);
+    trim.connect(hiEQ);
+    hiEQ.connect(midEQ);
+    midEQ.connect(loEQ);
+    loEQ.connect(filter);
+    filter.connect(fader);
+    fader.connect(output);
     output.connect(analyser); // tap for metering (doesn't affect signal path)
 
     // EQ gain range: -18dB to +6dB (knob 0→1 maps to -18→+6)
-    function setEQ(node, v) { node.gain.setTargetAtTime((v - 0.75) * 24, ctx.currentTime, 0.02); }
+    function setEQ(node, v) {
+      node.gain.setTargetAtTime((v - 0.75) * 24, ctx.currentTime, 0.02);
+    }
 
     // Trim: knob 0→1 maps to -6dB → +6dB
     function setTrim(v) {
@@ -200,8 +215,8 @@ export function createDJMixer(audioContext) {
   }
 
   function setXfader(v) {
-    xfCh1.gain.setTargetAtTime(Math.cos(v * Math.PI / 2), audioContext.currentTime, 0.02);
-    xfCh2.gain.setTargetAtTime(Math.sin(v * Math.PI / 2), audioContext.currentTime, 0.02);
+    xfCh1.gain.setTargetAtTime(Math.cos((v * Math.PI) / 2), audioContext.currentTime, 0.02);
+    xfCh2.gain.setTargetAtTime(Math.sin((v * Math.PI) / 2), audioContext.currentTime, 0.02);
   }
 
   if (audioContext) {
@@ -213,8 +228,10 @@ export function createDJMixer(audioContext) {
 
     xfCh1 = ctx.createGain();
     xfCh2 = ctx.createGain();
-    ch1.output.connect(xfCh1); xfCh1.connect(masterGain);
-    ch2.output.connect(xfCh2); xfCh2.connect(masterGain);
+    ch1.output.connect(xfCh1);
+    xfCh1.connect(masterGain);
+    ch2.output.connect(xfCh2);
+    xfCh2.connect(masterGain);
     masterGain.connect(ctx.destination);
 
     setXfader(0.5); // init centre
@@ -223,9 +240,13 @@ export function createDJMixer(audioContext) {
     el._djmAudio = {
       ch1Input: ch1.input,
       ch2Input: ch2.input,
-      output:   masterGain,
-      disconnectFromDestination() { masterGain.disconnect(); },
-      connectToDestination()      { masterGain.connect(ctx.destination); },
+      output: masterGain,
+      disconnectFromDestination() {
+        masterGain.disconnect();
+      },
+      connectToDestination() {
+        masterGain.connect(ctx.destination);
+      },
     };
 
     // ── Peak LED animation loop ──────────────────────────────────────────────
@@ -235,8 +256,10 @@ export function createDJMixer(audioContext) {
     const portLed2 = el.querySelector('.djm-port[data-port="ch2-in"]');
     const meter1 = Array.from(el.querySelectorAll('.djm-level-meter[data-ch="1"] .djm-seg'));
     const meter2 = Array.from(el.querySelectorAll('.djm-level-meter[data-ch="2"] .djm-seg'));
-    let _peakHold1 = 0, _peakHold2 = 0;
-    let _peakHoldTimer1 = null, _peakHoldTimer2 = null;
+    let _peakHold1 = 0,
+      _peakHold2 = 0;
+    let _peakHoldTimer1 = null,
+      _peakHoldTimer2 = null;
 
     function updateMeter(segments, peak) {
       const litCount = Math.max(0, Math.min(segments.length, Math.ceil(peak * segments.length)));
@@ -258,23 +281,27 @@ export function createDJMixer(audioContext) {
       if (p1 > 0.85) {
         _peakHold1 = p1;
         clearTimeout(_peakHoldTimer1);
-        _peakHoldTimer1 = setTimeout(() => { _peakHold1 = 0; }, 1000);
+        _peakHoldTimer1 = setTimeout(() => {
+          _peakHold1 = 0;
+        }, 1000);
       }
       if (p2 > 0.85) {
         _peakHold2 = p2;
         clearTimeout(_peakHoldTimer2);
-        _peakHoldTimer2 = setTimeout(() => { _peakHold2 = 0; }, 1000);
+        _peakHoldTimer2 = setTimeout(() => {
+          _peakHold2 = 0;
+        }, 1000);
       }
 
       if (peakLed1) {
         const level = Math.max(p1, _peakHold1);
         peakLed1.style.background = level > 0.85 ? '#f55' : level > 0.6 ? '#fa0' : level > 0.2 ? '#5d5' : '#333';
-        peakLed1.style.boxShadow  = level > 0.85 ? '0 0 4px #f55' : level > 0.6 ? '0 0 3px #fa0' : 'none';
+        peakLed1.style.boxShadow = level > 0.85 ? '0 0 4px #f55' : level > 0.6 ? '0 0 3px #fa0' : 'none';
       }
       if (peakLed2) {
         const level = Math.max(p2, _peakHold2);
         peakLed2.style.background = level > 0.85 ? '#f55' : level > 0.6 ? '#fa0' : level > 0.2 ? '#5d5' : '#333';
-        peakLed2.style.boxShadow  = level > 0.85 ? '0 0 4px #f55' : level > 0.6 ? '0 0 3px #fa0' : 'none';
+        peakLed2.style.boxShadow = level > 0.85 ? '0 0 4px #f55' : level > 0.6 ? '0 0 3px #fa0' : 'none';
       }
       if (portLed1) {
         portLed1.classList.toggle('has-signal', p1 > 0.08);
@@ -294,22 +321,23 @@ export function createDJMixer(audioContext) {
 
   // ── Make knobs draggable (visual + audio) ──
   const knobState = {};
-  el.querySelectorAll('.djm-knob').forEach(knob => {
+  el.querySelectorAll('.djm-knob').forEach((knob) => {
     const param = knob.dataset.param;
     const chNum = knob.dataset.ch;
     const key = `${chNum}-${param}`;
     // Default values: trim and filter default to 0.5 (centre), others to 0.75
-    knobState[key] = (param === 'trim' || param === 'filter') ? 0.5 : 0.75;
+    knobState[key] = param === 'trim' || param === 'filter' ? 0.5 : 0.75;
     updateKnobVisual(knob, knobState[key]);
 
-    let startY = 0, startVal = 0;
-    knob.addEventListener('pointerdown', e => {
+    let startY = 0,
+      startVal = 0;
+    knob.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       knob.setPointerCapture(e.pointerId);
       startY = e.clientY;
       startVal = knobState[key] ?? 0.5;
     });
-    knob.addEventListener('pointermove', e => {
+    knob.addEventListener('pointermove', (e) => {
       if (!e.buttons) return;
       const delta = (startY - e.clientY) / 120;
       knobState[key] = Math.max(0, Math.min(1, startVal + delta));
@@ -320,11 +348,11 @@ export function createDJMixer(audioContext) {
       const ch = chNum === '1' ? ch1 : chNum === '2' ? ch2 : null;
 
       if (ch) {
-        if (param === 'hi')     ch.setEQ(ch.hiEQ,  v);
-        if (param === 'mid')    ch.setEQ(ch.midEQ, v);
-        if (param === 'lo')     ch.setEQ(ch.loEQ,  v);
-        if (param === 'gain')   ch.fader.gain.setTargetAtTime(v, audioContext.currentTime, 0.02);
-        if (param === 'trim')   ch.setTrim(v);
+        if (param === 'hi') ch.setEQ(ch.hiEQ, v);
+        if (param === 'mid') ch.setEQ(ch.midEQ, v);
+        if (param === 'lo') ch.setEQ(ch.loEQ, v);
+        if (param === 'gain') ch.fader.gain.setTargetAtTime(v, audioContext.currentTime, 0.02);
+        if (param === 'trim') ch.setTrim(v);
         if (param === 'filter') ch.setFilter(v);
       }
       if (param === 'masterGain' && masterGain) {
@@ -342,7 +370,7 @@ export function createDJMixer(audioContext) {
   }
 
   // ── Fader interaction ──
-  el.querySelectorAll('.djm-fader').forEach(fader => {
+  el.querySelectorAll('.djm-fader').forEach((fader) => {
     fader.addEventListener('input', () => {
       if (!audioContext) return;
       const v = parseFloat(fader.value);
@@ -362,7 +390,7 @@ export function createDJMixer(audioContext) {
   }
 
   // ── Cue buttons ──
-  el.querySelectorAll('.djm-cue-btn').forEach(btn => {
+  el.querySelectorAll('.djm-cue-btn').forEach((btn) => {
     btn.addEventListener('click', () => btn.classList.toggle('active'));
   });
 

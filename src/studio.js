@@ -1,10 +1,28 @@
 import {
-  addModule, applySavedLayoutItem, applyTransform, attachModuleChrome, buildLiveContext,
-  clampViewport, closeModulePicker, enableModuleDrag, fitToWindow,
-  getSelectedModule, getWrapSize, isModuleInteractiveTarget, moduleById,
-  removeModule, saveView, selectModule, shouldHideLensForTarget,
-  shouldStudioCaptureGesture, showModulePicker, spawnDefaultMixer,
-  MIN_SCALE, MAX_SCALE, STUDIO_VIEW_KEY, STUDIO_LAYOUT_KEY,
+  addModule,
+  applySavedLayoutItem,
+  applyTransform,
+  attachModuleChrome,
+  buildLiveContext,
+  clampViewport,
+  closeModulePicker,
+  enableModuleDrag,
+  fitToWindow,
+  getSelectedModule,
+  getWrapSize,
+  isModuleInteractiveTarget,
+  moduleById,
+  removeModule,
+  saveView,
+  selectModule,
+  shouldHideLensForTarget,
+  shouldStudioCaptureGesture,
+  showModulePicker,
+  spawnDefaultMixer,
+  MIN_SCALE,
+  MAX_SCALE,
+  STUDIO_VIEW_KEY,
+  STUDIO_LAYOUT_KEY,
 } from './studio-modules.js';
 
 import { getOverlay, closeOverlay, openManualOverlay, openAssistantOverlay } from './studio-overlay.js';
@@ -173,8 +191,8 @@ export function initStudio() {
 
   function positionZoomLens(clientX, clientY) {
     if (!_zoomLensHost || !_zoomLensClone) return;
-    const left = clientX - (ZOOM_LENS_SIZE / 2);
-    const top = clientY - (ZOOM_LENS_SIZE / 2);
+    const left = clientX - ZOOM_LENS_SIZE / 2;
+    const top = clientY - ZOOM_LENS_SIZE / 2;
     const lensCenterX = ZOOM_LENS_SIZE / 2;
     const lensCenterY = ZOOM_LENS_SIZE / 2;
 
@@ -184,7 +202,7 @@ export function initStudio() {
     _zoomLensCurrentTop = top;
     _zoomLensHost.style.transform = `translate(${left}px, ${top}px)`;
     _zoomLensClone.style.transformOrigin = '0 0';
-    _zoomLensClone.style.transform = `translate(${lensCenterX - (clientX * ZOOM_LENS_SCALE)}px, ${lensCenterY - (clientY * ZOOM_LENS_SCALE)}px) scale(${ZOOM_LENS_SCALE})`;
+    _zoomLensClone.style.transform = `translate(${lensCenterX - clientX * ZOOM_LENS_SCALE}px, ${lensCenterY - clientY * ZOOM_LENS_SCALE}px) scale(${ZOOM_LENS_SCALE})`;
   }
 
   function setZoomLensEnabled(nextEnabled) {
@@ -227,7 +245,10 @@ export function initStudio() {
 
       if (canScrollX) {
         const maxScrollLeft = node.scrollWidth - node.clientWidth;
-        if ((horizontalDirection < 0 && node.scrollLeft > 0) || (horizontalDirection > 0 && node.scrollLeft < maxScrollLeft)) {
+        if (
+          (horizontalDirection < 0 && node.scrollLeft > 0) ||
+          (horizontalDirection > 0 && node.scrollLeft < maxScrollLeft)
+        ) {
           return node;
         }
       }
@@ -310,28 +331,31 @@ export function initStudio() {
   const module0 = canvas.querySelector('#module-0');
   if (module0) {
     if (!module0.style.left) module0.style.left = '40px';
-    if (!module0.style.top)  module0.style.top  = '40px';
+    if (!module0.style.top) module0.style.top = '40px';
     module0.style.position = 'absolute';
     enableModuleDrag(S, module0);
     attachModuleChrome(S, module0);
   }
 
   const hasLayout = restoreLayout();
-  const hasView = restoreView();
-  const initialSelection = (S._restoredSelectedModuleId && canvas.querySelector(`#${S._restoredSelectedModuleId}`))
-    || canvas.querySelector('#module-0')
-    || canvas.querySelector('.studio-module');
+  restoreView();
+  const initialSelection =
+    (S._restoredSelectedModuleId && canvas.querySelector(`#${S._restoredSelectedModuleId}`)) ||
+    canvas.querySelector('#module-0') ||
+    canvas.querySelector('.studio-module');
   if (initialSelection) selectModule(S, initialSelection, { focus: false });
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    fitToWindow(S, { force: true });
-    if (!hasLayout) {
-      spawnDefaultMixer(S);
-    }
-  }));
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      fitToWindow(S, { force: true });
+      if (!hasLayout) {
+        spawnDefaultMixer(S);
+      }
+    }),
+  );
 
-  const zoomInBtn  = document.getElementById('zoom-in');
+  const zoomInBtn = document.getElementById('zoom-in');
   const zoomOutBtn = document.getElementById('zoom-out');
-  if (!zoomInBtn)  console.warn('[studio] #zoom-in button not found');
+  if (!zoomInBtn) console.warn('[studio] #zoom-in button not found');
   if (!zoomOutBtn) console.warn('[studio] #zoom-out button not found');
   zoomInBtn?.addEventListener('click', () => {
     S._userHasPanned = true;
@@ -362,7 +386,9 @@ export function initStudio() {
   });
   document.getElementById('add-module')?.addEventListener('click', () => showModulePicker(S));
   document.getElementById('open-manual')?.addEventListener('click', () => openManualOverlay(hideZoomLens));
-  document.getElementById('open-assistant')?.addEventListener('click', () => openAssistantOverlay(hideZoomLens, () => buildLiveContext(S)));
+  document
+    .getElementById('open-assistant')
+    ?.addEventListener('click', () => openAssistantOverlay(hideZoomLens, () => buildLiveContext(S)));
   getLensToggleButton()?.addEventListener('click', () => {
     setZoomLensEnabled(!_zoomLensEnabled);
   });
@@ -399,7 +425,11 @@ export function initStudio() {
       return;
     }
     if (target && (target.matches('input, textarea, select') || target.isContentEditable)) return;
-    if ((e.key === 'Delete' || e.key === 'Backspace') && getSelectedModule(S) && getSelectedModule(S).id !== 'module-0') {
+    if (
+      (e.key === 'Delete' || e.key === 'Backspace') &&
+      getSelectedModule(S) &&
+      getSelectedModule(S).id !== 'module-0'
+    ) {
       e.preventDefault();
       removeModule(S, getSelectedModule(S));
     }
@@ -407,27 +437,31 @@ export function initStudio() {
 
   // Capture wheel gestures before nested UI surfaces can consume them so
   // trackpad panning stays consistent across the synth chrome.
-  wrap.addEventListener('wheel', (e) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      // ctrl+scroll or meta+scroll → zoom
-      const rect = wrap.getBoundingClientRect();
-      zoomBy(e.deltaY > 0 ? 0.96 : 1.04, e.clientX - rect.left, e.clientY - rect.top);
-    } else {
-      const studioGesture = shouldStudioCaptureGesture(S, e.target);
-      const scrollable = studioGesture ? null : getScrollableAncestor(e.target, e.deltaY, e.deltaX);
-      if (!studioGesture && scrollable) {
-        return;
+  wrap.addEventListener(
+    'wheel',
+    (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        // ctrl+scroll or meta+scroll → zoom
+        const rect = wrap.getBoundingClientRect();
+        zoomBy(e.deltaY > 0 ? 0.96 : 1.04, e.clientX - rect.left, e.clientY - rect.top);
+      } else {
+        const studioGesture = shouldStudioCaptureGesture(S, e.target);
+        const scrollable = studioGesture ? null : getScrollableAncestor(e.target, e.deltaY, e.deltaX);
+        if (!studioGesture && scrollable) {
+          return;
+        }
+        e.preventDefault();
+        // Two-finger trackpad scroll pans the studio unless the gesture started in
+        // a scrollable editor/control that should own the movement.
+        S._userHasPanned = true;
+        S.panX += e.deltaX;
+        S.panY += e.deltaY;
+        clampViewport(S);
       }
-      e.preventDefault();
-      // Two-finger trackpad scroll pans the studio unless the gesture started in
-      // a scrollable editor/control that should own the movement.
-      S._userHasPanned = true;
-      S.panX += e.deltaX;
-      S.panY += e.deltaY;
-      clampViewport(S);
-    }
-  }, { passive: false, capture: true });
+    },
+    { passive: false, capture: true },
+  );
 
   let panning = false;
   let panStartX = 0;
@@ -495,68 +529,80 @@ export function initStudio() {
     return { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
   }
 
-  wrap.addEventListener('touchstart', (e) => {
-    if (e.touches.length === 2) {
-      touchMode = 'pinch';
-      touchDist0 = touchDist(e.touches[0], e.touches[1]);
-      touchScaleStart = S.scale;
-      const mid = touchMid(e.touches[0], e.touches[1]);
-      touchMidX = mid.x;
-      touchMidY = mid.y;
-      e.preventDefault();
-      return;
-    }
+  wrap.addEventListener(
+    'touchstart',
+    (e) => {
+      if (e.touches.length === 2) {
+        touchMode = 'pinch';
+        touchDist0 = touchDist(e.touches[0], e.touches[1]);
+        touchScaleStart = S.scale;
+        const mid = touchMid(e.touches[0], e.touches[1]);
+        touchMidX = mid.x;
+        touchMidY = mid.y;
+        e.preventDefault();
+        return;
+      }
 
-    const onBackground = e.target === wrap || e.target === canvas;
-    if (e.touches.length === 1 && onBackground) {
-      touchMode = 'pan';
-      S._userHasPanned = true;
-      touchMidX = e.touches[0].clientX;
-      touchMidY = e.touches[0].clientY;
-    }
-  }, { passive: false });
+      const onBackground = e.target === wrap || e.target === canvas;
+      if (e.touches.length === 1 && onBackground) {
+        touchMode = 'pan';
+        S._userHasPanned = true;
+        touchMidX = e.touches[0].clientX;
+        touchMidY = e.touches[0].clientY;
+      }
+    },
+    { passive: false },
+  );
 
-  wrap.addEventListener('touchmove', (e) => {
-    if (touchMode === 'pinch' && e.touches.length === 2) {
-      const rect = wrap.getBoundingClientRect();
-      const dist = touchDist(e.touches[0], e.touches[1]);
-      const mid = touchMid(e.touches[0], e.touches[1]);
-      const nextScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, touchScaleStart * (dist / Math.max(touchDist0, 1))));
-      const ratio = nextScale / S.scale;
-      const cx = mid.x - rect.left;
-      const cy = mid.y - rect.top;
-      S.panX = cx - ratio * (cx - S.panX);
-      S.panY = cy - ratio * (cy - S.panY);
-      S.scale = nextScale;
-      S.panX += mid.x - touchMidX;
-      S.panY += mid.y - touchMidY;
-      touchMidX = mid.x;
-      touchMidY = mid.y;
-      clampViewport(S);
-      e.preventDefault();
-      return;
-    }
+  wrap.addEventListener(
+    'touchmove',
+    (e) => {
+      if (touchMode === 'pinch' && e.touches.length === 2) {
+        const rect = wrap.getBoundingClientRect();
+        const dist = touchDist(e.touches[0], e.touches[1]);
+        const mid = touchMid(e.touches[0], e.touches[1]);
+        const nextScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, touchScaleStart * (dist / Math.max(touchDist0, 1))));
+        const ratio = nextScale / S.scale;
+        const cx = mid.x - rect.left;
+        const cy = mid.y - rect.top;
+        S.panX = cx - ratio * (cx - S.panX);
+        S.panY = cy - ratio * (cy - S.panY);
+        S.scale = nextScale;
+        S.panX += mid.x - touchMidX;
+        S.panY += mid.y - touchMidY;
+        touchMidX = mid.x;
+        touchMidY = mid.y;
+        clampViewport(S);
+        e.preventDefault();
+        return;
+      }
 
-    if (touchMode === 'pan' && e.touches.length === 1) {
-      const touch = e.touches[0];
-      S.panX += touch.clientX - touchMidX;
-      S.panY += touch.clientY - touchMidY;
-      touchMidX = touch.clientX;
-      touchMidY = touch.clientY;
-      clampViewport(S);
-      e.preventDefault();
-    }
-  }, { passive: false });
+      if (touchMode === 'pan' && e.touches.length === 1) {
+        const touch = e.touches[0];
+        S.panX += touch.clientX - touchMidX;
+        S.panY += touch.clientY - touchMidY;
+        touchMidX = touch.clientX;
+        touchMidY = touch.clientY;
+        clampViewport(S);
+        e.preventDefault();
+      }
+    },
+    { passive: false },
+  );
 
-  wrap.addEventListener('touchend', () => {
-    if (touchMode === 'pinch') {
-      saveView(S);
-    }
-    if (touchMode === 'pan') {
-      saveView(S);
-    }
-    touchMode = null;
-  }, { passive: true });
+  wrap.addEventListener(
+    'touchend',
+    () => {
+      if (touchMode === 'pinch') {
+        saveView(S);
+      }
+      if (touchMode === 'pan') {
+        saveView(S);
+      }
+      touchMode = null;
+    },
+    { passive: true },
+  );
 
   window.addEventListener('resize', () => {
     if (S._autoZoom) {
@@ -570,7 +616,12 @@ export function initStudio() {
 
   wrap.addEventListener('pointermove', (e) => {
     _zoomLensLastPoint = { clientX: e.clientX, clientY: e.clientY };
-    if (!_zoomLensEnabled || performance.now() < _suppressLensUntil || e.pointerType === 'touch' || wrap.classList.contains('is-panning')) {
+    if (
+      !_zoomLensEnabled ||
+      performance.now() < _suppressLensUntil ||
+      e.pointerType === 'touch' ||
+      wrap.classList.contains('is-panning')
+    ) {
       hideZoomLens();
       return;
     }

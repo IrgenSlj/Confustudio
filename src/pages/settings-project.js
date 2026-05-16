@@ -1,19 +1,14 @@
 // src/pages/settings-project.js — project import/export section
 
-import {
-  saveState,
-  createProjectPackage,
-  applyProjectPackageToState,
-  getActivePattern,
-} from '../state.js';
+import { saveState, createProjectPackage, applyProjectPackageToState, getActivePattern } from '../state.js';
 
 // ─── Stem Export ──────────────────────────────────────────────────────────────
 
 /** Encode a Float32Array AudioBuffer as a 16-bit PCM WAV Blob. */
 function _audioBufferToWavBlob(buffer) {
   const numChannels = buffer.numberOfChannels;
-  const sampleRate  = buffer.sampleRate;
-  const numFrames   = buffer.length;
+  const sampleRate = buffer.sampleRate;
+  const numFrames = buffer.length;
   const bytesPerSample = 2;
   const dataByteLen = numFrames * numChannels * bytesPerSample;
   const ab = new ArrayBuffer(44 + dataByteLen);
@@ -22,20 +17,24 @@ function _audioBufferToWavBlob(buffer) {
   function writeStr(offset, str) {
     for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
   }
-  function writeU16(offset, v) { view.setUint16(offset, v, true); }
-  function writeU32(offset, v) { view.setUint32(offset, v, true); }
+  function writeU16(offset, v) {
+    view.setUint16(offset, v, true);
+  }
+  function writeU32(offset, v) {
+    view.setUint32(offset, v, true);
+  }
 
-  writeStr(0,  'RIFF');
-  writeU32(4,  36 + dataByteLen);
-  writeStr(8,  'WAVE');
+  writeStr(0, 'RIFF');
+  writeU32(4, 36 + dataByteLen);
+  writeStr(8, 'WAVE');
   writeStr(12, 'fmt ');
-  writeU32(16, 16);           // subchunk1 size
-  writeU16(20, 1);            // PCM
+  writeU32(16, 16); // subchunk1 size
+  writeU16(20, 1); // PCM
   writeU16(22, numChannels);
   writeU32(24, sampleRate);
   writeU32(28, sampleRate * numChannels * bytesPerSample);
   writeU16(32, numChannels * bytesPerSample);
-  writeU16(34, 16);           // bits per sample
+  writeU16(34, 16); // bits per sample
   writeStr(36, 'data');
   writeU32(40, dataByteLen);
 
@@ -70,18 +69,22 @@ function _showStemExportModal(state, emit, container) {
 
   const overlay = document.createElement('div');
   overlay.id = '_sc-stem-modal';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center';
+  overlay.style.cssText =
+    'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center';
 
   const modal = document.createElement('div');
-  modal.style.cssText = 'background:var(--surface,#1a1a1a);border:1px solid var(--border,#333);border-radius:8px;padding:16px 20px;min-width:280px;max-width:380px;font-family:var(--font-mono,monospace)';
+  modal.style.cssText =
+    'background:var(--surface,#1a1a1a);border:1px solid var(--border,#333);border-radius:8px;padding:16px 20px;min-width:280px;max-width:380px;font-family:var(--font-mono,monospace)';
 
   const title = document.createElement('div');
-  title.style.cssText = 'font-size:0.7rem;font-weight:700;color:var(--screen-text,#f0c640);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px';
+  title.style.cssText =
+    'font-size:0.7rem;font-weight:700;color:var(--screen-text,#f0c640);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px';
   title.textContent = 'EXPORT STEMS';
 
   const desc = document.createElement('div');
   desc.style.cssText = 'font-size:0.56rem;color:var(--muted,#888);line-height:1.6;margin-bottom:10px';
-  desc.textContent = 'Renders each track to a separate WAV file using OfflineAudioContext. All tracks share the current pattern length and BPM.';
+  desc.textContent =
+    'Renders each track to a separate WAV file using OfflineAudioContext. All tracks share the current pattern length and BPM.';
 
   const tracks = state.project?.banks?.[state.activeBank]?.patterns?.[state.activePattern]?.kit?.tracks ?? [];
   const bpm = state.bpm ?? 120;
@@ -93,11 +96,13 @@ function _showStemExportModal(state, emit, container) {
   const stemRenderingAvailable = Boolean(eng?.renderTrackStem || eng?.renderOfflineTrack);
 
   const infoEl = document.createElement('div');
-  infoEl.style.cssText = 'font-size:0.54rem;color:var(--screen-text,#f0c640);margin-bottom:12px;padding:6px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;background:rgba(0,0,0,0.3)';
+  infoEl.style.cssText =
+    'font-size:0.54rem;color:var(--screen-text,#f0c640);margin-bottom:12px;padding:6px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;background:rgba(0,0,0,0.3)';
   infoEl.innerHTML = `<span style="opacity:0.7">BPM:</span> ${bpm} &nbsp; <span style="opacity:0.7">Bars:</span> ${bars} &nbsp; <span style="opacity:0.7">Duration:</span> ${durationSec.toFixed(2)}s &nbsp; <span style="opacity:0.7">Rate:</span> ${sampleRate}Hz`;
 
   if (!stemRenderingAvailable) {
-    desc.textContent = 'Per-track offline rendering is not implemented in the current engine build yet. Stem export stays disabled until engine render hooks are available.';
+    desc.textContent =
+      'Per-track offline rendering is not implemented in the current engine build yet. Stem export stays disabled until engine render hooks are available.';
   }
 
   const trackList = document.createElement('div');
@@ -106,14 +111,15 @@ function _showStemExportModal(state, emit, container) {
   const checkboxes = [];
   tracks.forEach((trk, ti) => {
     const row = document.createElement('label');
-    row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:0.56rem;color:var(--fg,#ccc);cursor:pointer;padding:2px 0';
+    row.style.cssText =
+      'display:flex;align-items:center;gap:6px;font-size:0.56rem;color:var(--fg,#ccc);cursor:pointer;padding:2px 0';
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = true;
     cb.dataset.trackIndex = String(ti);
     checkboxes.push(cb);
     const name = document.createElement('span');
-    name.textContent = `T${ti+1}: ${trk.name ?? `Track ${ti+1}`}`;
+    name.textContent = `T${ti + 1}: ${trk.name ?? `Track ${ti + 1}`}`;
     row.append(cb, name);
     trackList.append(row);
   });
@@ -148,10 +154,11 @@ function _showStemExportModal(state, emit, container) {
     }
     exportBtn.disabled = true;
     cancelBtn.disabled = true;
-    const selectedIndices = checkboxes.filter(cb => cb.checked).map(cb => parseInt(cb.dataset.trackIndex, 10));
+    const selectedIndices = checkboxes.filter((cb) => cb.checked).map((cb) => parseInt(cb.dataset.trackIndex, 10));
     if (!selectedIndices.length) {
       progressEl.textContent = 'No tracks selected.';
-      exportBtn.disabled = false; cancelBtn.disabled = false;
+      exportBtn.disabled = false;
+      cancelBtn.disabled = false;
       return;
     }
     const projectName = (state.project?.name ?? 'stem').replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -159,27 +166,28 @@ function _showStemExportModal(state, emit, container) {
     if (eng?.renderTrackStem) {
       for (let idx = 0; idx < selectedIndices.length; idx++) {
         const ti = selectedIndices[idx];
-        progressEl.textContent = `Rendering T${ti+1}\u2026  (${idx+1}/${selectedIndices.length})`;
+        progressEl.textContent = `Rendering T${ti + 1}\u2026  (${idx + 1}/${selectedIndices.length})`;
         try {
           const buf = await eng.renderTrackStem(ti, durationSec);
-          _downloadBlob(_audioBufferToWavBlob(buf), `${projectName}_T${ti+1}.wav`);
+          _downloadBlob(_audioBufferToWavBlob(buf), `${projectName}_T${ti + 1}.wav`);
         } catch (err) {
-          progressEl.textContent = `Error on T${ti+1}: ${err.message}`;
+          progressEl.textContent = `Error on T${ti + 1}: ${err.message}`;
         }
       }
       progressEl.textContent = `Done \u2014 ${selectedIndices.length} stem(s) exported.`;
-      exportBtn.disabled = false; cancelBtn.disabled = false;
+      exportBtn.disabled = false;
+      cancelBtn.disabled = false;
       return;
     }
 
     try {
       for (let idx = 0; idx < selectedIndices.length; idx++) {
         const ti = selectedIndices[idx];
-        progressEl.textContent = `Rendering T${ti+1}\u2026  (${idx+1}/${selectedIndices.length})`;
+        progressEl.textContent = `Rendering T${ti + 1}\u2026  (${idx + 1}/${selectedIndices.length})`;
         const offCtx = new OfflineAudioContext(2, Math.ceil(sampleRate * durationSec), sampleRate);
         await eng.renderOfflineTrack(offCtx, ti);
         const rendered = await offCtx.startRendering();
-        const filename = `${projectName}_T${ti+1}.wav`;
+        const filename = `${projectName}_T${ti + 1}.wav`;
         _downloadBlob(_audioBufferToWavBlob(rendered), filename);
       }
       progressEl.style.color = 'var(--live,#5add71)';
@@ -197,7 +205,9 @@ function _showStemExportModal(state, emit, container) {
   overlay.append(modal);
   document.body.append(overlay);
 
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
 }
 
 export function renderProjectSection(container, state, emit, publishLinkBpm) {
@@ -206,7 +216,8 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
 
   const metaSection = document.createElement('div');
   metaSection.className = 'settings-section';
-  metaSection.style.cssText = 'flex-shrink:0;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)';
+  metaSection.style.cssText =
+    'flex-shrink:0;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)';
   metaSection.dataset.settingsTab = 'PROJECT';
   metaSection.innerHTML = `
     <div class="settings-label">PROJECT INFO</div>
@@ -233,7 +244,7 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
   container.append(metaSection);
 
   // Wire metadata inputs
-  metaSection.querySelector('#proj-name-input').addEventListener('input', e => {
+  metaSection.querySelector('#proj-name-input').addEventListener('input', (e) => {
     if (state.project) {
       state.project.name = e.target.value;
       const topbarEl = document.getElementById('project-name');
@@ -241,13 +252,13 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
       saveState(state);
     }
   });
-  metaSection.querySelector('#proj-author-input').addEventListener('blur', e => {
+  metaSection.querySelector('#proj-author-input').addEventListener('blur', (e) => {
     if (state.project) {
       state.project.author = e.target.value;
       saveState(state);
     }
   });
-  metaSection.querySelector('#proj-bpm-input').addEventListener('change', e => {
+  metaSection.querySelector('#proj-bpm-input').addEventListener('change', (e) => {
     const v = Math.max(40, Math.min(240, parseInt(e.target.value, 10) || 120));
     e.target.value = v;
     state.bpm = v;
@@ -255,7 +266,7 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
     if (state.abletonLink) publishLinkBpm(state, v);
     saveState(state);
   });
-  metaSection.querySelector('#proj-desc-input').addEventListener('blur', e => {
+  metaSection.querySelector('#proj-desc-input').addEventListener('blur', (e) => {
     if (state.project) {
       state.project.description = e.target.value;
       saveState(state);
@@ -286,7 +297,7 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
     backupSection.append(actionRow);
 
     const keys = Object.keys(localStorage)
-      .filter(k => k.startsWith('confustudio_backup_') || k.startsWith('confusynth_backup_'))
+      .filter((k) => k.startsWith('confustudio_backup_') || k.startsWith('confusynth_backup_'))
       .sort((a, b) => b.localeCompare(a))
       .slice(0, 5);
 
@@ -296,14 +307,22 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
       none.textContent = 'No backups';
       backupSection.append(none);
     } else {
-      keys.forEach(key => {
+      keys.forEach((key) => {
         let backup = null;
-        try { backup = JSON.parse(localStorage.getItem(key)); } catch (_) {}
-        const rawTs = backup?.timestamp
-          ?? backup?.savedAt
-          ?? parseInt(key.replace('confustudio_backup_', '').replace('confusynth_backup_', ''), 10);
+        try {
+          backup = JSON.parse(localStorage.getItem(key));
+        } catch (_) {}
+        const rawTs =
+          backup?.timestamp ??
+          backup?.savedAt ??
+          parseInt(key.replace('confustudio_backup_', '').replace('confusynth_backup_', ''), 10);
         const date = new Date(rawTs ?? Date.now());
-        const dateStr = date.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const dateStr = date.toLocaleString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
         const label = isNaN(date.getTime()) ? key : dateStr;
         const row = document.createElement('div');
         row.style.cssText = 'display:flex;align-items:center;gap:4px;margin-bottom:3px';
@@ -322,7 +341,9 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
             saveState(state);
             emit('state:change', { path: 'scale', value: state.scale });
             emit('toast', { msg: 'Backup restored' });
-          } catch(e) { emit('toast', { msg: 'Restore failed' }); }
+          } catch (e) {
+            emit('toast', { msg: 'Restore failed' });
+          }
         });
         const delBtn = document.createElement('button');
         delBtn.className = 'ctx-btn';
@@ -346,7 +367,8 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
   presetsSection.dataset.settingsTab = 'PROJECT';
 
   const presetsTitle = document.createElement('span');
-  presetsTitle.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px';
+  presetsTitle.style.cssText =
+    'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:6px';
   presetsTitle.textContent = 'Presets';
   presetsSection.append(presetsTitle);
 
@@ -374,7 +396,7 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
     const file = loadInput.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = e => {
+    reader.onload = (e) => {
       try {
         const project = JSON.parse(e.target.result);
         applyProjectPackageToState(state, project);
@@ -412,7 +434,7 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
     const file = loadKitInput.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = e => {
+    reader.onload = (e) => {
       try {
         const kit = JSON.parse(e.target.result);
         getActivePattern(state).kit = kit;
@@ -443,7 +465,16 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
   exportStemsBtn.title = 'Render each track to a separate WAV file when offline engine rendering is available';
   exportStemsBtn.addEventListener('click', () => _showStemExportModal(state, emit, container));
 
-  presetBar.append(saveBtn, loadInput, loadBtn, saveKitBtn, loadKitInput, loadKitBtn, exportMidiFileBtn, exportStemsBtn);
+  presetBar.append(
+    saveBtn,
+    loadInput,
+    loadBtn,
+    saveKitBtn,
+    loadKitInput,
+    loadKitBtn,
+    exportMidiFileBtn,
+    exportStemsBtn,
+  );
   presetsSection.append(presetBar);
   container.append(presetsSection);
 }

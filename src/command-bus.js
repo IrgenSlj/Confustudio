@@ -1,10 +1,4 @@
-import {
-  BANK_COUNT,
-  PATTERN_COUNT,
-  TRACK_COUNT,
-  createStep,
-  normalizeProject,
-} from './state.js';
+import { BANK_COUNT, PATTERN_COUNT, TRACK_COUNT, createStep, normalizeProject } from './state.js';
 
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
@@ -29,7 +23,10 @@ function setPatternLength(state, length, bankIndex, patternIndex) {
   if (!pattern) return false;
   const nextLength = clamp(length, 1, 64, pattern.length ?? 16);
   pattern.length = nextLength;
-  if (state.activeBank === (bankIndex ?? state.activeBank) && state.activePattern === (patternIndex ?? state.activePattern)) {
+  if (
+    state.activeBank === (bankIndex ?? state.activeBank) &&
+    state.activePattern === (patternIndex ?? state.activePattern)
+  ) {
     state.patternLength = nextLength;
   }
   return true;
@@ -114,18 +111,17 @@ function normalizePatternPayload(pattern, patternIndex = 0) {
   if (!next.kit || !Array.isArray(next.kit.tracks)) next.kit = { tracks: [] };
   next.kit.tracks = Array.from({ length: TRACK_COUNT }, (_, trackIndex) => {
     const track = next.kit.tracks?.[trackIndex];
-    const normalizedTrack = track && typeof track === 'object'
-      ? { ...track }
-      : { name: `Track ${trackIndex + 1}` };
+    const normalizedTrack = track && typeof track === 'object' ? { ...track } : { name: `Track ${trackIndex + 1}` };
     normalizedTrack.steps = Array.from({ length: 64 }, (_, stepIndex) => {
       const step = normalizedTrack.steps?.[stepIndex];
       return step && typeof step === 'object'
         ? {
             ...createStep(stepIndex, trackIndex),
             ...step,
-            paramLocks: step.paramLocks && typeof step.paramLocks === 'object' && !Array.isArray(step.paramLocks)
-              ? { ...step.paramLocks }
-              : {},
+            paramLocks:
+              step.paramLocks && typeof step.paramLocks === 'object' && !Array.isArray(step.paramLocks)
+                ? { ...step.paramLocks }
+                : {},
           }
         : createStep(stepIndex, trackIndex);
     });
@@ -260,14 +256,25 @@ export function executeStudioCommand(state, command) {
 
   const type = String(command.type || '').trim();
   const bankIndex = clamp(command.bankIndex ?? state.activeBank, 0, BANK_COUNT - 1, state.activeBank ?? 0);
-  const patternIndex = clamp(command.patternIndex ?? state.activePattern, 0, PATTERN_COUNT - 1, state.activePattern ?? 0);
-  const trackIndex = clamp(command.trackIndex ?? state.selectedTrackIndex, 0, TRACK_COUNT - 1, state.selectedTrackIndex ?? 0);
+  const patternIndex = clamp(
+    command.patternIndex ?? state.activePattern,
+    0,
+    PATTERN_COUNT - 1,
+    state.activePattern ?? 0,
+  );
+  const trackIndex = clamp(
+    command.trackIndex ?? state.selectedTrackIndex,
+    0,
+    TRACK_COUNT - 1,
+    state.selectedTrackIndex ?? 0,
+  );
 
   switch (type) {
     case 'set-project-meta': {
       if (command.name !== undefined) state.project.name = String(command.name || '').slice(0, 120);
       if (command.author !== undefined) state.project.author = String(command.author || '').slice(0, 120);
-      if (command.description !== undefined) state.project.description = String(command.description || '').slice(0, 2000);
+      if (command.description !== undefined)
+        state.project.description = String(command.description || '').slice(0, 2000);
       return { changed: true, summary: 'Updated project metadata' };
     }
 
@@ -321,9 +328,10 @@ export function executeStudioCommand(state, command) {
           ? {
               ...createStep(stepIndex, trackIndex),
               ...cloneJson(step),
-              paramLocks: step.paramLocks && typeof step.paramLocks === 'object' && !Array.isArray(step.paramLocks)
-                ? { ...step.paramLocks }
-                : {},
+              paramLocks:
+                step.paramLocks && typeof step.paramLocks === 'object' && !Array.isArray(step.paramLocks)
+                  ? { ...step.paramLocks }
+                  : {},
             }
           : createStep(stepIndex, trackIndex);
       });
@@ -331,8 +339,18 @@ export function executeStudioCommand(state, command) {
     }
 
     case 'duplicate-pattern': {
-      const sourceBankIndex = clamp(command.sourceBankIndex ?? state.activeBank, 0, BANK_COUNT - 1, state.activeBank ?? 0);
-      const sourcePatternIndex = clamp(command.sourcePatternIndex ?? state.activePattern, 0, PATTERN_COUNT - 1, state.activePattern ?? 0);
+      const sourceBankIndex = clamp(
+        command.sourceBankIndex ?? state.activeBank,
+        0,
+        BANK_COUNT - 1,
+        state.activeBank ?? 0,
+      );
+      const sourcePatternIndex = clamp(
+        command.sourcePatternIndex ?? state.activePattern,
+        0,
+        PATTERN_COUNT - 1,
+        state.activePattern ?? 0,
+      );
       const source = getPattern(state, sourceBankIndex, sourcePatternIndex);
       const target = getPattern(state, bankIndex, patternIndex);
       if (!source || !target) return { changed: false, summary: 'Pattern not found' };
@@ -357,7 +375,9 @@ export function executeStudioCommand(state, command) {
     case 'set-scene-name': {
       const sceneIndex = clamp(command.sceneIndex, 0, 7, 0);
       if (!state.project.scenes?.[sceneIndex]) return { changed: false, summary: 'Scene not found' };
-      state.project.scenes[sceneIndex].name = String(command.name || `Scene ${String.fromCharCode(65 + sceneIndex)}`).slice(0, 64);
+      state.project.scenes[sceneIndex].name = String(
+        command.name || `Scene ${String.fromCharCode(65 + sceneIndex)}`,
+      ).slice(0, 64);
       state.scenes = state.project.scenes;
       return { changed: true, summary: 'Renamed scene' };
     }
@@ -413,7 +433,12 @@ export function executeStudioCommand(state, command) {
 
     case 'replace-arranger': {
       state.arranger = normalizeArrangerSections(command.arranger);
-      state.arrangementCursor = clamp(command.arrangementCursor ?? state.arrangementCursor, 0, Math.max(0, state.arranger.length - 1), 0);
+      state.arrangementCursor = clamp(
+        command.arrangementCursor ?? state.arrangementCursor,
+        0,
+        Math.max(0, state.arranger.length - 1),
+        0,
+      );
       return { changed: true, summary: 'Updated arranger' };
     }
 
@@ -454,7 +479,7 @@ export function executeStudioCommand(state, command) {
       };
 
       if (applyToAll) {
-        pattern.kit.tracks.forEach((track, index) => applyOffset(track, Math.round(index * steps / TRACK_COUNT)));
+        pattern.kit.tracks.forEach((track, index) => applyOffset(track, Math.round((index * steps) / TRACK_COUNT)));
       } else {
         const track = pattern.kit.tracks[trackIndex];
         if (!track) return { changed: false, summary: 'Track not found' };
@@ -463,7 +488,10 @@ export function executeStudioCommand(state, command) {
 
       state.euclidBeats = beats;
       state.euclidOffset = applyToAll ? 0 : baseOffset;
-      return { changed: true, summary: applyToAll ? 'Applied Euclid to all tracks' : `Applied Euclid to track ${trackIndex + 1}` };
+      return {
+        changed: true,
+        summary: applyToAll ? 'Applied Euclid to all tracks' : `Applied Euclid to track ${trackIndex + 1}`,
+      };
     }
 
     default:

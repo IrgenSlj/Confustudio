@@ -41,41 +41,49 @@ export function parsePx(value) {
 
 export function isModuleInteractiveTarget(target) {
   if (!(target instanceof Element)) return false;
-  const explicitInteractive = Boolean(target.closest([
-    'button',
-    'input',
-    'select',
-    'textarea',
-    'canvas',
-    'a',
-    '.port',
-    '.djm-port',
-    '.chassis-dup-btn',
-    '.knob',
-    '.macro-knob',
-    '.step-btn',
-    '.tab',
-    '.screen-btn',
-    '.t-btn',
-    '.bpm-arrow',
-    '.macro-name',
-    '.macro-name-input',
-    '.kbd-btn',
-    '.module-picker',
-    '.module-resize-handle',
-  ].join(',')));
+  const explicitInteractive = Boolean(
+    target.closest(
+      [
+        'button',
+        'input',
+        'select',
+        'textarea',
+        'canvas',
+        'a',
+        '.port',
+        '.djm-port',
+        '.chassis-dup-btn',
+        '.knob',
+        '.macro-knob',
+        '.step-btn',
+        '.tab',
+        '.screen-btn',
+        '.t-btn',
+        '.bpm-arrow',
+        '.macro-name',
+        '.macro-name-input',
+        '.kbd-btn',
+        '.module-picker',
+        '.module-resize-handle',
+      ].join(','),
+    ),
+  );
   if (explicitInteractive) return true;
-  return Boolean(target.closest([
-    '[role="slider"]',
-    '[class*="knob"]',
-    '[class*="slider"]',
-    '[class*="fader"]',
-    '[class*="switch"]',
-    '[class*="button"]',
-    '[class*="step"]',
-    '[data-param]',
-    '[data-action]',
-  ].join(',')));
+  return Boolean(
+    target.closest(
+      [
+        '[role="slider"]',
+        '[class*="knob"]',
+        '[class*="slider"]',
+        '[class*="fader"]',
+        '[class*="switch"]',
+        '[class*="button"]',
+        '[class*="step"]',
+        '[data-param]',
+        '[data-action]',
+      ].join(','),
+    ),
+  );
 }
 
 export function isTextEntryTarget(target) {
@@ -86,16 +94,20 @@ export function isTextEntryTarget(target) {
 export function shouldHideLensForTarget(target) {
   if (!(target instanceof Element)) return true;
   if (isModuleInteractiveTarget(target)) return true;
-  return Boolean(target.closest([
-    '.port',
-    '.djm-port',
-    '.module-tools',
-    '.module-drag-handle',
-    '.module-resize-handle',
-    '.module-picker',
-    '.chassis-dup-btn',
-    '#studio-controls',
-  ].join(',')));
+  return Boolean(
+    target.closest(
+      [
+        '.port',
+        '.djm-port',
+        '.module-tools',
+        '.module-drag-handle',
+        '.module-resize-handle',
+        '.module-picker',
+        '.chassis-dup-btn',
+        '#studio-controls',
+      ].join(','),
+    ),
+  );
 }
 
 export function shouldStudioCaptureGesture(S, target) {
@@ -157,7 +169,14 @@ export function getModuleSize(S, mod) {
 export function getModuleBounds(S) {
   const modules = [...S.canvas.querySelectorAll('.studio-module')];
   if (modules.length === 0) {
-    return { left: 0, top: 0, right: DEFAULT_MODULE_W, bottom: DEFAULT_MODULE_H, width: DEFAULT_MODULE_W, height: DEFAULT_MODULE_H };
+    return {
+      left: 0,
+      top: 0,
+      right: DEFAULT_MODULE_W,
+      bottom: DEFAULT_MODULE_H,
+      width: DEFAULT_MODULE_W,
+      height: DEFAULT_MODULE_H,
+    };
   }
   let left = Infinity;
   let top = Infinity;
@@ -192,7 +211,10 @@ export function saveView(S) {
   clearTimeout(_saveViewTimer);
   _saveViewTimer = setTimeout(() => {
     try {
-      localStorage.setItem(STUDIO_VIEW_KEY, JSON.stringify({ scale: S.scale, panX: S.panX, panY: S.panY, autoZoom: S._autoZoom }));
+      localStorage.setItem(
+        STUDIO_VIEW_KEY,
+        JSON.stringify({ scale: S.scale, panX: S.panX, panY: S.panY, autoZoom: S._autoZoom }),
+      );
     } catch (_) {}
   }, 200);
 }
@@ -225,7 +247,7 @@ export function fitToWindow(S, { force = false } = {}) {
   const fitH = Math.max(120, wrapH - FIT_PADDING * 2);
   const fitScale = Math.max(
     MIN_SCALE,
-    Math.min(MAX_SCALE, Math.min(fitW / Math.max(bounds.width, 1), fitH / Math.max(bounds.height, 1)))
+    Math.min(MAX_SCALE, Math.min(fitW / Math.max(bounds.width, 1), fitH / Math.max(bounds.height, 1))),
   );
 
   if (force || !S.hasRestoredView) {
@@ -307,10 +329,7 @@ export function fitModuleToWindow(S, modEl) {
   const { width, height } = getModuleSize(S, modEl);
   const fitW = Math.max(120, wrapW - FIT_PADDING * 2);
   const fitH = Math.max(120, wrapH - FIT_PADDING * 2);
-  S.scale = Math.max(
-    MIN_SCALE,
-    Math.min(MAX_SCALE, Math.min(fitW / Math.max(width, 1), fitH / Math.max(height, 1)))
-  );
+  S.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, Math.min(fitW / Math.max(width, 1), fitH / Math.max(height, 1))));
   S.panX = (wrapW - width * S.scale) / 2 - left * S.scale;
   S.panY = (wrapH - height * S.scale) / 2 - top * S.scale;
   S._userHasPanned = true;
@@ -343,9 +362,9 @@ export function removeModule(S, modEl, { force = false } = {}) {
   if (!modEl || (!force && modEl.id === 'module-0')) return false;
   const wasSelected = modEl === S._selectedModule;
   const fallback = wasSelected
-    ? [...S.canvas.querySelectorAll('.studio-module')].find((module) => module !== modEl && module.id !== 'module-0')
-      || S.canvas.querySelector('#module-0')
-      || null
+    ? [...S.canvas.querySelectorAll('.studio-module')].find((module) => module !== modEl && module.id !== 'module-0') ||
+      S.canvas.querySelector('#module-0') ||
+      null
     : S._selectedModule;
 
   document.dispatchEvent(new CustomEvent('module:removed', { detail: { moduleEl: modEl, moduleId: modEl.id } }));
@@ -463,14 +482,18 @@ export function enableModuleDrag(S, modEl) {
 export function enableModuleResize(S, modEl) {
   const cornerDirs = { nw: [-1, -1], ne: [1, -1], sw: [-1, 1], se: [1, 1] };
   modEl.querySelectorAll('.module-resize-handle').forEach((handle) => {
-    const corner = [...handle.classList].find((c) => c.startsWith('module-resize-') && c !== 'module-resize-handle')?.replace('module-resize-', '');
+    const corner = [...handle.classList]
+      .find((c) => c.startsWith('module-resize-') && c !== 'module-resize-handle')
+      ?.replace('module-resize-', '');
     if (!corner || !cornerDirs[corner]) return;
     const [xDir, yDir] = cornerDirs[corner];
 
     let resizing = false;
-    let startX = 0, startY = 0;
+    let startX = 0,
+      startY = 0;
     let startZoom = 1;
-    let naturalW = 0, naturalH = 0;
+    let naturalW = 0,
+      naturalH = 0;
     let pointerId = null;
 
     handle.addEventListener('pointerdown', (e) => {
@@ -489,8 +512,8 @@ export function enableModuleResize(S, modEl) {
 
     handle.addEventListener('pointermove', (e) => {
       if (!resizing || e.pointerId !== pointerId) return;
-      const dx = (e.clientX - startX) * xDir / Math.max(S.scale, 0.001);
-      const dy = (e.clientY - startY) * yDir / Math.max(S.scale, 0.001);
+      const dx = ((e.clientX - startX) * xDir) / Math.max(S.scale, 0.001);
+      const dy = ((e.clientY - startY) * yDir) / Math.max(S.scale, 0.001);
       const diag = Math.sqrt(naturalW ** 2 + naturalH ** 2) || 1;
       const delta = (dx + dy) / 2;
       const newZoom = Math.max(0.3, Math.min(3, startZoom + (delta / diag) * startZoom));
@@ -515,11 +538,10 @@ export function getSpawnPosition(S, anchorEl = null) {
   const modules = [...S.canvas.querySelectorAll('.studio-module')];
   if (!modules.length) return { x: 40, y: 40 };
 
-  const anchor = anchorEl && anchorEl.isConnected
-    ? anchorEl
-    : getSelectedModule(S)
-      || S.canvas.querySelector('#module-0')
-      || modules[0];
+  const anchor =
+    anchorEl && anchorEl.isConnected
+      ? anchorEl
+      : getSelectedModule(S) || S.canvas.querySelector('#module-0') || modules[0];
   const gap = 56;
   const viewportCenter = worldPointFromScreen(S, getWrapSize(S).width / 2, getWrapSize(S).height / 2);
 
@@ -698,7 +720,8 @@ export function addModule(S, type, options = {}) {
       if (mod === getSelectedModule(S)) updateSelectionUi(S);
     });
   } else if (type === 'acid_machine') {
-    mod.innerHTML = '<div class="module-loading-shell" style="width:680px;height:340px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Acid Machine…</div>';
+    mod.innerHTML =
+      '<div class="module-loading-shell" style="width:680px;height:340px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Acid Machine…</div>';
     import('./modules/acid_machine.js').then((m) => {
       const ctx = window._confustudioEngine?.context ?? null;
       mod.innerHTML = '';
@@ -707,43 +730,48 @@ export function addModule(S, type, options = {}) {
       if (mod === getSelectedModule(S)) updateSelectionUi(S);
     });
   } else if (type === 'polysynth') {
-    mod.innerHTML = '<div class="module-loading-shell" style="width:860px;height:240px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Polysynth…</div>';
-    import('./modules/polysynth.js').then(m => {
+    mod.innerHTML =
+      '<div class="module-loading-shell" style="width:860px;height:240px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Polysynth…</div>';
+    import('./modules/polysynth.js').then((m) => {
       mod.innerHTML = '';
       mod.appendChild(m.createPolysynth(window._confustudioEngine?.context ?? null));
       attachModuleChrome(S, mod);
       if (mod === getSelectedModule(S)) updateSelectionUi(S);
     });
   } else if (type === 'drum_machine') {
-    mod.innerHTML = '<div class="module-loading-shell" style="width:920px;height:320px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Drum Machine…</div>';
-    import('./modules/drum_machine.js').then(m => {
+    mod.innerHTML =
+      '<div class="module-loading-shell" style="width:920px;height:320px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Drum Machine…</div>';
+    import('./modules/drum_machine.js').then((m) => {
       mod.innerHTML = '';
       mod.appendChild(m.createDrumMachine(window._confustudioEngine?.context ?? null));
       attachModuleChrome(S, mod);
       if (mod === getSelectedModule(S)) updateSelectionUi(S);
     });
   } else if (type === 'fm_synth') {
-    mod.innerHTML = '<div class="module-loading-shell" style="width:980px;height:280px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading FM Synth…</div>';
-    import('./modules/fm_synth.js').then(m => {
+    mod.innerHTML =
+      '<div class="module-loading-shell" style="width:980px;height:280px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading FM Synth…</div>';
+    import('./modules/fm_synth.js').then((m) => {
       mod.innerHTML = '';
       mod.appendChild(m.createFMSynth(window._confustudioEngine?.context ?? null));
       attachModuleChrome(S, mod);
       if (mod === getSelectedModule(S)) updateSelectionUi(S);
     });
   } else if (type === 'monosynth') {
-    mod.innerHTML = '<div class="module-loading-shell" style="width:1000px;height:300px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Monosynth…</div>';
-    import('./modules/monosynth.js').then(m => {
+    mod.innerHTML =
+      '<div class="module-loading-shell" style="width:1000px;height:300px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Monosynth…</div>';
+    import('./modules/monosynth.js').then((m) => {
       mod.innerHTML = '';
       mod.appendChild(m.createMonosynth(window._confustudioEngine?.context ?? null));
       attachModuleChrome(S, mod);
       if (mod === getSelectedModule(S)) updateSelectionUi(S);
     });
   } else if (type.startsWith('figure-')) {
-    const emoji = {
-      'figure-cat': '🐱',
-      'figure-robot': '🤖',
-      'figure-cactus': '🌵',
-    }[type] || '🎵';
+    const emoji =
+      {
+        'figure-cat': '🐱',
+        'figure-robot': '🤖',
+        'figure-cactus': '🌵',
+      }[type] || '🎵';
     mod.innerHTML = `<div class="studio-figure">${emoji}</div>`;
     attachModuleChrome(S, mod);
     if (mod === getSelectedModule(S)) updateSelectionUi(S);
@@ -769,7 +797,7 @@ export function addModule(S, type, options = {}) {
 
 export function spawnDefaultMixer(S) {
   const existingModule = S.canvas.querySelector('#module-0');
-  const modRight = existingModule ? (_parsePx(existingModule.style.left) + DEFAULT_MODULE_W + 80) : 100;
+  const modRight = existingModule ? _parsePx(existingModule.style.left) + DEFAULT_MODULE_W + 80 : 100;
   const modTop = existingModule ? _parsePx(existingModule.style.top) : 50;
 
   const mod = document.createElement('div');
@@ -779,7 +807,8 @@ export function spawnDefaultMixer(S) {
   mod.style.left = `${modRight}px`;
   mod.style.top = `${modTop}px`;
   mod.style.position = 'absolute';
-  mod.innerHTML = '<div class="module-loading-shell" style="width:320px;height:420px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Mixer…</div>';
+  mod.innerHTML =
+    '<div class="module-loading-shell" style="width:320px;height:420px;display:flex;align-items:center;justify-content:center;font-family:monospace;color:#666">Loading Mixer…</div>';
   S.canvas.appendChild(mod);
   enableModuleDrag(S, mod);
   attachModuleChrome(S, mod);
@@ -794,9 +823,11 @@ export function spawnDefaultMixer(S) {
       const audioOutPort = document.querySelector('#module-0 .port[data-port="audio-out"]');
       const ch1Port = mod.querySelector('.djm-port[data-port="ch1-in"]');
       if (audioOutPort && ch1Port) {
-        document.dispatchEvent(new CustomEvent('cable:autoconnect', {
-          detail: { fromEl: audioOutPort, toEl: ch1Port }
-        }));
+        document.dispatchEvent(
+          new CustomEvent('cable:autoconnect', {
+            detail: { fromEl: audioOutPort, toEl: ch1Port },
+          }),
+        );
       }
     });
   });

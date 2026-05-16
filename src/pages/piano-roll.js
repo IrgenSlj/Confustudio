@@ -2,15 +2,15 @@
 
 import { TRACK_COLORS } from '../state.js';
 
-const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-const BLACK_PCS  = new Set([1, 3, 6, 8, 10]); // pitch-class indices for black keys
+const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const BLACK_PCS = new Set([1, 3, 6, 8, 10]); // pitch-class indices for black keys
 
 const SCALE_INTERVALS = {
-  major:      [0,2,4,5,7,9,11],
-  minor:      [0,2,3,5,7,8,10],
-  pentatonic: [0,2,4,7,9],
-  dorian:     [0,2,3,5,7,9,10],
-  mixolydian: [0,2,4,5,7,9,10],
+  major: [0, 2, 4, 5, 7, 9, 11],
+  minor: [0, 2, 3, 5, 7, 8, 10],
+  pentatonic: [0, 2, 4, 7, 9],
+  dorian: [0, 2, 3, 5, 7, 9, 10],
+  mixolydian: [0, 2, 4, 5, 7, 9, 10],
 };
 function isNoteInScale(midi, root, scale) {
   const intervals = SCALE_INTERVALS[scale] ?? SCALE_INTERVALS.major;
@@ -19,12 +19,12 @@ function isNoteInScale(midi, root, scale) {
 
 const SCALES = [
   { name: 'Chromatic', intervals: null },
-  { name: 'Major',     intervals: [0,2,4,5,7,9,11] },
-  { name: 'Minor',     intervals: [0,2,3,5,7,8,10] },
-  { name: 'Pent Maj',  intervals: [0,2,4,7,9] },
-  { name: 'Pent Min',  intervals: [0,3,5,7,10] },
-  { name: 'Dorian',    intervals: [0,2,3,5,7,9,10] },
-  { name: 'Blues',     intervals: [0,3,5,6,7,10] },
+  { name: 'Major', intervals: [0, 2, 4, 5, 7, 9, 11] },
+  { name: 'Minor', intervals: [0, 2, 3, 5, 7, 8, 10] },
+  { name: 'Pent Maj', intervals: [0, 2, 4, 7, 9] },
+  { name: 'Pent Min', intervals: [0, 3, 5, 7, 10] },
+  { name: 'Dorian', intervals: [0, 2, 3, 5, 7, 9, 10] },
+  { name: 'Blues', intervals: [0, 3, 5, 6, 7, 10] },
 ];
 
 // ─── Chord construction helper ────────────────────────────────────────────────
@@ -39,7 +39,7 @@ function buildChordNotesPR(rootMidi, voicing, scaleIdx) {
   const intervals = scaleDef.intervals; // null for Chromatic
 
   if (voicing === 'power') {
-    return [rootMidi, rootMidi + 7].filter(n => n >= 0 && n <= 127);
+    return [rootMidi, rootMidi + 7].filter((n) => n >= 0 && n <= 127);
   }
 
   const degreeCount = CHORD_DEGREE_COUNTS_PR[voicing] ?? 3;
@@ -47,48 +47,52 @@ function buildChordNotesPR(rootMidi, voicing, scaleIdx) {
   if (!intervals) {
     // Chromatic fallback: major-chord intervals
     const chromaDeg = [0, 4, 7, 10, 14];
-    return chromaDeg.slice(0, degreeCount)
-      .map(iv => rootMidi + iv)
-      .filter(n => n >= 0 && n <= 127);
+    return chromaDeg
+      .slice(0, degreeCount)
+      .map((iv) => rootMidi + iv)
+      .filter((n) => n >= 0 && n <= 127);
   }
 
-  const rootPc  = ((rootMidi % 12) + 12) % 12;
+  const rootPc = ((rootMidi % 12) + 12) % 12;
   const rootOct = rootMidi - rootPc;
 
   // Find scale degree index for root pitch class (snap to nearest if not in scale)
   let rootDegIdx = intervals.indexOf(rootPc);
   if (rootDegIdx === -1) {
-    let best = 0, bestDist = 12;
+    let best = 0,
+      bestDist = 12;
     for (let i = 0; i < intervals.length; i++) {
       const d = Math.min(Math.abs(intervals[i] - rootPc), 12 - Math.abs(intervals[i] - rootPc));
-      if (d < bestDist) { bestDist = d; best = i; }
+      if (d < bestDist) {
+        bestDist = d;
+        best = i;
+      }
     }
     rootDegIdx = best;
   }
 
   const notes = [];
   for (let d = 0; d < degreeCount; d++) {
-    const degIdx   = rootDegIdx + d * 2;
-    const octOff   = Math.floor(degIdx / intervals.length);
-    const normIdx  = degIdx % intervals.length;
+    const degIdx = rootDegIdx + d * 2;
+    const octOff = Math.floor(degIdx / intervals.length);
+    const normIdx = degIdx % intervals.length;
     const semitone = intervals[normIdx] + octOff * 12;
-    const midi     = rootOct + semitone;
+    const midi = rootOct + semitone;
     if (midi >= 0 && midi <= 127) notes.push(midi);
   }
   return notes;
 }
 
-const TOTAL_NOTE_MIN = 24;  // C1
-const TOTAL_NOTE_MAX = 96;  // C7
-const TOTAL_RANGE    = TOTAL_NOTE_MAX - TOTAL_NOTE_MIN + 1; // 73, but we use 72 steps
-const VISIBLE_ROWS   = 24;
+const TOTAL_NOTE_MIN = 24; // C1
+const TOTAL_NOTE_MAX = 96; // C7
+const VISIBLE_ROWS = 24;
 
 // Build rows dynamically for a given MIDI range [noteMin, noteMax] (inclusive, top-down)
 function buildRows(noteMax, noteMin) {
   const rows = [];
   for (let midi = noteMax; midi >= noteMin; midi--) {
-    const pc   = midi % 12;
-    const oct  = Math.floor(midi / 12) - 1;
+    const pc = midi % 12;
+    const oct = Math.floor(midi / 12) - 1;
     const name = NOTE_NAMES[pc] + oct;
     rows.push({ midi, name, isBlack: BLACK_PCS.has(pc) });
   }
@@ -97,9 +101,9 @@ function buildRows(noteMax, noteMin) {
 
 function gateToName(g) {
   if (g <= 0.15) return '32nd';
-  if (g <= 0.3)  return '16th';
+  if (g <= 0.3) return '16th';
   if (g <= 0.55) return '8th';
-  if (g <= 0.8)  return 'dotted 8th';
+  if (g <= 0.8) return 'dotted 8th';
   return 'quarter';
 }
 
@@ -111,31 +115,38 @@ export default {
     container.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow:hidden;padding:0';
 
     const pattern = state.project.banks[state.activeBank].patterns[state.activePattern];
-    const track   = pattern.kit.tracks[state.selectedTrackIndex];
-    const steps   = pattern.length;
+    const track = pattern.kit.tracks[state.selectedTrackIndex];
+    const steps = pattern.length;
 
-    const scaleIdx    = state.scale ?? 0;
+    const scaleIdx = state.scale ?? 0;
     const currentScale = SCALES[Math.max(0, Math.min(SCALES.length - 1, scaleIdx))];
-    const scaleSet    = currentScale.intervals ? new Set(currentScale.intervals) : null;
+    const scaleSet = currentScale.intervals ? new Set(currentScale.intervals) : null;
 
     // Zoom: cell width
     const zoomIdx = Math.round(Math.max(0, Math.min(4, state.rollZoom ?? 1)));
     const baseCellW = ZOOM_WIDTHS[zoomIdx];
     const fillCellW = Math.floor(Math.max(18, (Math.max(container.clientWidth, 760) - 64) / Math.max(steps, 1)));
-    const cellW   = Math.max(baseCellW, Math.min(56, fillCellW));
+    const cellW = Math.max(baseCellW, Math.min(56, fillCellW));
 
     // Scroll: determine visible note window
-    const scrollRaw  = state.rollScroll ?? 0.5;
+    const scrollRaw = state.rollScroll ?? 0.5;
     const scrollNote = Math.round((1 - scrollRaw) * (72 - VISIBLE_ROWS));
-    let   noteMax    = 96 - scrollNote;
-    let   noteMin    = noteMax - VISIBLE_ROWS + 1;
+    let noteMax = 96 - scrollNote;
+    let noteMin = noteMax - VISIBLE_ROWS + 1;
     // clamp
-    if (noteMin < TOTAL_NOTE_MIN) { noteMin = TOTAL_NOTE_MIN; noteMax = noteMin + VISIBLE_ROWS - 1; }
-    if (noteMax > TOTAL_NOTE_MAX) { noteMax = TOTAL_NOTE_MAX; noteMin = noteMax - VISIBLE_ROWS + 1; }
+    if (noteMin < TOTAL_NOTE_MIN) {
+      noteMin = TOTAL_NOTE_MIN;
+      noteMax = noteMin + VISIBLE_ROWS - 1;
+    }
+    if (noteMax > TOTAL_NOTE_MAX) {
+      noteMax = TOTAL_NOTE_MAX;
+      noteMin = noteMax - VISIBLE_ROWS + 1;
+    }
 
     // Scroll to show first active note if it is outside the current window
     const patLen = steps;
-    const firstNote = track.steps.slice(0, patLen).find(s => s.active && s.paramLocks?.note != null)?.paramLocks?.note;
+    const firstNote = track.steps.slice(0, patLen).find((s) => s.active && s.paramLocks?.note != null)
+      ?.paramLocks?.note;
     if (firstNote != null && (firstNote < noteMin || firstNote > noteMax)) {
       let newScroll = 1 - (96 - firstNote - VISIBLE_ROWS / 2) / (72 - VISIBLE_ROWS);
       newScroll = Math.max(0, Math.min(1, newScroll));
@@ -144,8 +155,14 @@ export default {
       const sn2 = Math.round((1 - state.rollScroll) * (72 - VISIBLE_ROWS));
       noteMax = 96 - sn2;
       noteMin = noteMax - VISIBLE_ROWS + 1;
-      if (noteMin < TOTAL_NOTE_MIN) { noteMin = TOTAL_NOTE_MIN; noteMax = noteMin + VISIBLE_ROWS - 1; }
-      if (noteMax > TOTAL_NOTE_MAX) { noteMax = TOTAL_NOTE_MAX; noteMin = noteMax - VISIBLE_ROWS + 1; }
+      if (noteMin < TOTAL_NOTE_MIN) {
+        noteMin = TOTAL_NOTE_MIN;
+        noteMax = noteMin + VISIBLE_ROWS - 1;
+      }
+      if (noteMax > TOTAL_NOTE_MAX) {
+        noteMax = TOTAL_NOTE_MAX;
+        noteMin = noteMax - VISIBLE_ROWS + 1;
+      }
     }
 
     const ROWS = buildRows(noteMax, noteMin);
@@ -158,7 +175,7 @@ export default {
         activeSet.add(`${note}_${si}`);
         // Also show chord tones stored by chord mode
         if (step._chordNotes) {
-          step._chordNotes.forEach(cn => activeSet.add(`${cn}_${si}`));
+          step._chordNotes.forEach((cn) => activeSet.add(`${cn}_${si}`));
         }
       }
     });
@@ -168,7 +185,7 @@ export default {
 
     // Loop region defaults
     if (state.rollLoopStart == null) state.rollLoopStart = 0;
-    if (state.rollLoopEnd   == null) state.rollLoopEnd   = 16;
+    if (state.rollLoopEnd == null) state.rollLoopEnd = 16;
 
     // Header
     const header = document.createElement('div');
@@ -182,7 +199,8 @@ export default {
 
     // Toolbar (single compact row — includes scale selectors)
     const toolbar = document.createElement('div');
-    toolbar.style.cssText = 'display:flex;align-items:center;gap:3px;padding:3px 6px;flex-shrink:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;background:rgba(0,0,0,0.15);border-bottom:1px solid rgba(255,255,255,0.06)';
+    toolbar.style.cssText =
+      'display:flex;align-items:center;gap:3px;padding:3px 6px;flex-shrink:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;background:rgba(0,0,0,0.15);border-bottom:1px solid rgba(255,255,255,0.06)';
 
     // Draw mode toggle
     const drawBtn = document.createElement('button');
@@ -244,13 +262,18 @@ export default {
     noteLenLabel.textContent = 'LEN:';
     toolbar.append(noteLenLabel);
 
-    [{ label:'1/4', val:0.25 }, { label:'1/8', val:0.125 }, { label:'1/16', val:0.0625 }, { label:'1/32', val:0.03125 }].forEach(({label, val}) => {
+    [
+      { label: '1/4', val: 0.25 },
+      { label: '1/8', val: 0.125 },
+      { label: '1/16', val: 0.0625 },
+      { label: '1/32', val: 0.03125 },
+    ].forEach(({ label, val }) => {
       const btn = document.createElement('button');
       btn.className = 'pr-toolbar-btn' + ((state.prNoteLen ?? 0.0625) === val ? ' active' : '');
       btn.textContent = label;
       btn.addEventListener('click', () => {
         state.prNoteLen = val;
-        toolbar.querySelectorAll('.pr-toolbar-btn').forEach(b => b.classList.remove('active'));
+        toolbar.querySelectorAll('.pr-toolbar-btn').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
       });
       toolbar.append(btn);
@@ -304,16 +327,23 @@ export default {
     // Voicing selector dropdown
     const voicingSelect = document.createElement('select');
     voicingSelect.title = 'Chord voicing';
-    voicingSelect.style.cssText = 'font-size:0.5rem;font-family:var(--font-mono);background:var(--bg2,#1a1a1a);color:var(--screen-text,#e0d8c8);border:1px solid var(--muted,#888);border-radius:2px;padding:1px 3px;cursor:pointer;opacity:' + (state.chordMode ? '1' : '0.4');
+    voicingSelect.style.cssText =
+      'font-size:0.5rem;font-family:var(--font-mono);background:var(--bg2,#1a1a1a);color:var(--screen-text,#e0d8c8);border:1px solid var(--muted,#888);border-radius:2px;padding:1px 3px;cursor:pointer;opacity:' +
+      (state.chordMode ? '1' : '0.4');
     voicingSelect.style.pointerEvents = state.chordMode ? '' : 'none';
-    [['triad','Triad'], ['7th','7th'], ['9th','9th'], ['power','Power']].forEach(([val, label]) => {
+    [
+      ['triad', 'Triad'],
+      ['7th', '7th'],
+      ['9th', '9th'],
+      ['power', 'Power'],
+    ].forEach(([val, label]) => {
       const opt = document.createElement('option');
       opt.value = val;
       opt.textContent = label;
       if ((state.chordVoicing ?? 'triad') === val) opt.selected = true;
       voicingSelect.append(opt);
     });
-    voicingSelect.addEventListener('change', e => {
+    voicingSelect.addEventListener('change', (e) => {
       state.chordVoicing = e.target.value;
     });
     toolbar.append(voicingSelect);
@@ -363,7 +393,7 @@ export default {
 
     // Loop region overlay: semi-transparent green between loop start and end
     const loopStart = Math.max(0, Math.min(steps - 1, state.rollLoopStart));
-    const loopEnd   = Math.max(loopStart + 1, Math.min(steps, state.rollLoopEnd));
+    const loopEnd = Math.max(loopStart + 1, Math.min(steps, state.rollLoopEnd));
     const loopRegion = document.createElement('div');
     loopRegion.style.cssText = `
       position:absolute; top:0; bottom:0; pointer-events:none;
@@ -410,23 +440,24 @@ export default {
     const allCells = [];
 
     // Drag-velocity state
-    let dragCell      = null;
-    let dragStep      = null;
-    let dragStartY    = 0;
-    let dragStartVel  = 1;
-    let dragging      = false;
+    let dragCell = null;
+    let dragStep = null;
+    let dragStartY = 0;
+    let dragStartVel = 1;
+    let dragging = false;
 
     // Drag-to-draw state
-    state._rollDragging  = false;
-    state._rollDrawNote  = null;
+    state._rollDragging = false;
+    state._rollDrawNote = null;
 
     // Rubber-band select state
-    let rbActive    = false;
-    let rbStartX    = 0;
-    let rbStartY    = 0;
-    let rbRect      = null; // { x1, y1, x2, y2 } in gridCol-relative coords
+    let rbActive = false;
+    let rbStartX = 0;
+    let rbStartY = 0;
+    let rbRect = null; // { x1, y1, x2, y2 } in gridCol-relative coords
     const rbOverlay = document.createElement('div');
-    rbOverlay.style.cssText = 'position:absolute;border:1px solid rgba(255,255,255,0.6);background:rgba(255,255,255,0.08);pointer-events:none;display:none;z-index:10';
+    rbOverlay.style.cssText =
+      'position:absolute;border:1px solid rgba(255,255,255,0.6);background:rgba(255,255,255,0.08);pointer-events:none;display:none;z-index:10';
     // Will be appended to gridView after it's created
 
     function onWindowPointerMove(e) {
@@ -445,9 +476,9 @@ export default {
         if (dragging) {
           emit('track:change', { param: 'steps', value: track.steps });
         }
-        dragCell  = null;
-        dragStep  = null;
-        dragging  = false;
+        dragCell = null;
+        dragStep = null;
+        dragging = false;
       }
       // End draw-drag
       if (state._rollDragging) {
@@ -487,7 +518,7 @@ export default {
         const cell = document.createElement('div');
         cell.className = 'piano-cell' + (si % 4 === 0 ? ' beat-start' : '');
         cell.dataset.col = si;
-        cell.style.width    = cellW + 'px';
+        cell.style.width = cellW + 'px';
         cell.style.minWidth = cellW + 'px';
 
         if (isMuted) {
@@ -525,7 +556,7 @@ export default {
           const handle = document.createElement('div');
           handle.className = 'note-resize-handle';
 
-          handle.addEventListener('pointerdown', ev => {
+          handle.addEventListener('pointerdown', (ev) => {
             ev.stopPropagation();
             ev.preventDefault();
             handle.setPointerCapture(ev.pointerId);
@@ -560,11 +591,11 @@ export default {
           if (!cell.classList.contains('active')) return;
           e.preventDefault();
           const step = track.steps[si];
-          dragCell     = cell;
-          dragStep     = step;
-          dragStartY   = e.clientY;
+          dragCell = cell;
+          dragStep = step;
+          dragStartY = e.clientY;
           dragStartVel = step.velocity ?? 1;
-          dragging     = false;
+          dragging = false;
           window.addEventListener('pointermove', onWindowPointerMove);
           window.addEventListener('pointerup', onWindowPointerUp);
         });
@@ -575,7 +606,8 @@ export default {
 
           const key = `${midi}_${si}`;
           const step = track.steps[si];
-          const alreadyThisNote = step.active && (step.paramLocks?.note === midi || (step.note === midi && !step.paramLocks?.note));
+          const alreadyThisNote =
+            step.active && (step.paramLocks?.note === midi || (step.note === midi && !step.paramLocks?.note));
 
           // Draw mode: clicking an empty cell creates a note
           if (state.prDrawMode && !alreadyThisNote) {
@@ -589,16 +621,19 @@ export default {
             // Chord mode: also write chord tones
             if (state.chordMode) {
               const chordNotes = buildChordNotesPR(midi, state.chordVoicing ?? 'triad', scaleIdx);
-              step._chordNotes = chordNotes.filter(n => n !== midi);
-              step._chordNotes.forEach(chordMidi => {
+              step._chordNotes = chordNotes.filter((n) => n !== midi);
+              step._chordNotes.forEach((chordMidi) => {
                 activeSet.add(`${chordMidi}_${si}`);
-                const rowIdx = ROWS.findIndex(r => r.midi === chordMidi);
+                const rowIdx = ROWS.findIndex((r) => r.midi === chordMidi);
                 if (rowIdx >= 0) {
                   const rows = gridCol.querySelectorAll('.roll-row');
                   const targetRow = rows[rowIdx];
                   if (targetRow) {
                     const targetCell = targetRow.querySelectorAll('.piano-cell')[si];
-                    if (targetCell) { targetCell.classList.add('active'); targetCell.style.opacity = '0.7'; }
+                    if (targetCell) {
+                      targetCell.classList.add('active');
+                      targetCell.style.opacity = '0.7';
+                    }
                   }
                 }
               });
@@ -623,7 +658,7 @@ export default {
           if (!state.rollSelected.has(key)) {
             state.rollSelected.clear();
             // Remove selected class from all cells in the grid
-            gridCol.querySelectorAll('.piano-cell-selected').forEach(c => c.classList.remove('piano-cell-selected'));
+            gridCol.querySelectorAll('.piano-cell-selected').forEach((c) => c.classList.remove('piano-cell-selected'));
           }
 
           if (alreadyThisNote) {
@@ -646,12 +681,12 @@ export default {
             // Chord mode: write remaining chord tones to _chordNotes on this step
             if (state.chordMode) {
               const chordNotes = buildChordNotesPR(midi, state.chordVoicing ?? 'triad', scaleIdx);
-              step._chordNotes = chordNotes.filter(n => n !== midi);
+              step._chordNotes = chordNotes.filter((n) => n !== midi);
               // Visually activate sibling rows for chord tones
-              step._chordNotes.forEach(chordMidi => {
+              step._chordNotes.forEach((chordMidi) => {
                 const chordKey = `${chordMidi}_${si}`;
                 activeSet.add(chordKey);
-                const rowIdx = ROWS.findIndex(r => r.midi === chordMidi);
+                const rowIdx = ROWS.findIndex((r) => r.midi === chordMidi);
                 if (rowIdx >= 0) {
                   const rows = gridCol.querySelectorAll('.roll-row');
                   const targetRow = rows[rowIdx];
@@ -699,7 +734,8 @@ export default {
         cell.addEventListener('contextmenu', (e) => {
           e.preventDefault();
           const step = track.steps[si];
-          const isRoot = activeSet.has(`${midi}_${si}`) &&
+          const isRoot =
+            activeSet.has(`${midi}_${si}`) &&
             (step.paramLocks?.note === midi || (step.note === midi && !step.paramLocks?.note));
           const isChordTone = step._chordNotes?.includes(midi);
           if (!isRoot && !isChordTone) return;
@@ -707,11 +743,13 @@ export default {
             step.active = false;
             if (step.paramLocks) delete step.paramLocks.note;
             // Also clear chord tones from activeSet
-            if (step._chordNotes) { step._chordNotes = []; }
+            if (step._chordNotes) {
+              step._chordNotes = [];
+            }
             activeSet.delete(`${midi}_${si}`);
           } else if (isChordTone) {
             // Remove just this chord tone
-            step._chordNotes = step._chordNotes.filter(n => n !== midi);
+            step._chordNotes = step._chordNotes.filter((n) => n !== midi);
             activeSet.delete(`${midi}_${si}`);
           }
           emit('track:change', { param: 'steps', value: track.steps });
@@ -734,7 +772,7 @@ export default {
 
     // ── Rubber-band select ────────────────────────────────────────────────────
     // Pointerdown on empty gridCol area (not on a cell) starts rubber-band
-    gridCol.addEventListener('pointerdown', e => {
+    gridCol.addEventListener('pointerdown', (e) => {
       // Only fire when clicking directly on a row/grid background — not on a cell
       const target = e.target;
       const isCell = target.classList.contains('piano-cell') || target.closest('.piano-cell');
@@ -746,18 +784,18 @@ export default {
       const gridRect = gridCol.getBoundingClientRect();
       rbStartX = e.clientX - gridRect.left;
       rbStartY = e.clientY - gridRect.top;
-      rbRect   = { x1: rbStartX, y1: rbStartY, x2: rbStartX, y2: rbStartY };
+      rbRect = { x1: rbStartX, y1: rbStartY, x2: rbStartX, y2: rbStartY };
 
       rbOverlay.style.display = 'block';
-      rbOverlay.style.left    = rbStartX + 'px';
-      rbOverlay.style.top     = rbStartY + 'px';
-      rbOverlay.style.width   = '0px';
-      rbOverlay.style.height  = '0px';
+      rbOverlay.style.left = rbStartX + 'px';
+      rbOverlay.style.top = rbStartY + 'px';
+      rbOverlay.style.width = '0px';
+      rbOverlay.style.height = '0px';
 
       // If not shift-key, clear existing selection
       if (!e.shiftKey) {
         state.rollSelected.clear();
-        gridCol.querySelectorAll('.piano-cell-selected').forEach(c => c.classList.remove('piano-cell-selected'));
+        gridCol.querySelectorAll('.piano-cell-selected').forEach((c) => c.classList.remove('piano-cell-selected'));
       }
 
       function onRbMove(me) {
@@ -773,26 +811,26 @@ export default {
         const rw = Math.abs(rbRect.x2 - rbRect.x1);
         const rh = Math.abs(rbRect.y2 - rbRect.y1);
 
-        rbOverlay.style.left   = lx + 'px';
-        rbOverlay.style.top    = ly + 'px';
-        rbOverlay.style.width  = rw + 'px';
+        rbOverlay.style.left = lx + 'px';
+        rbOverlay.style.top = ly + 'px';
+        rbOverlay.style.width = rw + 'px';
         rbOverlay.style.height = rh + 'px';
 
         // Hit-test each active cell
-        allCells.forEach(cell => {
+        allCells.forEach((cell) => {
           if (!cell.classList.contains('active')) return;
           const cr = cell.getBoundingClientRect();
           const cellLx = cr.left - gridRect2.left;
-          const cellLy = cr.top  - gridRect2.top;
+          const cellLy = cr.top - gridRect2.top;
           const cellRx = cellLx + cr.width;
           const cellRy = cellLy + cr.height;
           const overlaps = cellLx < lx + rw && cellRx > lx && cellLy < ly + rh && cellRy > ly;
-          const col  = Number(cell.dataset.col);
+          const col = Number(cell.dataset.col);
           const rowEl = cell.parentElement;
           const rowIdx = Array.from(gridCol.children).indexOf(rowEl);
           if (rowIdx < 0 || rowIdx >= ROWS.length) return;
           const midi = ROWS[rowIdx].midi;
-          const key  = `${midi}_${col}`;
+          const key = `${midi}_${col}`;
           if (overlaps) {
             state.rollSelected.add(key);
             cell.classList.add('piano-cell-selected');
@@ -822,16 +860,16 @@ export default {
         return;
       }
       // Don't steal keys when user is typing in an input
-      if (document.activeElement && ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
+      if (document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
 
       const sel = state.rollSelected;
       if (!sel || sel.size === 0) return;
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
-        sel.forEach(key => {
+        sel.forEach((key) => {
           const [midiStr, siStr] = key.split('_');
-          const si   = Number(siStr);
+          const si = Number(siStr);
           const step = track.steps[si];
           if (!step) return;
           const midi = Number(midiStr);
@@ -850,7 +888,7 @@ export default {
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         e.preventDefault();
         const delta = e.key === 'ArrowLeft' ? -1 : 1;
-        const keys  = Array.from(sel);
+        const keys = Array.from(sel);
         // Sort so we don't overwrite: move left→ascending, right→descending
         keys.sort((a, b) => {
           const siA = Number(a.split('_')[1]);
@@ -858,22 +896,25 @@ export default {
           return delta < 0 ? siA - siB : siB - siA;
         });
         const newSel = new Set();
-        keys.forEach(key => {
+        keys.forEach((key) => {
           const [midiStr, siStr] = key.split('_');
-          const si   = Number(siStr);
+          const si = Number(siStr);
           const midi = Number(midiStr);
           const newSi = si + delta;
-          if (newSi < 0 || newSi >= steps) { newSel.add(key); return; } // clamp — keep in place
-          const step    = track.steps[si];
+          if (newSi < 0 || newSi >= steps) {
+            newSel.add(key);
+            return;
+          } // clamp — keep in place
+          const step = track.steps[si];
           const newStep = track.steps[newSi];
           if (!step) return;
           const stepMidi = step.paramLocks?.note ?? step.note;
           if (stepMidi !== midi) return;
           // Copy to destination
-          newStep.active   = true;
-          newStep.note     = step.note;
+          newStep.active = true;
+          newStep.note = step.note;
           newStep.velocity = step.velocity ?? 1;
-          newStep.gate     = step.gate ?? 0.5;
+          newStep.gate = step.gate ?? 0.5;
           newStep.paramLocks = newStep.paramLocks ?? {};
           newStep.paramLocks.note = midi;
           // Clear source (only if destination != source)
@@ -882,7 +923,7 @@ export default {
           newSel.add(`${midi}_${newSi}`);
         });
         sel.clear();
-        newSel.forEach(k => sel.add(k));
+        newSel.forEach((k) => sel.add(k));
         emit('track:change', { param: 'steps', value: track.steps });
         emit('state:change', { path: 'rollScroll', value: state.rollScroll });
         return;
@@ -891,14 +932,17 @@ export default {
       if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
         e.preventDefault();
         const delta = e.key === 'ArrowUp' ? 1 : -1;
-        const keys  = Array.from(sel);
+        const keys = Array.from(sel);
         const newSel = new Set();
-        keys.forEach(key => {
+        keys.forEach((key) => {
           const [midiStr, siStr] = key.split('_');
-          const si   = Number(siStr);
+          const si = Number(siStr);
           const midi = Number(midiStr);
           const newMidi = midi + delta;
-          if (newMidi < 0 || newMidi > 127) { newSel.add(key); return; }
+          if (newMidi < 0 || newMidi > 127) {
+            newSel.add(key);
+            return;
+          }
           const step = track.steps[si];
           if (!step) return;
           const stepMidi = step.paramLocks?.note ?? step.note;
@@ -908,7 +952,7 @@ export default {
           newSel.add(`${newMidi}_${si}`);
         });
         sel.clear();
-        newSel.forEach(k => sel.add(k));
+        newSel.forEach((k) => sel.add(k));
         emit('track:change', { param: 'steps', value: track.steps });
         emit('state:change', { path: 'rollScroll', value: state.rollScroll });
         return;
@@ -918,7 +962,10 @@ export default {
     const kbdAbort = new AbortController();
     document.addEventListener('keydown', onKeyDown, { signal: kbdAbort.signal });
     const prevCleanup = container._cleanup;
-    container._cleanup = () => { kbdAbort.abort(); prevCleanup?.(); };
+    container._cleanup = () => {
+      kbdAbort.abort();
+      prevCleanup?.();
+    };
 
     // Ctrl+scroll horizontal zoom on the roll grid
     const rollContainer = container.querySelector('.roll-grid') ?? gridCol;
@@ -927,49 +974,61 @@ export default {
       emit('knob:change', { param: 'rollZoom', value: state.rollZoom });
     }
 
-    scrollContainer.addEventListener('wheel', e => {
-      if (!e.ctrlKey && !e.metaKey) return;
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? -1 : 1;
-      const newZoom = Math.max(0, Math.min(4, (state.rollZoom ?? 1) + delta));
-      if (newZoom !== state.rollZoom) {
-        state.rollZoom = newZoom;
-        renderRoll();
-      }
-    }, { passive: false });
+    scrollContainer.addEventListener(
+      'wheel',
+      (e) => {
+        if (!e.ctrlKey && !e.metaKey) return;
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -1 : 1;
+        const newZoom = Math.max(0, Math.min(4, (state.rollZoom ?? 1) + delta));
+        if (newZoom !== state.rollZoom) {
+          state.rollZoom = newZoom;
+          renderRoll();
+        }
+      },
+      { passive: false },
+    );
 
     let pinchStartDist = 0;
 
-    rollContainer.addEventListener('touchstart', e => {
-      if (e.touches.length === 2) {
-        pinchStartDist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        e.preventDefault();
-      }
-    }, { passive: false });
-
-    rollContainer.addEventListener('touchmove', e => {
-      if (e.touches.length === 2) {
-        const dist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        const scale = dist / pinchStartDist;
-        if (Math.abs(scale - 1) > 0.1) {
-          state.rollZoom = Math.max(0, Math.min(4, Math.round((state.rollZoom ?? 1) * scale)));
-          pinchStartDist = dist;
-          renderRoll();
+    rollContainer.addEventListener(
+      'touchstart',
+      (e) => {
+        if (e.touches.length === 2) {
+          pinchStartDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY,
+          );
+          e.preventDefault();
         }
-        e.preventDefault();
-      }
-    }, { passive: false });
+      },
+      { passive: false },
+    );
+
+    rollContainer.addEventListener(
+      'touchmove',
+      (e) => {
+        if (e.touches.length === 2) {
+          const dist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY,
+          );
+          const scale = dist / pinchStartDist;
+          if (Math.abs(scale - 1) > 0.1) {
+            state.rollZoom = Math.max(0, Math.min(4, Math.round((state.rollZoom ?? 1) * scale)));
+            pinchStartDist = dist;
+            renderRoll();
+          }
+          e.preventDefault();
+        }
+      },
+      { passive: false },
+    );
 
     // Build a midi→key element map for key flash on play
     const midiToKeyEl = new Map();
-    keysCol.querySelectorAll('.roll-key').forEach(keyEl => {
-      const midi = ROWS.find(r => r.name === keyEl.textContent.trim())?.midi;
+    keysCol.querySelectorAll('.roll-key').forEach((keyEl) => {
+      const midi = ROWS.find((r) => r.name === keyEl.textContent.trim())?.midi;
       if (midi != null) midiToKeyEl.set(midi, keyEl);
     });
 
@@ -998,10 +1057,13 @@ export default {
                 if (keyEl) {
                   keyEl.classList.add('lit');
                   if (keyFlashTimers.has(midi)) clearTimeout(keyFlashTimers.get(midi));
-                  keyFlashTimers.set(midi, setTimeout(() => {
-                    keyEl.classList.remove('lit');
-                    keyFlashTimers.delete(midi);
-                  }, 120));
+                  keyFlashTimers.set(
+                    midi,
+                    setTimeout(() => {
+                      keyEl.classList.remove('lit');
+                      keyFlashTimers.delete(midi);
+                    }, 120),
+                  );
                 }
               }
             }
@@ -1018,7 +1080,8 @@ export default {
     // Velocity lane
     const velLane = document.createElement('div');
     velLane.className = 'roll-vel-lane';
-    velLane.style.cssText = 'display:flex;height:40px;max-height:60px;flex-shrink:0;border-top:1px solid #2a2a2a;overflow-x:hidden;position:relative;cursor:crosshair;';
+    velLane.style.cssText =
+      'display:flex;height:40px;max-height:60px;flex-shrink:0;border-top:1px solid #2a2a2a;overflow-x:hidden;position:relative;cursor:crosshair;';
 
     function renderVelocityLane() {
       velLane.innerHTML = '';
@@ -1053,7 +1116,7 @@ export default {
     renderVelocityLane();
 
     // Pencil/drag tool: click and drag to set velocities
-    velLane.addEventListener('mousedown', e => {
+    velLane.addEventListener('mousedown', (e) => {
       const rect = velLane.getBoundingClientRect();
       function setVelAtPos(clientX, clientY) {
         const x = clientX - rect.left;
@@ -1070,7 +1133,7 @@ export default {
         }
       }
       setVelAtPos(e.clientX, e.clientY);
-      const onMove = me => setVelAtPos(me.clientX, me.clientY);
+      const onMove = (me) => setVelAtPos(me.clientX, me.clientY);
       const onUp = () => {
         window.removeEventListener('mousemove', onMove);
         window.removeEventListener('mouseup', onUp);
@@ -1084,39 +1147,48 @@ export default {
     // ── Automation Lanes ──────────────────────────────────────────────────────
 
     const AUTO_PARAMS = [
-      { id: 'cutoff',    label: 'Cutoff'    },
+      { id: 'cutoff', label: 'Cutoff' },
       { id: 'resonance', label: 'Resonance' },
-      { id: 'velocity',  label: 'Velocity'  },
-      { id: 'attack',    label: 'Attack'    },
-      { id: 'decay',     label: 'Decay'     },
-      { id: 'note',      label: 'Note'      },
-      { id: 'pan',       label: 'Pan'       },
-      { id: 'drive',     label: 'Drive'     },
+      { id: 'velocity', label: 'Velocity' },
+      { id: 'attack', label: 'Attack' },
+      { id: 'decay', label: 'Decay' },
+      { id: 'note', label: 'Note' },
+      { id: 'pan', label: 'Pan' },
+      { id: 'drive', label: 'Drive' },
     ];
 
     const LANE_COLORS = {
-      cutoff:    '#67d7ff',
+      cutoff: '#67d7ff',
       resonance: '#c67dff',
-      velocity:  '#f0c640',
-      attack:    '#5add71',
-      decay:     '#ff8c52',
-      pan:       '#40e0d0',
-      drive:     '#f05b52',
-      note:      '#ff6eb4',
+      velocity: '#f0c640',
+      attack: '#5add71',
+      decay: '#ff8c52',
+      pan: '#40e0d0',
+      drive: '#f05b52',
+      note: '#ff6eb4',
     };
 
     // Default value resolver: maps paramId to a 0–1 value from track defaults
     function getDefaultValue(tr, paramId) {
       switch (paramId) {
-        case 'cutoff':    return Math.max(0, Math.min(1, (tr.cutoff ?? 3200) / 18000));
-        case 'resonance': return Math.max(0, Math.min(1, ((tr.resonance ?? 1) - 0.5) / 29.5));
-        case 'velocity':  return 1;
-        case 'attack':    return Math.max(0, Math.min(1, (tr.attack ?? 0.005) / 2));
-        case 'decay':     return Math.max(0, Math.min(1, (tr.decay ?? 0.28) / 4));
-        case 'note':      return Math.max(0, Math.min(1, ((tr.pitch ?? 60) - 24) / 72));
-        case 'pan':       return Math.max(0, Math.min(1, ((tr.pan ?? 0) + 1) / 2));
-        case 'drive':     return Math.max(0, Math.min(1, tr.drive ?? 0.18));
-        default:          return 0.5;
+        case 'cutoff':
+          return Math.max(0, Math.min(1, (tr.cutoff ?? 3200) / 18000));
+        case 'resonance':
+          return Math.max(0, Math.min(1, ((tr.resonance ?? 1) - 0.5) / 29.5));
+        case 'velocity':
+          return 1;
+        case 'attack':
+          return Math.max(0, Math.min(1, (tr.attack ?? 0.005) / 2));
+        case 'decay':
+          return Math.max(0, Math.min(1, (tr.decay ?? 0.28) / 4));
+        case 'note':
+          return Math.max(0, Math.min(1, ((tr.pitch ?? 60) - 24) / 72));
+        case 'pan':
+          return Math.max(0, Math.min(1, ((tr.pan ?? 0) + 1) / 2));
+        case 'drive':
+          return Math.max(0, Math.min(1, tr.drive ?? 0.18));
+        default:
+          return 0.5;
       }
     }
 
@@ -1128,8 +1200,8 @@ export default {
 
     function drawLaneCanvas(canvas, paramId) {
       const ctx = canvas.getContext('2d');
-      const w   = canvas.width;
-      const h   = canvas.height;
+      const w = canvas.width;
+      const h = canvas.height;
       ctx.clearRect(0, 0, w, h);
 
       // Background
@@ -1150,9 +1222,10 @@ export default {
 
       for (let si = 0; si < steps; si++) {
         const step = track.steps[si];
-        const val  = (step.paramLocks && step.paramLocks[paramId] != null)
-          ? step.paramLocks[paramId]
-          : getDefaultValue(track, paramId);
+        const val =
+          step.paramLocks && step.paramLocks[paramId] != null
+            ? step.paramLocks[paramId]
+            : getDefaultValue(track, paramId);
         const barH = Math.max(2, val * (h - 4));
         ctx.fillStyle = barColor + 'cc';
         ctx.fillRect(si * stepW + 1, h - barH - 2, stepW - 2, barH);
@@ -1160,9 +1233,9 @@ export default {
     }
 
     function buildLaneEl(paramId) {
-      const paramDef = AUTO_PARAMS.find(p => p.id === paramId);
-      const label    = paramDef?.label ?? paramId;
-      const isOpen   = window._autoLanes.includes(paramId);
+      const paramDef = AUTO_PARAMS.find((p) => p.id === paramId);
+      const label = paramDef?.label ?? paramId;
+      const isOpen = window._autoLanes.includes(paramId);
 
       const laneEl = document.createElement('div');
       laneEl.className = 'auto-lane';
@@ -1180,7 +1253,7 @@ export default {
       // Canvas body
       const canvasEl = document.createElement('canvas');
       canvasEl.className = 'auto-lane-canvas';
-      canvasEl.width  = steps * stepW;
+      canvasEl.width = steps * stepW;
       canvasEl.height = LANE_HEIGHT;
       canvasEl.style.display = isOpen ? 'block' : 'none';
 
@@ -1195,7 +1268,7 @@ export default {
       // Close / remove lane
       header.querySelector('.auto-lane-close').addEventListener('click', (e) => {
         e.stopPropagation();
-        window._autoLanes = window._autoLanes.filter(id => id !== paramId);
+        window._autoLanes = window._autoLanes.filter((id) => id !== paramId);
         laneEl.remove();
       });
 
@@ -1210,8 +1283,8 @@ export default {
 
       function updateBar(e) {
         const rect = canvasEl.getBoundingClientRect();
-        const x  = e.clientX - rect.left;
-        const y  = e.clientY - rect.top;
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
         const si = Math.floor(x / stepW);
         if (si < 0 || si >= steps) return;
         const val = Math.max(0, Math.min(1, 1 - y / rect.height));
@@ -1232,13 +1305,14 @@ export default {
       canvasEl.addEventListener('mousemove', (e) => {
         // Value readout on hover even without drag
         const rect = canvasEl.getBoundingClientRect();
-        const x  = e.clientX - rect.left;
+        const x = e.clientX - rect.left;
         const si = Math.floor(x / stepW);
         if (si >= 0 && si < steps) {
           const step = track.steps[si];
-          const val  = (step.paramLocks && step.paramLocks[paramId] != null)
-            ? step.paramLocks[paramId]
-            : getDefaultValue(track, paramId);
+          const val =
+            step.paramLocks && step.paramLocks[paramId] != null
+              ? step.paramLocks[paramId]
+              : getDefaultValue(track, paramId);
           header.querySelector('.auto-lane-value').textContent = val.toFixed(2);
         }
         if (isDragging) updateBar(e);
@@ -1251,7 +1325,7 @@ export default {
       canvasEl.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         const rect = canvasEl.getBoundingClientRect();
-        const x  = e.clientX - rect.left;
+        const x = e.clientX - rect.left;
         const si = Math.floor(x / stepW);
         if (si >= 0 && si < steps && track.steps[si].paramLocks) {
           delete track.steps[si].paramLocks[paramId];
@@ -1260,7 +1334,9 @@ export default {
         }
       });
 
-      window.addEventListener('mouseup', () => { isDragging = false; });
+      window.addEventListener('mouseup', () => {
+        isDragging = false;
+      });
 
       return laneEl;
     }
@@ -1273,7 +1349,7 @@ export default {
     autoSection.style.cssText = 'flex-shrink:0;';
 
     // Render existing open lanes
-    window._autoLanes.forEach(paramId => {
+    window._autoLanes.forEach((paramId) => {
       autoSection.append(buildLaneEl(paramId));
     });
 
@@ -1290,7 +1366,7 @@ export default {
       const dropdown = document.createElement('div');
       dropdown.className = 'auto-add-dropdown';
 
-      const available = AUTO_PARAMS.filter(p => !window._autoLanes.includes(p.id));
+      const available = AUTO_PARAMS.filter((p) => !window._autoLanes.includes(p.id));
       if (available.length === 0) {
         const item = document.createElement('div');
         item.className = 'auto-add-dropdown-item';
@@ -1298,7 +1374,7 @@ export default {
         item.textContent = 'All params added';
         dropdown.append(item);
       } else {
-        available.forEach(param => {
+        available.forEach((param) => {
           const item = document.createElement('div');
           item.className = 'auto-add-dropdown-item';
           item.style.cssText = `color:${LANE_COLORS[param.id] ?? '#aaa'}`;
@@ -1311,7 +1387,10 @@ export default {
               autoSection.insertBefore(laneEl, addLaneBtn);
               // Open immediately since we just added it
               const canvas = laneEl.querySelector('.auto-lane-canvas');
-              if (canvas) { canvas.style.display = 'block'; drawLaneCanvas(canvas, param.id); }
+              if (canvas) {
+                canvas.style.display = 'block';
+                drawLaneCanvas(canvas, param.id);
+              }
             }
           });
           dropdown.append(item);
@@ -1363,14 +1442,14 @@ export default {
   },
 
   knobMap: [
-    { label: 'Zoom',     param: 'rollZoom',     min: 0,   max: 4,   step: 1   },
-    { label: 'Scroll',   param: 'rollScroll',   min: 0,   max: 1,   step: 0.01 },
-    { label: 'Gate',     param: 'noteLength',   min: 0.01,max: 1,   step: 0.01 },
-    { label: 'Velocity', param: 'velocity',     min: 0,   max: 1,   step: 0.01 },
-    { label: 'Oct',      param: 'octaveShift',  min: -4,  max: 4,   step: 1 },
-    { label: 'Scale',    param: 'scaleMode',    min: 0,   max: 7,   step: 1 },
-    { label: 'Quantize', param: 'quantize',     min: 0,   max: 4,   step: 1 },
-    { label: '—',        param: null,           min: 0,   max: 1,   step: 1 },
+    { label: 'Zoom', param: 'rollZoom', min: 0, max: 4, step: 1 },
+    { label: 'Scroll', param: 'rollScroll', min: 0, max: 1, step: 0.01 },
+    { label: 'Gate', param: 'noteLength', min: 0.01, max: 1, step: 0.01 },
+    { label: 'Velocity', param: 'velocity', min: 0, max: 1, step: 0.01 },
+    { label: 'Oct', param: 'octaveShift', min: -4, max: 4, step: 1 },
+    { label: 'Scale', param: 'scaleMode', min: 0, max: 7, step: 1 },
+    { label: 'Quantize', param: 'quantize', min: 0, max: 4, step: 1 },
+    { label: '—', param: null, min: 0, max: 1, step: 1 },
   ],
 
   keyboardContext: 'piano-roll',

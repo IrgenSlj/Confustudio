@@ -5,64 +5,179 @@ export function createPolysynth(audioContext) {
 
   // ── Audio engine ────────────────────────────────────────────────────────────
   const params = {
-    attack: 0.01, decay: 0.3, sustain: 0.7, release: 0.5,
-    cutoff: 8000, resonance: 0, envAmount: 0.5, vcaLevel: 0.8,
+    attack: 0.01,
+    decay: 0.3,
+    sustain: 0.7,
+    release: 0.5,
+    cutoff: 8000,
+    resonance: 0,
+    envAmount: 0.5,
+    vcaLevel: 0.8,
     hpfFreq: 20,
-    lfoRate: 0.5, lfoDelay: 0, lfoDcoDepth: 0, lfoVcfDepth: 0,
-    sawOn: true, subOn: false, noiseOn: false,
+    lfoRate: 0.5,
+    lfoDelay: 0,
+    lfoDcoDepth: 0,
+    lfoVcfDepth: 0,
+    sawOn: true,
+    subOn: false,
+    noiseOn: false,
     chorusMode: 1, // 0=off, 1=I, 2=II
     portamento: 0, // 0–1, maps to 0–300ms glide time
   };
 
   // ── Patch presets ──────────────────────────────────────────────────────────
   const PATCHES = {
-    'Strings': {
-      attack: 0.3, decay: 0.4, sustain: 0.8, release: 1.2,
-      cutoff: 5000, resonance: 0.1, envAmount: 0.2, vcaLevel: 0.8,
-      hpfFreq: 20, lfoRate: 3.5, lfoDcoDepth: 8, lfoVcfDepth: 0,
-      sawOn: true, subOn: false, noiseOn: false, chorusMode: 1, portamento: 0.1,
+    Strings: {
+      attack: 0.3,
+      decay: 0.4,
+      sustain: 0.8,
+      release: 1.2,
+      cutoff: 5000,
+      resonance: 0.1,
+      envAmount: 0.2,
+      vcaLevel: 0.8,
+      hpfFreq: 20,
+      lfoRate: 3.5,
+      lfoDcoDepth: 8,
+      lfoVcfDepth: 0,
+      sawOn: true,
+      subOn: false,
+      noiseOn: false,
+      chorusMode: 1,
+      portamento: 0.1,
     },
-    'Brass': {
-      attack: 0.08, decay: 0.3, sustain: 0.7, release: 0.2,
-      cutoff: 9000, resonance: 0.25, envAmount: 0.7, vcaLevel: 0.85,
-      hpfFreq: 60, lfoRate: 0.5, lfoDcoDepth: 0, lfoVcfDepth: 0,
-      sawOn: true, subOn: true, noiseOn: false, chorusMode: 0, portamento: 0,
+    Brass: {
+      attack: 0.08,
+      decay: 0.3,
+      sustain: 0.7,
+      release: 0.2,
+      cutoff: 9000,
+      resonance: 0.25,
+      envAmount: 0.7,
+      vcaLevel: 0.85,
+      hpfFreq: 60,
+      lfoRate: 0.5,
+      lfoDcoDepth: 0,
+      lfoVcfDepth: 0,
+      sawOn: true,
+      subOn: true,
+      noiseOn: false,
+      chorusMode: 0,
+      portamento: 0,
     },
     'Soft Pad': {
-      attack: 0.8, decay: 0.6, sustain: 0.9, release: 1.8,
-      cutoff: 3500, resonance: 0.05, envAmount: 0.15, vcaLevel: 0.75,
-      hpfFreq: 20, lfoRate: 2.0, lfoDcoDepth: 6, lfoVcfDepth: 0,
-      sawOn: true, subOn: false, noiseOn: false, chorusMode: 2, portamento: 0.15,
+      attack: 0.8,
+      decay: 0.6,
+      sustain: 0.9,
+      release: 1.8,
+      cutoff: 3500,
+      resonance: 0.05,
+      envAmount: 0.15,
+      vcaLevel: 0.75,
+      hpfFreq: 20,
+      lfoRate: 2.0,
+      lfoDcoDepth: 6,
+      lfoVcfDepth: 0,
+      sawOn: true,
+      subOn: false,
+      noiseOn: false,
+      chorusMode: 2,
+      portamento: 0.15,
     },
     'Sync Lead': {
-      attack: 0.005, decay: 0.2, sustain: 0.6, release: 0.3,
-      cutoff: 7000, resonance: 0.55, envAmount: 0.5, vcaLevel: 0.9,
-      hpfFreq: 40, lfoRate: 5.0, lfoDcoDepth: 20, lfoVcfDepth: 0,
-      sawOn: true, subOn: false, noiseOn: false, chorusMode: 0, portamento: 0.05,
+      attack: 0.005,
+      decay: 0.2,
+      sustain: 0.6,
+      release: 0.3,
+      cutoff: 7000,
+      resonance: 0.55,
+      envAmount: 0.5,
+      vcaLevel: 0.9,
+      hpfFreq: 40,
+      lfoRate: 5.0,
+      lfoDcoDepth: 20,
+      lfoVcfDepth: 0,
+      sawOn: true,
+      subOn: false,
+      noiseOn: false,
+      chorusMode: 0,
+      portamento: 0.05,
     },
-    'Pluck': {
-      attack: 0.002, decay: 0.18, sustain: 0.0, release: 0.12,
-      cutoff: 6000, resonance: 0.3, envAmount: 0.6, vcaLevel: 0.9,
-      hpfFreq: 80, lfoRate: 0.5, lfoDcoDepth: 0, lfoVcfDepth: 0,
-      sawOn: true, subOn: false, noiseOn: false, chorusMode: 0, portamento: 0,
+    Pluck: {
+      attack: 0.002,
+      decay: 0.18,
+      sustain: 0.0,
+      release: 0.12,
+      cutoff: 6000,
+      resonance: 0.3,
+      envAmount: 0.6,
+      vcaLevel: 0.9,
+      hpfFreq: 80,
+      lfoRate: 0.5,
+      lfoDcoDepth: 0,
+      lfoVcfDepth: 0,
+      sawOn: true,
+      subOn: false,
+      noiseOn: false,
+      chorusMode: 0,
+      portamento: 0,
     },
-    'Organ': {
-      attack: 0.002, decay: 0.1, sustain: 1.0, release: 0.05,
-      cutoff: 18000, resonance: 0, envAmount: 0, vcaLevel: 0.8,
-      hpfFreq: 20, lfoRate: 1.5, lfoDcoDepth: 4, lfoVcfDepth: 0,
-      sawOn: true, subOn: true, noiseOn: false, chorusMode: 1, portamento: 0,
+    Organ: {
+      attack: 0.002,
+      decay: 0.1,
+      sustain: 1.0,
+      release: 0.05,
+      cutoff: 18000,
+      resonance: 0,
+      envAmount: 0,
+      vcaLevel: 0.8,
+      hpfFreq: 20,
+      lfoRate: 1.5,
+      lfoDcoDepth: 4,
+      lfoVcfDepth: 0,
+      sawOn: true,
+      subOn: true,
+      noiseOn: false,
+      chorusMode: 1,
+      portamento: 0,
     },
-    'Bass': {
-      attack: 0.005, decay: 0.4, sustain: 0.3, release: 0.2,
-      cutoff: 1800, resonance: 0.4, envAmount: 0.5, vcaLevel: 0.95,
-      hpfFreq: 20, lfoRate: 0.5, lfoDcoDepth: 0, lfoVcfDepth: 0,
-      sawOn: false, subOn: true, noiseOn: false, chorusMode: 0, portamento: 0,
+    Bass: {
+      attack: 0.005,
+      decay: 0.4,
+      sustain: 0.3,
+      release: 0.2,
+      cutoff: 1800,
+      resonance: 0.4,
+      envAmount: 0.5,
+      vcaLevel: 0.95,
+      hpfFreq: 20,
+      lfoRate: 0.5,
+      lfoDcoDepth: 0,
+      lfoVcfDepth: 0,
+      sawOn: false,
+      subOn: true,
+      noiseOn: false,
+      chorusMode: 0,
+      portamento: 0,
     },
     'Juno Arp': {
-      attack: 0.01, decay: 0.3, sustain: 0.7, release: 0.5,
-      cutoff: 7500, resonance: 0.15, envAmount: 0.45, vcaLevel: 0.82,
-      hpfFreq: 20, lfoRate: 1.8, lfoDcoDepth: 5, lfoVcfDepth: 0,
-      sawOn: true, subOn: true, noiseOn: false, chorusMode: 1, portamento: 0.08,
+      attack: 0.01,
+      decay: 0.3,
+      sustain: 0.7,
+      release: 0.5,
+      cutoff: 7500,
+      resonance: 0.15,
+      envAmount: 0.45,
+      vcaLevel: 0.82,
+      hpfFreq: 20,
+      lfoRate: 1.8,
+      lfoDcoDepth: 5,
+      lfoVcfDepth: 0,
+      sawOn: true,
+      subOn: true,
+      noiseOn: false,
+      chorusMode: 1,
+      portamento: 0.08,
     },
   };
 
@@ -77,11 +192,11 @@ export function createPolysynth(audioContext) {
 
   // ── Arpeggiator ────────────────────────────────────────────────────────────
   let _arpActive = false;
-  let _arpNotes = [];        // currently arpeggiated note pool
+  let _arpNotes = []; // currently arpeggiated note pool
   let _arpIdx = 0;
-  const _arpDir = 1;           // for UP-DOWN mode
-  let _arpMode = 'UP';       // UP | DOWN | UP-DOWN | RANDOM
-  let _arpRate = '1/8';      // 1/4 | 1/8 | 1/16
+  const _arpDir = 1; // for UP-DOWN mode
+  let _arpMode = 'UP'; // UP | DOWN | UP-DOWN | RANDOM
+  let _arpRate = '1/8'; // 1/4 | 1/8 | 1/16
   let _arpTimer = null;
   let _arpClockBPM = 120;
   let _arpClockActive = false; // true when clock events are driving arp
@@ -98,16 +213,14 @@ export function createPolysynth(audioContext) {
       note = rev[_arpIdx % rev.length];
       _arpIdx = (_arpIdx + 1) % rev.length;
     } else if (_arpMode === 'UP-DOWN') {
-      const full = sorted.length > 1
-        ? [...sorted, ...sorted.slice(1, -1).reverse()]
-        : sorted;
+      const full = sorted.length > 1 ? [...sorted, ...sorted.slice(1, -1).reverse()] : sorted;
       note = full[_arpIdx % full.length];
       _arpIdx = (_arpIdx + 1) % full.length;
     } else {
       note = sorted[Math.floor(Math.random() * sorted.length)];
     }
     // Stop any sounding arp voice, then trigger new one
-    voices.forEach(v => {
+    voices.forEach((v) => {
       if (v.arpNote && v.arpNote !== note) {
         _releaseVoice(v);
         v.arpNote = null;
@@ -115,7 +228,7 @@ export function createPolysynth(audioContext) {
     });
     _triggerNoteOn(note, 90);
     // Track which voice is playing the arp note for release
-    const av = [...voices].filter(v => v.note === note).pop();
+    const av = [...voices].filter((v) => v.note === note).pop();
     if (av) av.arpNote = note;
   }
 
@@ -128,41 +241,91 @@ export function createPolysynth(audioContext) {
   }
 
   function _stopArpTimer() {
-    if (_arpTimer) { clearInterval(_arpTimer); _arpTimer = null; }
+    if (_arpTimer) {
+      clearInterval(_arpTimer);
+      _arpTimer = null;
+    }
     // Release all arp voices
-    voices.forEach(v => { if (v.arpNote) { _releaseVoice(v); v.arpNote = null; } });
+    voices.forEach((v) => {
+      if (v.arpNote) {
+        _releaseVoice(v);
+        v.arpNote = null;
+      }
+    });
   }
 
   function makeVoice(actx) {
-    const saw = actx.createOscillator(); saw.type = 'sawtooth';
-    const sub = actx.createOscillator(); sub.type = 'square';
+    const saw = actx.createOscillator();
+    saw.type = 'sawtooth';
+    const sub = actx.createOscillator();
+    sub.type = 'square';
 
     // White noise: 2-second looping buffer
     const noiseBuf = actx.createBuffer(1, actx.sampleRate * 2, actx.sampleRate);
     const nd = noiseBuf.getChannelData(0);
     for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
-    const noise = actx.createBufferSource(); noise.buffer = noiseBuf; noise.loop = true;
+    const noise = actx.createBufferSource();
+    noise.buffer = noiseBuf;
+    noise.loop = true;
 
-    const sawGain   = actx.createGain(); sawGain.gain.value = 1;
-    const subGain   = actx.createGain(); subGain.gain.value = 0;
-    const noiseGain = actx.createGain(); noiseGain.gain.value = 0;
+    const sawGain = actx.createGain();
+    sawGain.gain.value = 1;
+    const subGain = actx.createGain();
+    subGain.gain.value = 0;
+    const noiseGain = actx.createGain();
+    noiseGain.gain.value = 0;
 
-    const dcoSum = actx.createGain(); dcoSum.gain.value = 0.4;
-    saw.connect(sawGain);     sawGain.connect(dcoSum);
-    sub.connect(subGain);     subGain.connect(dcoSum);
-    noise.connect(noiseGain); noiseGain.connect(dcoSum);
+    const dcoSum = actx.createGain();
+    dcoSum.gain.value = 0.4;
+    saw.connect(sawGain);
+    sawGain.connect(dcoSum);
+    sub.connect(subGain);
+    subGain.connect(dcoSum);
+    noise.connect(noiseGain);
+    noiseGain.connect(dcoSum);
 
-    const hpf = actx.createBiquadFilter(); hpf.type = 'highpass'; hpf.frequency.value = 20; hpf.Q.value = 0.5;
-    const vcf1 = actx.createBiquadFilter(); vcf1.type = 'lowpass'; vcf1.frequency.value = 8000; vcf1.Q.value = 0;
-    const vcf2 = actx.createBiquadFilter(); vcf2.type = 'lowpass'; vcf2.frequency.value = 8000; vcf2.Q.value = 0;
-    const vca = actx.createGain(); vca.gain.value = 0;
+    const hpf = actx.createBiquadFilter();
+    hpf.type = 'highpass';
+    hpf.frequency.value = 20;
+    hpf.Q.value = 0.5;
+    const vcf1 = actx.createBiquadFilter();
+    vcf1.type = 'lowpass';
+    vcf1.frequency.value = 8000;
+    vcf1.Q.value = 0;
+    const vcf2 = actx.createBiquadFilter();
+    vcf2.type = 'lowpass';
+    vcf2.frequency.value = 8000;
+    vcf2.Q.value = 0;
+    const vca = actx.createGain();
+    vca.gain.value = 0;
 
-    dcoSum.connect(hpf); hpf.connect(vcf1); vcf1.connect(vcf2); vcf2.connect(vca);
+    dcoSum.connect(hpf);
+    hpf.connect(vcf1);
+    vcf1.connect(vcf2);
+    vcf2.connect(vca);
 
-    saw.start(); sub.start(); noise.start();
+    saw.start();
+    sub.start();
+    noise.start();
 
-    return { saw, sub, noise, sawGain, subGain, noiseGain, dcoSum, hpf, vcf1, vcf2, vca,
-             active: false, note: -1, startTime: 0, lastFreq: 0, arpNote: null };
+    return {
+      saw,
+      sub,
+      noise,
+      sawGain,
+      subGain,
+      noiseGain,
+      dcoSum,
+      hpf,
+      vcf1,
+      vcf2,
+      vca,
+      active: false,
+      note: -1,
+      startTime: 0,
+      lastFreq: 0,
+      arpNote: null,
+    };
   }
 
   if (ctx) {
@@ -170,16 +333,21 @@ export function createPolysynth(audioContext) {
     voices = Array.from({ length: 6 }, () => makeVoice(ctx));
 
     // Global LFO
-    lfo = ctx.createOscillator(); lfo.type = 'triangle'; lfo.frequency.value = 0.5;
-    lfoGain    = ctx.createGain(); lfoGain.gain.value = 0;
-    lfoVcfGain = ctx.createGain(); lfoVcfGain.gain.value = 0;
+    lfo = ctx.createOscillator();
+    lfo.type = 'triangle';
+    lfo.frequency.value = 0.5;
+    lfoGain = ctx.createGain();
+    lfoGain.gain.value = 0;
+    lfoVcfGain = ctx.createGain();
+    lfoVcfGain.gain.value = 0;
     lfo.connect(lfoGain);
     lfo.connect(lfoVcfGain);
     lfo.start();
 
     // Voice sum bus
-    voiceSum = ctx.createGain(); voiceSum.gain.value = 1;
-    voices.forEach(v => {
+    voiceSum = ctx.createGain();
+    voiceSum.gain.value = 1;
+    voices.forEach((v) => {
       v.vca.connect(voiceSum);
       // LFO -> DCO freq mod
       lfoGain.connect(v.saw.frequency);
@@ -190,25 +358,37 @@ export function createPolysynth(audioContext) {
     });
 
     // Chorus (BBD emulation)
-    chorusDry = ctx.createGain(); chorusDry.gain.value = 0.5;
-    const chorusMix = ctx.createGain(); chorusMix.gain.value = 0.5;
+    chorusDry = ctx.createGain();
+    chorusDry.gain.value = 0.5;
+    const chorusMix = ctx.createGain();
+    chorusMix.gain.value = 0.5;
 
-    delay1 = ctx.createDelay(0.03); delay1.delayTime.value = 0.012;
-    delay2 = ctx.createDelay(0.03); delay2.delayTime.value = 0.018;
+    delay1 = ctx.createDelay(0.03);
+    delay1.delayTime.value = 0.012;
+    delay2 = ctx.createDelay(0.03);
+    delay2.delayTime.value = 0.018;
 
-    chorusLFO  = ctx.createOscillator(); chorusLFO.type  = 'triangle'; chorusLFO.frequency.value  = 0.513;
-    chorus2LFO = ctx.createOscillator(); chorus2LFO.type = 'triangle'; chorus2LFO.frequency.value = 0.863;
-    depthGain  = ctx.createGain(); depthGain.gain.value  = 0.004;
-    depth2     = ctx.createGain(); depth2.gain.value     = 0.003;
+    chorusLFO = ctx.createOscillator();
+    chorusLFO.type = 'triangle';
+    chorusLFO.frequency.value = 0.513;
+    chorus2LFO = ctx.createOscillator();
+    chorus2LFO.type = 'triangle';
+    chorus2LFO.frequency.value = 0.863;
+    depthGain = ctx.createGain();
+    depthGain.gain.value = 0.004;
+    depth2 = ctx.createGain();
+    depth2.gain.value = 0.003;
 
     chorusLFO.connect(depthGain);
     depthGain.connect(delay1.delayTime);
     depthGain.connect(delay2.delayTime);
     chorus2LFO.connect(depth2);
     depth2.connect(delay2.delayTime);
-    chorusLFO.start(); chorus2LFO.start();
+    chorusLFO.start();
+    chorus2LFO.start();
 
-    outputGain = ctx.createGain(); outputGain.gain.value = 0.75;
+    outputGain = ctx.createGain();
+    outputGain.gain.value = 0.75;
 
     // voiceSum -> dry + delay1 + delay2 -> outputGain
     voiceSum.connect(chorusDry);
@@ -255,14 +435,14 @@ export function createPolysynth(audioContext) {
     });
 
     // DCO source buttons
-    el.querySelectorAll('[data-dco]').forEach(btn => {
+    el.querySelectorAll('[data-dco]').forEach((btn) => {
       const src = btn.dataset.dco;
       const on = src === 'saw' ? p.sawOn : src === 'sub' ? p.subOn : p.noiseOn;
       btn.classList.toggle('polysynth-sw--on', !!on);
     });
 
     // Chorus
-    el.querySelectorAll('.polysynth-chorus-btn').forEach(btn => {
+    el.querySelectorAll('.polysynth-chorus-btn').forEach((btn) => {
       const match = parseInt(btn.dataset.chorus) === p.chorusMode;
       btn.classList.toggle('polysynth-chorus-btn--active', match);
     });
@@ -270,13 +450,15 @@ export function createPolysynth(audioContext) {
 
     // HPF: find closest preset freq
     const HPF_FREQS = [20, 240, 800, 3000];
-    const hpfIdx = HPF_FREQS.reduce((best, f, i) =>
-      Math.abs(f - p.hpfFreq) < Math.abs(HPF_FREQS[best] - p.hpfFreq) ? i : best, 0);
-    el.querySelectorAll('.polysynth-hpf-btn').forEach(btn => {
+    const hpfIdx = HPF_FREQS.reduce(
+      (best, f, i) => (Math.abs(f - p.hpfFreq) < Math.abs(HPF_FREQS[best] - p.hpfFreq) ? i : best),
+      0,
+    );
+    el.querySelectorAll('.polysynth-hpf-btn').forEach((btn) => {
       btn.classList.toggle('polysynth-hpf-btn--active', parseInt(btn.dataset.hpf) === hpfIdx);
     });
     if (ctx) {
-      voices.forEach(v => v.hpf.frequency.setTargetAtTime(p.hpfFreq, ctx.currentTime, 0.02));
+      voices.forEach((v) => v.hpf.frequency.setTargetAtTime(p.hpfFreq, ctx.currentTime, 0.02));
     }
 
     // Portamento slider
@@ -311,8 +493,8 @@ export function createPolysynth(audioContext) {
     }
     v.lastFreq = freq;
 
-    v.sawGain.gain.setValueAtTime(params.sawOn   ? 1   : 0,   t);
-    v.subGain.gain.setValueAtTime(params.subOn   ? 0.5 : 0,   t);
+    v.sawGain.gain.setValueAtTime(params.sawOn ? 1 : 0, t);
+    v.subGain.gain.setValueAtTime(params.subOn ? 0.5 : 0, t);
     v.noiseGain.gain.setValueAtTime(params.noiseOn ? 0.3 : 0, t);
 
     // HPF
@@ -320,7 +502,7 @@ export function createPolysynth(audioContext) {
 
     // VCF with env
     const targetCutoff = Math.min(ctx.sampleRate / 2, params.cutoff * (1 + params.envAmount * 3));
-    [v.vcf1, v.vcf2].forEach(f => {
+    [v.vcf1, v.vcf2].forEach((f) => {
       f.frequency.cancelScheduledValues(t);
       f.frequency.setValueAtTime(targetCutoff, t);
       f.frequency.exponentialRampToValueAtTime(Math.max(20, params.cutoff), t + params.decay);
@@ -333,10 +515,12 @@ export function createPolysynth(audioContext) {
     v.vca.gain.linearRampToValueAtTime(params.vcaLevel * (vel / 127), t + params.attack);
     v.vca.gain.linearRampToValueAtTime(
       params.vcaLevel * params.sustain * (vel / 127),
-      t + params.attack + params.decay
+      t + params.attack + params.decay,
     );
 
-    v.active = true; v.note = midi; v.startTime = t;
+    v.active = true;
+    v.note = midi;
+    v.startTime = t;
     _updateVoiceDots();
   }
 
@@ -346,7 +530,8 @@ export function createPolysynth(audioContext) {
     v.vca.gain.cancelScheduledValues(t);
     v.vca.gain.setValueAtTime(v.vca.gain.value, t);
     v.vca.gain.exponentialRampToValueAtTime(0.001, t + params.release);
-    v.active = false; v.note = -1;
+    v.active = false;
+    v.note = -1;
     _updateVoiceDots();
   }
 
@@ -368,27 +553,32 @@ export function createPolysynth(audioContext) {
     if (!ctx) return;
 
     if (_arpActive) {
-      _arpNotes = _arpNotes.filter(n => n !== midi);
+      _arpNotes = _arpNotes.filter((n) => n !== midi);
       if (_arpNotes.length === 0 && !_holdActive) _stopArpTimer();
       return;
     }
 
     if (_holdActive) return; // sustain: don't release while hold is on
 
-    voices.filter(v => v.note === midi && v.active).forEach(v => _releaseVoice(v));
+    voices.filter((v) => v.note === midi && v.active).forEach((v) => _releaseVoice(v));
   }
 
   // Listen for global note events
-  document.addEventListener('confustudio:note:on',  e => noteOn(e.detail.note,  e.detail.velocity * 127));
-  document.addEventListener('confustudio:note:off', e => noteOff(e.detail.note));
+  document.addEventListener('confustudio:note:on', (e) => noteOn(e.detail.note, e.detail.velocity * 127));
+  document.addEventListener('confustudio:note:off', (e) => noteOff(e.detail.note));
 
   // Clock sync for arp
-  document.addEventListener('confustudio:clock', e => {
+  document.addEventListener('confustudio:clock', (e) => {
     const { step, bpm } = e.detail ?? {};
-    if (bpm) { _arpClockBPM = bpm; }
+    if (bpm) {
+      _arpClockBPM = bpm;
+    }
     if (!_arpActive) return;
     _arpClockActive = true;
-    if (_arpTimer) { clearInterval(_arpTimer); _arpTimer = null; }
+    if (_arpTimer) {
+      clearInterval(_arpTimer);
+      _arpTimer = null;
+    }
 
     const rateMap = { '1/4': 4, '1/8': 2, '1/16': 1 };
     const divisor = rateMap[_arpRate] ?? 2;
@@ -401,14 +591,15 @@ export function createPolysynth(audioContext) {
   function _updateADSRCanvas() {
     const canvas = el.querySelector('.polysynth-adsr-canvas');
     if (!canvas) return;
-    const cw = canvas.width, ch = canvas.height;
+    const cw = canvas.width,
+      ch = canvas.height;
     const gc = canvas.getContext('2d');
     if (!gc) return;
     gc.clearRect(0, 0, cw, ch);
 
-    const A = Math.min(params.attack / 4, 1);   // 0–1 of total width
-    const D = Math.min(params.decay  / 4, 1);
-    const S = params.sustain;                   // 0–1 height
+    const A = Math.min(params.attack / 4, 1); // 0–1 of total width
+    const D = Math.min(params.decay / 4, 1);
+    const S = params.sustain; // 0–1 height
     const R = Math.min(params.release / 6, 1);
 
     const totalSeg = A + D + 0.25 + R;
@@ -446,8 +637,6 @@ export function createPolysynth(audioContext) {
   // ── DOM ─────────────────────────────────────────────────────────────────────
   const el = document.createElement('div');
   el.className = 'polysynth-chassis';
-
-  const portaMs = () => Math.round(params.portamento * 300);
 
   el.innerHTML = `
     <div class="polysynth-ports-bar">
@@ -617,7 +806,9 @@ export function createPolysynth(audioContext) {
         <div class="polysynth-section-header">PATCH</div>
         <div class="polysynth-section-body" style="flex-direction:column; gap:5px; align-items:stretch; padding:6px;">
           <select class="polysynth-patch-select">
-            ${Object.keys(PATCHES).map(n => `<option value="${n}">${n}</option>`).join('')}
+            ${Object.keys(PATCHES)
+              .map((n) => `<option value="${n}">${n}</option>`)
+              .join('')}
           </select>
           <button class="polysynth-load-patch">LOAD</button>
         </div>
@@ -628,7 +819,7 @@ export function createPolysynth(audioContext) {
     <!-- Voice indicator + keyboard row -->
     <div class="polysynth-lower-bar">
       <div class="polysynth-voice-dots">
-        ${Array.from({length:6}, (_,i) => `<div class="polysynth-voice-dot" title="Voice ${i+1}"></div>`).join('')}
+        ${Array.from({ length: 6 }, (_, i) => `<div class="polysynth-voice-dot" title="Voice ${i + 1}"></div>`).join('')}
         <span class="polysynth-voice-label">VOICES</span>
       </div>
       <div class="polysynth-keyboard"></div>
@@ -1062,9 +1253,7 @@ export function createPolysynth(audioContext) {
   const kbEl = el.querySelector('.polysynth-keyboard');
   const WHITE_PATTERN = [0, 2, 4, 5, 7, 9, 11];
   const MIDI_START = 48; // C3
-  const MIDI_END   = 72; // C5
-
-  const NOTE_LABELS = ['C', '', 'D', '', 'E', 'F', '', 'G', '', 'A', '', 'B'];
+  const MIDI_END = 72; // C5
 
   const whiteKeys = [];
   const blackKeys = [];
@@ -1078,7 +1267,7 @@ export function createPolysynth(audioContext) {
   }
 
   // Render white keys — show C labels
-  whiteKeys.forEach(midi => {
+  whiteKeys.forEach((midi) => {
     const k = document.createElement('div');
     k.className = 'polysynth-key-white';
     k.dataset.midi = midi;
@@ -1092,8 +1281,8 @@ export function createPolysynth(audioContext) {
   });
 
   const wkW = 100 / whiteKeys.length;
-  blackKeys.forEach(midi => {
-    const prevWhiteIdx = whiteKeys.findIndex(w => w > midi) - 1;
+  blackKeys.forEach((midi) => {
+    const prevWhiteIdx = whiteKeys.findIndex((w) => w > midi) - 1;
     if (prevWhiteIdx < 0) return;
     const k = document.createElement('div');
     k.className = 'polysynth-key-black';
@@ -1104,7 +1293,7 @@ export function createPolysynth(audioContext) {
   });
 
   // Keyboard events
-  kbEl.addEventListener('pointerdown', e => {
+  kbEl.addEventListener('pointerdown', (e) => {
     const k = e.target.closest('[data-midi]');
     if (!k) return;
     e.preventDefault();
@@ -1113,14 +1302,14 @@ export function createPolysynth(audioContext) {
     k.classList.add('pressed');
     noteOn(midi, 80);
   });
-  kbEl.addEventListener('pointerup', e => {
+  kbEl.addEventListener('pointerup', (e) => {
     const k = e.target.closest('[data-midi]');
     if (!k) return;
     const midi = parseInt(k.dataset.midi);
     k.classList.remove('pressed');
     noteOff(midi);
   });
-  kbEl.addEventListener('pointercancel', e => {
+  kbEl.addEventListener('pointercancel', (e) => {
     const k = e.target.closest('[data-midi]');
     if (!k) return;
     k.classList.remove('pressed');
@@ -1128,7 +1317,7 @@ export function createPolysynth(audioContext) {
   });
 
   // ── Slider interaction ───────────────────────────────────────────────────
-  el.querySelectorAll('.polysynth-slider').forEach(slider => {
+  el.querySelectorAll('.polysynth-slider').forEach((slider) => {
     slider.addEventListener('input', () => {
       const param = slider.dataset.param;
       const v = parseFloat(slider.value);
@@ -1151,19 +1340,19 @@ export function createPolysynth(audioContext) {
         lfoVcfGain.gain.setTargetAtTime(v, t, 0.05);
         break;
       case 'cutoff':
-        voices.forEach(vv => {
+        voices.forEach((vv) => {
           vv.vcf1.frequency.setTargetAtTime(v, t, 0.02);
           vv.vcf2.frequency.setTargetAtTime(v, t, 0.02);
         });
         break;
       case 'resonance':
-        voices.forEach(vv => {
+        voices.forEach((vv) => {
           vv.vcf1.Q.value = v * 8;
           vv.vcf2.Q.value = v * 8;
         });
         break;
       case 'hpfFreq':
-        voices.forEach(vv => vv.hpf.frequency.setTargetAtTime(v, t, 0.02));
+        voices.forEach((vv) => vv.hpf.frequency.setTargetAtTime(v, t, 0.02));
         break;
       case 'portamento': {
         const ms = Math.round(v * 300);
@@ -1181,21 +1370,21 @@ export function createPolysynth(audioContext) {
   }
 
   // ── DCO source toggle buttons ──────────────────────────────────────────
-  el.querySelectorAll('[data-dco]').forEach(btn => {
+  el.querySelectorAll('[data-dco]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const src = btn.dataset.dco;
       const isOn = btn.classList.toggle('polysynth-sw--on');
-      if (src === 'saw')   params.sawOn   = isOn;
-      if (src === 'sub')   params.subOn   = isOn;
+      if (src === 'saw') params.sawOn = isOn;
+      if (src === 'sub') params.subOn = isOn;
       if (src === 'noise') params.noiseOn = isOn;
     });
   });
 
   // ── HPF selector ──────────────────────────────────────────────────────
   const HPF_FREQS = [20, 240, 800, 3000];
-  el.querySelectorAll('.polysynth-hpf-btn').forEach(btn => {
+  el.querySelectorAll('.polysynth-hpf-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
-      el.querySelectorAll('.polysynth-hpf-btn').forEach(b => b.classList.remove('polysynth-hpf-btn--active'));
+      el.querySelectorAll('.polysynth-hpf-btn').forEach((b) => b.classList.remove('polysynth-hpf-btn--active'));
       btn.classList.add('polysynth-hpf-btn--active');
       const idx = parseInt(btn.dataset.hpf);
       params.hpfFreq = HPF_FREQS[idx];
@@ -1204,9 +1393,9 @@ export function createPolysynth(audioContext) {
   });
 
   // ── Chorus mode selector ───────────────────────────────────────────────
-  el.querySelectorAll('.polysynth-chorus-btn').forEach(btn => {
+  el.querySelectorAll('.polysynth-chorus-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
-      el.querySelectorAll('.polysynth-chorus-btn').forEach(b => b.classList.remove('polysynth-chorus-btn--active'));
+      el.querySelectorAll('.polysynth-chorus-btn').forEach((b) => b.classList.remove('polysynth-chorus-btn--active'));
       btn.classList.add('polysynth-chorus-btn--active');
       const mode = parseInt(btn.dataset.chorus);
       params.chorusMode = mode;
@@ -1220,8 +1409,8 @@ export function createPolysynth(audioContext) {
     e.currentTarget.classList.toggle('active', _holdActive);
     if (!_holdActive) {
       // Release all held notes with release envelope
-      _heldNotes.forEach(midi => {
-        voices.filter(v => v.note === midi && v.active).forEach(v => _releaseVoice(v));
+      _heldNotes.forEach((midi) => {
+        voices.filter((v) => v.note === midi && v.active).forEach((v) => _releaseVoice(v));
       });
       _heldNotes.clear();
     }

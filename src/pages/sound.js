@@ -1,64 +1,22 @@
 // src/pages/sound.js — Machine type, waveform, ADSR, filter
 import { openSampleBrowser } from '../sample-browser.js';
 import { TRACK_COLORS } from '../state.js';
-import { drawWaveform, makeSampleLoader } from './sound-sample.js';
+import { makeSampleLoader } from './sound-sample.js';
 
-const MACHINES  = ['tone', 'noise', 'sample', 'midi', 'plaits', 'clouds', 'rings'];
+const MACHINES = ['tone', 'noise', 'sample', 'midi', 'plaits', 'clouds', 'rings'];
 const WAVEFORMS = ['sine', 'triangle', 'sawtooth', 'square'];
 
-const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 function midiToNoteName(midi) {
   const oct = Math.floor(midi / 12) - 1;
   return NOTE_NAMES[midi % 12] + oct;
 }
 
-// ── Pitch detection via autocorrelation ───────────────────────────────────────
-// Returns the detected MIDI note (21–108), or null if no clear pitch is found.
-// Uses only the first 4096 samples to keep CPU cost bounded.
-function detectPitch(buffer, sampleRate) {
-  const data = buffer.getChannelData(0).slice(0, 4096);
-  const SIZE = data.length;
-  const corr = new Float32Array(SIZE);
-
-  for (let lag = 0; lag < SIZE; lag++) {
-    let sum = 0;
-    for (let i = 0; i < SIZE - lag; i++) {
-      sum += data[i] * data[i + lag];
-    }
-    corr[lag] = sum;
-  }
-
-  const minLag = Math.round(sampleRate / 2000); // 2 kHz max
-  const maxLag = Math.round(sampleRate / 40);   // 40 Hz min
-
-  let bestLag = -1, bestCorr = -Infinity;
-  for (let lag = minLag; lag < Math.min(maxLag, SIZE); lag++) {
-    if (corr[lag] > bestCorr) {
-      bestCorr = corr[lag];
-      bestLag = lag;
-    }
-  }
-
-  if (bestLag === -1 || bestCorr < 0.01) return null;
-  const freq = sampleRate / bestLag;
-  const midi = Math.round(12 * Math.log2(freq / 440) + 69);
-  return Math.max(21, Math.min(108, midi));
-}
-
-const CHORD_VOICINGS = {
-  off:  [],
-  maj:  [0, 4, 7],
-  min:  [0, 3, 7],
-  pwr:  [0, 7, 12],
-  dom7: [0, 4, 7, 10],
-  min7: [0, 3, 7, 10],
-};
-
 const WAVEFORM_SVGS = {
-  sine:     `<svg width="20" height="10" viewBox="0 0 20 10" xmlns="http://www.w3.org/2000/svg"><path d="M0,5 C2,5 3,1 5,1 C7,1 8,9 10,9 C12,9 13,1 15,1 C17,1 18,5 20,5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+  sine: `<svg width="20" height="10" viewBox="0 0 20 10" xmlns="http://www.w3.org/2000/svg"><path d="M0,5 C2,5 3,1 5,1 C7,1 8,9 10,9 C12,9 13,1 15,1 C17,1 18,5 20,5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
   triangle: `<svg width="20" height="10" viewBox="0 0 20 10" xmlns="http://www.w3.org/2000/svg"><polyline points="0,9 5,1 10,9 15,1 20,9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`,
   sawtooth: `<svg width="20" height="10" viewBox="0 0 20 10" xmlns="http://www.w3.org/2000/svg"><polyline points="0,9 10,1 10,9 20,1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`,
-  square:   `<svg width="20" height="10" viewBox="0 0 20 10" xmlns="http://www.w3.org/2000/svg"><polyline points="0,9 0,1 10,1 10,9 20,9 20,1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`,
+  square: `<svg width="20" height="10" viewBox="0 0 20 10" xmlns="http://www.w3.org/2000/svg"><polyline points="0,9 0,1 10,1 10,9 20,9 20,1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`,
 };
 
 function buildArpPreview(arpMode, arpRange, rootMidi, trackColor) {
@@ -96,8 +54,8 @@ function buildArpPreview(arpMode, arpRange, rootMidi, trackColor) {
   const maxOffset = (range - 1) * 12 || 1;
   const color = trackColor || 'var(--accent)';
 
-  const barEls = bars.map(offset => {
-    const heightPct = 20 + ((offset / maxOffset) * 75);
+  const barEls = bars.map((offset) => {
+    const heightPct = 20 + (offset / maxOffset) * 75;
     const el = document.createElement('div');
     el.className = 'arp-preview-bar';
     el.style.cssText = `height:${heightPct.toFixed(0)}%;background:${color};`;
@@ -106,47 +64,48 @@ function buildArpPreview(arpMode, arpRange, rootMidi, trackColor) {
 
   const wrap = document.createElement('div');
   wrap.className = 'arp-preview';
-  barEls.forEach(b => wrap.appendChild(b));
+  barEls.forEach((b) => wrap.appendChild(b));
   return wrap;
 }
 
 const MACHINE_BADGE_COLORS = {
-  tone:   { bg: '#ff7a00', text: '#000' },
-  noise:  { bg: '#ff7a00', text: '#000' },
+  tone: { bg: '#ff7a00', text: '#000' },
+  noise: { bg: '#ff7a00', text: '#000' },
   sample: { bg: '#2277ff', text: '#fff' },
   plaits: { bg: '#22aa44', text: '#fff' },
   clouds: { bg: '#7744cc', text: '#fff' },
-  rings:  { bg: '#009988', text: '#fff' },
-  midi:   { bg: '#ddcc00', text: '#000' },
+  rings: { bg: '#009988', text: '#fff' },
+  midi: { bg: '#ddcc00', text: '#000' },
 };
 
 const LFO_TARGETS = ['cutoff', 'volume', 'pan', 'pitch'];
 const ADSR_PRESETS = [
-  { label: 'Perc',  a: 0.001, d: 0.1,  s: 0,   r: 0.05 },
-  { label: 'Pad',   a: 0.3,   d: 0.5,  s: 0.8, r: 1.0  },
-  { label: 'Pluck', a: 0.001, d: 0.15, s: 0.3, r: 0.2  },
-  { label: 'Long',  a: 0.1,   d: 0.3,  s: 0.7, r: 0.8  },
-  { label: 'Drone', a: 0.5,   d: 0.1,  s: 1.0, r: 2.0  },
+  { label: 'Perc', a: 0.001, d: 0.1, s: 0, r: 0.05 },
+  { label: 'Pad', a: 0.3, d: 0.5, s: 0.8, r: 1.0 },
+  { label: 'Pluck', a: 0.001, d: 0.15, s: 0.3, r: 0.2 },
+  { label: 'Long', a: 0.1, d: 0.3, s: 0.7, r: 0.8 },
+  { label: 'Drone', a: 0.5, d: 0.1, s: 1.0, r: 2.0 },
 ];
 
 const PLAITS_ENGINES = [
-  { label: 'VA',     value: 0 },
-  { label: 'Wave',   value: 1 },
-  { label: 'FM2',    value: 2 },
+  { label: 'VA', value: 0 },
+  { label: 'Wave', value: 1 },
+  { label: 'FM2', value: 2 },
   { label: 'String', value: 3 },
-  { label: 'Chord',  value: 4 },
+  { label: 'Chord', value: 4 },
 ];
 
 const RINGS_EXCITERS = [
   { label: 'Impulse', value: 0 },
-  { label: 'Noise',   value: 1 },
-  { label: 'Bow',     value: 2 },
+  { label: 'Noise', value: 1 },
+  { label: 'Bow', value: 2 },
 ];
 
 // ── Canvas-based ADSR visualizer ──────────────────────────────────────────────
 function drawADSR(canvas, attack, decay, sustain, release, color) {
   const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
+  const W = canvas.width,
+    H = canvas.height;
   ctx.clearRect(0, 0, W, H);
 
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
@@ -155,7 +114,10 @@ function drawADSR(canvas, attack, decay, sustain, release, color) {
   ctx.strokeStyle = 'rgba(255,255,255,0.06)';
   ctx.lineWidth = 1;
   for (let x = 0; x <= W; x += W / 4) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, H);
+    ctx.stroke();
   }
 
   const totalTime = attack + decay + 0.3 + release;
@@ -167,7 +129,7 @@ function drawADSR(canvas, attack, decay, sustain, release, color) {
   const pad = 4;
   const top = pad;
   const bot = H - pad;
-  const susY = bot - (sustain * (H - pad * 2));
+  const susY = bot - sustain * (H - pad * 2);
 
   ctx.beginPath();
   ctx.moveTo(0, bot);
@@ -201,12 +163,13 @@ function drawADSR(canvas, attack, decay, sustain, release, color) {
 // ── Canvas-based filter frequency response visualizer ─────────────────────────
 function drawFilterResponse(canvas, cutoff, resonance, filterType, color) {
   const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
+  const W = canvas.width,
+    H = canvas.height;
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
   ctx.fillRect(0, 0, W, H);
 
-  const freqToX = f => (Math.log10(f / 20) / Math.log10(1000)) * W;
+  const freqToX = (f) => (Math.log10(f / 20) / Math.log10(1000)) * W;
   const cutoffX = freqToX(cutoff);
   const resBoost = resonance * 18;
 
@@ -232,7 +195,8 @@ function drawFilterResponse(canvas, cutoff, resonance, filterType, color) {
     }
 
     const y = H / 2 - (gain / 36) * H;
-    if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    if (x === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
   }
   ctx.strokeStyle = color;
   ctx.lineWidth = 1.5;
@@ -241,24 +205,11 @@ function drawFilterResponse(canvas, cutoff, resonance, filterType, color) {
   ctx.strokeStyle = 'rgba(255,255,255,0.2)';
   ctx.lineWidth = 1;
   ctx.setLineDash([2, 2]);
-  ctx.beginPath(); ctx.moveTo(cutoffX, 0); ctx.lineTo(cutoffX, H); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cutoffX, 0);
+  ctx.lineTo(cutoffX, H);
+  ctx.stroke();
   ctx.setLineDash([]);
-}
-
-// ── Legacy SVG helpers kept for non-SYNTH-tab uses ───────────────────────────
-function buildEnvelopeSVG(attack, decay, sustain = 0.6, release = 0.3) {
-  const W = 180, H = 48;
-  const aX  = 4 + attack * 60;
-  const dX  = aX + decay * 40;
-  const sY  = H - sustain * (H - 4) - 2;
-  const rX  = dX + 20 + release * 40;
-  const pts = `M4,${H} L${aX},4 L${dX},${sY} L${dX + 20},${sY} L${rX},${H}`;
-  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" width="100%" height="48"
-    style="display:block;background:#0a0a0a;border-radius:4px;border:1px solid var(--border)">
-    <path d="${pts}" fill="none" stroke="var(--live)" stroke-width="1.5" stroke-linejoin="round"/>
-    <circle cx="${aX}" cy="4"    r="2.5" fill="var(--accent)"/>
-    <circle cx="${dX}" cy="${sY}" r="2.5" fill="var(--accent)"/>
-  </svg>`;
 }
 
 function makeSlider(label, param, min, max, step, value, emit, trackIndex) {
@@ -268,7 +219,7 @@ function makeSlider(label, param, min, max, step, value, emit, trackIndex) {
     <output>${Number(value).toFixed(step < 1 ? 2 : 0)}</output>
     <input type="range" min="${min}" max="${max}" step="${step}" value="${value}">
   `;
-  const input  = row.querySelector('input');
+  const input = row.querySelector('input');
   const output = row.querySelector('output');
   input.addEventListener('input', () => {
     const v = parseFloat(input.value);
@@ -360,7 +311,9 @@ function makeSndParamRow(label, param, min, max, step, value, emit, trackIndex, 
   const slider = document.createElement('input');
   slider.type = 'range';
   slider.className = 'snd-param-slider';
-  slider.min = min; slider.max = max; slider.step = step;
+  slider.min = min;
+  slider.max = max;
+  slider.step = step;
   slider.value = value;
 
   const decimals = step < 0.1 ? 3 : step < 1 ? 2 : 0;
@@ -393,7 +346,7 @@ function buildOscColumn(track, ti, emit, color, rerender) {
   // Machine type selector
   const machRow = document.createElement('div');
   machRow.style.cssText = 'display:flex;gap:3px;flex-wrap:wrap';
-  MACHINES.forEach(m => {
+  MACHINES.forEach((m) => {
     const btn = document.createElement('button');
     const bc = MACHINE_BADGE_COLORS[m] ?? { bg: '#555', text: '#fff' };
     btn.className = 'snd-filter-btn' + (track.machine === m ? ' active' : '');
@@ -419,13 +372,13 @@ function buildOscColumn(track, ti, emit, color, rerender) {
   if (!track.machine || track.machine === 'tone') {
     const wfRow = document.createElement('div');
     wfRow.className = 'snd-waveform-row';
-    WAVEFORMS.forEach(w => {
+    WAVEFORMS.forEach((w) => {
       const btn = document.createElement('button');
       btn.className = 'snd-wave-btn' + (track.waveform === w ? ' active' : '');
-      btn.innerHTML = `${WAVEFORM_SVGS[w] ?? ''}<span>${w.slice(0,3).toUpperCase()}</span>`;
+      btn.innerHTML = `${WAVEFORM_SVGS[w] ?? ''}<span>${w.slice(0, 3).toUpperCase()}</span>`;
       btn.title = w;
       btn.addEventListener('click', () => {
-        wfRow.querySelectorAll('.snd-wave-btn').forEach(b => b.classList.remove('active'));
+        wfRow.querySelectorAll('.snd-wave-btn').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
         emit('track:change', { trackIndex: ti, param: 'waveform', value: w });
       });
@@ -452,7 +405,7 @@ function buildOscColumn(track, ti, emit, color, rerender) {
   });
   // Override val display to show note name
   pitchRow.querySelector('.snd-param-val').textContent = midiToNoteName(track.pitch ?? 60);
-  pitchRow.querySelector('input').addEventListener('input', function() {
+  pitchRow.querySelector('input').addEventListener('input', function () {
     pitchRow.querySelector('.snd-param-val').textContent = midiToNoteName(parseInt(this.value));
   });
   col.append(pitchRow);
@@ -516,8 +469,8 @@ function buildFilterColumn(track, ti, emit, color) {
     const w = filterCanvas.offsetWidth;
     if (w > 0) filterCanvas.width = w;
     const cutoffRow = col.querySelector('[data-param="cutoff"] input');
-    const resRow    = col.querySelector('[data-param="resonance"] input');
-    const ftRow     = col.querySelector('[data-param="filterType"]');
+    const resRow = col.querySelector('[data-param="resonance"] input');
+    const ftRow = col.querySelector('[data-param="filterType"]');
     const c = parseFloat(cutoffRow?.value ?? track.cutoff ?? 4000);
     const r = parseFloat(resRow?.value ?? track.resonance ?? 0.5);
     const ft = ftRow?.dataset.value ?? currentFilterType;
@@ -531,13 +484,13 @@ function buildFilterColumn(track, ti, emit, color) {
   ftRow.dataset.value = currentFilterType;
 
   const FILTER_TYPES_SHORT = [
-    { label: 'LP',    value: 'lowpass'   },
-    { label: 'HP',    value: 'highpass'  },
-    { label: 'BP',    value: 'bandpass'  },
-    { label: 'NOTCH', value: 'notch'     },
-    { label: 'PEAK',  value: 'peaking'   },
-    { label: 'LSH',   value: 'lowshelf'  },
-    { label: 'HSH',   value: 'highshelf' },
+    { label: 'LP', value: 'lowpass' },
+    { label: 'HP', value: 'highpass' },
+    { label: 'BP', value: 'bandpass' },
+    { label: 'NOTCH', value: 'notch' },
+    { label: 'PEAK', value: 'peaking' },
+    { label: 'LSH', value: 'lowshelf' },
+    { label: 'HSH', value: 'highshelf' },
   ];
 
   FILTER_TYPES_SHORT.forEach(({ label, value }) => {
@@ -545,7 +498,7 @@ function buildFilterColumn(track, ti, emit, color) {
     btn.className = 'snd-filter-btn' + (currentFilterType === value ? ' active' : '');
     btn.textContent = label;
     btn.addEventListener('click', () => {
-      ftRow.querySelectorAll('.snd-filter-btn').forEach(b => b.classList.remove('active'));
+      ftRow.querySelectorAll('.snd-filter-btn').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
       ftRow.dataset.value = value;
       emit('track:change', { trackIndex: ti, param: 'filterType', value });
@@ -557,10 +510,10 @@ function buildFilterColumn(track, ti, emit, color) {
 
   // Filter param sliders
   const filtParams = [
-    { label: 'Cutoff', param: 'cutoff',    min: 80,  max: 16000, step: 10,  def: 4000 },
-    { label: 'Res',    param: 'resonance', min: 0.5, max: 15,    step: 0.1, def: 0.5  },
-    { label: 'Drive',  param: 'drive',     min: 0,   max: 1,     step: 0.01,def: 0    },
-    { label: 'Env Amt',param: 'filterEnvAmt', min: -1, max: 1,  step: 0.01,def: 0    },
+    { label: 'Cutoff', param: 'cutoff', min: 80, max: 16000, step: 10, def: 4000 },
+    { label: 'Res', param: 'resonance', min: 0.5, max: 15, step: 0.1, def: 0.5 },
+    { label: 'Drive', param: 'drive', min: 0, max: 1, step: 0.01, def: 0 },
+    { label: 'Env Amt', param: 'filterEnvAmt', min: -1, max: 1, step: 0.01, def: 0 },
   ];
   filtParams.forEach(({ label, param, min, max, step, def }) => {
     const row = makeSndParamRow(label, param, min, max, step, track[param] ?? def, emit, ti, () => redrawFilter());
@@ -594,18 +547,18 @@ function buildAmpColumn(track, ti, emit, color) {
   // Preset row
   const presetRow = document.createElement('div');
   presetRow.style.cssText = 'display:flex;gap:3px;flex-wrap:wrap';
-  ADSR_PRESETS.forEach(preset => {
+  ADSR_PRESETS.forEach((preset) => {
     const btn = document.createElement('button');
     btn.className = 'snd-filter-btn';
     btn.style.cssText = 'font-size:0.46rem;padding:2px 4px';
     btn.textContent = preset.label;
     btn.addEventListener('click', () => {
-      track.attack  = preset.a;
-      track.decay   = preset.d;
+      track.attack = preset.a;
+      track.decay = preset.d;
       track.sustain = preset.s;
       track.release = preset.r;
       const params = ['attack', 'decay', 'sustain', 'release'];
-      const vals   = [preset.a, preset.d, preset.s, preset.r];
+      const vals = [preset.a, preset.d, preset.s, preset.r];
       params.forEach((p, i) => {
         const row = col.querySelector(`[data-param="${p}"]`);
         if (row) {
@@ -625,19 +578,19 @@ function buildAmpColumn(track, ti, emit, color) {
   function redrawADSR() {
     const w = adsrCanvas.offsetWidth;
     if (w > 0) adsrCanvas.width = w;
-    const a = parseFloat(col.querySelector('[data-param="attack"] input')?.value   ?? track.attack  ?? 0.01);
-    const d = parseFloat(col.querySelector('[data-param="decay"] input')?.value    ?? track.decay   ?? 0.1);
-    const s = parseFloat(col.querySelector('[data-param="sustain"] input')?.value  ?? track.sustain ?? 0.5);
-    const r = parseFloat(col.querySelector('[data-param="release"] input')?.value  ?? track.release ?? 0.2);
+    const a = parseFloat(col.querySelector('[data-param="attack"] input')?.value ?? track.attack ?? 0.01);
+    const d = parseFloat(col.querySelector('[data-param="decay"] input')?.value ?? track.decay ?? 0.1);
+    const s = parseFloat(col.querySelector('[data-param="sustain"] input')?.value ?? track.sustain ?? 0.5);
+    const r = parseFloat(col.querySelector('[data-param="release"] input')?.value ?? track.release ?? 0.2);
     drawADSR(adsrCanvas, a, d, s, r, color);
   }
 
   const adsrParams = [
-    { label: 'Atk',  param: 'attack',  min: 0.001, max: 2,  step: 0.001, def: 0.01 },
-    { label: 'Dec',  param: 'decay',   min: 0.01,  max: 2,  step: 0.01,  def: 0.1  },
-    { label: 'Sus',  param: 'sustain', min: 0,     max: 1,  step: 0.01,  def: 0.5  },
-    { label: 'Rel',  param: 'release', min: 0.01,  max: 4,  step: 0.01,  def: 0.2  },
-    { label: 'Gate', param: 'noteLength', min: 0.01, max: 1, step: 0.01, def: 0.5  },
+    { label: 'Atk', param: 'attack', min: 0.001, max: 2, step: 0.001, def: 0.01 },
+    { label: 'Dec', param: 'decay', min: 0.01, max: 2, step: 0.01, def: 0.1 },
+    { label: 'Sus', param: 'sustain', min: 0, max: 1, step: 0.01, def: 0.5 },
+    { label: 'Rel', param: 'release', min: 0.01, max: 4, step: 0.01, def: 0.2 },
+    { label: 'Gate', param: 'noteLength', min: 0.01, max: 1, step: 0.01, def: 0.5 },
   ];
   adsrParams.forEach(({ label, param, min, max, step, def }) => {
     const row = makeSndParamRow(label, param, min, max, step, track[param] ?? def, emit, ti, () => redrawADSR());
@@ -648,7 +601,7 @@ function buildAmpColumn(track, ti, emit, color) {
 
   // Volume & pan
   col.append(makeSndParamRow('Vol', 'volume', 0, 1, 0.01, track.volume ?? 0.8, emit, ti));
-  col.append(makeSndParamRow('Pan', 'pan',   -1, 1, 0.01, track.pan    ?? 0,   emit, ti));
+  col.append(makeSndParamRow('Pan', 'pan', -1, 1, 0.01, track.pan ?? 0, emit, ti));
 
   requestAnimationFrame(() => redrawADSR());
   col.addEventListener('input', () => redrawADSR());
@@ -674,7 +627,7 @@ export default {
     container._cleanupNoteWatch?.();
     container.innerHTML = '';
     container.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:6px 8px;gap:4px';
-    const ti    = state.selectedTrackIndex;
+    const ti = state.selectedTrackIndex;
     const track = state.project.banks[state.activeBank].patterns[state.activePattern].kit.tracks[ti];
 
     // Header
@@ -691,8 +644,9 @@ export default {
     const activeSubTab = state._soundSubTab ?? 'SYNTH';
 
     const subTabBar = document.createElement('div');
-    subTabBar.style.cssText = 'display:flex;gap:2px;padding:0 8px 4px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.06)';
-    SUB_TABS.forEach(tab => {
+    subTabBar.style.cssText =
+      'display:flex;gap:2px;padding:0 8px 4px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.06)';
+    SUB_TABS.forEach((tab) => {
       const btn = document.createElement('button');
       btn.className = 'tab' + (tab === activeSubTab ? ' active' : '');
       btn.textContent = tab;
@@ -705,8 +659,8 @@ export default {
     });
     container.append(subTabBar);
 
-    const showSynth  = activeSubTab === 'SYNTH';
-    const showMod    = activeSubTab === 'MOD';
+    const showSynth = activeSubTab === 'SYNTH';
+    const showMod = activeSubTab === 'MOD';
     const showSample = activeSubTab === 'SAMPLE';
 
     // Helper: make a tab content grid
@@ -728,10 +682,10 @@ export default {
     synthWrapper.appendChild(renderSynthTab(track, ti, emit, trackColor, () => this.render(container, state, emit)));
 
     // Placeholder modGrid/sampleGrid for MOD/SAMPLE tabs (unchanged layout)
-    const modGrid    = makeGrid();
+    const modGrid = makeGrid();
     const sampleGrid = makeGrid();
 
-    modGrid.style.display    = showMod    ? '' : 'none';
+    modGrid.style.display = showMod ? '' : 'none';
     sampleGrid.style.display = showSample ? '' : 'none';
 
     // Live note indicator watch (used in OSC column pitch display)
@@ -748,7 +702,10 @@ export default {
     updateLiveNote();
     let _noteRaf;
     const startNoteWatch = () => {
-      _noteRaf = requestAnimationFrame(() => { updateLiveNote(); startNoteWatch(); });
+      _noteRaf = requestAnimationFrame(() => {
+        updateLiveNote();
+        startNoteWatch();
+      });
     };
     startNoteWatch();
     container._cleanupNoteWatch = () => cancelAnimationFrame(_noteRaf);
@@ -777,7 +734,7 @@ export default {
       const slots = state.recorderBuffers ?? [];
       const metas = state.recorderSlotsMeta ?? [];
 
-      if (slots.every(b => !b)) {
+      if (slots.every((b) => !b)) {
         const emptyNote = document.createElement('div');
         emptyNote.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--muted);padding:6px 0';
         emptyNote.textContent = 'No recordings yet. Use Settings → Recorder to capture audio.';
@@ -786,18 +743,20 @@ export default {
         slots.forEach((buf, si) => {
           const meta = metas[si] ?? {};
           const row = document.createElement('div');
-          row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05)';
+          row.style.cssText =
+            'display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05)';
 
           const slotLabel = document.createElement('span');
           slotLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);min-width:14px';
           slotLabel.textContent = String(si + 1);
 
           const slotInfo = document.createElement('span');
-          slotInfo.style.cssText = 'font-family:var(--font-mono);font-size:0.58rem;color:var(--screen-text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+          slotInfo.style.cssText =
+            'font-family:var(--font-mono);font-size:0.58rem;color:var(--screen-text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
           if (buf) {
-            const dur = (buf.duration ?? (buf.length / buf.sampleRate)).toFixed(2);
-            const ch  = buf.numberOfChannels === 1 ? 'MONO' : 'ST';
-            const hz  = buf.sampleRate ? `${(buf.sampleRate / 1000).toFixed(1)}k` : '';
+            const dur = (buf.duration ?? buf.length / buf.sampleRate).toFixed(2);
+            const ch = buf.numberOfChannels === 1 ? 'MONO' : 'ST';
+            const hz = buf.sampleRate ? `${(buf.sampleRate / 1000).toFixed(1)}k` : '';
             slotInfo.textContent = `${meta.name ?? `Slot ${si + 1}`} · ${dur}s · ${ch} · ${hz}`;
           } else {
             slotInfo.textContent = 'Empty';
@@ -814,7 +773,9 @@ export default {
           previewBtn.disabled = !buf;
           previewBtn.addEventListener('click', () => {
             if (_slotSrc) {
-              try { _slotSrc.stop(); } catch (_) {}
+              try {
+                _slotSrc.stop();
+              } catch (_) {}
               _slotSrc = null;
               previewBtn.textContent = '▶';
               previewBtn.classList.remove('active');
@@ -850,9 +811,17 @@ export default {
           });
 
           // Stop preview on page leave via cleanup chain
-          const _slotStop = () => { try { _slotSrc?.stop(); } catch (_) {} _slotSrc = null; };
+          const _slotStop = () => {
+            try {
+              _slotSrc?.stop();
+            } catch (_) {}
+            _slotSrc = null;
+          };
           const _prev = container._cleanup;
-          container._cleanup = () => { _slotStop(); _prev?.(); };
+          container._cleanup = () => {
+            _slotStop();
+            _prev?.();
+          };
 
           row.append(slotLabel, slotInfo, previewBtn, loadSlotBtn);
           recCard.append(row);
@@ -875,7 +844,7 @@ export default {
         btn.className = 'ctx-btn' + (track.plEngine === value ? ' active' : '');
         btn.textContent = label;
         btn.addEventListener('click', () => {
-          engRow.querySelectorAll('.ctx-btn').forEach(b => b.classList.remove('active'));
+          engRow.querySelectorAll('.ctx-btn').forEach((b) => b.classList.remove('active'));
           btn.classList.add('active');
           emit('track:change', { trackIndex: ti, param: 'plEngine', value });
         });
@@ -884,11 +853,11 @@ export default {
       plaitsCard.append(engRow);
 
       [
-        { label: 'Timbre',    param: 'plTimbre',    min: 0, max: 1, step: 0.01 },
+        { label: 'Timbre', param: 'plTimbre', min: 0, max: 1, step: 0.01 },
         { label: 'Harmonics', param: 'plHarmonics', min: 0, max: 1, step: 0.01 },
-        { label: 'Morph',     param: 'plMorph',     min: 0, max: 1, step: 0.01 },
+        { label: 'Morph', param: 'plMorph', min: 0, max: 1, step: 0.01 },
       ].forEach(({ label, param, min, max, step }) =>
-        plaitsCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti))
+        plaitsCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti)),
       );
 
       synthWrapper.append(plaitsCard);
@@ -902,11 +871,11 @@ export default {
 
       [
         { label: 'Position', param: 'clPosition', min: 0, max: 1, step: 0.01 },
-        { label: 'Size',     param: 'clSize',     min: 0, max: 1, step: 0.01 },
-        { label: 'Density',  param: 'clDensity',  min: 0, max: 1, step: 0.01 },
-        { label: 'Texture',  param: 'clTexture',  min: 0, max: 1, step: 0.01 },
+        { label: 'Size', param: 'clSize', min: 0, max: 1, step: 0.01 },
+        { label: 'Density', param: 'clDensity', min: 0, max: 1, step: 0.01 },
+        { label: 'Texture', param: 'clTexture', min: 0, max: 1, step: 0.01 },
       ].forEach(({ label, param, min, max, step }) =>
-        cloudsCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti))
+        cloudsCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti)),
       );
 
       synthWrapper.append(cloudsCard);
@@ -925,7 +894,7 @@ export default {
         btn.className = 'ctx-btn' + (track.rnExciter === value ? ' active' : '');
         btn.textContent = label;
         btn.addEventListener('click', () => {
-          excRow.querySelectorAll('.ctx-btn').forEach(b => b.classList.remove('active'));
+          excRow.querySelectorAll('.ctx-btn').forEach((b) => b.classList.remove('active'));
           btn.classList.add('active');
           emit('track:change', { trackIndex: ti, param: 'rnExciter', value });
         });
@@ -934,11 +903,11 @@ export default {
       ringsCard.append(excRow);
 
       [
-        { label: 'Structure',  param: 'rnStructure',  min: 0, max: 1, step: 0.01 },
+        { label: 'Structure', param: 'rnStructure', min: 0, max: 1, step: 0.01 },
         { label: 'Brightness', param: 'rnBrightness', min: 0, max: 1, step: 0.01 },
-        { label: 'Damping',    param: 'rnDamping',    min: 0, max: 1, step: 0.01 },
+        { label: 'Damping', param: 'rnDamping', min: 0, max: 1, step: 0.01 },
       ].forEach(({ label, param, min, max, step }) =>
-        ringsCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti))
+        ringsCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti)),
       );
 
       synthWrapper.append(ringsCard);
@@ -952,17 +921,18 @@ export default {
     // Canvas-based ADSR visualisation
     const adsrCanvas = document.createElement('canvas');
     adsrCanvas.className = 'adsr-canvas';
-    adsrCanvas.width  = 100;
+    adsrCanvas.width = 100;
     adsrCanvas.height = 40;
-    adsrCanvas.style.cssText = 'display:block;width:100%;height:40px;margin-bottom:6px;background:#0a0a0a;border-radius:4px;border:1px solid var(--border)';
+    adsrCanvas.style.cssText =
+      'display:block;width:100%;height:40px;margin-bottom:6px;background:#0a0a0a;border-radius:4px;border:1px solid var(--border)';
     adsrCard.append(adsrCanvas);
 
     // Helper to read current ADSR values from track / live slider inputs
     function getADSRValues() {
       const inputs = adsrCard.querySelectorAll('input[type="range"]');
       return {
-        a: parseFloat(inputs[0]?.value ?? track.attack  ?? 0.01),
-        d: parseFloat(inputs[1]?.value ?? track.decay   ?? 0.1),
+        a: parseFloat(inputs[0]?.value ?? track.attack ?? 0.01),
+        d: parseFloat(inputs[1]?.value ?? track.decay ?? 0.1),
         s: parseFloat(inputs[2]?.value ?? track.sustain ?? 0.5),
         r: parseFloat(inputs[3]?.value ?? track.release ?? 0.2),
       };
@@ -979,15 +949,15 @@ export default {
     const presetRow = document.createElement('div');
     presetRow.style.cssText = 'display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px';
 
-    ADSR_PRESETS.forEach(preset => {
+    ADSR_PRESETS.forEach((preset) => {
       const btn = document.createElement('button');
       btn.className = 'ctx-btn';
       btn.style.cssText = 'font-size:0.52rem;padding:2px 5px';
       btn.textContent = preset.label;
       btn.addEventListener('click', () => {
         // Update track values
-        track.attack  = preset.a;
-        track.decay   = preset.d;
+        track.attack = preset.a;
+        track.decay = preset.d;
         track.sustain = preset.s;
         track.release = preset.r;
         // Update slider inputs
@@ -1009,32 +979,36 @@ export default {
     adsrCard.append(presetRow);
 
     const adsrParams = [
-      { label: 'Attack',  param: 'attack',  min: 0.001, max: 2,   step: 0.001, def: 0.01 },
-      { label: 'Decay',   param: 'decay',   min: 0.01,  max: 2,   step: 0.01,  def: 0.1  },
-      { label: 'Sustain', param: 'sustain', min: 0,     max: 1,   step: 0.01,  def: 0.5  },
-      { label: 'Release', param: 'release', min: 0.01,  max: 4,   step: 0.01,  def: 0.2  },
-      { label: 'Gate',    param: 'noteLength', min: 0.01, max: 1,  step: 0.01,  def: 0.5  },
+      { label: 'Attack', param: 'attack', min: 0.001, max: 2, step: 0.001, def: 0.01 },
+      { label: 'Decay', param: 'decay', min: 0.01, max: 2, step: 0.01, def: 0.1 },
+      { label: 'Sustain', param: 'sustain', min: 0, max: 1, step: 0.01, def: 0.5 },
+      { label: 'Release', param: 'release', min: 0.01, max: 4, step: 0.01, def: 0.2 },
+      { label: 'Gate', param: 'noteLength', min: 0.01, max: 1, step: 0.01, def: 0.5 },
     ];
     adsrParams.forEach(({ label, param, min, max, step, def }) =>
-      adsrCard.append(makeSlider(label, param, min, max, step, track[param] ?? def, emit, ti))
+      adsrCard.append(makeSlider(label, param, min, max, step, track[param] ?? def, emit, ti)),
     );
 
-    adsrCard.addEventListener('input', () => { redrawADSR(); });
+    adsrCard.addEventListener('input', () => {
+      redrawADSR();
+    });
 
     // Draw after layout is complete
-    requestAnimationFrame(() => { redrawADSR(); });
+    requestAnimationFrame(() => {
+      redrawADSR();
+    });
 
     modGrid.append(adsrCard);
 
     // ── Filter card ──
     const FILTER_TYPES = [
-      { label: 'LP',    value: 'lowpass'   },
-      { label: 'HP',    value: 'highpass'  },
-      { label: 'BP',    value: 'bandpass'  },
-      { label: 'NOTCH', value: 'notch'     },
-      { label: 'PEAK',  value: 'peaking'   },
-      { label: 'LSH',   value: 'lowshelf'  },
-      { label: 'HSH',   value: 'highshelf' },
+      { label: 'LP', value: 'lowpass' },
+      { label: 'HP', value: 'highpass' },
+      { label: 'BP', value: 'bandpass' },
+      { label: 'NOTCH', value: 'notch' },
+      { label: 'PEAK', value: 'peaking' },
+      { label: 'LSH', value: 'lowshelf' },
+      { label: 'HSH', value: 'highshelf' },
     ];
     const filtCard = document.createElement('div');
     filtCard.className = 'page-card';
@@ -1054,7 +1028,7 @@ export default {
         btn.classList.add('active');
       }
       btn.addEventListener('click', () => {
-        filtTypeRow.querySelectorAll('.ctx-btn').forEach(b => {
+        filtTypeRow.querySelectorAll('.ctx-btn').forEach((b) => {
           b.classList.remove('active');
           b.style.borderColor = '';
         });
@@ -1072,7 +1046,8 @@ export default {
     filterCanvas.className = 'snd-filter-canvas';
     filterCanvas.width = 180;
     filterCanvas.height = 40;
-    filterCanvas.style.cssText = 'display:block;width:100%;height:40px;margin-bottom:6px;background:#0a0a0a;border-radius:4px;border:1px solid var(--border)';
+    filterCanvas.style.cssText =
+      'display:block;width:100%;height:40px;margin-bottom:6px;background:#0a0a0a;border-radius:4px;border:1px solid var(--border)';
     filtCard.append(filterCanvas);
 
     function redrawModFilter() {
@@ -1085,10 +1060,10 @@ export default {
     }
 
     const filtParams = [
-      { label: 'Cutoff', param: 'cutoff',    min: 80,  max: 16000, step: 10  },
-      { label: 'Res',    param: 'resonance', min: 0.5, max: 15,    step: 0.1 },
-      { label: 'Reso',   param: 'filterQ',   min: 0.1, max: 20,    step: 0.1 },
-      { label: 'Drive',  param: 'drive',     min: 0,   max: 1,     step: 0.01 },
+      { label: 'Cutoff', param: 'cutoff', min: 80, max: 16000, step: 10 },
+      { label: 'Res', param: 'resonance', min: 0.5, max: 15, step: 0.1 },
+      { label: 'Reso', param: 'filterQ', min: 0.1, max: 20, step: 0.1 },
+      { label: 'Drive', param: 'drive', min: 0, max: 1, step: 0.01 },
     ];
     filtParams.forEach(({ label, param, min, max, step }) => {
       const val = track[param] ?? (param === 'filterQ' ? 1.0 : undefined);
@@ -1104,29 +1079,30 @@ export default {
     mixCard.className = 'page-card';
     mixCard.innerHTML = '<h4>Mix</h4>';
     const mixParams = [
-      { label: 'Volume', param: 'volume',     min: 0,  max: 1,   step: 0.01 },
-      { label: 'Pan',    param: 'pan',        min: -1, max: 1,   step: 0.01 },
-      { label: 'Dly Snd',param: 'delaySend',  min: 0,  max: 1,   step: 0.01 },
-      { label: 'Rev Snd',param: 'reverbSend', min: 0,  max: 1,   step: 0.01 },
+      { label: 'Volume', param: 'volume', min: 0, max: 1, step: 0.01 },
+      { label: 'Pan', param: 'pan', min: -1, max: 1, step: 0.01 },
+      { label: 'Dly Snd', param: 'delaySend', min: 0, max: 1, step: 0.01 },
+      { label: 'Rev Snd', param: 'reverbSend', min: 0, max: 1, step: 0.01 },
     ];
     mixParams.forEach(({ label, param, min, max, step }) =>
-      mixCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti))
+      mixCard.append(makeSlider(label, param, min, max, step, track[param], emit, ti)),
     );
 
     // Velocity curve selector
     const velCurveRow = document.createElement('div');
-    velCurveRow.style.cssText = 'display:flex;align-items:center;gap:5px;margin-top:6px;font-family:var(--font-mono);font-size:0.58rem';
+    velCurveRow.style.cssText =
+      'display:flex;align-items:center;gap:5px;margin-top:6px;font-family:var(--font-mono);font-size:0.58rem';
     const velCurveLabel = document.createElement('span');
     velCurveLabel.style.cssText = 'color:var(--muted);flex-shrink:0';
     velCurveLabel.textContent = 'Vel Curve';
     const velCurveBtns = document.createElement('div');
     velCurveBtns.style.cssText = 'display:flex;gap:4px';
-    ['linear', 'exp', 'comp'].forEach(c => {
+    ['linear', 'exp', 'comp'].forEach((c) => {
       const btn = document.createElement('button');
       btn.className = 'ctx-btn' + ((track.velocityCurve ?? 'linear') === c ? ' active' : '');
       btn.textContent = c === 'linear' ? 'Lin' : c === 'exp' ? 'Exp' : 'Comp';
       btn.addEventListener('click', () => {
-        velCurveBtns.querySelectorAll('.ctx-btn').forEach(b => b.classList.remove('active'));
+        velCurveBtns.querySelectorAll('.ctx-btn').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
         emit('track:change', { trackIndex: ti, param: 'velocityCurve', value: c });
       });
@@ -1137,11 +1113,14 @@ export default {
 
     // Per-track swing override row
     const swingRow = document.createElement('div');
-    swingRow.style.cssText = 'display:flex;align-items:center;gap:5px;margin-top:4px;font-family:var(--font-mono);font-size:0.58rem';
+    swingRow.style.cssText =
+      'display:flex;align-items:center;gap:5px;margin-top:4px;font-family:var(--font-mono);font-size:0.58rem';
     const swingVal = track.swing ?? null;
     const swingInput = document.createElement('input');
     swingInput.type = 'range';
-    swingInput.min = 0; swingInput.max = 0.42; swingInput.step = 0.01;
+    swingInput.min = 0;
+    swingInput.max = 0.42;
+    swingInput.step = 0.01;
     swingInput.value = swingVal !== null ? swingVal : 0;
     swingInput.style.cssText = 'flex:1;accent-color:var(--accent)';
     swingInput.title = 'Track swing (empty = use global)';
@@ -1194,12 +1173,12 @@ export default {
 
     const targetRow = document.createElement('div');
     targetRow.style.cssText = 'display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap';
-    LFO_TARGETS.forEach(tgt => {
+    LFO_TARGETS.forEach((tgt) => {
       const btn = document.createElement('button');
       btn.className = 'ctx-btn' + ((track.lfoTarget || 'cutoff') === tgt ? ' active' : '');
       btn.textContent = tgt.slice(0, 3).toUpperCase();
       btn.addEventListener('click', () => {
-        targetRow.querySelectorAll('.ctx-btn').forEach(b => b.classList.remove('active'));
+        targetRow.querySelectorAll('.ctx-btn').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
         track.lfoTarget = tgt;
         emit('track:change', { trackIndex: ti, param: 'lfoTarget', value: tgt });
@@ -1210,8 +1189,8 @@ export default {
     lfoCard.append(targetRow);
 
     [
-      { label: 'Rate',  param: 'lfoRate',  min: 0.1, max: 20,  step: 0.1,  value: track.lfoRate  ?? 2 },
-      { label: 'Depth', param: 'lfoDepth', min: 0,   max: 1,   step: 0.01, value: track.lfoDepth ?? 0 },
+      { label: 'Rate', param: 'lfoRate', min: 0.1, max: 20, step: 0.1, value: track.lfoRate ?? 2 },
+      { label: 'Depth', param: 'lfoDepth', min: 0, max: 1, step: 0.01, value: track.lfoDepth ?? 0 },
     ].forEach(({ label, param, min, max, step, value }) => {
       lfoCard.append(makeSlider(label, param, min, max, step, value, emit, ti));
     });
@@ -1231,8 +1210,8 @@ export default {
     lfoRoutingRow.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;margin-top:4px';
     [
       { param: 'lfoToCutoff', label: '→CUTOFF' },
-      { param: 'lfoToPitch',  label: '→PITCH'  },
-      { param: 'lfoToVolume', label: '→VOL'    },
+      { param: 'lfoToPitch', label: '→PITCH' },
+      { param: 'lfoToVolume', label: '→VOL' },
     ].forEach(({ param, label }) => {
       const btn = document.createElement('button');
       btn.className = 'ctx-btn' + (track[param] ? ' active' : '');
@@ -1261,8 +1240,8 @@ export default {
       <div class="sound-row">
         <label>Mode</label>
         <div class="btn-row" id="arp-modes-${ti}">
-          <button class="seq-btn${track.arpMode === 'up'     ? ' active' : ''}" data-mode="up">Up</button>
-          <button class="seq-btn${track.arpMode === 'down'   ? ' active' : ''}" data-mode="down">Dn</button>
+          <button class="seq-btn${track.arpMode === 'up' ? ' active' : ''}" data-mode="up">Up</button>
+          <button class="seq-btn${track.arpMode === 'down' ? ' active' : ''}" data-mode="down">Dn</button>
           <button class="seq-btn${track.arpMode === 'updown' ? ' active' : ''}" data-mode="updown">U/D</button>
           <button class="seq-btn${track.arpMode === 'random' ? ' active' : ''}" data-mode="random">Rnd</button>
         </div>
@@ -1278,15 +1257,15 @@ export default {
       <div class="sound-row">
         <label>Speed</label>
         <input type="range" id="arp-speed-${ti}" min="1" max="4" step="1" value="${track.arpSpeed ?? 1}">
-        <span id="arp-speed-val-${ti}">${['1/16','1/8','1/4','1/2'][(track.arpSpeed ?? 1) - 1]}</span>
+        <span id="arp-speed-val-${ti}">${['1/16', '1/8', '1/4', '1/2'][(track.arpSpeed ?? 1) - 1]}</span>
       </div>
     `;
 
     // Wire mode buttons
     const arpModeRow = arpCard.querySelector(`#arp-modes-${ti}`);
-    arpModeRow.querySelectorAll('.seq-btn').forEach(btn => {
+    arpModeRow.querySelectorAll('.seq-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
-        arpModeRow.querySelectorAll('.seq-btn').forEach(b => b.classList.remove('active'));
+        arpModeRow.querySelectorAll('.seq-btn').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
         emit('track:change', { trackIndex: ti, param: 'arpMode', value: btn.dataset.mode });
       });
@@ -1304,7 +1283,7 @@ export default {
 
     // Wire range slider
     const arpRangeInput = arpCard.querySelector(`#arp-range-${ti}`);
-    const arpRangeVal   = arpCard.querySelector(`#arp-range-val-${ti}`);
+    const arpRangeVal = arpCard.querySelector(`#arp-range-val-${ti}`);
     arpRangeInput.addEventListener('input', () => {
       const v = parseInt(arpRangeInput.value);
       arpRangeVal.textContent = v + ' oct';
@@ -1313,10 +1292,10 @@ export default {
 
     // Wire speed slider
     const arpSpeedInput = arpCard.querySelector(`#arp-speed-${ti}`);
-    const arpSpeedVal   = arpCard.querySelector(`#arp-speed-val-${ti}`);
+    const arpSpeedVal = arpCard.querySelector(`#arp-speed-val-${ti}`);
     arpSpeedInput.addEventListener('input', () => {
       const v = parseInt(arpSpeedInput.value);
-      arpSpeedVal.textContent = ['1/16','1/8','1/4','1/2'][v - 1];
+      arpSpeedVal.textContent = ['1/16', '1/8', '1/4', '1/2'][v - 1];
       emit('track:change', { trackIndex: ti, param: 'arpSpeed', value: v });
     });
 
@@ -1334,7 +1313,7 @@ export default {
       _arpPreview.replaceWith(newPreview);
       _arpPreview = newPreview;
     }
-    arpModeRow.querySelectorAll('.seq-btn').forEach(btn => {
+    arpModeRow.querySelectorAll('.seq-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         track.arpMode = btn.dataset.mode;
         refreshArpPreview();
@@ -1351,7 +1330,8 @@ export default {
     if (track.machine !== 'sample' && track.machine !== 'clouds') {
       const noSampleCard = document.createElement('div');
       noSampleCard.className = 'page-card';
-      noSampleCard.style.cssText = 'grid-column:span 2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;opacity:0.5;padding:24px';
+      noSampleCard.style.cssText =
+        'grid-column:span 2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;opacity:0.5;padding:24px';
       noSampleCard.innerHTML = `<h4 style="margin:0">No Sample</h4>
         <p style="font-size:0.6rem;color:var(--muted);text-align:center;margin:0">Switch machine to SAMPLE or CLOUDS<br>to access sample controls.</p>`;
       sampleGrid.append(noSampleCard);
@@ -1361,14 +1341,14 @@ export default {
   },
 
   knobMap: [
-    { label: 'Pitch',  param: 'pitch',       min: 0,    max: 127, step: 1 },
-    { label: 'Timbre', param: 'plTimbre',    min: 0,    max: 1,   step: 0.01 },
-    { label: 'Harm',   param: 'plHarmonics', min: 0,    max: 1,   step: 0.01 },
-    { label: 'Morph',  param: 'plMorph',     min: 0,    max: 1,   step: 0.01 },
-    { label: 'Attack', param: 'attack',      min: 0.001,max: 2,   step: 0.001 },
-    { label: 'Decay',  param: 'decay',       min: 0.01, max: 2,   step: 0.01 },
-    { label: 'Drive',  param: 'drive',       min: 0,    max: 1,   step: 0.01 },
-    { label: 'Vol',    param: 'volume',      min: 0,    max: 1,   step: 0.01 },
+    { label: 'Pitch', param: 'pitch', min: 0, max: 127, step: 1 },
+    { label: 'Timbre', param: 'plTimbre', min: 0, max: 1, step: 0.01 },
+    { label: 'Harm', param: 'plHarmonics', min: 0, max: 1, step: 0.01 },
+    { label: 'Morph', param: 'plMorph', min: 0, max: 1, step: 0.01 },
+    { label: 'Attack', param: 'attack', min: 0.001, max: 2, step: 0.001 },
+    { label: 'Decay', param: 'decay', min: 0.01, max: 2, step: 0.01 },
+    { label: 'Drive', param: 'drive', min: 0, max: 1, step: 0.01 },
+    { label: 'Vol', param: 'volume', min: 0, max: 1, step: 0.01 },
   ],
 
   keyboardContext: 'sound',

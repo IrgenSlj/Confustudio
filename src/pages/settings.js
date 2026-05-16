@@ -102,8 +102,6 @@ if (!document.getElementById('_settings-extra-css')) {
   document.head.append(s);
 }
 
-
-
 function _getRecorderEditMeta(state, slotIndex) {
   const meta = state.recorderSlotsMeta?.[slotIndex] || {};
   return {
@@ -126,16 +124,8 @@ function _setRecorderEditMeta(state, slotIndex, patch = {}) {
 }
 
 function _createBufferLike(sourceBuffer, length = sourceBuffer.length) {
-  const ctx = new OfflineAudioContext(
-    sourceBuffer.numberOfChannels,
-    Math.max(1, length),
-    sourceBuffer.sampleRate
-  );
-  return ctx.createBuffer(
-    sourceBuffer.numberOfChannels,
-    Math.max(1, length),
-    sourceBuffer.sampleRate
-  );
+  const ctx = new OfflineAudioContext(sourceBuffer.numberOfChannels, Math.max(1, length), sourceBuffer.sampleRate);
+  return ctx.createBuffer(sourceBuffer.numberOfChannels, Math.max(1, length), sourceBuffer.sampleRate);
 }
 
 function _normalizeAudioBuffer(sourceBuffer) {
@@ -244,36 +234,46 @@ function _drawRecorderWaveform(canvas, buffer, trimStart = 0, trimEnd = 1) {
   ctx.fillRect(endX - 2, 0, 4, cssHeight);
 }
 
-
-
 // ─── Keyboard Shortcuts Reference ─────────────────────────────────────────────
 const ALL_SHORTCUTS = [
-  { category: 'Transport', shortcuts: [
-    { key: 'Space',       action: 'Play / Pause' },
-    { key: 'Shift+Space', action: 'Stop + Reset' },
-    { key: 'T',           action: 'Tap Tempo' },
-    { key: 'F',           action: 'Fill mode' },
-  ]},
-  { category: 'Navigation', shortcuts: [
-    { key: 'Q–O',         action: 'Switch page (Q=Pattern, W=Pads…)' },
-    { key: '[ ]',         action: 'Prev/Next page' },
-    { key: '1–8',         action: 'Select track' },
-    { key: 'Shift+1–8',   action: 'Solo track' },
-  ]},
-  { category: 'Pattern', shortcuts: [
-    { key: 'C',           action: 'Copy track steps' },
-    { key: 'V',           action: 'Paste track steps' },
-    { key: 'Ctrl+Z',      action: 'Undo' },
-    { key: 'R',           action: 'Randomize' },
-    { key: 'E',           action: 'Euclid generate' },
-  ]},
-  { category: 'Studio', shortcuts: [
-    { key: 'Ctrl++',      action: 'Zoom in' },
-    { key: 'Ctrl+-',      action: 'Zoom out' },
-    { key: 'Ctrl+0',      action: 'Reset zoom / fit' },
-    { key: 'Space+drag',  action: 'Pan canvas' },
-    { key: 'Mid drag',    action: 'Pan canvas' },
-  ]},
+  {
+    category: 'Transport',
+    shortcuts: [
+      { key: 'Space', action: 'Play / Pause' },
+      { key: 'Shift+Space', action: 'Stop + Reset' },
+      { key: 'T', action: 'Tap Tempo' },
+      { key: 'F', action: 'Fill mode' },
+    ],
+  },
+  {
+    category: 'Navigation',
+    shortcuts: [
+      { key: 'Q–O', action: 'Switch page (Q=Pattern, W=Pads…)' },
+      { key: '[ ]', action: 'Prev/Next page' },
+      { key: '1–8', action: 'Select track' },
+      { key: 'Shift+1–8', action: 'Solo track' },
+    ],
+  },
+  {
+    category: 'Pattern',
+    shortcuts: [
+      { key: 'C', action: 'Copy track steps' },
+      { key: 'V', action: 'Paste track steps' },
+      { key: 'Ctrl+Z', action: 'Undo' },
+      { key: 'R', action: 'Randomize' },
+      { key: 'E', action: 'Euclid generate' },
+    ],
+  },
+  {
+    category: 'Studio',
+    shortcuts: [
+      { key: 'Ctrl++', action: 'Zoom in' },
+      { key: 'Ctrl+-', action: 'Zoom out' },
+      { key: 'Ctrl+0', action: 'Reset zoom / fit' },
+      { key: 'Space+drag', action: 'Pan canvas' },
+      { key: 'Mid drag', action: 'Pan canvas' },
+    ],
+  },
 ];
 
 function buildShortcutsSection() {
@@ -313,19 +313,18 @@ function buildShortcutsSection() {
 
 // ─── Accent Color Picker ───────────────────────────────────────────────────────
 const ACCENT_COLORS = [
-  { name: 'Lime',   value: '#5add71' },
-  { name: 'Cyan',   value: '#44ccff' },
-  { name: 'Amber',  value: '#f0c640' },
+  { name: 'Lime', value: '#5add71' },
+  { name: 'Cyan', value: '#44ccff' },
+  { name: 'Amber', value: '#f0c640' },
   { name: 'Orange', value: '#ff8844' },
-  { name: 'Pink',   value: '#ff6eb4' },
+  { name: 'Pink', value: '#ff6eb4' },
   { name: 'Purple', value: '#c67dff' },
-  { name: 'White',  value: '#e8e8e8' },
+  { name: 'White', value: '#e8e8e8' },
 ];
 
 function buildAccentSection(state) {
-  const currentAccent = localStorage.getItem('confustudio-accent')
-    ?? localStorage.getItem('confusynth-accent')
-    ?? '#5add71';
+  const currentAccent =
+    localStorage.getItem('confustudio-accent') ?? localStorage.getItem('confusynth-accent') ?? '#5add71';
 
   const el = document.createElement('div');
   el.className = 'settings-section';
@@ -344,7 +343,7 @@ function buildAccentSection(state) {
       localStorage.setItem('confustudio-accent', value);
       localStorage.removeItem('confusynth-accent');
       document.documentElement.style.setProperty('--live', value);
-      row.querySelectorAll('.set-accent-swatch').forEach(s => s.classList.remove('active'));
+      row.querySelectorAll('.set-accent-swatch').forEach((s) => s.classList.remove('active'));
       swatch.classList.add('active');
     });
     row.append(swatch);
@@ -368,15 +367,13 @@ export default {
     container.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:6px 8px;gap:4px';
 
     const midiOutputs = state.engine?.midiOutputs || state.midiOutputs || [];
-    const sampleRate  = state.audioContext?.sampleRate ?? '—';
-    const latencyMs   = state.audioContext?.baseLatency != null
-      ? (state.audioContext.baseLatency * 1000).toFixed(1) + 'ms'
-      : '—';
-    const outputLatMs = state.audioContext?.outputLatency != null
-      ? (state.audioContext.outputLatency * 1000).toFixed(1) + 'ms'
-      : '—';
+    const sampleRate = state.audioContext?.sampleRate ?? '—';
+    const latencyMs =
+      state.audioContext?.baseLatency != null ? (state.audioContext.baseLatency * 1000).toFixed(1) + 'ms' : '—';
+    const outputLatMs =
+      state.audioContext?.outputLatency != null ? (state.audioContext.outputLatency * 1000).toFixed(1) + 'ms' : '—';
     const workletReady = state.engine?._workletReady !== false;
-    const linkBpm     = state.abletonLink && state._linkBpm ? state._linkBpm.toFixed(1) : null;
+    const linkBpm = state.abletonLink && state._linkBpm ? state._linkBpm.toFixed(1) : null;
 
     container.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0">
@@ -392,11 +389,13 @@ export default {
             <label>Output</label>
             <select data-action="midiOutput">
               <option value="">— none —</option>
-              ${midiOutputs.map(o => {
-                const outputId = o.id || o.name;
-                const selected = state.midiOutputId === outputId || state.engine?.midiOutput === o;
-                return `<option value="${outputId}"${selected ? ' selected' : ''}>${o.name || o.id}</option>`;
-              }).join('')}
+              ${midiOutputs
+                .map((o) => {
+                  const outputId = o.id || o.name;
+                  const selected = state.midiOutputId === outputId || state.engine?.midiOutput === o;
+                  return `<option value="${outputId}"${selected ? ' selected' : ''}>${o.name || o.id}</option>`;
+                })
+                .join('')}
             </select>
           </div>
           <div class="settings-row">
@@ -418,11 +417,15 @@ export default {
           <div class="settings-row">
             <label>Source</label>
             <div style="display:flex;gap:4px;align-items:center">
-              ${['internal', 'midi', 'link'].map(src => `
+              ${['internal', 'midi', 'link']
+                .map(
+                  (src) => `
                 <button class="ctx-btn${(state.clockSource || 'internal') === src ? ' active' : ''}"
                         data-action="clockSource" data-value="${src}">
                   ${src === 'internal' ? 'INT' : src === 'midi' ? 'MIDI' : 'LINK'}
-                </button>`).join('')}
+                </button>`,
+                )
+                .join('')}
               <span id="midi-clock-status" style="font-family:var(--font-mono);font-size:0.52rem;color:var(--accent);margin-left:4px">— no signal</span>
             </div>
           </div>
@@ -447,19 +450,27 @@ export default {
         <!-- Audio -->
         <div class="settings-section" data-settings-tab="AUDIO">
           <h4>AUDIO</h4>
-          ${infoRow('Status',
-            state.audioContext ? (state.audioContext.state === 'running' ? 'Running' : state.audioContext.state) : 'Not initialised',
-            state.audioContext ? 'var(--live)' : 'var(--muted)')}
+          ${infoRow(
+            'Status',
+            state.audioContext
+              ? state.audioContext.state === 'running'
+                ? 'Running'
+                : state.audioContext.state
+              : 'Not initialised',
+            state.audioContext ? 'var(--live)' : 'var(--muted)',
+          )}
           <button class="screen-btn" data-action="initAudio" style="margin:6px 0">Init Audio</button>
           <div id="audio-output-device-section" style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px">
             <div style="font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);margin-bottom:4px">AUDIO OUTPUT DEVICE</div>
             <div id="audio-output-loading" style="font-family:var(--font-mono);font-size:0.52rem;color:var(--muted)">Scanning devices…</div>
           </div>
-          ${infoRow('RATE',    'RATE: ' + sampleRate + (sampleRate !== '—' ? ' Hz' : ''), 'var(--screen-text)')}
+          ${infoRow('RATE', 'RATE: ' + sampleRate + (sampleRate !== '—' ? ' Hz' : ''), 'var(--screen-text)')}
           ${infoRow('LATENCY', 'LATENCY: ' + latencyMs, 'var(--screen-text)')}
-          ${infoRow('RESAMPLER',
+          ${infoRow(
+            'RESAMPLER',
             'RESAMPLER: ' + (workletReady ? 'READY' : 'PENDING'),
-            workletReady ? 'var(--live)' : 'var(--muted)')}
+            workletReady ? 'var(--live)' : 'var(--muted)',
+          )}
           <div class="settings-row" style="margin-top:8px">
             <label>Cue Monitor</label>
             <button class="ctx-btn${state.cueMonitorEnabled !== false ? ' active' : ''}" data-action="cueMonitor">
@@ -481,17 +492,21 @@ export default {
             <div class="settings-row">
               <label>Slot</label>
               <div style="display:flex;gap:4px;flex-wrap:wrap">
-                ${(state.recorderSlotsMeta ?? []).map((slot, idx) => `
+                ${(state.recorderSlotsMeta ?? [])
+                  .map(
+                    (slot, idx) => `
                   <button class="ctx-btn${(state.selectedRecorderSlot ?? 0) === idx ? ' active' : ''}" data-action="selectRecorderSlot" data-value="${idx}">
                     ${idx + 1}
                   </button>
-                `).join('')}
+                `,
+                  )
+                  .join('')}
               </div>
             </div>
             <div class="settings-row">
               <label>Bars</label>
               <select data-action="recorderBars">
-                ${[2, 4, 8, 16].map(bars => `<option value="${bars}"${(state.recorderBarCount ?? 4) === bars ? ' selected' : ''}>${bars} bars</option>`).join('')}
+                ${[2, 4, 8, 16].map((bars) => `<option value="${bars}"${(state.recorderBarCount ?? 4) === bars ? ' selected' : ''}>${bars} bars</option>`).join('')}
               </select>
             </div>
             <div class="settings-row" style="align-items:flex-start">
@@ -499,9 +514,11 @@ export default {
               <div style="display:flex;flex-direction:column;gap:4px;font-family:var(--font-mono);font-size:0.54rem;color:var(--screen-text)">
                 <span>${state.recorderSlotsMeta?.[state.selectedRecorderSlot ?? 0]?.name ?? 'Slot'}</span>
                 <span style="color:var(--muted)">
-                  ${state.recorderSlotsMeta?.[state.selectedRecorderSlot ?? 0]?.durationSec
-                    ? `${state.recorderSlotsMeta[state.selectedRecorderSlot ?? 0].durationSec.toFixed(2)}s · ${(state.recorderSlotsMeta[state.selectedRecorderSlot ?? 0].source ?? 'master').toUpperCase()}`
-                    : 'Empty'}
+                  ${
+                    state.recorderSlotsMeta?.[state.selectedRecorderSlot ?? 0]?.durationSec
+                      ? `${state.recorderSlotsMeta[state.selectedRecorderSlot ?? 0].durationSec.toFixed(2)}s · ${(state.recorderSlotsMeta[state.selectedRecorderSlot ?? 0].source ?? 'master').toUpperCase()}`
+                      : 'Empty'
+                  }
                 </span>
               </div>
             </div>
@@ -568,9 +585,10 @@ export default {
     const activeSetTab = state._settingsTab ?? 'PROJECT';
 
     const setTabBar = document.createElement('div');
-    setTabBar.style.cssText = 'display:flex;gap:2px;padding:4px 8px 0;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:6px';
+    setTabBar.style.cssText =
+      'display:flex;gap:2px;padding:4px 8px 0;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:6px';
 
-    SET_TABS.forEach(tab => {
+    SET_TABS.forEach((tab) => {
       const btn = document.createElement('button');
       btn.className = 'tab' + (tab === activeSetTab ? ' active' : '');
       btn.textContent = tab;
@@ -588,18 +606,16 @@ export default {
 
     function updateTabVisibility() {
       const current = state._settingsTab ?? 'PROJECT';
-      container.querySelectorAll('[data-settings-tab]').forEach(el => {
+      container.querySelectorAll('[data-settings-tab]').forEach((el) => {
         el.style.display = el.dataset.settingsTab === current ? '' : 'none';
       });
       // Show/hide the grid wrapper based on whether the active tab has grid children
       const settingsGrid = container.querySelector('.settings-grid');
       if (settingsGrid) {
-        const hasVisibleGridItems = Array.from(settingsGrid.children).some(
-          ch => ch.dataset?.settingsTab === current
-        );
+        const hasVisibleGridItems = Array.from(settingsGrid.children).some((ch) => ch.dataset?.settingsTab === current);
         settingsGrid.style.display = hasVisibleGridItems ? '' : 'none';
       }
-      setTabBar.querySelectorAll('.tab').forEach(btn => {
+      setTabBar.querySelectorAll('.tab').forEach((btn) => {
         btn.classList.toggle('active', btn.textContent === current);
       });
     }
@@ -609,73 +625,73 @@ export default {
     if (audioOutSection) {
       const loadingEl = audioOutSection.querySelector('#audio-output-loading');
       if (navigator.mediaDevices?.enumerateDevices) {
-        navigator.mediaDevices.enumerateDevices().then(devices => {
-          const outputs = devices.filter(d => d.kind === 'audiooutput');
-          if (loadingEl) loadingEl.remove();
+        navigator.mediaDevices
+          .enumerateDevices()
+          .then((devices) => {
+            const outputs = devices.filter((d) => d.kind === 'audiooutput');
+            if (loadingEl) loadingEl.remove();
 
-          if (!outputs.length) {
-            const msg = document.createElement('div');
-            msg.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted)';
-            msg.textContent = 'No output devices found.';
-            audioOutSection.append(msg);
-            return;
-          }
-
-          const row = document.createElement('div');
-          row.className = 'settings-row';
-          const label = document.createElement('label');
-          label.textContent = 'Output';
-
-          const sel = document.createElement('select');
-          sel.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px';
-
-          outputs.forEach(dev => {
-            const opt = document.createElement('option');
-            opt.value = dev.deviceId;
-            opt.textContent = dev.label || `Output ${dev.deviceId.slice(0, 8)}`;
-            if (state._audioOutputDeviceId === dev.deviceId) opt.selected = true;
-            sel.append(opt);
-          });
-
-          const hint = document.createElement('div');
-          hint.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted);margin-top:4px';
-
-          sel.addEventListener('change', async () => {
-            const deviceId = sel.value;
-            state._audioOutputDeviceId = deviceId;
-            const dest = state.audioContext?.destination;
-            if (dest && typeof dest.setSinkId === 'function') {
-              try {
-                await dest.setSinkId(deviceId);
-                hint.style.color = 'var(--live)';
-                hint.textContent = 'Output device set.';
-              } catch (err) {
-                hint.style.color = 'var(--record)';
-                hint.textContent = 'Failed: ' + (err.message ?? err);
-              }
-            } else {
-              hint.style.color = 'var(--muted)';
-              hint.textContent = 'setSinkId not supported in this browser.';
+            if (!outputs.length) {
+              const msg = document.createElement('div');
+              msg.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted)';
+              msg.textContent = 'No output devices found.';
+              audioOutSection.append(msg);
+              return;
             }
+
+            const row = document.createElement('div');
+            row.className = 'settings-row';
+            const label = document.createElement('label');
+            label.textContent = 'Output';
+
+            const sel = document.createElement('select');
+            sel.style.cssText =
+              'font-family:var(--font-mono);font-size:0.52rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px';
+
+            outputs.forEach((dev) => {
+              const opt = document.createElement('option');
+              opt.value = dev.deviceId;
+              opt.textContent = dev.label || `Output ${dev.deviceId.slice(0, 8)}`;
+              if (state._audioOutputDeviceId === dev.deviceId) opt.selected = true;
+              sel.append(opt);
+            });
+
+            const hint = document.createElement('div');
+            hint.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted);margin-top:4px';
+
+            sel.addEventListener('change', async () => {
+              const deviceId = sel.value;
+              state._audioOutputDeviceId = deviceId;
+              const dest = state.audioContext?.destination;
+              if (dest && typeof dest.setSinkId === 'function') {
+                try {
+                  await dest.setSinkId(deviceId);
+                  hint.style.color = 'var(--live)';
+                  hint.textContent = 'Output device set.';
+                } catch (err) {
+                  hint.style.color = 'var(--record)';
+                  hint.textContent = 'Failed: ' + (err.message ?? err);
+                }
+              } else {
+                hint.style.color = 'var(--muted)';
+                hint.textContent = 'setSinkId not supported in this browser.';
+              }
+            });
+
+            if (!state.audioContext?.destination || typeof state.audioContext.destination.setSinkId !== 'function') {
+              hint.textContent = 'Note: output switching requires Chrome 110+ or Edge.';
+            }
+
+            row.append(label, sel);
+            audioOutSection.append(row, hint);
+          })
+          .catch(() => {
+            if (loadingEl) loadingEl.textContent = 'Could not enumerate devices.';
           });
-
-          if (!state.audioContext?.destination || typeof state.audioContext.destination.setSinkId !== 'function') {
-            hint.textContent = 'Note: output switching requires Chrome 110+ or Edge.';
-          }
-
-          row.append(label, sel);
-          audioOutSection.append(row, hint);
-        }).catch(() => {
-          if (loadingEl) loadingEl.textContent = 'Could not enumerate devices.';
-        });
       } else {
         if (loadingEl) loadingEl.textContent = 'enumerateDevices not supported.';
       }
     }
-
-
-
-
 
     const recorderSlotIndex = state.selectedRecorderSlot ?? 0;
     const recorderWaveform = container.querySelector('#recorder-waveform');
@@ -690,18 +706,29 @@ export default {
       recorderTrimEnd.value = String(meta.trimEnd);
       if (recorderTrimStartReadout) recorderTrimStartReadout.textContent = meta.trimStart.toFixed(3);
       if (recorderTrimEndReadout) recorderTrimEndReadout.textContent = meta.trimEnd.toFixed(3);
-      _drawRecorderWaveform(recorderWaveform, state.recorderBuffers?.[recorderSlotIndex] ?? null, meta.trimStart, meta.trimEnd);
+      _drawRecorderWaveform(
+        recorderWaveform,
+        state.recorderBuffers?.[recorderSlotIndex] ?? null,
+        meta.trimStart,
+        meta.trimEnd,
+      );
     };
 
     recorderTrimStart?.addEventListener('input', () => {
-      const next = Math.min(parseFloat(recorderTrimStart.value) || 0, (parseFloat(recorderTrimEnd?.value) || 1) - 0.001);
+      const next = Math.min(
+        parseFloat(recorderTrimStart.value) || 0,
+        (parseFloat(recorderTrimEnd?.value) || 1) - 0.001,
+      );
       _setRecorderEditMeta(state, recorderSlotIndex, { trimStart: Math.max(0, next), editedAt: Date.now() });
       syncRecorderTrimUi();
       saveState(state);
     });
 
     recorderTrimEnd?.addEventListener('input', () => {
-      const next = Math.max(parseFloat(recorderTrimEnd.value) || 1, (parseFloat(recorderTrimStart?.value) || 0) + 0.001);
+      const next = Math.max(
+        parseFloat(recorderTrimEnd.value) || 1,
+        (parseFloat(recorderTrimStart?.value) || 0) + 0.001,
+      );
       _setRecorderEditMeta(state, recorderSlotIndex, { trimEnd: Math.min(1, next), editedAt: Date.now() });
       syncRecorderTrimUi();
       saveState(state);
@@ -709,7 +736,7 @@ export default {
 
     syncRecorderTrimUi();
 
-    container.addEventListener('click', e => {
+    container.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-action]');
       if (!btn || btn.tagName === 'SELECT' || btn.tagName === 'INPUT') return;
       const action = btn.dataset.action;
@@ -727,9 +754,9 @@ export default {
       if (action === 'clockSource') {
         const src = btn.dataset.value;
         state.clockSource = src;
-        container.querySelectorAll('[data-action="clockSource"]').forEach(b =>
-          b.classList.toggle('active', b.dataset.value === src)
-        );
+        container
+          .querySelectorAll('[data-action="clockSource"]')
+          .forEach((b) => b.classList.toggle('active', b.dataset.value === src));
         saveState(state);
       }
 
@@ -874,10 +901,12 @@ export default {
         const sliceCount = Math.max(2, Math.min(8, parseInt(sliceSelect?.value || '4', 10) || 4));
         const trackLen = Math.max(1, track.trackLength || pattern.length || track.steps.length || 16);
         const candidateSteps = track.steps.slice(0, trackLen);
-        let targetSteps = candidateSteps.filter(step => step.active);
+        let targetSteps = candidateSteps.filter((step) => step.active);
         if (!targetSteps.length) {
           targetSteps = candidateSteps.slice(0, sliceCount);
-          targetSteps.forEach(step => { step.active = true; });
+          targetSteps.forEach((step) => {
+            step.active = true;
+          });
         }
         const sliceMarkers = [];
         track.machine = 'sample';
@@ -912,12 +941,6 @@ export default {
       }
     });
 
-
-
-
-
-
-
     const recorderSection = document.createElement('div');
     recorderSection.className = 'settings-section';
     recorderSection.dataset.settingsTab = 'AUDIO';
@@ -925,8 +948,10 @@ export default {
     recorderSection.innerHTML = '<div class="settings-label">RECORDER BUFFERS</div>';
 
     const recorderIntro = document.createElement('div');
-    recorderIntro.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);margin-bottom:6px;line-height:1.5';
-    recorderIntro.textContent = 'Capture the master bus into reusable sample buffers, then load a take directly into the selected track.';
+    recorderIntro.style.cssText =
+      'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);margin-bottom:6px;line-height:1.5';
+    recorderIntro.textContent =
+      'Capture the master bus into reusable sample buffers, then load a take directly into the selected track.';
     recorderSection.append(recorderIntro);
 
     for (let slotIndex = 0; slotIndex < RECORDER_SLOT_COUNT; slotIndex++) {
@@ -951,8 +976,12 @@ export default {
       });
 
       const info = document.createElement('div');
-      const sourceLabel = meta.source ? `${meta.source.toUpperCase()} ${meta.durationSec ? `· ${meta.durationSec.toFixed(1)}s` : ''}` : 'Empty';
-      const dateLabel = meta.createdAt ? new Date(meta.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+      const sourceLabel = meta.source
+        ? `${meta.source.toUpperCase()} ${meta.durationSec ? `· ${meta.durationSec.toFixed(1)}s` : ''}`
+        : 'Empty';
+      const dateLabel = meta.createdAt
+        ? new Date(meta.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : '—';
       info.innerHTML = `
         <div style="font-family:var(--font-mono);font-size:0.56rem;color:${hasBuffer ? 'var(--screen-text)' : 'var(--muted)'}">${meta.name}</div>
         <div style="font-family:var(--font-mono);font-size:0.48rem;color:var(--muted)">${sourceLabel} · ${dateLabel}</div>
@@ -979,7 +1008,10 @@ export default {
       loadBtn.textContent = `Load T${(state.selectedTrackIndex ?? 0) + 1}`;
       loadBtn.disabled = !hasBuffer;
       loadBtn.addEventListener('click', () => {
-        emit('state:change', { path: 'action_assignRecorderSlot', value: { slot: slotIndex, trackIndex: state.selectedTrackIndex } });
+        emit('state:change', {
+          path: 'action_assignRecorderSlot',
+          value: { slot: slotIndex, trackIndex: state.selectedTrackIndex },
+        });
       });
 
       const clearSlotBtn = document.createElement('button');
@@ -1006,13 +1038,13 @@ export default {
     oscModeBar.className = 'settings-row';
     oscModeBar.style.gap = '4px';
     const oscBtns = [];
-    ['wave', 'spectrum', 'lissajous'].forEach(mode => {
+    ['wave', 'spectrum', 'lissajous'].forEach((mode) => {
       const btn = document.createElement('button');
       btn.className = 'seq-btn' + ((state.oscMode ?? 'wave') === mode ? ' active' : '');
       btn.textContent = mode === 'wave' ? 'Wave' : mode === 'spectrum' ? 'Spectrum' : 'XY';
       btn.addEventListener('click', () => {
         state.oscMode = mode;
-        oscBtns.forEach(b => b.classList.remove('active'));
+        oscBtns.forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
         emit('state:change', { path: 'oscMode', value: mode });
         saveState(state);
@@ -1054,25 +1086,31 @@ export default {
       const devLabel = document.createElement('label');
       devLabel.textContent = 'Output Device';
       const devSel = document.createElement('select');
-      devSel.style.cssText = 'font-size:0.6rem;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:2px';
+      devSel.style.cssText =
+        'font-size:0.6rem;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:2px';
 
       if (navigator.mediaDevices?.enumerateDevices && state.audioContext?.setSinkId) {
         // setSinkId supported — populate with real devices
         devSel.innerHTML = '<option value="">Default</option>';
-        navigator.mediaDevices.enumerateDevices().then(devices => {
-          devices.filter(d => d.kind === 'audiooutput').forEach(d => {
-            const opt = document.createElement('option');
-            opt.value = d.deviceId;
-            opt.textContent = d.label || `Device ${d.deviceId.slice(0, 6)}`;
-            if (d.deviceId === state.audioOutputDevice) opt.selected = true;
-            devSel.append(opt);
-          });
-        }).catch(() => {});
+        navigator.mediaDevices
+          .enumerateDevices()
+          .then((devices) => {
+            devices
+              .filter((d) => d.kind === 'audiooutput')
+              .forEach((d) => {
+                const opt = document.createElement('option');
+                opt.value = d.deviceId;
+                opt.textContent = d.label || `Device ${d.deviceId.slice(0, 6)}`;
+                if (d.deviceId === state.audioOutputDevice) opt.selected = true;
+                devSel.append(opt);
+              });
+          })
+          .catch(() => {});
 
-        devSel.addEventListener('change', e => {
+        devSel.addEventListener('change', (e) => {
           state.audioOutputDevice = e.target.value;
           if (state.audioContext?.setSinkId) {
-            state.audioContext.setSinkId(e.target.value || '').catch(err => console.warn('setSinkId:', err));
+            state.audioContext.setSinkId(e.target.value || '').catch((err) => console.warn('setSinkId:', err));
           }
           saveState(state);
         });
@@ -1099,11 +1137,13 @@ export default {
       bufferLabel.textContent = 'BUFFER:';
 
       const bufferSelect = document.createElement('select');
-      bufferSelect.style.cssText = 'font-size:0.48rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px';
+      bufferSelect.style.cssText =
+        'font-size:0.48rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px';
 
-      [128, 256, 512, 1024, 2048, 4096].forEach(size => {
+      [128, 256, 512, 1024, 2048, 4096].forEach((size) => {
         const opt = document.createElement('option');
-        opt.value = String(size); opt.textContent = `${size} samples`;
+        opt.value = String(size);
+        opt.textContent = `${size} samples`;
         if (size === (state.audioBufferSize ?? 512)) opt.selected = true;
         bufferSelect.append(opt);
       });
@@ -1134,13 +1174,17 @@ export default {
     const profiles = [
       { name: 'LOW', desc: 'Low end devices', settings: { maxVoicesGlobal: 8, audioBufferSize: 2048, lookahead: 0.2 } },
       { name: 'MID', desc: 'Balanced', settings: { maxVoicesGlobal: 16, audioBufferSize: 512, lookahead: 0.1 } },
-      { name: 'HIGH', desc: 'High end / Pro', settings: { maxVoicesGlobal: 32, audioBufferSize: 128, lookahead: 0.05 } },
+      {
+        name: 'HIGH',
+        desc: 'High end / Pro',
+        settings: { maxVoicesGlobal: 32, audioBufferSize: 128, lookahead: 0.05 },
+      },
     ];
 
     const profileRow = document.createElement('div');
     profileRow.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap';
 
-    profiles.forEach(profile => {
+    profiles.forEach((profile) => {
       const btn = document.createElement('button');
       btn.className = 'seq-btn';
       btn.textContent = profile.name;
@@ -1166,12 +1210,16 @@ export default {
     latLabel.textContent = 'LAT COMP:';
 
     const latSlider = document.createElement('input');
-    latSlider.type = 'range'; latSlider.min = '-100'; latSlider.max = '100'; latSlider.step = '5';
+    latSlider.type = 'range';
+    latSlider.min = '-100';
+    latSlider.max = '100';
+    latSlider.step = '5';
     latSlider.value = String(state.latencyCompMs ?? 0);
     latSlider.style.flex = '1';
 
     const latVal = document.createElement('span');
-    latVal.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--fg);min-width:40px;text-align:right';
+    latVal.style.cssText =
+      'font-family:var(--font-mono);font-size:0.48rem;color:var(--fg);min-width:40px;text-align:right';
     latVal.textContent = `${state.latencyCompMs ?? 0}ms`;
 
     latSlider.addEventListener('input', () => {
@@ -1183,10 +1231,6 @@ export default {
     latRow.append(latLabel, latSlider, latVal);
     perfSection.append(latRow);
     container.append(perfSection);
-
-
-
-
 
     // ── Performance Monitor ──────────────────────────────────────────────────
     const perfMonitorSection = container.querySelector('#perf-section');
@@ -1235,7 +1279,7 @@ export default {
         }
 
         const baseLatMs = ((ctx.baseLatency ?? 0) * 1000).toFixed(1);
-        const outLatMs  = ((ctx.outputLatency ?? 0) * 1000).toFixed(1);
+        const outLatMs = ((ctx.outputLatency ?? 0) * 1000).toFixed(1);
 
         perfDiv.innerHTML = `
           <div class="perf-row perf-fps-row"><span>FPS</span><span style="color:${fpsColor};font-weight:bold">${fpsDisplay} fps</span></div>
@@ -1250,7 +1294,10 @@ export default {
       updatePerf();
       let perfRaf;
       const startPerfMonitor = () => {
-        perfRaf = requestAnimationFrame(() => { updatePerf(); startPerfMonitor(); });
+        perfRaf = requestAnimationFrame(() => {
+          updatePerf();
+          startPerfMonitor();
+        });
       };
       startPerfMonitor();
       container._cleanupPerf = () => cancelAnimationFrame(perfRaf);
@@ -1268,8 +1315,6 @@ export default {
     const _savedAccent = localStorage.getItem('confustudio-accent') ?? localStorage.getItem('confusynth-accent');
     if (_savedAccent) document.documentElement.style.setProperty('--live', _savedAccent);
 
-
-
     // ── Theme selector ───────────────────────────────────────────────────────
     const themeAccentColors = { default: '#8fba4e', blue: '#4e8fbf', red: '#bf4e4e', mono: '#aaa' };
     const themes = ['default', 'blue', 'red', 'mono'];
@@ -1279,7 +1324,7 @@ export default {
     themeSection.innerHTML = '<div class="settings-label">THEME</div>';
     const themeBar = document.createElement('div');
     themeBar.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;';
-    themes.forEach(theme => {
+    themes.forEach((theme) => {
       const btn = document.createElement('button');
       btn.className = 'seq-btn' + ((state.theme ?? 'default') === theme ? ' active' : '');
       const swatch = document.createElement('span');
@@ -1315,7 +1360,7 @@ export default {
     accentInput.value = state.customAccent ?? '#8fba4e';
     accentInput.title = 'Primary accent color';
     accentInput.style.cssText = 'width:32px;height:24px;border:none;background:none;cursor:pointer;padding:0';
-    accentInput.addEventListener('input', e => {
+    accentInput.addEventListener('input', (e) => {
       document.documentElement.style.setProperty('--accent', e.target.value);
       state.customAccent = e.target.value;
       saveState(state);
@@ -1330,7 +1375,7 @@ export default {
     screenTextInput.value = state.customScreenText ?? '#c8e0a0';
     screenTextInput.title = 'Screen / text color';
     screenTextInput.style.cssText = 'width:32px;height:24px;border:none;background:none;cursor:pointer;padding:0';
-    screenTextInput.addEventListener('input', e => {
+    screenTextInput.addEventListener('input', (e) => {
       document.documentElement.style.setProperty('--screen-text', e.target.value);
       state.customScreenText = e.target.value;
       saveState(state);
@@ -1363,7 +1408,8 @@ export default {
 
     const assistantHint = document.createElement('div');
     assistantHint.style.cssText = 'font-size:0.56rem;color:var(--muted);line-height:1.6;margin-bottom:8px';
-    assistantHint.textContent = 'Use OpenAI, Anthropic, a local OpenAI-compatible endpoint, or Ollama through the local assistant bridge.';
+    assistantHint.textContent =
+      'Use OpenAI, Anthropic, a local OpenAI-compatible endpoint, or Ollama through the local assistant bridge.';
 
     const assistantProvider = document.createElement('select');
     assistantProvider.className = 'screen-btn';
@@ -1371,8 +1417,10 @@ export default {
 
     const assistantPrompt = document.createElement('textarea');
     assistantPrompt.rows = 5;
-    assistantPrompt.placeholder = 'Ask for sequencing ideas, sound design, arrangement moves, routing help, or mix suggestions.';
-    assistantPrompt.style.cssText = 'width:100%;resize:vertical;background:rgba(0,0,0,0.28);color:var(--screen-text);border:1px solid var(--border);border-radius:4px;padding:8px;font-family:var(--font-mono);font-size:0.58rem;line-height:1.6';
+    assistantPrompt.placeholder =
+      'Ask for sequencing ideas, sound design, arrangement moves, routing help, or mix suggestions.';
+    assistantPrompt.style.cssText =
+      'width:100%;resize:vertical;background:rgba(0,0,0,0.28);color:var(--screen-text);border:1px solid var(--border);border-radius:4px;padding:8px;font-family:var(--font-mono);font-size:0.58rem;line-height:1.6';
 
     const assistantButtons = document.createElement('div');
     assistantButtons.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:8px';
@@ -1386,7 +1434,8 @@ export default {
     assistantSendBtn.textContent = 'Ask Assistant';
 
     const assistantOutput = document.createElement('pre');
-    assistantOutput.style.cssText = 'white-space:pre-wrap;margin-top:8px;min-height:72px;max-height:220px;overflow:auto;background:rgba(0,0,0,0.28);border:1px solid var(--border);border-radius:4px;padding:8px;font-family:var(--font-mono);font-size:0.56rem;line-height:1.6;color:var(--screen-text)';
+    assistantOutput.style.cssText =
+      'white-space:pre-wrap;margin-top:8px;min-height:72px;max-height:220px;overflow:auto;background:rgba(0,0,0,0.28);border:1px solid var(--border);border-radius:4px;padding:8px;font-family:var(--font-mono);font-size:0.56rem;line-height:1.6;color:var(--screen-text)';
     assistantOutput.textContent = 'Assistant ready.';
 
     const buildLiveContext = () => ({
@@ -1400,18 +1449,22 @@ export default {
 
     const updateAssistantAvailability = (providers = {}) => {
       const selectedId = assistantProvider.value || 'auto';
-      const configuredProviders = Object.values(providers).filter((provider) => provider?.id !== 'auto' && provider?.configured);
+      const configuredProviders = Object.values(providers).filter(
+        (provider) => provider?.id !== 'auto' && provider?.configured,
+      );
       const selectedProvider = providers[selectedId] || null;
-      const canSend = selectedId === 'auto'
-        ? configuredProviders.length > 0
-        : selectedProvider?.configured !== false;
+      const canSend = selectedId === 'auto' ? configuredProviders.length > 0 : selectedProvider?.configured !== false;
 
       assistantSendBtn.disabled = !canSend;
       if (!canSend) {
-        assistantOutput.textContent = configuredProviders.length === 0
-          ? 'Configure an assistant provider in the environment before sending prompts.'
-          : 'The selected provider is not configured in the current environment.';
-      } else if (assistantOutput.textContent.startsWith('Configure an assistant provider') || assistantOutput.textContent.startsWith('The selected provider is not configured')) {
+        assistantOutput.textContent =
+          configuredProviders.length === 0
+            ? 'Configure an assistant provider in the environment before sending prompts.'
+            : 'The selected provider is not configured in the current environment.';
+      } else if (
+        assistantOutput.textContent.startsWith('Configure an assistant provider') ||
+        assistantOutput.textContent.startsWith('The selected provider is not configured')
+      ) {
         assistantOutput.textContent = 'Assistant ready.';
       }
     };
@@ -1531,10 +1584,12 @@ export default {
     exportBtn.addEventListener('click', () => {
       // Find the first non-empty recorder buffer
       const slots = state.recorderBuffers ?? [];
-      const buf = slots.find(b => b);
+      const buf = slots.find((b) => b);
       if (!buf) {
         exportBtn.textContent = '⚠ No recording yet';
-        setTimeout(() => { exportBtn.textContent = '⬇ Export master as WAV'; }, 2000);
+        setTimeout(() => {
+          exportBtn.textContent = '⬇ Export master as WAV';
+        }, 2000);
         return;
       }
       // Encode to WAV
@@ -1545,7 +1600,9 @@ export default {
       const arrayBuf = new ArrayBuffer(wavLength);
       const view = new DataView(arrayBuf);
       // WAV header
-      const writeStr = (off, str) => { for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i)); };
+      const writeStr = (off, str) => {
+        for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i));
+      };
       writeStr(0, 'RIFF');
       view.setUint32(4, wavLength - 8, true);
       writeStr(8, 'WAVE');
@@ -1579,7 +1636,7 @@ export default {
     exportCard.append(exportBtn);
     container.append(exportCard);
 
-    container.addEventListener('change', e => {
+    container.addEventListener('change', (e) => {
       const el = e.target;
       if (!el.dataset.action) return;
       const action = el.dataset.action;
@@ -1594,8 +1651,8 @@ export default {
 
       if (action === 'midiOutput') {
         const id = el.value;
-        const out = midiOutputs.find(o => (o.id || o.name) === id) || null;
-        state.midiOutputId = out ? (out.id || out.name) : null;
+        const out = midiOutputs.find((o) => (o.id || o.name) === id) || null;
+        state.midiOutputId = out ? out.id || out.name : null;
         state.midiOutputName = out?.name || null;
         if (state.engine?.setMidiOutput) state.engine.setMidiOutput(out);
         else if (state.engine) state.engine.midiOutput = out;
@@ -1629,14 +1686,14 @@ export default {
   },
 
   knobMap: [
-    { label: 'MIDI Ch',  param: 'midiChannel',  min: 1,  max: 16,   step: 1    },
-    { label: 'Swing',    param: 'swing',         min: 0,  max: 0.42, step: 0.01 },
-    { label: 'I/O Lvl',  param: 'ioLevel',       min: 0,  max: 1,    step: 0.01 },
-    { label: 'Link',     param: 'abletonLink',   min: 0,  max: 1,    step: 1    },
-    { label: 'Clock',    param: 'clockSource',   min: 0,  max: 2,    step: 1    },
-    { label: 'Metro',    param: 'metronome',     min: 0,  max: 1,    step: 1    },
-    { label: 'ClkOut',   param: 'midiClockOut',  min: 0,  max: 1,    step: 1    },
-    { label: '—',        param: null,            min: 0,  max: 1,    step: 1    },
+    { label: 'MIDI Ch', param: 'midiChannel', min: 1, max: 16, step: 1 },
+    { label: 'Swing', param: 'swing', min: 0, max: 0.42, step: 0.01 },
+    { label: 'I/O Lvl', param: 'ioLevel', min: 0, max: 1, step: 0.01 },
+    { label: 'Link', param: 'abletonLink', min: 0, max: 1, step: 1 },
+    { label: 'Clock', param: 'clockSource', min: 0, max: 2, step: 1 },
+    { label: 'Metro', param: 'metronome', min: 0, max: 1, step: 1 },
+    { label: 'ClkOut', param: 'midiClockOut', min: 0, max: 1, step: 1 },
+    { label: '—', param: null, min: 0, max: 1, step: 1 },
   ],
 
   keyboardContext: 'settings',

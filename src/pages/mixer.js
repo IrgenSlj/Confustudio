@@ -2,10 +2,7 @@
 
 import { TRACK_COLORS } from '../state.js';
 
-const GROUP_COLORS = [
-  '#f0c640', '#5add71', '#67d7ff', '#ff8c52',
-  '#c67dff', '#ff6eb4', '#40e0d0', '#f05b52',
-];
+const GROUP_COLORS = ['#f0c640', '#5add71', '#67d7ff', '#ff8c52', '#c67dff', '#ff6eb4', '#40e0d0', '#f05b52'];
 
 // ── Injected CSS (scoped to .mixer-page) ─────────────────────────────────────
 const MIXER_CSS = `
@@ -197,9 +194,7 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
   strip.className = 'mx-track-strip' + (ti === state.selectedTrackIndex ? ' selected' : '');
   strip.style.setProperty('--tc', color);
 
-  strip.addEventListener('click', () =>
-    emit('state:change', { path: 'selectedTrackIndex', value: ti })
-  );
+  strip.addEventListener('click', () => emit('state:change', { path: 'selectedTrackIndex', value: ti }));
 
   // Track name
   const nameRow = document.createElement('div');
@@ -216,13 +211,14 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
 
   // Double-click to rename
   nameSpan.style.cursor = 'text';
-  nameSpan.addEventListener('dblclick', e => {
+  nameSpan.addEventListener('dblclick', (e) => {
     e.stopPropagation();
     const currentName = track.name ?? `T${ti + 1}`;
     const input = document.createElement('input');
     input.type = 'text';
     input.value = currentName;
-    input.style.cssText = 'font-family:var(--font-mono);font-size:0.55rem;width:100%;background:#111;color:var(--screen-text);border:1px solid var(--accent);border-radius:2px;padding:0 2px';
+    input.style.cssText =
+      'font-family:var(--font-mono);font-size:0.55rem;width:100%;background:#111;color:var(--screen-text);border:1px solid var(--accent);border-radius:2px;padding:0 2px';
     const commit = () => {
       const newName = input.value.trim() || currentName;
       track.name = newName;
@@ -231,12 +227,20 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
       emit('state:change', { path: 'tracks', value: state.tracks });
     };
     input.addEventListener('blur', commit);
-    input.addEventListener('keydown', ev => {
-      if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
-      if (ev.key === 'Escape') { input.removeEventListener('blur', commit); nameSpan.textContent = track.name ?? `T${ti + 1}`; nameRow.replaceChild(nameSpan, input); }
+    input.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        input.blur();
+      }
+      if (ev.key === 'Escape') {
+        input.removeEventListener('blur', commit);
+        nameSpan.textContent = track.name ?? `T${ti + 1}`;
+        nameRow.replaceChild(nameSpan, input);
+      }
     });
     nameRow.replaceChild(input, nameSpan);
-    input.focus(); input.select();
+    input.focus();
+    input.select();
   });
 
   nameRow.append(dot, nameSpan);
@@ -250,7 +254,10 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
     const wrap = document.createElement('div');
     wrap.className = 'mx-send-wrap';
     const knob = document.createElement('input');
-    knob.type = 'range'; knob.min = 0; knob.max = 1; knob.step = 0.01;
+    knob.type = 'range';
+    knob.min = 0;
+    knob.max = 1;
+    knob.step = 0.01;
     knob.value = initVal;
     knob.className = 'mx-send-knob-input';
     knob.title = `${label === 'R' ? 'Reverb' : 'Delay'} send`;
@@ -262,15 +269,15 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
     return { wrap, knob };
   }
 
-  const { wrap: revWrap, knob: revKnob } = makeSendKnob('R', stTrack.reverbSend ?? 0, v => {
+  const { wrap: revWrap } = makeSendKnob('R', stTrack.reverbSend ?? 0, (v) => {
     stTrack.reverbSend = v;
-    track.reverbSend   = v;
+    track.reverbSend = v;
     state.engine?.setTrackReverbSend?.(ti, v);
     emit('state:change', { path: `tracks.${ti}.reverbSend`, value: v });
   });
-  const { wrap: dlyWrap, knob: dlyKnob } = makeSendKnob('D', stTrack.delaySend ?? 0, v => {
+  const { wrap: dlyWrap } = makeSendKnob('D', stTrack.delaySend ?? 0, (v) => {
     stTrack.delaySend = v;
-    track.delaySend   = v;
+    track.delaySend = v;
     state.engine?.setTrackDelaySend?.(ti, v);
     emit('state:change', { path: `tracks.${ti}.delaySend`, value: v });
   });
@@ -280,12 +287,14 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
   // Pan slider
   const panSlider = document.createElement('input');
   panSlider.type = 'range';
-  panSlider.min = -1; panSlider.max = 1; panSlider.step = 0.05;
+  panSlider.min = -1;
+  panSlider.max = 1;
+  panSlider.step = 0.05;
   panSlider.value = track.pan ?? 0;
   panSlider.className = 'mx-pan';
   panSlider.title = 'Pan';
   panSlider.addEventListener('input', () =>
-    emit('track:change', { trackIndex: ti, param: 'pan', value: parseFloat(panSlider.value) })
+    emit('track:change', { trackIndex: ti, param: 'pan', value: parseFloat(panSlider.value) }),
   );
   strip.append(panSlider);
 
@@ -295,7 +304,9 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
   const fader = document.createElement('input');
   fader.type = 'range';
   fader.setAttribute('orient', 'vertical');
-  fader.min = 0; fader.max = 1.5; fader.step = 0.01;
+  fader.min = 0;
+  fader.max = 1.5;
+  fader.step = 0.01;
   fader.value = track.volume ?? 0.8;
   fader.className = 'mx-fader';
   fader.title = 'Volume';
@@ -310,7 +321,7 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
     emit('track:change', { trackIndex: ti, param: 'volume', value: v });
     // Fader link support
     const links = state.faderLinks ?? [];
-    const linked = links.find(l => l.a === ti || l.b === ti);
+    const linked = links.find((l) => l.a === ti || l.b === ti);
     if (linked) {
       const otherIdx = linked.a === ti ? linked.b : linked.a;
       const otherTrack = state.project.banks[state.activeBank].patterns[state.activePattern].kit.tracks[otherIdx];
@@ -343,7 +354,7 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
   const muteBtn = document.createElement('button');
   muteBtn.className = 'mx-mute' + (track.mute ? ' on' : '');
   muteBtn.textContent = 'M';
-  muteBtn.addEventListener('click', e => {
+  muteBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     track.mute = !track.mute;
     muteBtn.classList.toggle('on', track.mute);
@@ -353,7 +364,7 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
   const soloBtn = document.createElement('button');
   soloBtn.className = 'mx-solo' + (track.solo ? ' on' : '');
   soloBtn.textContent = 'S';
-  soloBtn.addEventListener('click', e => {
+  soloBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     track.solo = !track.solo;
     soloBtn.classList.toggle('on', track.solo);
@@ -374,7 +385,7 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
   cueBtn.className = 'mx-cue' + (track.cue ? ' on' : '');
   cueBtn.textContent = 'C';
   cueBtn.title = 'Cue / pre-fader listen';
-  cueBtn.addEventListener('click', e => {
+  cueBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     track.cue = !track.cue;
     cueBtn.classList.toggle('on', track.cue);
@@ -403,7 +414,10 @@ function buildGroupRow(group, gi, state, emit) {
 
   // Pan (compact, fixed width)
   const panSlider = document.createElement('input');
-  panSlider.type = 'range'; panSlider.min = -1; panSlider.max = 1; panSlider.step = 0.05;
+  panSlider.type = 'range';
+  panSlider.min = -1;
+  panSlider.max = 1;
+  panSlider.step = 0.05;
   panSlider.value = group.pan ?? 0;
   panSlider.className = 'mx-group-pan';
   panSlider.title = 'Pan';
@@ -417,7 +431,10 @@ function buildGroupRow(group, gi, state, emit) {
 
   // Horizontal volume fader
   const fader = document.createElement('input');
-  fader.type = 'range'; fader.min = 0; fader.max = 1.5; fader.step = 0.01;
+  fader.type = 'range';
+  fader.min = 0;
+  fader.max = 1.5;
+  fader.step = 0.01;
   fader.value = group.volume ?? 1;
   fader.className = 'mx-group-fader';
   fader.title = 'Volume';
@@ -439,7 +456,7 @@ function buildGroupRow(group, gi, state, emit) {
   const muteBtn = document.createElement('button');
   muteBtn.className = 'mx-group-mute' + (group.muted ? ' on' : '');
   muteBtn.textContent = 'M';
-  muteBtn.addEventListener('click', e => {
+  muteBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     group.muted = !group.muted;
     muteBtn.classList.toggle('on', group.muted);
@@ -460,7 +477,7 @@ export default {
     container.innerHTML = '';
 
     const pattern = state.project.banks[state.activeBank].patterns[state.activePattern];
-    const tracks  = pattern.kit.tracks;
+    const tracks = pattern.kit.tracks;
 
     // Root page wrapper
     const page = document.createElement('div');
@@ -482,8 +499,10 @@ export default {
     muteAllBtn.className = 'mx-bulk-btn';
     muteAllBtn.textContent = 'Mute All';
     muteAllBtn.addEventListener('click', () => {
-      tracks.forEach(t => { t.mute = true; });
-      stripEls.forEach(el => el.querySelector('.mx-mute')?.classList.add('on'));
+      tracks.forEach((t) => {
+        t.mute = true;
+      });
+      stripEls.forEach((el) => el.querySelector('.mx-mute')?.classList.add('on'));
       emit('state:change', { path: 'mixer.bulkMute', value: true });
     });
 
@@ -491,8 +510,10 @@ export default {
     unmuteAllBtn.className = 'mx-bulk-btn';
     unmuteAllBtn.textContent = 'Unmute All';
     unmuteAllBtn.addEventListener('click', () => {
-      tracks.forEach(t => { t.mute = false; });
-      stripEls.forEach(el => el.querySelector('.mx-mute')?.classList.remove('on'));
+      tracks.forEach((t) => {
+        t.mute = false;
+      });
+      stripEls.forEach((el) => el.querySelector('.mx-mute')?.classList.remove('on'));
       emit('state:change', { path: 'mixer.bulkMute', value: false });
     });
 
@@ -500,8 +521,10 @@ export default {
     soloOffBtn.className = 'mx-bulk-btn';
     soloOffBtn.textContent = 'Solo Off';
     soloOffBtn.addEventListener('click', () => {
-      tracks.forEach(t => { t.solo = false; });
-      stripEls.forEach(el => {
+      tracks.forEach((t) => {
+        t.solo = false;
+      });
+      stripEls.forEach((el) => {
         el.querySelector('.mx-solo')?.classList.remove('on');
         el.classList.remove('strip-muted-by-solo');
       });
@@ -566,7 +589,7 @@ export default {
       extHdr.textContent = 'External Modules';
       extSection.append(extHdr);
 
-      window._connectedModules.forEach(mod => {
+      window._connectedModules.forEach((mod) => {
         const strip = document.createElement('div');
         strip.className = 'mx-ext-strip';
 
@@ -576,7 +599,10 @@ export default {
         strip.append(nameLbl);
 
         const fader = document.createElement('input');
-        fader.type = 'range'; fader.min = 0; fader.max = 1.5; fader.step = 0.01;
+        fader.type = 'range';
+        fader.min = 0;
+        fader.max = 1.5;
+        fader.step = 0.01;
         fader.value = mod.gain ?? 1;
         fader.className = 'mx-ext-fader';
         const faderVal = document.createElement('span');
@@ -595,7 +621,10 @@ export default {
         strip.append(fader, faderVal);
 
         const panSlider = document.createElement('input');
-        panSlider.type = 'range'; panSlider.min = -1; panSlider.max = 1; panSlider.step = 0.05;
+        panSlider.type = 'range';
+        panSlider.min = -1;
+        panSlider.max = 1;
+        panSlider.step = 0.05;
         panSlider.value = mod.pan ?? 0;
         panSlider.className = 'mx-ext-pan';
         panSlider.title = 'Pan';
@@ -613,7 +642,7 @@ export default {
         const muteBtn = document.createElement('button');
         muteBtn.className = 'mx-ext-mute' + (mod.muted ? ' on' : '');
         muteBtn.textContent = 'M';
-        muteBtn.addEventListener('click', e => {
+        muteBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           mod.muted = !mod.muted;
           muteBtn.classList.toggle('on', mod.muted);
@@ -634,18 +663,22 @@ export default {
     renderExtModules();
 
     // ── Per-track peak state (survives re-renders) ───────────────────────────
-    window._trackPeaks     = window._trackPeaks     ?? Array(8).fill(0);
+    window._trackPeaks = window._trackPeaks ?? Array(8).fill(0);
     window._trackPeakTimes = window._trackPeakTimes ?? Array(8).fill(0);
 
     // Listen for trigger events — AbortController cleans up on page change
     const mixerAbortController = new AbortController();
-    window.addEventListener('confustudio:note:on', (e) => {
-      const { trackIndex, velocity = 1 } = e.detail ?? {};
-      if (trackIndex >= 0 && trackIndex < 8) {
-        window._trackPeaks[trackIndex]     = Math.max(0.4, velocity);
-        window._trackPeakTimes[trackIndex] = performance.now();
-      }
-    }, { signal: mixerAbortController.signal });
+    window.addEventListener(
+      'confustudio:note:on',
+      (e) => {
+        const { trackIndex, velocity = 1 } = e.detail ?? {};
+        if (trackIndex >= 0 && trackIndex < 8) {
+          window._trackPeaks[trackIndex] = Math.max(0.4, velocity);
+          window._trackPeakTimes[trackIndex] = performance.now();
+        }
+      },
+      { signal: mixerAbortController.signal },
+    );
 
     // ── Master VU bar (2px strip alongside master fader) ─────────────────────
     // Inject into the .fader-master wrapper if present and not already done
@@ -673,7 +706,7 @@ export default {
     specLbl.textContent = 'Master Spectrum';
     const specCanvas = document.createElement('canvas');
     specCanvas.className = 'mx-spectrum-canvas';
-    specCanvas.width  = 200;
+    specCanvas.width = 200;
     specCanvas.height = 40;
     specWrap.append(specLbl, specCanvas);
     page.append(specWrap);
@@ -684,7 +717,9 @@ export default {
     // Ensure the analyser node has fftSize 512 if accessible
     const _analyserNode = window._confustudioEngine?.analyser ?? state.engine?.analyser ?? null;
     if (_analyserNode && _analyserNode.fftSize < 512) {
-      try { _analyserNode.fftSize = 512; } catch (_) {}
+      try {
+        _analyserNode.fftSize = 512;
+      } catch (_) {}
     }
     const _specData = new Uint8Array(FFT_BINS);
 
@@ -707,7 +742,7 @@ export default {
         const barH = Math.round(norm * H);
         if (barH === 0) continue;
         // Color: green → yellow → red by amplitude
-        const r = norm > 0.6 ? 255 : Math.round(norm / 0.6 * 200);
+        const r = norm > 0.6 ? 255 : Math.round((norm / 0.6) * 200);
         const g = norm > 0.8 ? Math.round((1 - (norm - 0.8) / 0.2) * 210) : 210;
         const b = 40;
         specCtx.fillStyle = `rgb(${r},${g},${b})`;
@@ -734,18 +769,18 @@ export default {
         const { bar: fill, peak, track: t, ti: trackIdx } = meterEls[ti];
         if (!fill) continue;
         const elapsed = now - (window._trackPeakTimes[trackIdx] ?? 0);
-        const decay   = Math.max(0, 1 - elapsed / 800);
-        const vol     = t.mute ? 0 : (t.volume ?? 0.8);
-        const level   = (window._trackPeaks[trackIdx] ?? 0) * decay * vol;
+        const decay = Math.max(0, 1 - elapsed / 800);
+        const vol = t.mute ? 0 : (t.volume ?? 0.8);
+        const level = (window._trackPeaks[trackIdx] ?? 0) * decay * vol;
 
         const color = level > 0.85 ? '#f05b52' : level > 0.6 ? '#f0c640' : '#5add71';
-        fill.style.width      = (level * 100) + '%';
+        fill.style.width = level * 100 + '%';
         fill.style.background = color;
 
         // Peak hold: stays for 1.2s then fades
         if (peak) {
           if (elapsed < 1200) {
-            peak.style.left    = (level * 100) + '%';
+            peak.style.left = level * 100 + '%';
             peak.style.opacity = '1';
           } else {
             const peakDecay = Math.max(0, 1 - (elapsed - 1200) / 400);
@@ -764,7 +799,7 @@ export default {
         }
         const rms = Math.sqrt(sum / _masterData.length);
         const pct = Math.min(100, Math.round(rms * 800));
-        masterVuFill.style.height     = pct + '%';
+        masterVuFill.style.height = pct + '%';
         masterVuFill.style.background = pct > 85 ? '#f05b52' : pct > 60 ? '#f0c640' : '#5add71';
       }
 
@@ -785,19 +820,27 @@ export default {
     }
 
     // ── Cable connect listener ───────────────────────────────────────────────
-    const cableHandler = e => {
+    const cableHandler = (e) => {
       const { fromEl } = e.detail ?? {};
       if (!fromEl) return;
       const moduleEl = fromEl?.closest?.('[data-module-type]') ?? (fromEl?.dataset?.moduleType ? fromEl : null);
       const moduleType = moduleEl?.dataset?.moduleType;
       if (moduleType) {
-        const alreadyTracked = window._connectedModules.some(m => m.el === moduleEl);
+        const alreadyTracked = window._connectedModules.some((m) => m.el === moduleEl);
         if (!alreadyTracked) {
-          const labelMap = { 'acid_machine': 'Acid Machine', 'drum_machine': 'Drum Machine', 'polysynth': 'Polysynth', 'monosynth': 'Monosynth' };
+          const labelMap = {
+            acid_machine: 'Acid Machine',
+            drum_machine: 'Drum Machine',
+            polysynth: 'Polysynth',
+            monosynth: 'Monosynth',
+          };
           window._connectedModules.push({
             el: moduleEl,
             label: labelMap[moduleType] ?? moduleType.toUpperCase(),
-            gain: 1, pan: 0, muted: false, solo: false,
+            gain: 1,
+            pan: 0,
+            muted: false,
+            solo: false,
           });
         }
         renderExtModules();

@@ -1,11 +1,20 @@
-import { openSampleBrowser } from '../sample-browser.js';
-import { TRACK_COLORS } from '../state.js';
-
-export function drawWaveform(canvas, audioBuffer, sampleStart, sampleEnd,
-                      viewStart = 0, viewEnd = 1,
-                      loopStart = 0, loopEnd = 1, loopEnabled = false,
-                      bitDepth = 32, playbackPos = null) {
-  if (!audioBuffer) { canvas.style.display = 'none'; return; }
+export function drawWaveform(
+  canvas,
+  audioBuffer,
+  sampleStart,
+  sampleEnd,
+  viewStart = 0,
+  viewEnd = 1,
+  loopStart = 0,
+  loopEnd = 1,
+  loopEnabled = false,
+  bitDepth = 32,
+  playbackPos = null,
+) {
+  if (!audioBuffer) {
+    canvas.style.display = 'none';
+    return;
+  }
   canvas.style.display = 'block';
   const ctx2d = canvas.getContext('2d');
   const W = canvas.offsetWidth || 200;
@@ -13,15 +22,15 @@ export function drawWaveform(canvas, audioBuffer, sampleStart, sampleEnd,
   canvas.width = W;
   ctx2d.clearRect(0, 0, W, H);
 
-  const data    = audioBuffer.getChannelData(0);
+  const data = audioBuffer.getChannelData(0);
   const totalSamples = data.length;
 
   const fracToX = (frac) => ((frac - viewStart) / (viewEnd - viewStart)) * W;
 
   const startSample = Math.floor(viewStart * totalSamples);
-  const endSample   = Math.ceil(viewEnd   * totalSamples);
-  const windowLen   = endSample - startSample;
-  const step        = Math.max(1, Math.floor(windowLen / W));
+  const endSample = Math.ceil(viewEnd * totalSamples);
+  const windowLen = endSample - startSample;
+  const step = Math.max(1, Math.floor(windowLen / W));
 
   ctx2d.strokeStyle = '#a0c060';
   ctx2d.lineWidth = 1;
@@ -29,7 +38,8 @@ export function drawWaveform(canvas, audioBuffer, sampleStart, sampleEnd,
 
   for (let x = 0; x < W; x++) {
     const sIdx = startSample + Math.floor((x / W) * windowLen);
-    let min = 1, max = -1;
+    let min = 1,
+      max = -1;
     for (let i = 0; i < step; i++) {
       const v = data[sIdx + i] ?? 0;
       if (v < min) min = v;
@@ -109,10 +119,17 @@ export function drawWaveform(canvas, audioBuffer, sampleStart, sampleEnd,
     ctx2d.strokeStyle = '#f90';
     ctx2d.lineWidth = 2;
     ctx2d.setLineDash([4, 3]);
-    ctx2d.beginPath(); ctx2d.moveTo(spX, 0); ctx2d.lineTo(spX, H); ctx2d.stroke();
+    ctx2d.beginPath();
+    ctx2d.moveTo(spX, 0);
+    ctx2d.lineTo(spX, H);
+    ctx2d.stroke();
     ctx2d.setLineDash([]);
     ctx2d.fillStyle = '#f90';
-    ctx2d.beginPath(); ctx2d.moveTo(spX, 0); ctx2d.lineTo(spX + 8, 0); ctx2d.lineTo(spX, 12); ctx2d.fill();
+    ctx2d.beginPath();
+    ctx2d.moveTo(spX, 0);
+    ctx2d.lineTo(spX + 8, 0);
+    ctx2d.lineTo(spX, 12);
+    ctx2d.fill();
     ctx2d.restore();
   }
 
@@ -122,7 +139,10 @@ export function drawWaveform(canvas, audioBuffer, sampleStart, sampleEnd,
     ctx2d.strokeStyle = '#fff';
     ctx2d.lineWidth = 1;
     ctx2d.globalAlpha = 0.7;
-    ctx2d.beginPath(); ctx2d.moveTo(px, 0); ctx2d.lineTo(px, H); ctx2d.stroke();
+    ctx2d.beginPath();
+    ctx2d.moveTo(px, 0);
+    ctx2d.lineTo(px, H);
+    ctx2d.stroke();
     ctx2d.restore();
   }
 
@@ -137,14 +157,14 @@ export function drawWaveform(canvas, audioBuffer, sampleStart, sampleEnd,
 }
 
 export function makeSampleLoader(track, ti, emit, machCard, state) {
-  let waveZoom    = 1;
-  let wavePan     = 0;
+  let waveZoom = 1;
+  let wavePan = 0;
   let _samplePlaybackPos = null;
 
   function viewWindow() {
-    const span      = 1 / waveZoom;
+    const span = 1 / waveZoom;
     const maxOffset = 1 - span;
-    const start     = Math.max(0, Math.min(maxOffset, wavePan));
+    const start = Math.max(0, Math.min(maxOffset, wavePan));
     return { viewStart: start, viewEnd: start + span };
   }
 
@@ -153,13 +173,24 @@ export function makeSampleLoader(track, ti, emit, machCard, state) {
 
   const canvas = document.createElement('canvas');
   canvas.height = 100;
-  canvas.style.cssText = 'width:100%;height:100px;border:1px solid #333;border-radius:2px;cursor:crosshair;background:#121212';
+  canvas.style.cssText =
+    'width:100%;height:100px;border:1px solid #333;border-radius:2px;cursor:crosshair;background:#121212';
 
   function redrawWaveform() {
     const { viewStart, viewEnd } = viewWindow();
-    drawWaveform(canvas, track.sampleBuffer, track.sampleStart ?? 0, track.sampleEnd ?? 1,
-      viewStart, viewEnd, track.loopStart ?? 0, track.loopEnd ?? 1,
-      track.loopEnabled ?? false, track.bitDepth ?? 32, _samplePlaybackPos);
+    drawWaveform(
+      canvas,
+      track.sampleBuffer,
+      track.sampleStart ?? 0,
+      track.sampleEnd ?? 1,
+      viewStart,
+      viewEnd,
+      track.loopStart ?? 0,
+      track.loopEnd ?? 1,
+      track.loopEnabled ?? false,
+      track.bitDepth ?? 32,
+      _samplePlaybackPos,
+    );
   }
 
   wrap.append(canvas);
@@ -176,9 +207,9 @@ export function makeSampleLoader(track, ti, emit, machCard, state) {
     const frac = viewStart + x * (viewEnd - viewStart);
 
     const startFrac = track.sampleStart ?? 0;
-    const endFrac   = track.sampleEnd ?? 1;
-    const dStart    = Math.abs(frac - startFrac);
-    const dEnd      = Math.abs(frac - endFrac);
+    const endFrac = track.sampleEnd ?? 1;
+    const dStart = Math.abs(frac - startFrac);
+    const dEnd = Math.abs(frac - endFrac);
     const threshold = (viewEnd - viewStart) * 0.02;
 
     if (dStart < threshold && dStart < dEnd) {
@@ -209,19 +240,28 @@ export function makeSampleLoader(track, ti, emit, machCard, state) {
     redrawWaveform();
   });
 
-  canvas.addEventListener('pointerup', () => { _isDragging = false; _dragHandle = null; });
-  canvas.addEventListener('pointercancel', () => { _isDragging = false; _dragHandle = null; });
+  canvas.addEventListener('pointerup', () => {
+    _isDragging = false;
+    _dragHandle = null;
+  });
+  canvas.addEventListener('pointercancel', () => {
+    _isDragging = false;
+    _dragHandle = null;
+  });
 
   let _phRaf = null;
   function tickPlayhead() {
     const st = window._confustudioState;
-    if (!st?.isPlaying || !track.sampleBuffer) { _phRaf = null; return; }
+    if (!st?.isPlaying || !track.sampleBuffer) {
+      _phRaf = null;
+      return;
+    }
     const elapsed = st.audioContext.currentTime - (st._stepStartTime ?? st.audioContext.currentTime);
     const dur = track.sampleBuffer.duration;
     let pos = (elapsed / dur) % 1;
     if (track.loopEnabled && track.loopEnd > track.loopStart) {
       const loopLen = track.loopEnd - track.loopStart;
-      pos = track.loopStart + (pos * loopLen) % loopLen;
+      pos = track.loopStart + ((pos * loopLen) % loopLen);
     } else {
       pos = 0;
     }
@@ -250,14 +290,15 @@ export function makeSampleLoader(track, ti, emit, machCard, state) {
   infoRow.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:0.55rem';
 
   const nameSpan = document.createElement('span');
-  nameSpan.style.cssText = 'color:var(--muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+  nameSpan.style.cssText =
+    'color:var(--muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
 
   function updateSampleInfo() {
     const buf = track.sampleBuffer;
     if (buf) {
       const dur = buf.duration.toFixed(1);
-      const sr  = buf.sampleRate;
-      const ch  = buf.numberOfChannels;
+      const sr = buf.sampleRate;
+      const ch = buf.numberOfChannels;
       nameSpan.textContent = `${track.sampleName || 'Recorded'} — ${dur}s, ${sr}Hz, ${ch}ch`;
     } else {
       nameSpan.textContent = 'No sample loaded';
@@ -271,23 +312,27 @@ export function makeSampleLoader(track, ti, emit, machCard, state) {
   reloadBtn.textContent = '↻';
   reloadBtn.title = 'Reload sample from original file';
   reloadBtn.addEventListener('click', async () => {
-    if (!track.sampleFileHandle) { showToast('No file handle stored'); return; }
+    if (!track.sampleFileHandle) {
+      emit('toast', { msg: 'No file handle stored' });
+      return;
+    }
     try {
       const file = await track.sampleFileHandle.getFile();
       const buf = await file.arrayBuffer();
       const decoded = await state.audioContext.decodeAudioData(buf);
       track.sampleBuffer = decoded;
-      track.sampleStart = 0; track.sampleEnd = 1;
+      track.sampleStart = 0;
+      track.sampleEnd = 1;
       redrawWaveform();
       updateSampleInfo();
       if (state.engine) {
         state.engine._clearTrackVoices(ti, true);
         state.engine._prepareTrackVoice(ti, track, state);
       }
-      showToast('Sample reloaded');
+      emit('toast', { msg: 'Sample reloaded' });
     } catch (err) {
       console.warn('Sample reload failed:', err);
-      showToast('Reload failed');
+      emit('toast', { msg: 'Reload failed' });
     }
   });
   infoRow.append(reloadBtn);
@@ -302,7 +347,7 @@ export function makeSampleLoader(track, ti, emit, machCard, state) {
     if (state.engine) state.engine._clearTrackVoices(ti, true);
     redrawWaveform();
     updateSampleInfo();
-    showToast('Sample cleared');
+    emit('toast', { msg: 'Sample cleared' });
   });
   infoRow.append(clearBtn);
 
@@ -367,7 +412,9 @@ export function makeSampleLoader(track, ti, emit, machCard, state) {
   fitBtn.className = 'screen-btn';
   fitBtn.textContent = 'Fit';
   fitBtn.addEventListener('click', () => {
-    waveZoom = 1; wavePan = 0; panSlider.value = 0;
+    waveZoom = 1;
+    wavePan = 0;
+    panSlider.value = 0;
     zoomLabel.textContent = '1x';
     redrawWaveform();
   });
@@ -417,7 +464,10 @@ export function makeSampleLoader(track, ti, emit, machCard, state) {
   normalizeBtn.title = 'Normalize audio';
   normalizeBtn.addEventListener('click', () => {
     const buf = track.sampleBuffer;
-    if (!buf) { showToast('No sample'); return; }
+    if (!buf) {
+      emit('toast', { msg: 'No sample' });
+      return;
+    }
     let peak = 0;
     for (let ch = 0; ch < buf.numberOfChannels; ch++) {
       const d = buf.getChannelData(ch);
@@ -431,7 +481,7 @@ export function makeSampleLoader(track, ti, emit, machCard, state) {
       }
     }
     redrawWaveform();
-    showToast('Normalized');
+    emit('toast', { msg: 'Normalized' });
   });
   trimRow.append(normalizeBtn);
 
@@ -441,7 +491,10 @@ export function makeSampleLoader(track, ti, emit, machCard, state) {
   reverseBtn.title = 'Reverse audio';
   reverseBtn.addEventListener('click', () => {
     const buf = track.sampleBuffer;
-    if (!buf) { showToast('No sample'); return; }
+    if (!buf) {
+      emit('toast', { msg: 'No sample' });
+      return;
+    }
     for (let ch = 0; ch < buf.numberOfChannels; ch++) {
       const d = buf.getChannelData(ch);
       const half = Math.floor(d.length / 2);
@@ -452,7 +505,7 @@ export function makeSampleLoader(track, ti, emit, machCard, state) {
       }
     }
     redrawWaveform();
-    showToast('Reversed');
+    emit('toast', { msg: 'Reversed' });
   });
   trimRow.append(reverseBtn);
 
@@ -462,9 +515,15 @@ export function makeSampleLoader(track, ti, emit, machCard, state) {
   sliceBtn.title = 'Slice sample evenly across active steps';
   sliceBtn.addEventListener('click', () => {
     const steps = state.project.banks[state.activeBank].patterns[state.activePattern].kit.tracks[ti]?.steps;
-    if (!steps || !track.sampleBuffer) { showToast('No sample or steps'); return; }
-    const activeSteps = steps.filter(s => s.active);
-    if (activeSteps.length < 2) { showToast('Need ≥2 active steps'); return; }
+    if (!steps || !track.sampleBuffer) {
+      emit('toast', { msg: 'No sample or steps' });
+      return;
+    }
+    const activeSteps = steps.filter((s) => s.active);
+    if (activeSteps.length < 2) {
+      emit('toast', { msg: 'Need ≥2 active steps' });
+      return;
+    }
     const sliceLen = 1 / activeSteps.length;
     activeSteps.forEach((step, i) => {
       if (!step.paramLocks) step.paramLocks = {};
@@ -472,7 +531,7 @@ export function makeSampleLoader(track, ti, emit, machCard, state) {
       step.paramLocks.sampleEnd = (i + 1) * sliceLen;
       step.paramLocks.loopEnabled = 0;
     });
-    showToast(`Sliced across ${activeSteps.length} steps`);
+    emit('toast', { msg: `Sliced across ${activeSteps.length} steps` });
     redrawWaveform();
   });
   trimRow.append(sliceBtn);
@@ -501,30 +560,37 @@ export function makeSampleLoader(track, ti, emit, machCard, state) {
   snapBtn.title = 'Snap loop to zero crossings';
   snapBtn.addEventListener('click', () => {
     const buf = track.sampleBuffer;
-    if (!buf) { showToast('No sample'); return; }
+    if (!buf) {
+      emit('toast', { msg: 'No sample' });
+      return;
+    }
     const d = buf.getChannelData(0);
     const findZero = (approxSample) => {
-      let best = Math.max(0, Math.min(d.length - 1, Math.round(approxSample)));
+      const best = Math.max(0, Math.min(d.length - 1, Math.round(approxSample)));
       for (let i = best - 50; i <= best + 50; i++) {
         if (i < 0 || i >= d.length) continue;
         if (Math.abs(d[i]) < 0.002) return i;
       }
-      let minVal = Infinity, minIdx = best;
+      let minVal = Infinity,
+        minIdx = best;
       for (let i = best - 100; i <= best + 100; i++) {
         if (i < 0 || i >= d.length) continue;
         const abs = Math.abs(d[i]);
-        if (abs < minVal) { minVal = abs; minIdx = i; }
+        if (abs < minVal) {
+          minVal = abs;
+          minIdx = i;
+        }
       }
       return minIdx;
     };
     track.loopStart = findZero(track.loopStart * d.length) / d.length;
-    track.loopEnd   = findZero(track.loopEnd * d.length) / d.length;
-    document.querySelectorAll('[data-sound-trim]').forEach(el => {
+    track.loopEnd = findZero(track.loopEnd * d.length) / d.length;
+    document.querySelectorAll('[data-sound-trim]').forEach((el) => {
       if (el.dataset.soundTrim === 'loopStart') el.value = track.loopStart * 1000;
       if (el.dataset.soundTrim === 'loopEnd') el.value = track.loopEnd * 1000;
     });
     redrawWaveform();
-    showToast('Loop snapped');
+    emit('toast', { msg: 'Loop snapped' });
   });
   loopControls.append(snapBtn);
 
@@ -533,7 +599,10 @@ export function makeSampleLoader(track, ti, emit, machCard, state) {
   previewBtn.textContent = '▶ Preview';
   previewBtn.addEventListener('click', async () => {
     const buf = track.sampleBuffer;
-    if (!buf) { showToast('No sample'); return; }
+    if (!buf) {
+      emit('toast', { msg: 'No sample' });
+      return;
+    }
     try {
       await state.audioContext.resume();
       const src = state.audioContext.createBufferSource();
@@ -545,18 +614,27 @@ export function makeSampleLoader(track, ti, emit, machCard, state) {
       gain.gain.value = 0.6;
       src.connect(gain);
       gain.connect(state.engine.master);
-      src.start(0, track.sampleStart ?? 0, track.loopEnabled ? undefined : (track.sampleEnd ?? 1) - (track.sampleStart ?? 0));
+      src.start(
+        0,
+        track.sampleStart ?? 0,
+        track.loopEnabled ? undefined : (track.sampleEnd ?? 1) - (track.sampleStart ?? 0),
+      );
       previewBtn.textContent = '■ Stop';
       const stopPreview = () => {
-        try { src.stop(); } catch (_) {}
+        try {
+          src.stop();
+        } catch (_) {}
         previewBtn.textContent = '▶ Preview';
       };
       src.onended = stopPreview;
-      const stopHandler = () => { stopPreview(); previewBtn.removeEventListener('click', stopHandler); };
+      const stopHandler = () => {
+        stopPreview();
+        previewBtn.removeEventListener('click', stopHandler);
+      };
       previewBtn.addEventListener('click', stopHandler, { once: true });
     } catch (err) {
       console.warn('Preview failed:', err);
-      showToast('Preview failed');
+      emit('toast', { msg: 'Preview failed' });
     }
   });
 

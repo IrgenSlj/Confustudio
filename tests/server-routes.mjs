@@ -35,7 +35,9 @@ async function startServer() {
 
   const ready = new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
-      reject(new Error(`Timed out waiting for server start.\nSTDOUT:\n${stdout.join('')}\nSTDERR:\n${stderr.join('')}`));
+      reject(
+        new Error(`Timed out waiting for server start.\nSTDOUT:\n${stdout.join('')}\nSTDERR:\n${stderr.join('')}`),
+      );
     }, 10000);
 
     child.stdout.on('data', (chunk) => {
@@ -48,7 +50,11 @@ async function startServer() {
 
     child.once('exit', (code) => {
       clearTimeout(timeout);
-      reject(new Error(`Server exited before ready with code ${code}.\nSTDOUT:\n${stdout.join('')}\nSTDERR:\n${stderr.join('')}`));
+      reject(
+        new Error(
+          `Server exited before ready with code ${code}.\nSTDOUT:\n${stdout.join('')}\nSTDERR:\n${stderr.join('')}`,
+        ),
+      );
     });
   });
 
@@ -88,7 +94,11 @@ try {
   const providersRes = await fetch(`${server.baseUrl}/api/assistant/providers`);
   assert(providersRes.ok, 'Assistant providers route failed', { status: providersRes.status });
   const providers = await readJson(providersRes);
-  assert(providers.defaultProvider === 'auto', 'Assistant default provider should be auto in unconfigured env', providers);
+  assert(
+    providers.defaultProvider === 'auto',
+    'Assistant default provider should be auto in unconfigured env',
+    providers,
+  );
   assert(Boolean(providers.providers?.openai), 'Assistant providers payload missing OpenAI provider', providers);
 
   const chatRes = await fetch(`${server.baseUrl}/api/assistant/chat`, {
@@ -96,7 +106,9 @@ try {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message: 'hello' }),
   });
-  assert(chatRes.status === 503, 'Assistant chat should reject when no provider is configured', { status: chatRes.status });
+  assert(chatRes.status === 503, 'Assistant chat should reject when no provider is configured', {
+    status: chatRes.status,
+  });
   const chatJson = await readJson(chatRes);
   assert(chatJson.error === 'No assistant provider is configured', 'Assistant error payload mismatch', chatJson);
 
@@ -105,9 +117,15 @@ try {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message: 'make the drums punchier' }),
   });
-  assert(actionPlanRes.status === 503, 'Assistant action planner should reject when no provider is configured', { status: actionPlanRes.status });
+  assert(actionPlanRes.status === 503, 'Assistant action planner should reject when no provider is configured', {
+    status: actionPlanRes.status,
+  });
   const actionPlanJson = await readJson(actionPlanRes);
-  assert(actionPlanJson.error === 'No assistant provider is configured', 'Assistant action planner error payload mismatch', actionPlanJson);
+  assert(
+    actionPlanJson.error === 'No assistant provider is configured',
+    'Assistant action planner error payload mismatch',
+    actionPlanJson,
+  );
 
   const linkInitialRes = await fetch(`${server.baseUrl}/api/link/state`);
   assert(linkInitialRes.ok, 'Link state GET failed', { status: linkInitialRes.status });
@@ -121,7 +139,11 @@ try {
   });
   assert(linkUpdateRes.ok, 'Link state POST failed', { status: linkUpdateRes.status });
   const linkUpdate = await readJson(linkUpdateRes);
-  assert(linkUpdate.bpm === 133 && linkUpdate.sourceId === 'server-test', 'Link state POST did not persist update', linkUpdate);
+  assert(
+    linkUpdate.bpm === 133 && linkUpdate.sourceId === 'server-test',
+    'Link state POST did not persist update',
+    linkUpdate,
+  );
 
   const sseRes = await fetch(`${server.baseUrl}/link?clientId=test-client`);
   assert(sseRes.ok, 'Link SSE route failed', { status: sseRes.status });

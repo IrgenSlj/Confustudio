@@ -1,10 +1,6 @@
 import { strict as assert } from 'node:assert';
 
-import {
-  applyProjectPackageToState,
-  createAppState,
-  createProjectPackage,
-} from '../src/state.js';
+import { applyProjectPackageToState, createAppState, createProjectPackage } from '../src/state.js';
 import {
   captureCommandState,
   createHistoryController,
@@ -55,8 +51,14 @@ assert.equal(imported.arranger[0].color, '#ffcc00');
 assert.equal(imported.project.scenes[0].name, 'Intro A');
 assert.equal(imported.project.scenes[1].name, 'Lift');
 assert.equal(imported.project.scenes[1].tracks[0].cutoff, 2400);
-assert.ok(imported.project.banks[0].patterns[0].kit.tracks[0].steps.some((step) => step.active), 'Generated pattern should activate steps');
-assert.ok(imported.project.banks[0].patterns[0].kit.tracks[1].steps.some((step) => step.active), 'Euclid should activate steps');
+assert.ok(
+  imported.project.banks[0].patterns[0].kit.tracks[0].steps.some((step) => step.active),
+  'Generated pattern should activate steps',
+);
+assert.ok(
+  imported.project.banks[0].patterns[0].kit.tracks[1].steps.some((step) => step.active),
+  'Euclid should activate steps',
+);
 assert.equal(imported.project.banks[0].patterns[0].kit.tracks[2].steps[0].note, 67);
 
 restoreCommandState(imported, before);

@@ -87,7 +87,7 @@ function bufferToPayload(buffer) {
     length: buffer.length,
     sampleRate: buffer.sampleRate,
     channelData: Array.from({ length: buffer.numberOfChannels }, (_, channel) =>
-      buffer.getChannelData(channel).slice()
+      buffer.getChannelData(channel).slice(),
     ),
   };
 
@@ -99,11 +99,7 @@ function payloadToBuffer(audioContext, payload) {
   if (!audioContext || typeof audioContext.createBuffer !== 'function') return null;
   if (!payload || payload.type !== 'audio-buffer') return null;
 
-  const buffer = audioContext.createBuffer(
-    payload.numberOfChannels,
-    payload.length,
-    payload.sampleRate
-  );
+  const buffer = audioContext.createBuffer(payload.numberOfChannels, payload.length, payload.sampleRate);
   payload.channelData.forEach((channelData, channelIndex) => {
     buffer.copyToChannel(channelData, channelIndex);
   });
@@ -240,9 +236,7 @@ async function loadRecords(projectId) {
   if (!db) {
     const manifest = memoryProjects.get(projectId);
     if (!manifest) return [];
-    return manifest.assetKeys
-      .map((key) => memoryAssets.get(key))
-      .filter(Boolean);
+    return manifest.assetKeys.map((key) => memoryAssets.get(key)).filter(Boolean);
   }
 
   const manifest = await readManifestFromDb(projectId, db);

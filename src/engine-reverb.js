@@ -14,7 +14,7 @@ export function attachReverbMethods(proto) {
         let v = (Math.random() * 2 - 1) * decay;
         if (t < 0.08) v *= 1.5 + Math.sin(i * 0.3) * 0.5;
         if (name === 'spring') v *= 1 + Math.sin(i * 0.05) * 0.3;
-        if (name === 'plate')  v *= 1 + Math.sin(i * 0.12) * 0.1;
+        if (name === 'plate') v *= 1 + Math.sin(i * 0.12) * 0.1;
         d[i] = v;
       }
     }
@@ -60,7 +60,9 @@ export function attachReverbMethods(proto) {
       g.connect(this.reverbSendBus);
     }
     this._trackReverbSendGains[trackIndex].gain.setTargetAtTime(
-      Math.max(0, Math.min(1, amount)), this.context.currentTime, 0.01
+      Math.max(0, Math.min(1, amount)),
+      this.context.currentTime,
+      0.01,
     );
   };
 
@@ -72,7 +74,9 @@ export function attachReverbMethods(proto) {
       g.connect(this.delaySendBus);
     }
     this._trackDelaySendGains[trackIndex].gain.setTargetAtTime(
-      Math.max(0, Math.min(1, amount)), this.context.currentTime, 0.01
+      Math.max(0, Math.min(1, amount)),
+      this.context.currentTime,
+      0.01,
     );
   };
 

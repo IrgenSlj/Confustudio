@@ -13,7 +13,7 @@ async function collectFiles(dir) {
   for (const entry of entries) {
     if (entry.isDirectory()) {
       if (excludedDirs.has(entry.name)) continue;
-      files.push(...await collectFiles(path.join(dir, entry.name)));
+      files.push(...(await collectFiles(path.join(dir, entry.name))));
       continue;
     }
 
@@ -34,12 +34,18 @@ for (const file of files) {
   });
 
   if (result.status !== 0) {
-    console.error(JSON.stringify({
-      ok: false,
-      file: path.relative(rootDir, file),
-      stdout: result.stdout.trim(),
-      stderr: result.stderr.trim(),
-    }, null, 2));
+    console.error(
+      JSON.stringify(
+        {
+          ok: false,
+          file: path.relative(rootDir, file),
+          stdout: result.stdout.trim(),
+          stderr: result.stderr.trim(),
+        },
+        null,
+        2,
+      ),
+    );
     process.exit(result.status || 1);
   }
 }

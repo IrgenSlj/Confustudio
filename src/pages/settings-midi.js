@@ -17,7 +17,7 @@ export function renderMidiSection(container, state, emit) {
       midiReconnectBtn.textContent = '\u2026Scanning';
       midiReconnectBtn.disabled = true;
       try {
-        const access = await navigator.requestMIDIAccess({ sysex: false });
+        await navigator.requestMIDIAccess({ sysex: false });
         emit('state:change', { path: 'midiInput', value: state.midiInput });
         midiReconnectBtn.textContent = '\u2713 Devices refreshed';
       } catch (e) {
@@ -34,7 +34,8 @@ export function renderMidiSection(container, state, emit) {
     const midiRoutingSection = document.createElement('div');
     midiRoutingSection.style.cssText = 'margin-top:10px;border-top:1px solid var(--border);padding-top:8px';
     const midiRoutingTitle = document.createElement('div');
-    midiRoutingTitle.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);margin-bottom:6px';
+    midiRoutingTitle.style.cssText =
+      'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);margin-bottom:6px';
     midiRoutingTitle.textContent = 'MIDI OUTPUT ROUTING';
     midiRoutingSection.append(midiRoutingTitle);
 
@@ -46,15 +47,18 @@ export function renderMidiSection(container, state, emit) {
       label.textContent = `TRK ${ti + 1}`;
 
       const select = document.createElement('select');
-      select.style.cssText = 'font-size:0.48rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px';
+      select.style.cssText =
+        'font-size:0.48rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px';
 
       const offOpt = document.createElement('option');
-      offOpt.value = '0'; offOpt.textContent = 'Off (internal)';
+      offOpt.value = '0';
+      offOpt.textContent = 'Off (internal)';
       select.append(offOpt);
 
       for (let ch = 1; ch <= 16; ch++) {
         const opt = document.createElement('option');
-        opt.value = String(ch); opt.textContent = `Ch ${ch}`;
+        opt.value = String(ch);
+        opt.textContent = `Ch ${ch}`;
         select.append(opt);
       }
 
@@ -111,7 +115,8 @@ export function renderMidiSection(container, state, emit) {
   learnHeader.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px';
 
   const learnTitle = document.createElement('span');
-  learnTitle.style.cssText = 'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em';
+  learnTitle.style.cssText =
+    'font-family:var(--font-mono);font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em';
   learnTitle.textContent = 'MIDI Learn';
 
   const learnToggle = document.createElement('button');
@@ -130,7 +135,9 @@ export function renderMidiSection(container, state, emit) {
   midiLearnSection.append(learnHeader);
 
   const learnStatus = document.createElement('div');
-  learnStatus.style.cssText = 'font-family:var(--font-mono);font-size:0.56rem;color:var(--accent);margin-bottom:6px;display:' + (state.midiLearnMode ? '' : 'none');
+  learnStatus.style.cssText =
+    'font-family:var(--font-mono);font-size:0.56rem;color:var(--accent);margin-bottom:6px;display:' +
+    (state.midiLearnMode ? '' : 'none');
   learnStatus.textContent = 'Move a CC knob on your controller\u2026';
   midiLearnSection.append(learnStatus);
 
@@ -164,13 +171,14 @@ export function renderMidiSection(container, state, emit) {
 
   // ── MIDI Learn table with per-row delete + learning highlight ─────────────
   function renderMidiLearnTable() {
-    midiLearnSection.querySelectorAll('.midi-learn-table, .midi-learn-empty').forEach(el => el.remove());
+    midiLearnSection.querySelectorAll('.midi-learn-table, .midi-learn-empty').forEach((el) => el.remove());
 
     const mappings = Object.entries(state.midiLearnMap);
     if (mappings.length > 0) {
       const table = document.createElement('div');
       table.className = 'midi-learn-table';
-      table.style.cssText = 'display:grid;grid-template-columns:auto 60px 1fr auto;gap:2px 6px;margin-bottom:6px;align-items:center';
+      table.style.cssText =
+        'display:grid;grid-template-columns:auto 60px 1fr auto;gap:2px 6px;margin-bottom:6px;align-items:center';
 
       const hCC = document.createElement('span');
       hCC.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);text-transform:uppercase';
@@ -179,7 +187,8 @@ export function renderMidiSection(container, state, emit) {
       hBar.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);text-transform:uppercase';
       hBar.textContent = 'Level';
       const hParam = document.createElement('span');
-      hParam.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);text-transform:uppercase';
+      hParam.style.cssText =
+        'font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);text-transform:uppercase';
       hParam.textContent = 'Parameter';
       const hDel = document.createElement('span');
       table.append(hCC, hBar, hParam, hDel);
@@ -205,14 +214,15 @@ export function renderMidiSection(container, state, emit) {
         delBtn.className = 'ctx-btn';
         delBtn.textContent = '\u00D7';
         delBtn.title = 'Remove mapping';
-        delBtn.style.cssText = 'font-size:0.65rem;padding:0 4px;line-height:1;color:var(--record);border-color:rgba(240,91,82,0.3)';
+        delBtn.style.cssText =
+          'font-size:0.65rem;padding:0 4px;line-height:1;color:var(--record);border-color:rgba(240,91,82,0.3)';
         delBtn.addEventListener('click', () => {
           delete state.midiLearnMap[cc];
           saveState(state);
           renderMidiLearnTable();
         });
         if (isLearning) {
-          [ccEl, paramEl].forEach(el => el.classList?.add?.('learning'));
+          [ccEl, paramEl].forEach((el) => el.classList?.add?.('learning'));
           ccEl.style.background = 'rgba(0,200,100,0.08)';
           paramEl.style.background = 'rgba(0,200,100,0.08)';
         }
@@ -265,7 +275,7 @@ export function renderMidiSection(container, state, emit) {
     const file = importMidiInput.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = ev => {
+    reader.onload = (ev) => {
       try {
         const map = JSON.parse(ev.target.result);
         if (typeof map !== 'object' || Array.isArray(map)) throw new Error('Expected an object');
@@ -302,10 +312,11 @@ export function renderMidiSection(container, state, emit) {
   const tracks = state.project.banks[state.activeBank].patterns[state.activePattern].kit.tracks;
   tracks.forEach((trk, ti) => {
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:0.52rem;color:var(--muted)';
+    row.style.cssText =
+      'display:flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:0.52rem;color:var(--muted)';
     const prog = trk.midiProgram != null ? trk.midiProgram + 1 : 0;
-    row.innerHTML = `<span>T${ti+1}</span><input type="number" min="0" max="128" value="${prog}" style="width:38px;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 3px;font-family:var(--font-mono);font-size:0.52rem">`;
-    row.querySelector('input').addEventListener('change', e => {
+    row.innerHTML = `<span>T${ti + 1}</span><input type="number" min="0" max="128" value="${prog}" style="width:38px;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 3px;font-family:var(--font-mono);font-size:0.52rem">`;
+    row.querySelector('input').addEventListener('change', (e) => {
       const v = parseInt(e.target.value) || 0;
       trk.midiProgram = v > 0 ? v - 1 : null;
       if (v > 0) {
@@ -329,10 +340,11 @@ export function renderMidiSection(container, state, emit) {
   tracks.forEach((trk, ti) => {
     const val = trk.midiChannel ?? 0;
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:0.52rem;color:var(--muted)';
-    row.innerHTML = `<span>T${ti+1}</span><input type="number" min="0" max="16" value="${val}"
+    row.style.cssText =
+      'display:flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:0.52rem;color:var(--muted)';
+    row.innerHTML = `<span>T${ti + 1}</span><input type="number" min="0" max="16" value="${val}"
       style="width:38px;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:1px 3px;font-family:var(--font-mono);font-size:0.52rem">`;
-    row.querySelector('input').addEventListener('change', e => {
+    row.querySelector('input').addEventListener('change', (e) => {
       const v = parseInt(e.target.value) || 0;
       trk.midiChannel = v > 0 ? v : null;
       emit('state:change', { path: 'trackMidiChannel', value: { trackIndex: ti, midiChannel: trk.midiChannel } });

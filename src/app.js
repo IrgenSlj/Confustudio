@@ -1,28 +1,45 @@
 // CONFUstudio v3 — main bootstrap & integration
-import { createAppState, getActivePattern, getActiveTrack, getActiveStep,
-         applyParamLock, setScene, interpolateScenes,
-         saveState, loadState, PROB_LEVELS, TRACK_COUNT, STORAGE_KEY,
-         TRACK_COLORS, RECORDER_SLOT_COUNT } from './state.js';
+import {
+  createAppState,
+  getActivePattern,
+  getActiveTrack,
+  getActiveStep,
+  applyParamLock,
+  setScene,
+  interpolateScenes,
+  saveState,
+  loadState,
+  PROB_LEVELS,
+  TRACK_COUNT,
+  STORAGE_KEY,
+  TRACK_COLORS,
+  RECORDER_SLOT_COUNT,
+} from './state.js';
 import { AudioEngine, drawOscilloscope, initMidi, midiOutputs, getMidiOutputById } from './engine.js';
-import { initKeyboard, renderKbdContext, renderPiano, lightPianoKey,
-         pressKey, PAGE_KEYS, updateHelpStrip } from './keyboard.js';
+import { initKeyboard, renderKbdContext, renderPiano, lightPianoKey, pressKey, updateHelpStrip } from './keyboard.js';
 import { renderKnobs, KNOB_MAPS } from './knobs.js';
 import { initStudio } from './studio.js';
 import { initCables } from './cables.js';
 import { initBackground } from './background.js';
 import { captureCommandState, executeStudioCommands } from './command-bus.js';
-import { resetRecorderSlotMeta, cloneJson, captureRecorderSlot, loadRecorderSlotToTrack, exportRecorderSlot } from './recorder.js';
+import {
+  resetRecorderSlotMeta,
+  cloneJson,
+  captureRecorderSlot,
+  loadRecorderSlotToTrack,
+  exportRecorderSlot,
+} from './recorder.js';
 import { initHistoryUI } from './history-ui.js';
 
 // Page modules
-import patternPage  from './pages/pattern.js';
-import padPage      from './pages/pad.js';
+import patternPage from './pages/pattern.js';
+import padPage from './pages/pad.js';
 import pianoRollPage from './pages/piano-roll.js';
-import soundPage    from './pages/sound.js';
-import mixerPage    from './pages/mixer.js';
-import fxPage       from './pages/fx.js';
-import scenesPage   from './pages/scenes.js';
-import banksPage    from './pages/banks.js';
+import soundPage from './pages/sound.js';
+import mixerPage from './pages/mixer.js';
+import fxPage from './pages/fx.js';
+import scenesPage from './pages/scenes.js';
+import banksPage from './pages/banks.js';
 import arrangerPage from './pages/arranger.js';
 import settingsPage from './pages/settings.js';
 import modMatrixPage from './pages/modmatrix.js';
@@ -36,18 +53,30 @@ function showToast(msg, duration = 1200) {
     toast = document.createElement('div');
     toast.id = 'toast-msg';
     toast.style.cssText = [
-      'position:fixed', 'bottom:24px', 'left:50%', 'transform:translateX(-50%)',
-      'background:#1a1e14', 'border:1px solid var(--accent)', 'border-radius:4px',
-      'padding:5px 12px', 'font-family:var(--font-mono)', 'font-size:0.6rem',
-      'color:var(--screen-text)', 'z-index:2000', 'pointer-events:none',
-      'opacity:0', 'transition:opacity 0.2s'
+      'position:fixed',
+      'bottom:24px',
+      'left:50%',
+      'transform:translateX(-50%)',
+      'background:#1a1e14',
+      'border:1px solid var(--accent)',
+      'border-radius:4px',
+      'padding:5px 12px',
+      'font-family:var(--font-mono)',
+      'font-size:0.6rem',
+      'color:var(--screen-text)',
+      'z-index:2000',
+      'pointer-events:none',
+      'opacity:0',
+      'transition:opacity 0.2s',
     ].join(';');
     document.body.append(toast);
   }
   toast.textContent = msg;
   toast.style.opacity = '1';
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => { toast.style.opacity = '0'; }, duration);
+  toast._t = setTimeout(() => {
+    toast.style.opacity = '0';
+  }, duration);
 }
 
 // ─────────────────────────────────────────────
@@ -65,44 +94,64 @@ window.startMidiLearn = function startMidiLearn(param, setter) {
 // ─────────────────────────────────────────────
 function togglePerfOverlay() {
   let overlay = document.getElementById('perf-overlay');
-  if (overlay) { overlay.remove(); return; }
+  if (overlay) {
+    overlay.remove();
+    return;
+  }
 
   overlay = document.createElement('div');
   overlay.id = 'perf-overlay';
   overlay.style.cssText = [
-    'position:fixed', 'top:8px', 'right:8px', 'z-index:9999',
-    'background:rgba(0,0,0,0.85)', 'border:1px solid rgba(255,255,255,0.1)',
-    'border-radius:6px', 'padding:6px 10px', 'font-family:var(--font-mono)',
-    'font-size:0.52rem', 'color:#aaa', 'min-width:120px',
-    'backdrop-filter:blur(4px)', 'pointer-events:none',
+    'position:fixed',
+    'top:8px',
+    'right:8px',
+    'z-index:9999',
+    'background:rgba(0,0,0,0.85)',
+    'border:1px solid rgba(255,255,255,0.1)',
+    'border-radius:6px',
+    'padding:6px 10px',
+    'font-family:var(--font-mono)',
+    'font-size:0.52rem',
+    'color:#aaa',
+    'min-width:120px',
+    'backdrop-filter:blur(4px)',
+    'pointer-events:none',
   ].join(';');
 
   const lines = ['fps', 'voices', 'bpm', 'lat', 'mem'];
   const spans = {};
-  lines.forEach(k => {
+  lines.forEach((k) => {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;justify-content:space-between;gap:10px;line-height:1.6';
-    const lbl = document.createElement('span'); lbl.textContent = k.toUpperCase(); lbl.style.color = 'var(--muted)';
-    const val = document.createElement('span'); val.style.color = '#fff'; spans[k] = val;
-    row.append(lbl, val); overlay.append(row);
+    const lbl = document.createElement('span');
+    lbl.textContent = k.toUpperCase();
+    lbl.style.color = 'var(--muted)';
+    const val = document.createElement('span');
+    val.style.color = '#fff';
+    spans[k] = val;
+    row.append(lbl, val);
+    overlay.append(row);
   });
 
   document.body.append(overlay);
 
-  let lastT = performance.now(), frames = 0, fps = 0;
+  let lastT = performance.now(),
+    frames = 0,
+    fps = 0;
   function updateOverlay() {
     if (!overlay.isConnected) return;
     const now = performance.now();
     frames++;
     if (now - lastT >= 500) {
-      fps = Math.round(frames * 1000 / (now - lastT));
-      frames = 0; lastT = now;
+      fps = Math.round((frames * 1000) / (now - lastT));
+      frames = 0;
+      lastT = now;
     }
     spans.fps.textContent = `${fps} fps`;
     spans.voices.textContent = state._activeVoices ?? 0;
     spans.bpm.textContent = state.bpm?.toFixed(1);
-    spans.lat.textContent = state.engine?.context?.baseLatency != null
-      ? `${Math.round(state.engine.context.baseLatency * 1000)}ms` : '--';
+    spans.lat.textContent =
+      state.engine?.context?.baseLatency != null ? `${Math.round(state.engine.context.baseLatency * 1000)}ms` : '--';
     const mem = performance.memory;
     spans.mem.textContent = mem ? `${Math.round(mem.usedJSHeapSize / 1048576)}M` : '--';
     requestAnimationFrame(updateOverlay);
@@ -120,12 +169,19 @@ export function exportMidi(state) {
   const stepsPerBeat = 4; // 16th notes
   const ticksPerStep = ppq / stepsPerBeat; // 24 ticks per step
 
-  function writeUint32(n) { return [(n>>24)&0xFF,(n>>16)&0xFF,(n>>8)&0xFF,n&0xFF]; }
-  function writeUint16(n) { return [(n>>8)&0xFF,n&0xFF]; }
+  function writeUint32(n) {
+    return [(n >> 24) & 0xff, (n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
+  }
+  function writeUint16(n) {
+    return [(n >> 8) & 0xff, n & 0xff];
+  }
   function writeVarLen(n) {
     if (n < 0x80) return [n];
     const bytes = [];
-    while (n > 0) { bytes.unshift(n & 0x7F); n >>= 7; }
+    while (n > 0) {
+      bytes.unshift(n & 0x7f);
+      n >>= 7;
+    }
     for (let i = 0; i < bytes.length - 1; i++) bytes[i] |= 0x80;
     return bytes;
   }
@@ -155,13 +211,13 @@ export function exportMidi(state) {
     // Convert to delta-time events
     const trackBytes = [];
     let lastTick = 0;
-    events.forEach(ev => {
+    events.forEach((ev) => {
       const delta = ev.tick - lastTick;
       lastTick = ev.tick;
       trackBytes.push(...writeVarLen(delta), ...ev.msg);
     });
     // End of track
-    trackBytes.push(...writeVarLen(0), 0xFF, 0x2F, 0x00);
+    trackBytes.push(...writeVarLen(0), 0xff, 0x2f, 0x00);
 
     return trackBytes;
   });
@@ -169,24 +225,39 @@ export function exportMidi(state) {
   // Tempo track
   const usPerBeat = Math.round(60000000 / bpm);
   const tempoTrack = [
-    ...writeVarLen(0), 0xFF, 0x51, 0x03,
-    (usPerBeat>>16)&0xFF, (usPerBeat>>8)&0xFF, usPerBeat&0xFF,
-    ...writeVarLen(0), 0xFF, 0x2F, 0x00
+    ...writeVarLen(0),
+    0xff,
+    0x51,
+    0x03,
+    (usPerBeat >> 16) & 0xff,
+    (usPerBeat >> 8) & 0xff,
+    usPerBeat & 0xff,
+    ...writeVarLen(0),
+    0xff,
+    0x2f,
+    0x00,
   ];
 
   // SMF header: type 1, numTracks+1 (tempo track), ppq
   const allTracks = [tempoTrack, ...midiTracks];
   const header = [
-    0x4D,0x54,0x68,0x64, // MThd
-    0,0,0,6,             // chunk length
-    0,1,                  // format 1
+    0x4d,
+    0x54,
+    0x68,
+    0x64, // MThd
+    0,
+    0,
+    0,
+    6, // chunk length
+    0,
+    1, // format 1
     ...writeUint16(allTracks.length),
-    ...writeUint16(ppq)
+    ...writeUint16(ppq),
   ];
 
   const bytes = [...header];
-  allTracks.forEach(track => {
-    bytes.push(0x4D,0x54,0x72,0x6B); // MTrk
+  allTracks.forEach((track) => {
+    bytes.push(0x4d, 0x54, 0x72, 0x6b); // MTrk
     bytes.push(...writeUint32(track.length));
     bytes.push(...track);
   });
@@ -206,17 +277,17 @@ window.exportMidi = exportMidi;
 // PAGE REGISTRY
 // ─────────────────────────────────────────────
 const PAGES = {
-  'pattern':    patternPage,
-  'pad':        padPage,
+  pattern: patternPage,
+  pad: padPage,
   'piano-roll': pianoRollPage,
-  'sound':      soundPage,
-  'mixer':      mixerPage,
-  'fx':         fxPage,
-  'modmatrix':  modMatrixPage,
-  'scenes':     scenesPage,
-  'banks':      banksPage,
-  'arranger':   arrangerPage,
-  'settings':   settingsPage,
+  sound: soundPage,
+  mixer: mixerPage,
+  fx: fxPage,
+  modmatrix: modMatrixPage,
+  scenes: scenesPage,
+  banks: banksPage,
+  arranger: arrangerPage,
+  settings: settingsPage,
 };
 
 // ─────────────────────────────────────────────
@@ -224,18 +295,18 @@ const PAGES = {
 // ─────────────────────────────────────────────
 let state = loadState() || createAppState();
 state._playingNotes = new Set(); // live note feedback for piano
-state._pressedKeys  = new Set(); // live key feedback for graphical keyboard
+state._pressedKeys = new Set(); // live key feedback for graphical keyboard
 
 let _activeKnobIndex = null; // which knob is currently being dragged
 let _activeKnobTimer = null;
 
 // Playback scheduler state
 let _schedNextTime = 0;
-let _schedStepIdx  = 0;  // kept for backward compat; mirrors _trackStepIdx[0]
-let _trackStepIdx  = Array(8).fill(0); // per-track step counters for polyrhythm
-let _schedRafId    = null;
-const _oscAnimRef    = { id: null };
-let _saveTimer     = null;
+let _schedStepIdx = 0; // kept for backward compat; mirrors _trackStepIdx[0]
+let _trackStepIdx = Array(8).fill(0); // per-track step counters for polyrhythm
+let _schedRafId = null;
+const _oscAnimRef = { id: null };
+let _saveTimer = null;
 let _lastRenderedPage = null;
 
 // Fill mode
@@ -250,8 +321,7 @@ const LEGACY_STORAGE_KEY = 'confusynth-v2';
 // UNDO / REDO HISTORY
 // ─────────────────────────────────────────────
 const history = initHistoryUI(state, showToast);
-const { pushHistory, undoHistory, redoHistory, historyController,
-        updateUndoIndicator, syncHistoryMeta, markCheckpoint } = history;
+const { pushHistory, undoHistory, redoHistory, historyController, markCheckpoint } = history;
 
 function runStudioCommands(commands, label = 'Studio edit') {
   const list = Array.isArray(commands) ? commands : [commands];
@@ -293,38 +363,38 @@ window.confustudioCommands = {
 // ─────────────────────────────────────────────
 // DOM REFS
 // ─────────────────────────────────────────────
-const $ = id => document.getElementById(id);
+const $ = (id) => document.getElementById(id);
 const el = {
-  pageContent:   $('page-content'),
+  pageContent: $('page-content'),
 
-  pageTabs:      $('page-tabs'),
-  leftKnobs:     $('left-knobs'),
-  rightKnobs:    $('right-knobs'),
-  trackStrip:    $('track-strip'),
+  pageTabs: $('page-tabs'),
+  leftKnobs: $('left-knobs'),
+  rightKnobs: $('right-knobs'),
+  trackStrip: $('track-strip'),
   trackSelector: $('track-selector'),
-  kbdContext:    $('kbd-context'),
-  kbdPiano:      $('kbd-piano'),
-  kbdPlay:       $('kbd-play'),
-  kbdStop:       $('kbd-stop'),
-  kbdRecord:     $('kbd-record'),
-  kbdBpm:        $('kbd-bpm-display'),
-  oscilloscope:  $('oscilloscope'),
-  projectName:   $('project-name'),
-  bankPattern:   $('bank-pattern'),
-  bpmDisplay:    $('bpm-display'),
-  statusPill:    $('status-pill'),
-  btnAudio:      $('btn-audio'),
-  btnPlay:       $('btn-play'),
-  btnStop:       $('btn-stop'),
-  btnRecord:     $('btn-record'),
-  btnTap:        $('btn-tap'),
-  bpmInput:      $('bpm-input'),
-  bpmDec:        $('bpm-dec'),
-  bpmInc:        $('bpm-inc'),
-  sampleFile:    $('sample-file'),
-  btnFill:       $('btn-fill'),
-  signalMeter:   $('signal-meter'),
-  masterVolume:  $('master-volume'),
+  kbdContext: $('kbd-context'),
+  kbdPiano: $('kbd-piano'),
+  kbdPlay: $('kbd-play'),
+  kbdStop: $('kbd-stop'),
+  kbdRecord: $('kbd-record'),
+  kbdBpm: $('kbd-bpm-display'),
+  oscilloscope: $('oscilloscope'),
+  projectName: $('project-name'),
+  bankPattern: $('bank-pattern'),
+  bpmDisplay: $('bpm-display'),
+  statusPill: $('status-pill'),
+  btnAudio: $('btn-audio'),
+  btnPlay: $('btn-play'),
+  btnStop: $('btn-stop'),
+  btnRecord: $('btn-record'),
+  btnTap: $('btn-tap'),
+  bpmInput: $('bpm-input'),
+  bpmDec: $('bpm-dec'),
+  bpmInc: $('bpm-inc'),
+  sampleFile: $('sample-file'),
+  btnFill: $('btn-fill'),
+  signalMeter: $('signal-meter'),
+  masterVolume: $('master-volume'),
 };
 
 function moveArrangerSection(index, delta) {
@@ -382,7 +452,7 @@ function handleAction(path, value, pattern) {
 
     case 'action_clear':
       pushHistory(state);
-      pattern.kit.tracks[state.selectedTrackIndex].steps.forEach(step => {
+      pattern.kit.tracks[state.selectedTrackIndex].steps.forEach((step) => {
         step.active = false;
         step.accent = false;
         step.paramLocks = {};
@@ -426,7 +496,10 @@ function handleAction(path, value, pattern) {
         showToast('Init audio first');
         return true;
       }
-      const slotIndex = Math.max(0, Math.min(RECORDER_SLOT_COUNT - 1, Number(value?.slot ?? state.selectedRecorderSlot ?? 0)));
+      const slotIndex = Math.max(
+        0,
+        Math.min(RECORDER_SLOT_COUNT - 1, Number(value?.slot ?? state.selectedRecorderSlot ?? 0)),
+      );
       const bars = Math.max(1, Math.min(16, Number(value?.bars ?? 2)));
       const durationSec = (60 / Math.max(1, state.bpm || 120)) * 4 * bars;
       state._recorderBusy = true;
@@ -466,13 +539,19 @@ function handleAction(path, value, pattern) {
     }
 
     case 'action_assignRecorderSlot': {
-      const slotIndex = Math.max(0, Math.min(RECORDER_SLOT_COUNT - 1, Number(value?.slot ?? state.selectedRecorderSlot ?? 0)));
+      const slotIndex = Math.max(
+        0,
+        Math.min(RECORDER_SLOT_COUNT - 1, Number(value?.slot ?? state.selectedRecorderSlot ?? 0)),
+      );
       const buffer = state.recorderBuffers?.[slotIndex];
       if (!buffer) {
         showToast('Empty recorder slot');
         return true;
       }
-      const targetIndex = Math.max(0, Math.min(TRACK_COUNT - 1, Number(value?.trackIndex ?? state.selectedTrackIndex ?? 0)));
+      const targetIndex = Math.max(
+        0,
+        Math.min(TRACK_COUNT - 1, Number(value?.trackIndex ?? state.selectedTrackIndex ?? 0)),
+      );
       const targetTrack = state.project.banks[state.activeBank].patterns[state.activePattern].kit.tracks[targetIndex];
       targetTrack.sampleBuffer = buffer;
       targetTrack.machine = 'sample';
@@ -488,7 +567,10 @@ function handleAction(path, value, pattern) {
     }
 
     case 'action_clearRecorderSlot': {
-      const slotIndex = Math.max(0, Math.min(RECORDER_SLOT_COUNT - 1, Number(value?.slot ?? state.selectedRecorderSlot ?? 0)));
+      const slotIndex = Math.max(
+        0,
+        Math.min(RECORDER_SLOT_COUNT - 1, Number(value?.slot ?? state.selectedRecorderSlot ?? 0)),
+      );
       if (Array.isArray(state.recorderBuffers)) state.recorderBuffers[slotIndex] = null;
       if (Array.isArray(state.recorderSlotsMeta)) state.recorderSlotsMeta[slotIndex] = resetRecorderSlotMeta(slotIndex);
       scheduleSave();
@@ -648,7 +730,9 @@ function handleStateChange(path, value, pattern) {
   if (path === 'sidechainSource') {
     // value: track index (0-7) or -1 to clear
     const tracks = getActivePattern(state).kit.tracks;
-    tracks.forEach((t, i) => { t.isSidechainSource = (i === value); });
+    tracks.forEach((t, i) => {
+      t.isSidechainSource = i === value;
+    });
     if (state.engine) {
       if (value >= 0) {
         state.engine.setSidechainSource(value);
@@ -684,7 +768,7 @@ function handleStateChange(path, value, pattern) {
     if (checked) {
       if (!scene.noInterp.includes(param)) scene.noInterp.push(param);
     } else {
-      scene.noInterp = scene.noInterp.filter(p => p !== param);
+      scene.noInterp = scene.noInterp.filter((p) => p !== param);
     }
     scheduleSave();
     renderPage();
@@ -733,7 +817,7 @@ function handleStateChange(path, value, pattern) {
       tracks.forEach((track, ti) => {
         const tA = (sA.tracks && sA.tracks[ti]) || {};
         const tB = (sB.tracks && sB.tracks[ti]) || {};
-        XFADE_PARAMS.forEach(param => {
+        XFADE_PARAMS.forEach((param) => {
           const a = tA[param] ?? track[param] ?? 0;
           const b = tB[param] ?? track[param] ?? 0;
           track[param] = a + (b - a) * t;
@@ -765,7 +849,9 @@ function handleStateChange(path, value, pattern) {
     state.defaultProb = value;
     const track = getActiveTrack(state);
     const len = track.trackLength || getActivePattern(state).length;
-    track.steps.slice(0, len).forEach(s => { s.probability = value; });
+    track.steps.slice(0, len).forEach((s) => {
+      s.probability = value;
+    });
     renderPage();
     scheduleSave();
     return;
@@ -778,7 +864,7 @@ function handleStateChange(path, value, pattern) {
     const track = getActiveTrack(state);
     const pat = getActivePattern(state);
     const len = track.trackLength || pat.length;
-    track.steps.slice(0, len).forEach(s => {
+    track.steps.slice(0, len).forEach((s) => {
       if (s.active) s.trigCondition = condStr;
     });
     renderPage();
@@ -787,7 +873,7 @@ function handleStateChange(path, value, pattern) {
   }
 
   if (path === 'arrSoloSection') {
-    state.arrSoloSection = (value == null || value === -1) ? null : Number(value);
+    state.arrSoloSection = value == null || value === -1 ? null : Number(value);
     renderPage();
     return;
   }
@@ -812,7 +898,7 @@ function handleStateChange(path, value, pattern) {
 // ─────────────────────────────────────────────
 function emit(type, payload = {}) {
   const pattern = getActivePattern(state);
-  const track   = getActiveTrack(state);
+  const track = getActiveTrack(state);
 
   switch (type) {
     // ── Pages ──
@@ -833,14 +919,14 @@ function emit(type, payload = {}) {
     case 'transport:record':
       // Cycle: OFF → LIVE → STEP → OFF
       if (!state.isRecording && !state.stepRecordMode) {
-        state.isRecording   = true;
+        state.isRecording = true;
         state.stepRecordMode = false;
       } else if (state.isRecording && !state.stepRecordMode) {
-        state.isRecording   = false;
+        state.isRecording = false;
         state.stepRecordMode = true;
         state._stepRecordCursor = 0;
       } else {
-        state.isRecording   = false;
+        state.isRecording = false;
         state.stepRecordMode = false;
       }
       updateTransportUI();
@@ -852,18 +938,16 @@ function emit(type, payload = {}) {
     case 'step:record': {
       const recPat = getActivePattern(state);
       const cursor = state._stepRecordCursor ?? 0;
-      const recQ      = state.recQuantize ?? 1;
+      const recQ = state.recQuantize ?? 1;
       // Determine which tracks to write to: any recArmed, or fall back to selectedTrackIndex
-      const armedIdxs = recPat.kit.tracks
-        .map((t, i) => t.recArmed ? i : -1)
-        .filter(i => i >= 0);
+      const armedIdxs = recPat.kit.tracks.map((t, i) => (t.recArmed ? i : -1)).filter((i) => i >= 0);
       const targets = armedIdxs.length > 0 ? armedIdxs : [state.selectedTrackIndex];
-      targets.forEach(ti => {
+      targets.forEach((ti) => {
         const trkSteps = recPat.kit.tracks[ti].steps;
         const s = trkSteps[cursor];
         if (s) {
-          s.active   = true;
-          s.note     = payload.note;
+          s.active = true;
+          s.note = payload.note;
           s.velocity = payload.velocity ?? 1;
           if (!s.paramLocks) s.paramLocks = {};
           s.paramLocks.note = payload.note;
@@ -885,23 +969,23 @@ function emit(type, payload = {}) {
       if (state.audioContext) {
         state.engine.previewNote(track, payload.note, payload.velocity ?? 1);
         state._playingNotes.add(payload.note);
-        state._pressedKeys.add(payload.note);  // track MIDI note for live recording
+        state._pressedKeys.add(payload.note); // track MIDI note for live recording
         if (el.kbdPiano) lightPianoKey(el.kbdPiano, payload.note, true);
       }
       break;
 
     case 'note:off':
       state._playingNotes.delete(payload.note);
-      state._pressedKeys.delete(payload.note);  // remove MIDI note from live recording set
+      state._pressedKeys.delete(payload.note); // remove MIDI note from live recording set
       if (el.kbdPiano) lightPianoKey(el.kbdPiano, payload.note, false);
       break;
 
     case 'keyboard:velocityChange': {
       // Update velocity display in the piano panel without full re-render
       const velSlider = el.kbdPiano?.querySelector('.kbd-vel-slider');
-      const velVal    = el.kbdPiano?.querySelector('.kbd-vel-val');
+      const velVal = el.kbdPiano?.querySelector('.kbd-vel-val');
       if (velSlider) velSlider.value = payload.velocity;
-      if (velVal)    velVal.textContent = Math.round(payload.velocity * 100);
+      if (velVal) velVal.textContent = Math.round(payload.velocity * 100);
       break;
     }
 
@@ -919,17 +1003,19 @@ function emit(type, payload = {}) {
           source: payload.source ?? 'master',
           trackIndex: payload.trackIndex ?? state.selectedTrackIndex,
         },
-        recorderDeps
+        recorderDeps,
       );
       break;
 
     case 'recorder:load':
-      if (!loadRecorderSlotToTrack(
-        state,
-        payload.slotIndex ?? state.selectedRecorderSlot ?? 0,
-        payload.trackIndex ?? state.selectedTrackIndex,
-        recorderDeps
-      )) {
+      if (
+        !loadRecorderSlotToTrack(
+          state,
+          payload.slotIndex ?? state.selectedRecorderSlot ?? 0,
+          payload.trackIndex ?? state.selectedTrackIndex,
+          recorderDeps,
+        )
+      ) {
         showToast('No captured slot');
       }
       break;
@@ -1005,8 +1091,10 @@ function emit(type, payload = {}) {
           if (eng?.tracks?.[tIdx]) {
             const et = eng.tracks[tIdx];
             const muted = payload.value ?? [false, false];
-            if (et.reverbSend) et.reverbSend.gain.setTargetAtTime(muted[0] ? 0 : (t.reverbSend ?? 0), eng.context.currentTime, 0.02);
-            if (et.delaySend) et.delaySend.gain.setTargetAtTime(muted[1] ? 0 : (t.delaySend ?? 0), eng.context.currentTime, 0.02);
+            if (et.reverbSend)
+              et.reverbSend.gain.setTargetAtTime(muted[0] ? 0 : (t.reverbSend ?? 0), eng.context.currentTime, 0.02);
+            if (et.delaySend)
+              et.delaySend.gain.setTargetAtTime(muted[1] ? 0 : (t.delaySend ?? 0), eng.context.currentTime, 0.02);
           }
         }
         // inputGain: update the engine's per-track input gain node when present.
@@ -1027,7 +1115,7 @@ function emit(type, payload = {}) {
         }
         // legato is read per-trigger from track.legato — no engine call needed
         // Arp/scale params affect keyboard context (shows/hides arp visualizer)
-        if (['arpEnabled','arpMode','arpRange','arpSpeed','arpHold'].includes(payload.param)) {
+        if (['arpEnabled', 'arpMode', 'arpRange', 'arpSpeed', 'arpHold'].includes(payload.param)) {
           renderKbdContext(el.kbdContext, state.currentPage, state._pressedKeys, state, () => getActiveTrack(state));
         }
         scheduleSave();
@@ -1048,7 +1136,13 @@ function emit(type, payload = {}) {
 
     case 'track:mute': {
       const t = pattern.kit.tracks[payload.trackIndex ?? state.selectedTrackIndex];
-      if (t) { t.mute = !t.mute; scheduleSave(); renderTrackStrip(); renderTrackSelector(); renderPage(); }
+      if (t) {
+        t.mute = !t.mute;
+        scheduleSave();
+        renderTrackStrip();
+        renderTrackSelector();
+        renderPage();
+      }
       break;
     }
 
@@ -1056,7 +1150,9 @@ function emit(type, payload = {}) {
       const t = pattern.kit.tracks[payload.trackIndex ?? state.selectedTrackIndex];
       if (t) {
         const wasSolo = t.solo;
-        pattern.kit.tracks.forEach(x => { x.solo = false; });
+        pattern.kit.tracks.forEach((x) => {
+          x.solo = false;
+        });
         t.solo = !wasSolo;
         scheduleSave();
         renderTrackStrip();
@@ -1068,7 +1164,13 @@ function emit(type, payload = {}) {
 
     case 'track:muteToggle': {
       const t = pattern.kit.tracks[payload.trackIndex];
-      if (t) { t.mute = !t.mute; scheduleSave(); renderTrackStrip(); renderTrackSelector(); renderPage(); }
+      if (t) {
+        t.mute = !t.mute;
+        scheduleSave();
+        renderTrackStrip();
+        renderTrackSelector();
+        renderPage();
+      }
       break;
     }
 
@@ -1102,7 +1204,9 @@ function emit(type, payload = {}) {
     case 'pattern:paste':
       if (state.copyBuffer?.type === 'steps') {
         const steps = pattern.kit.tracks[state.selectedTrackIndex].steps;
-        state.copyBuffer.data.forEach((s, i) => { if (steps[i]) Object.assign(steps[i], s); });
+        state.copyBuffer.data.forEach((s, i) => {
+          if (steps[i]) Object.assign(steps[i], s);
+        });
         scheduleSave();
         renderPage();
       }
@@ -1110,8 +1214,10 @@ function emit(type, payload = {}) {
 
     case 'pattern:clear':
       pushHistory(state);
-      pattern.kit.tracks[state.selectedTrackIndex].steps.forEach(s => {
-        s.active = false; s.accent = false; s.paramLocks = {};
+      pattern.kit.tracks[state.selectedTrackIndex].steps.forEach((s) => {
+        s.active = false;
+        s.accent = false;
+        s.paramLocks = {};
       });
       scheduleSave();
       renderPage();
@@ -1120,10 +1226,10 @@ function emit(type, payload = {}) {
     case 'pattern:randomize': {
       pushHistory(state);
       const density = state.randomizeDensity ?? 0.5;
-      const genre   = state.randomizeGenre   ?? 'random';
-      const ti      = payload.trackIndex ?? state.selectedTrackIndex;
-      const trk     = pattern.kit.tracks[ti];
-      const len     = trk.trackLength > 0 ? trk.trackLength : pattern.length;
+      const genre = state.randomizeGenre ?? 'random';
+      const ti = payload.trackIndex ?? state.selectedTrackIndex;
+      const trk = pattern.kit.tracks[ti];
+      const len = trk.trackLength > 0 ? trk.trackLength : pattern.length;
       const weights = patternPage._getGenreStepWeights(genre, ti, len);
       trk.steps.slice(0, len).forEach((s, si) => {
         const p = density * weights[si];
@@ -1139,9 +1245,9 @@ function emit(type, payload = {}) {
     case 'pattern:randomizeAll': {
       pushHistory(state);
       const density = state.randomizeDensity ?? 0.5;
-      const genre   = state.randomizeGenre   ?? 'random';
+      const genre = state.randomizeGenre ?? 'random';
       pattern.kit.tracks.forEach((trk, ti) => {
-        const len     = trk.trackLength > 0 ? trk.trackLength : pattern.length;
+        const len = trk.trackLength > 0 ? trk.trackLength : pattern.length;
         const weights = patternPage._getGenreStepWeights(genre, ti, len);
         trk.steps.slice(0, len).forEach((s, si) => {
           const p = density * weights[si];
@@ -1166,8 +1272,11 @@ function emit(type, payload = {}) {
       const tracks = pattern.kit.tracks;
       tracks.forEach((t, i) => {
         setScene(state, payload.sceneIdx ?? state.sceneA, i, {
-          cutoff: t.cutoff, decay: t.decay, delaySend: t.delaySend,
-          pitch: t.pitch, volume: t.volume
+          cutoff: t.cutoff,
+          decay: t.decay,
+          delaySend: t.delaySend,
+          pitch: t.pitch,
+          volume: t.volume,
         });
       });
       scheduleSave();
@@ -1177,18 +1286,20 @@ function emit(type, payload = {}) {
 
     // ── Sample load ──
     case 'sample:load':
-      ensureAudio().then(() => {
-        state.audioContext.decodeAudioData(payload.buffer.slice(0), decoded => {
-          const t = getActiveTrack(state);
-          t.sampleBuffer = decoded;
-          t.machine = 'sample';
-          scheduleSave();
-          renderAll();
+      ensureAudio()
+        .then(() => {
+          state.audioContext.decodeAudioData(payload.buffer.slice(0), (decoded) => {
+            const t = getActiveTrack(state);
+            t.sampleBuffer = decoded;
+            t.machine = 'sample';
+            scheduleSave();
+            renderAll();
+          });
+        })
+        .catch((error) => {
+          console.warn('[CONFUstudio] Sample load failed:', error);
+          showToast('Sample load failed');
         });
-      }).catch((error) => {
-        console.warn('[CONFUstudio] Sample load failed:', error);
-        showToast('Sample load failed');
-      });
       break;
 
     // ── Knob change ──
@@ -1275,7 +1386,7 @@ function handleKnobChange(knobIndex, value) {
   // Support direct param routing (from MIDI CC) — knobIndex may be a param string
   let def;
   if (typeof knobIndex === 'string') {
-    def = map.find(d => d && d.param === knobIndex) ?? { param: knobIndex };
+    def = map.find((d) => d && d.param === knobIndex) ?? { param: knobIndex };
   } else {
     def = map[knobIndex];
   }
@@ -1290,8 +1401,21 @@ function handleKnobChange(knobIndex, value) {
 
   const pattern = getActivePattern(state);
 
-  const TRACK_PARAMS = ['pitch','attack','decay','noteLength','cutoff','resonance',
-                        'drive','volume','pan','lfoRate','lfoDepth','delaySend','reverbSend'];
+  const TRACK_PARAMS = [
+    'pitch',
+    'attack',
+    'decay',
+    'noteLength',
+    'cutoff',
+    'resonance',
+    'drive',
+    'volume',
+    'pan',
+    'lfoRate',
+    'lfoDepth',
+    'delaySend',
+    'reverbSend',
+  ];
 
   if (def.param.startsWith('track.')) {
     const [, idx, field] = def.param.split('.');
@@ -1373,7 +1497,7 @@ async function ensureAudio() {
 
   // Restore sidechain state from saved track data
   const _activPattern = state.project.banks[state.activeBank].patterns[state.activePattern];
-  const _scTrack = _activPattern.kit.tracks.find(t => t.isSidechainSource);
+  const _scTrack = _activPattern.kit.tracks.find((t) => t.isSidechainSource);
   if (_scTrack) {
     const _scIdx = _activPattern.kit.tracks.indexOf(_scTrack);
     state.engine.setSidechainSource(_scIdx);
@@ -1381,7 +1505,7 @@ async function ensureAudio() {
   }
   // Restore cue bus state
   const _activPat = state.project.banks[state.activeBank].patterns[state.activePattern];
-  const hasCue = _activPat.kit.tracks.some(t => t.cue);
+  const hasCue = _activPat.kit.tracks.some((t) => t.cue);
   if (state.engine?.setCueGain) state.engine.setCueGain(state.cueLevel ?? 1);
   if (state.engine?.setCueMonitorEnabled) {
     state.engine.setCueMonitorEnabled((state.cueMonitorEnabled ?? true) && hasCue);
@@ -1426,57 +1550,59 @@ async function ensureAudio() {
 
   // MIDI CC input routing
   if (typeof state.engine.setupMidiInput === 'function') {
-    state.engine.setupMidiInput((cc, value) => {
-      const map = state.midiLearnMap ?? {};
+    state.engine
+      .setupMidiInput((cc, value) => {
+        const map = state.midiLearnMap ?? {};
 
-      // New window._midiLearnTarget learn system
-      if (window._midiLearnTarget) {
-        const { param, setter } = window._midiLearnTarget;
-        state.midiLearnMap = state.midiLearnMap ?? {};
-        state.midiLearnMap[cc] = { param, setter: null }; // functions not serializable
-        const normalized = value / 127;
-        if (typeof setter === 'function') setter(normalized);
-        window._midiLearnTarget = null;
-        saveState(state);
-        showToast(`CC ${cc} → ${param}`);
-        return;
-      }
-
-      // Legacy learn mode (last-touched knob)
-      if (state.midiLearnMode && state.midiLearnTarget) {
-        map[cc] = state.midiLearnTarget;
-        state.midiLearnMap = map;
-        state.midiLearnMode = false;
-        saveState(state);
-        renderPage();
-        return;
-      }
-
-      // Route CC via new-style map (object entries with { param })
-      const newStyleEntry = state.midiLearnMap?.[cc];
-      if (newStyleEntry && typeof newStyleEntry === 'object' && newStyleEntry.param) {
-        const normalized = value / 127;
-        const { param } = newStyleEntry;
-        if (param === 'bpm') {
-          // Scale normalized 0–1 to 40–240 BPM range
-          state.bpm = Math.round(40 + normalized * 200);
-          state.engine?.setBpm?.(state.bpm);
-          updateTopbar();
+        // New window._midiLearnTarget learn system
+        if (window._midiLearnTarget) {
+          const { param, setter } = window._midiLearnTarget;
+          state.midiLearnMap = state.midiLearnMap ?? {};
+          state.midiLearnMap[cc] = { param, setter: null }; // functions not serializable
+          const normalized = value / 127;
+          if (typeof setter === 'function') setter(normalized);
+          window._midiLearnTarget = null;
           saveState(state);
-        } else {
-          state[param] = normalized;
-          emit('knob:change', { param, value: normalized });
+          showToast(`CC ${cc} → ${param}`);
+          return;
         }
-        return;
-      }
 
-      // Route CC via legacy map (string param name)
-      const param = map[cc];
-      if (!param) return;
-      emit('knob:change', { param, value });
-    }).catch(err => {
-      console.warn('MIDI CC input setup failed:', err);
-    });
+        // Legacy learn mode (last-touched knob)
+        if (state.midiLearnMode && state.midiLearnTarget) {
+          map[cc] = state.midiLearnTarget;
+          state.midiLearnMap = map;
+          state.midiLearnMode = false;
+          saveState(state);
+          renderPage();
+          return;
+        }
+
+        // Route CC via new-style map (object entries with { param })
+        const newStyleEntry = state.midiLearnMap?.[cc];
+        if (newStyleEntry && typeof newStyleEntry === 'object' && newStyleEntry.param) {
+          const normalized = value / 127;
+          const { param } = newStyleEntry;
+          if (param === 'bpm') {
+            // Scale normalized 0–1 to 40–240 BPM range
+            state.bpm = Math.round(40 + normalized * 200);
+            state.engine?.setBpm?.(state.bpm);
+            updateTopbar();
+            saveState(state);
+          } else {
+            state[param] = normalized;
+            emit('knob:change', { param, value: normalized });
+          }
+          return;
+        }
+
+        // Route CC via legacy map (string param name)
+        const param = map[cc];
+        if (!param) return;
+        emit('knob:change', { param, value });
+      })
+      .catch((err) => {
+        console.warn('MIDI CC input setup failed:', err);
+      });
   }
 
   // MIDI clock input sync
@@ -1553,7 +1679,7 @@ async function ensureAudio() {
       () => {
         if (state.clockSource !== 'midi') return;
         if (state.isPlaying) emit('transport:stop');
-      }
+      },
     );
   }
 }
@@ -1598,14 +1724,17 @@ function startMeterAnimation() {
     // typical RMS 0.05 → lit=8, 0.1 → lit=16 (full)
     const rawLit = Math.min(16, Math.round(rms * 160));
     // Smooth: fast attack, slow decay
-    _smoothedLit = rawLit > _smoothedLit
-      ? rawLit
-      : Math.max(rawLit, _smoothedLit - 0.4);
+    _smoothedLit = rawLit > _smoothedLit ? rawLit : Math.max(rawLit, _smoothedLit - 0.4);
     const lit = Math.round(_smoothedLit);
     // Peak hold: stays for ~45 frames (~750ms at 60fps) then decays
-    if (lit >= _peakLit) { _peakLit = lit; _peakHold = 45; }
-    else if (_peakHold > 0) { _peakHold--; }
-    else { _peakLit = Math.max(0, _peakLit - 1); }
+    if (lit >= _peakLit) {
+      _peakLit = lit;
+      _peakHold = 45;
+    } else if (_peakHold > 0) {
+      _peakHold--;
+    } else {
+      _peakLit = Math.max(0, _peakLit - 1);
+    }
     for (let i = 0; i < segs.length; i++) {
       const n = i + 1; // seg data-seg is 1-indexed
       const isPeak = n === _peakLit && _peakLit > 0;
@@ -1626,39 +1755,39 @@ function scheduleLoop() {
   const tick = () => {
     if (!state.isPlaying) return;
     const ctx = state.audioContext;
-    const secsPerStep = (60 / state.bpm) / 4;
+    const secsPerStep = 60 / state.bpm / 4;
     const pattern = getActivePattern(state);
-    const isSoloing = pattern.kit.tracks.some(t => t.solo);
+    const isSoloing = pattern.kit.tracks.some((t) => t.solo);
 
     while (_schedNextTime < ctx.currentTime + 0.12) {
       // Resolve scene interpolation once per tick slot (shared across tracks)
       const sceneParams = interpolateScenes(state);
 
       // Live recording: pre-compute armed state once per scheduler tick
-      const _anyRecArmed = pattern.kit.tracks.some(t => t.recArmed);
+      const _anyRecArmed = pattern.kit.tracks.some((t) => t.recArmed);
 
       // Per-track scheduling with individual step counters for polyrhythm
       pattern.kit.tracks.forEach((track, ti) => {
-        const trackLen = track.stepCount ?? ((track.trackLength > 0) ? track.trackLength : pattern.length);
+        const trackLen = track.stepCount ?? (track.trackLength > 0 ? track.trackLength : pattern.length);
         const stepIdx = _trackStepIdx[ti];
 
         // Live recording: capture held MIDI notes onto armed tracks (or selected track if none armed)
-        const _trackReceivesLive = _anyRecArmed ? track.recArmed : (ti === state.selectedTrackIndex);
+        const _trackReceivesLive = _anyRecArmed ? track.recArmed : ti === state.selectedTrackIndex;
         if (state.isRecording && _trackReceivesLive && state._pressedKeys.size > 0) {
           // Quantize step index to nearest recQuantize subdivision
           const recQ = state.recQuantize ?? 1;
-          const qStepIdx = recQ <= 1
-            ? stepIdx
-            : Math.round(stepIdx / recQ) * recQ % trackLen;
+          const qStepIdx = recQ <= 1 ? stepIdx : (Math.round(stepIdx / recQ) * recQ) % trackLen;
           const step = track.steps[qStepIdx];
           if (step) {
             if (!state.overdubMode) {
               // Normal record: clear all steps in the pattern first, then record
-              track.steps.forEach(s => { s.active = false; });
+              track.steps.forEach((s) => {
+                s.active = false;
+              });
             }
             step.active = true;
             // Use the lowest held MIDI note (numeric keys are MIDI notes)
-            const heldNotes = [...state._pressedKeys].filter(k => typeof k === 'number');
+            const heldNotes = [...state._pressedKeys].filter((k) => typeof k === 'number');
             if (heldNotes.length > 0) {
               const note = Math.min(...heldNotes);
               step.note = note;
@@ -1684,9 +1813,7 @@ function scheduleLoop() {
         const trackSwingOffset = (_trackStepIdx[ti] % 2 !== 0 ? 1 : -1) * trackSwing * secsPerStep;
         const microOffset = (step.microTime ?? 0) * secsPerStep + trackSwingOffset;
         const humanize = state.humanizeAmount ?? 0;
-        const humanizeOffset = humanize > 0
-          ? (Math.random() * 2 - 1) * humanize * secsPerStep * 0.5
-          : 0;
+        const humanizeOffset = humanize > 0 ? (Math.random() * 2 - 1) * humanize * secsPerStep * 0.5 : 0;
         const totalOffset = microOffset + humanizeOffset;
         const latencyComp = (state.latencyCompMs ?? 0) / 1000;
 
@@ -1721,11 +1848,11 @@ function scheduleLoop() {
           }
           state._lastNotes[ti] = noteToPlay;
           state.engine.triggerTrack(track, _schedNextTime + totalOffset - latencyComp, secsPerStep, {
-            accent:      step.accent,
-            note:        step.note,
-            velocity:    step.velocity ?? 1,
-            trackIndex:  ti,
-            groupIndex:  track.groupIndex ?? null,
+            accent: step.accent,
+            note: step.note,
+            velocity: step.velocity ?? 1,
+            trackIndex: ti,
+            groupIndex: track.groupIndex ?? null,
             paramLocks: { gate: step.gate ?? 0.5, ...sceneOverride, ...step.paramLocks, note: noteToPlay },
           });
           // MIDI output routing (arp path)
@@ -1738,16 +1865,18 @@ function scheduleLoop() {
             const gateDur = (track.gate ?? 0.5) * (60 / state.bpm) * 1000;
             state.engine.midiOutput.send([0x80 | ch, note, 0], window.performance.now() + gateDur);
           }
-          document.dispatchEvent(new CustomEvent('confustudio:note:on', {
-            detail: { note: noteToPlay, velocity: step.velocity ?? 1, trackIndex: ti, channel: ti }
-          }));
+          document.dispatchEvent(
+            new CustomEvent('confustudio:note:on', {
+              detail: { note: noteToPlay, velocity: step.velocity ?? 1, trackIndex: ti, channel: ti },
+            }),
+          );
         } else {
           state.engine.triggerTrack(track, _schedNextTime + totalOffset - latencyComp, secsPerStep, {
-            accent:      step.accent,
-            note:        step.note,
-            velocity:    step.velocity ?? 1,
-            trackIndex:  ti,
-            groupIndex:  track.groupIndex ?? null,
+            accent: step.accent,
+            note: step.note,
+            velocity: step.velocity ?? 1,
+            trackIndex: ti,
+            groupIndex: track.groupIndex ?? null,
             paramLocks: { gate: step.gate ?? 0.5, ...sceneOverride, ...step.paramLocks },
           });
           // MIDI output routing (non-arp path)
@@ -1760,9 +1889,16 @@ function scheduleLoop() {
             const gateDur = (track.gate ?? 0.5) * (60 / state.bpm) * 1000;
             state.engine.midiOutput.send([0x80 | ch, note, 0], window.performance.now() + gateDur);
           }
-          document.dispatchEvent(new CustomEvent('confustudio:note:on', {
-            detail: { note: step.note ?? track.pitch ?? 60, velocity: step.velocity ?? 1, trackIndex: ti, channel: ti }
-          }));
+          document.dispatchEvent(
+            new CustomEvent('confustudio:note:on', {
+              detail: {
+                note: step.note ?? track.pitch ?? 60,
+                velocity: step.velocity ?? 1,
+                trackIndex: ti,
+                channel: ti,
+              },
+            }),
+          );
         }
       });
 
@@ -1770,17 +1906,17 @@ function scheduleLoop() {
       // Stutter / beat-repeat: loop within a fixed window instead of advancing
       if (window._stutterActive) {
         const STUTTER_SIZES = { '1/32': 0.5, '1/16': 1, '1/8': 2, '1/4': 4, '1/2': 8 };
-        const stutterSteps  = STUTTER_SIZES[window._stutterSize ?? '1/8'] ?? 2;
-        const startStep     = window._stutterStartStep ?? 0;
+        const stutterSteps = STUTTER_SIZES[window._stutterSize ?? '1/8'] ?? 2;
+        const startStep = window._stutterStartStep ?? 0;
         pattern.kit.tracks.forEach((track, ti) => {
-          const trackLen = track.stepCount ?? ((track.trackLength > 0) ? track.trackLength : pattern.length);
+          const trackLen = track.stepCount ?? (track.trackLength > 0 ? track.trackLength : pattern.length);
           const advanced = (_trackStepIdx[ti] + 1) % trackLen;
           const windowLen = Math.max(1, Math.round(stutterSteps));
           _trackStepIdx[ti] = startStep + ((advanced - startStep + windowLen) % windowLen);
         });
       } else {
         pattern.kit.tracks.forEach((track, ti) => {
-          const trackLen = track.stepCount ?? ((track.trackLength > 0) ? track.trackLength : pattern.length);
+          const trackLen = track.stepCount ?? (track.trackLength > 0 ? track.trackLength : pattern.length);
           _trackStepIdx[ti] = (_trackStepIdx[ti] + 1) % trackLen;
         });
       }
@@ -1792,14 +1928,16 @@ function scheduleLoop() {
       _schedStepIdx = _trackStepIdx[0]; // keep alias in sync
 
       // Dispatch clock event so external modules (Acid Machine, Drum Machine) can sync
-      document.dispatchEvent(new CustomEvent('confustudio:clock', {
-        detail: {
-          step: state.currentStep,
-          bpm: state.bpm,
-          time: _schedNextTime,
-          beat: Math.floor(state.currentStep / 4),
-        }
-      }));
+      document.dispatchEvent(
+        new CustomEvent('confustudio:clock', {
+          detail: {
+            step: state.currentStep,
+            bpm: state.bpm,
+            time: _schedNextTime,
+            beat: Math.floor(state.currentStep / 4),
+          },
+        }),
+      );
 
       // ── XFade automation record / playback ─────────────────────────────────
       if (state.xfRecording) {
@@ -1807,7 +1945,7 @@ function scheduleLoop() {
       } else if (state.xfadeAutomation?.length > 0 && state.xfadeAutomation[state.currentStep] != null) {
         const xfVal = state.xfadeAutomation[state.currentStep];
         state.crossfader = xfVal;
-        state.crossfade  = xfVal;
+        state.crossfade = xfVal;
       }
 
       // Pattern chain / arranger advance on loop wrap-around (track 0 step wrapped to 0)
@@ -1860,7 +1998,7 @@ function scheduleLoop() {
           if (section && state._arrSectionBars >= loopsNeeded) {
             state._arrSectionBars = 0;
             const followAction = section.followAction ?? 'next';
-            const repeatCount  = state._arrSectionRepeatCount ?? 0;
+            const repeatCount = state._arrSectionRepeatCount ?? 0;
             const repeatNeeded = Math.max(1, section.repeat ?? 1);
 
             if (repeatCount < repeatNeeded - 1) {
@@ -1884,7 +2022,7 @@ function scheduleLoop() {
                 case 'next':
                 default: {
                   const nextIdx = currentArrIdx + 1;
-                  const isLast  = nextIdx >= state.arranger.length;
+                  const isLast = nextIdx >= state.arranger.length;
                   if (isLast && state.arrLoop) {
                     state._arrSection = 0;
                   } else if (!isLast) {
@@ -1923,12 +2061,23 @@ function scheduleLoop() {
             const followAction = getActivePattern(state).followAction ?? 'next';
             state._patternLoopCount = 0;
             switch (followAction) {
-              case 'next':   state.activePattern = (state.activePattern + 1) % 16; break;
-              case 'prev':   state.activePattern = (state.activePattern + 15) % 16; break;
-              case 'random': state.activePattern = Math.floor(Math.random() * 16); break;
-              case 'first':  state.activePattern = 0; break;
-              case 'stop':   emit('transport:stop'); break;
-              case 'loop':   /* stay on current pattern */ break;
+              case 'next':
+                state.activePattern = (state.activePattern + 1) % 16;
+                break;
+              case 'prev':
+                state.activePattern = (state.activePattern + 15) % 16;
+                break;
+              case 'random':
+                state.activePattern = Math.floor(Math.random() * 16);
+                break;
+              case 'first':
+                state.activePattern = 0;
+                break;
+              case 'stop':
+                emit('transport:stop');
+                break;
+              case 'loop':
+                /* stay on current pattern */ break;
             }
           }
         }
@@ -1955,7 +2104,7 @@ function scheduleLoop() {
               if (pc.active) {
                 const next = pc.steps[pc.currentStep];
                 if (next && !next.mute) {
-                  state.activeBank    = next.bank;
+                  state.activeBank = next.bank;
                   state.activePattern = next.pattern;
                 }
               }
@@ -1985,7 +2134,7 @@ function scheduleLoop() {
         const patLen = pattern.length || 16;
         const quarterStep = Math.max(1, Math.floor(patLen / 4));
         // state.currentStep is the post-advance value; the step just scheduled is one behind
-        const justScheduled = ((state.currentStep - 1) + patLen) % patLen;
+        const justScheduled = (state.currentStep - 1 + patLen) % patLen;
         if (justScheduled % quarterStep === 0) {
           state.engine.playMetronomeClick(_schedNextTime, justScheduled === 0);
         }
@@ -2007,7 +2156,7 @@ function scheduleLoop() {
       const _pat = getActivePattern(state);
       const _patLen = _pat?.length || 16;
       const _quarterStep = Math.max(1, Math.floor(_patLen / 4));
-      const _justScheduled = ((state.currentStep - 1) + _patLen) % _patLen;
+      const _justScheduled = (state.currentStep - 1 + _patLen) % _patLen;
       if (_justScheduled % _quarterStep === 0) {
         const _topbar = document.querySelector('.screen-topbar');
         if (_topbar) {
@@ -2028,19 +2177,30 @@ function scheduleLoop() {
 function evalTrigCondition(step, loopCount) {
   const cond = step.trigCondition ?? 'always';
   switch (cond) {
-    case 'always':    return true;
-    case '1st':       return loopCount === 0;
-    case 'not1st':    return loopCount > 0;
-    case 'every2':    return loopCount % 2 === 0;
-    case 'every3':    return loopCount % 3 === 0;
-    case 'every4':    return loopCount % 4 === 0;
-    case 'random':    return Math.random() < (step.prob ?? step.probability ?? 1);
-    case 'fill':      return state._fillActive ?? false;
-    case 'not_fill':  return !(state._fillActive ?? false);
+    case 'always':
+      return true;
+    case '1st':
+      return loopCount === 0;
+    case 'not1st':
+      return loopCount > 0;
+    case 'every2':
+      return loopCount % 2 === 0;
+    case 'every3':
+      return loopCount % 3 === 0;
+    case 'every4':
+      return loopCount % 4 === 0;
+    case 'random':
+      return Math.random() < (step.prob ?? step.probability ?? 1);
+    case 'fill':
+      return state._fillActive ?? false;
+    case 'not_fill':
+      return !(state._fillActive ?? false);
     // Legacy conditions kept for backward compat
-    case 'first':     return loopCount === 0;
+    case 'first':
+      return loopCount === 0;
     case 'not_first':
-    case 'not:first': return loopCount > 0;
+    case 'not:first':
+      return loopCount > 0;
     default: {
       // Legacy ratio format: "1:2", "1:4", "3:4" — evaluated against loopCount
       const m = cond.match(/^(\d+):(\d+)$/);
@@ -2060,15 +2220,17 @@ async function togglePlay() {
   } else {
     state.isPlaying = true;
     _schedNextTime = state.audioContext.currentTime + 0.05;
-    _schedStepIdx  = 0;
-    _trackStepIdx  = Array(8).fill(0);
+    _schedStepIdx = 0;
+    _trackStepIdx = Array(8).fill(0);
     if (state.midiClockOut && state.engine?.startMidiClock) {
       state.engine.startMidiClock(state.bpm ?? 120);
     }
     // Notify external modules that transport has started
-    document.dispatchEvent(new CustomEvent('confustudio:transport', {
-      detail: { playing: true, bpm: state.bpm, time: state.audioContext.currentTime }
-    }));
+    document.dispatchEvent(
+      new CustomEvent('confustudio:transport', {
+        detail: { playing: true, bpm: state.bpm, time: state.audioContext.currentTime },
+      }),
+    );
     updateTransportUI();
     scheduleLoop();
   }
@@ -2084,15 +2246,20 @@ function stopPlay() {
   state._arrSectionRepeatCount = 0;
   state._playingNotes.clear();
   state._pressedKeys.clear();
-  if (_schedRafId) { cancelAnimationFrame(_schedRafId); _schedRafId = null; }
+  if (_schedRafId) {
+    cancelAnimationFrame(_schedRafId);
+    _schedRafId = null;
+  }
   state.engine?.stopAllNotes();
   if (state.midiClockOut && state.engine?.stopMidiClock) {
     state.engine.stopMidiClock();
   }
   // Notify external modules that transport has stopped
-  document.dispatchEvent(new CustomEvent('confustudio:transport', {
-    detail: { playing: false, bpm: state.bpm, time: state.audioContext?.currentTime ?? 0 }
-  }));
+  document.dispatchEvent(
+    new CustomEvent('confustudio:transport', {
+      detail: { playing: false, bpm: state.bpm, time: state.audioContext?.currentTime ?? 0 },
+    }),
+  );
   // Restore per-track mutes to their global state after arrangement play
   if (state.arrangementMode && state.engine?.setGroupMute) {
     const pattern = getActivePattern(state);
@@ -2163,15 +2330,18 @@ function renderAll() {
 function renderPage() {
   const page = PAGES[state.currentPage];
   if (!page) return;
-  if (!el.pageContent) { console.error('[renderPage] el.pageContent is null'); return; }
+  if (!el.pageContent) {
+    console.error('[renderPage] el.pageContent is null');
+    return;
+  }
   const pageChanged = _lastRenderedPage !== state.currentPage;
   // Clamp navigation indices so page renders never throw on out-of-range access
-  const bankCount    = state.project?.banks?.length ?? 0;
+  const bankCount = state.project?.banks?.length ?? 0;
   const patternCount = bankCount > 0 ? (state.project.banks[0]?.patterns?.length ?? 0) : 0;
-  const trackCount   = patternCount > 0 ? (state.project.banks[0].patterns[0]?.kit?.tracks?.length ?? 0) : 0;
-  if (bankCount > 0)    state.activeBank         = Math.max(0, Math.min(bankCount - 1,    state.activeBank    ?? 0));
-  if (patternCount > 0) state.activePattern       = Math.max(0, Math.min(patternCount - 1, state.activePattern ?? 0));
-  if (trackCount > 0)   state.selectedTrackIndex  = Math.max(0, Math.min(trackCount - 1,   state.selectedTrackIndex ?? 0));
+  const trackCount = patternCount > 0 ? (state.project.banks[0].patterns[0]?.kit?.tracks?.length ?? 0) : 0;
+  if (bankCount > 0) state.activeBank = Math.max(0, Math.min(bankCount - 1, state.activeBank ?? 0));
+  if (patternCount > 0) state.activePattern = Math.max(0, Math.min(patternCount - 1, state.activePattern ?? 0));
+  if (trackCount > 0) state.selectedTrackIndex = Math.max(0, Math.min(trackCount - 1, state.selectedTrackIndex ?? 0));
   // Run any cleanup registered by the previous page (e.g. clear intervals/rAFs)
   el.pageContent._cleanup?.();
   el.pageContent._cleanup = null;
@@ -2197,9 +2367,17 @@ function renderPage() {
   const pageLabel = document.getElementById('topbar-page-label');
   if (pageLabel) {
     const PAGE_LABELS = {
-      'pattern': 'PATTERN', 'pad': 'PADS', 'piano-roll': 'PIANO ROLL', 'sound': 'SOUND',
-      'mixer': 'MIXER', 'fx': 'FX', 'modmatrix': 'MOD MATRIX', 'scenes': 'SCENES',
-      'banks': 'BANKS', 'arranger': 'ARR', 'settings': 'SETTINGS',
+      pattern: 'PATTERN',
+      pad: 'PADS',
+      'piano-roll': 'PIANO ROLL',
+      sound: 'SOUND',
+      mixer: 'MIXER',
+      fx: 'FX',
+      modmatrix: 'MOD MATRIX',
+      scenes: 'SCENES',
+      banks: 'BANKS',
+      arranger: 'ARR',
+      settings: 'SETTINGS',
     };
     pageLabel.textContent = PAGE_LABELS[state.currentPage] ?? '';
   }
@@ -2208,13 +2386,13 @@ function renderPage() {
 }
 
 function renderPageTabs() {
-  el.pageTabs.querySelectorAll('.tab').forEach(btn => {
+  el.pageTabs.querySelectorAll('.tab').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.page === state.currentPage);
   });
 }
 
 function renderKnobsForPage() {
-  renderKnobs(el.leftKnobs,  state.currentPage, state, 0);
+  renderKnobs(el.leftKnobs, state.currentPage, state, 0);
   renderKnobs(el.rightKnobs, state.currentPage, state, 4);
 }
 
@@ -2234,8 +2412,7 @@ function renderKnobBar() {
     const displayVal = value != null ? formatKnobBarValue(value, def) : '—';
 
     slot.innerHTML =
-      `<span class="knob-bar-label">${def.label}</span>` +
-      `<span class="knob-bar-value">${displayVal}</span>`;
+      `<span class="knob-bar-label">${def.label}</span>` + `<span class="knob-bar-value">${displayVal}</span>`;
     el.knobBar.append(slot);
   });
 }
@@ -2247,8 +2424,21 @@ function getKnobBarValue(def) {
     const pattern = getActivePattern(state);
     return pattern?.kit?.tracks[Number(idx)]?.[field] ?? 0;
   }
-  const TRACK_PARAMS = ['pitch','attack','decay','noteLength','cutoff','resonance',
-                        'drive','volume','pan','lfoRate','lfoDepth','delaySend','reverbSend'];
+  const TRACK_PARAMS = [
+    'pitch',
+    'attack',
+    'decay',
+    'noteLength',
+    'cutoff',
+    'resonance',
+    'drive',
+    'volume',
+    'pan',
+    'lfoRate',
+    'lfoDepth',
+    'delaySend',
+    'reverbSend',
+  ];
   if (TRACK_PARAMS.includes(def.param)) {
     return getActiveTrack(state)?.[def.param] ?? 0;
   }
@@ -2258,9 +2448,9 @@ function getKnobBarValue(def) {
 function formatKnobBarValue(v, def) {
   if (typeof v !== 'number') return String(v);
   if (Number.isInteger(v) || def.step >= 1) return String(Math.round(v));
-  if (v >= 1000) return `${(v/1000).toFixed(1)}k`;
+  if (v >= 1000) return `${(v / 1000).toFixed(1)}k`;
   if (Math.abs(v) < 0.1) return v.toFixed(3);
-  if (Math.abs(v) < 10)  return v.toFixed(2);
+  if (Math.abs(v) < 10) return v.toFixed(2);
   return v.toFixed(1);
 }
 
@@ -2274,9 +2464,9 @@ function renderTrackStrip() {
     if (track.mute) classes.push('muted');
     if (track.solo) classes.push('soloed');
     card.className = classes.join(' ');
-    const active = track.steps.slice(0, pattern.length).filter(s => s.active).length;
+    const active = track.steps.slice(0, pattern.length).filter((s) => s.active).length;
     card.innerHTML = `<h3>T${i + 1} · ${track.machine}</h3><p>${track.waveform} · ${active} trigs</p>`;
-    card.addEventListener('click', e => {
+    card.addEventListener('click', (e) => {
       if (e.shiftKey) emit('track:mute', { trackIndex: i });
       else if (e.altKey) emit('track:solo', { trackIndex: i });
       else emit('track:select', { trackIndex: i });
@@ -2292,14 +2482,11 @@ function renderTrackSelector() {
   el_cs.innerHTML = '';
   el_cs.style.cssText = 'display:grid;grid-template-columns:1fr;gap:4px;padding:4px;align-content:start';
 
-  const GRP_COLORS = [
-    '#f0c640','#5add71','#67d7ff','#ff8c52',
-    '#c67dff','#ff6eb4','#40e0d0','#f05b52',
-  ];
+  const GRP_COLORS = ['#f0c640', '#5add71', '#67d7ff', '#ff8c52', '#c67dff', '#ff6eb4', '#40e0d0', '#f05b52'];
 
   pattern.kit.tracks.forEach((track, i) => {
     const isActive = i === state.selectedTrackIndex;
-    const hasTriggers = track.steps.slice(0, track.trackLength || pattern.length).some(s => s.active);
+    const hasTriggers = track.steps.slice(0, track.trackLength || pattern.length).some((s) => s.active);
 
     const row = document.createElement('div');
     row.className = 'track-ch' + (isActive ? ' active track-selected' : '') + (track.mute ? ' muted' : '');
@@ -2331,13 +2518,19 @@ function renderTrackSelector() {
     btnM.className = 'track-ms-btn track-mute-btn' + (track.mute ? ' active' : '');
     btnM.textContent = 'M';
     btnM.title = 'Mute';
-    btnM.addEventListener('click', e => { e.stopPropagation(); emit('track:mute', { trackIndex: i }); });
+    btnM.addEventListener('click', (e) => {
+      e.stopPropagation();
+      emit('track:mute', { trackIndex: i });
+    });
 
     const btnS = document.createElement('button');
     btnS.className = 'track-ms-btn track-solo-btn' + (track.solo ? ' active' : '');
     btnS.textContent = 'S';
     btnS.title = 'Solo';
-    btnS.addEventListener('click', e => { e.stopPropagation(); emit('track:solo', { trackIndex: i }); });
+    btnS.addEventListener('click', (e) => {
+      e.stopPropagation();
+      emit('track:solo', { trackIndex: i });
+    });
 
     const volBar = document.createElement('div');
     volBar.style.cssText = `position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--track-color,var(--accent));opacity:${track.volume ?? 0.8};border-radius:0 0 2px 2px`;
@@ -2380,14 +2573,14 @@ function renderPlayhead() {
   }
 
   // Update step buttons — data-step attr means all track rows show playhead
-  el.pageContent.querySelectorAll('.step-btn[data-step]').forEach(btn => {
+  el.pageContent.querySelectorAll('.step-btn[data-step]').forEach((btn) => {
     btn.classList.toggle('playhead', Number(btn.dataset.step) === state.currentStep);
   });
 
   // Beat-flash channel strip LEDs for tracks that are active at the current step
   if (state.isPlaying && state.currentStep >= 0) {
     const pat = getActivePattern(state);
-    const isSoloing = pat.kit.tracks.some(t => t.solo);
+    const isSoloing = pat.kit.tracks.some((t) => t.solo);
     document.querySelectorAll('#track-selector .track-ch').forEach((row, i) => {
       const trk = pat.kit.tracks[i];
       if (!trk) return;
@@ -2396,8 +2589,8 @@ function renderPlayhead() {
       led.classList.remove('beat');
       if (trk.mute || (isSoloing && !trk.solo)) return;
       const trackLen = trk.trackLength > 0 ? trk.trackLength : pat.length;
-      const stepIdx  = state.currentStep % trackLen;
-      const step     = trk.steps[stepIdx];
+      const stepIdx = state.currentStep % trackLen;
+      const step = trk.steps[stepIdx];
       if (step?.active) {
         // Force animation restart by removing/re-adding class next frame
         void led.offsetWidth; // trigger reflow so animation restarts
@@ -2408,7 +2601,7 @@ function renderPlayhead() {
 
   // Update piano roll cells if on piano-roll page
   if (state.currentPage === 'piano-roll') {
-    el.pageContent.querySelectorAll('.piano-cell').forEach(cell => {
+    el.pageContent.querySelectorAll('.piano-cell').forEach((cell) => {
       cell.classList.toggle('playhead', Number(cell.dataset.col) === state.currentStep);
     });
   }
@@ -2430,7 +2623,7 @@ function updateTopbar() {
   const BANKS = 'ABCDEFGH';
   el.bankPattern.textContent = `${BANKS[state.activeBank]}·${String(state.activePattern + 1).padStart(2, '0')}`;
   const _bpmStr = Number.isInteger(state.bpm) ? String(state.bpm) : state.bpm.toFixed(1);
-  el.bpmDisplay.textContent  = `${_bpmStr} BPM`;
+  el.bpmDisplay.textContent = `${_bpmStr} BPM`;
   if (el.kbdBpm) el.kbdBpm.textContent = `${_bpmStr} BPM`;
   if (el.bpmInput) el.bpmInput.value = state.bpm;
 
@@ -2440,13 +2633,22 @@ function updateTopbar() {
     pageLabel = document.createElement('span');
     pageLabel.id = 'topbar-page-label';
     pageLabel.className = 'topbar-item';
-    pageLabel.style.cssText = 'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em';
+    pageLabel.style.cssText =
+      'font-family:var(--font-mono);font-size:0.48rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em';
     el.statusPill?.insertAdjacentElement('beforebegin', pageLabel);
   }
   const PAGE_LABELS = {
-    'pattern': 'PATTERN', 'pad': 'PADS', 'piano-roll': 'PIANO ROLL', 'sound': 'SOUND',
-    'mixer': 'MIXER', 'fx': 'FX', 'modmatrix': 'MOD MATRIX', 'scenes': 'SCENES',
-    'banks': 'BANKS', 'arranger': 'ARR', 'settings': 'SETTINGS',
+    pattern: 'PATTERN',
+    pad: 'PADS',
+    'piano-roll': 'PIANO ROLL',
+    sound: 'SOUND',
+    mixer: 'MIXER',
+    fx: 'FX',
+    modmatrix: 'MOD MATRIX',
+    scenes: 'SCENES',
+    banks: 'BANKS',
+    arranger: 'ARR',
+    settings: 'SETTINGS',
   };
   pageLabel.textContent = PAGE_LABELS[state.currentPage] ?? '';
 
@@ -2457,9 +2659,14 @@ function updateTopbar() {
     stepCursorDisplay.id = 'step-cursor-display';
     stepCursorDisplay.className = 'topbar-item';
     stepCursorDisplay.style.cssText = [
-      'font-family:var(--font-mono)', 'font-size:0.52rem', 'color:#3af',
-      'background:rgba(51,170,255,0.12)', 'border:1px solid rgba(51,170,255,0.4)',
-      'border-radius:3px', 'padding:1px 5px', 'display:none',
+      'font-family:var(--font-mono)',
+      'font-size:0.52rem',
+      'color:#3af',
+      'background:rgba(51,170,255,0.12)',
+      'border:1px solid rgba(51,170,255,0.4)',
+      'border-radius:3px',
+      'padding:1px 5px',
+      'display:none',
     ].join(';');
     el.bpmDisplay?.insertAdjacentElement('afterend', stepCursorDisplay);
   }
@@ -2477,14 +2684,19 @@ function updateTopbar() {
     overdubDisplay.id = 'overdub-display';
     overdubDisplay.className = 'topbar-item';
     overdubDisplay.style.cssText = [
-      'font-family:var(--font-mono)', 'font-size:0.52rem', 'color:#f90',
-      'background:rgba(255,144,0,0.12)', 'border:1px solid rgba(255,144,0,0.4)',
-      'border-radius:3px', 'padding:1px 5px', 'display:none',
+      'font-family:var(--font-mono)',
+      'font-size:0.52rem',
+      'color:#f90',
+      'background:rgba(255,144,0,0.12)',
+      'border:1px solid rgba(255,144,0,0.4)',
+      'border-radius:3px',
+      'padding:1px 5px',
+      'display:none',
     ].join(';');
     overdubDisplay.textContent = 'OVR';
     document.getElementById('step-cursor-display')?.insertAdjacentElement('afterend', overdubDisplay);
   }
-  overdubDisplay.style.display = (state.overdubMode && state.isRecording) ? '' : 'none';
+  overdubDisplay.style.display = state.overdubMode && state.isRecording ? '' : 'none';
 
   // Chain display
   let chainDisplay = document.getElementById('chain-display');
@@ -2534,9 +2746,14 @@ function updateTopbar() {
     loopCountDisplay.id = 'loop-count-display';
     loopCountDisplay.className = 'topbar-item';
     loopCountDisplay.style.cssText = [
-      'font-family:var(--font-mono)', 'font-size:0.52rem', 'color:#fa0',
-      'background:rgba(255,170,0,0.1)', 'border:1px solid rgba(255,170,0,0.3)',
-      'border-radius:3px', 'padding:1px 5px', 'display:none',
+      'font-family:var(--font-mono)',
+      'font-size:0.52rem',
+      'color:#fa0',
+      'background:rgba(255,170,0,0.1)',
+      'border:1px solid rgba(255,170,0,0.3)',
+      'border-radius:3px',
+      'padding:1px 5px',
+      'display:none',
     ].join(';');
     document.getElementById('chain-display')?.insertAdjacentElement('afterend', loopCountDisplay);
   }
@@ -2587,15 +2804,17 @@ const recorderDeps = { showToast, scheduleSave, renderPage, ensureAudio };
 // NUMERIC DRAG UTILITY
 // ─────────────────────────────────────────────
 function addNumericDrag(inputEl, onUpdate) {
-  let _startY = 0, _startVal = 0, _active = false;
-  inputEl.addEventListener('pointerdown', e => {
+  let _startY = 0,
+    _startVal = 0,
+    _active = false;
+  inputEl.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     _active = true;
     _startY = e.clientY;
     _startVal = parseFloat(inputEl.value) || 0;
     inputEl.setPointerCapture(e.pointerId);
   });
-  inputEl.addEventListener('pointermove', e => {
+  inputEl.addEventListener('pointermove', (e) => {
     if (!_active) return;
     const delta = (_startY - e.clientY) * 0.5;
     const step = parseFloat(inputEl.step) || 1;
@@ -2605,7 +2824,9 @@ function addNumericDrag(inputEl, onUpdate) {
     inputEl.value = step < 1 ? newVal.toFixed(2) : Math.round(newVal);
     inputEl.dispatchEvent(new Event('input', { bubbles: true }));
   });
-  inputEl.addEventListener('pointerup', () => { _active = false; });
+  inputEl.addEventListener('pointerup', () => {
+    _active = false;
+  });
 }
 
 // ─────────────────────────────────────────────
@@ -2617,7 +2838,7 @@ async function exportAudio(engine) {
   engine.master.connect(dest);
   const rec = new MediaRecorder(dest.stream);
   const chunks = [];
-  rec.ondataavailable = e => chunks.push(e.data);
+  rec.ondataavailable = (e) => chunks.push(e.data);
   rec.onstop = () => {
     const blob = new Blob(chunks, { type: 'audio/webm' });
     const a = document.createElement('a');
@@ -2651,7 +2872,9 @@ function captureMasterBuffer(engine, durationSec) {
     function finish() {
       if (stopped) return;
       stopped = true;
-      try { engine.master.disconnect(processor); } catch (_) {}
+      try {
+        engine.master.disconnect(processor);
+      } catch (_) {}
       processor.disconnect();
       sink.disconnect();
 
@@ -2673,9 +2896,7 @@ function captureMasterBuffer(engine, durationSec) {
     processor.onaudioprocess = (event) => {
       if (stopped) return;
       const inputL = event.inputBuffer.getChannelData(0);
-      const inputR = event.inputBuffer.numberOfChannels > 1
-        ? event.inputBuffer.getChannelData(1)
-        : inputL;
+      const inputR = event.inputBuffer.numberOfChannels > 1 ? event.inputBuffer.getChannelData(1) : inputL;
       const remaining = targetFrames - totalFrames;
       if (remaining <= 0) {
         finish();
@@ -2699,15 +2920,15 @@ function captureMasterBuffer(engine, durationSec) {
 // ─────────────────────────────────────────────
 function bindUI() {
   // Page tabs
-  el.pageTabs.addEventListener('click', e => {
+  el.pageTabs.addEventListener('click', (e) => {
     const tab = e.target.closest('.tab');
     if (tab?.dataset.page) emit('page:set', { page: tab.dataset.page });
   });
 
   // Transport buttons
   el.btnAudio.addEventListener('click', () => ensureAudio());
-  el.btnPlay.addEventListener('click',   () => togglePlay());
-  el.btnStop.addEventListener('click',   () => stopPlay());
+  el.btnPlay.addEventListener('click', () => togglePlay());
+  el.btnStop.addEventListener('click', () => stopPlay());
   el.btnRecord?.addEventListener('click', () => emit('transport:record'));
 
   // Overdub toggle button
@@ -2731,20 +2952,25 @@ function bindUI() {
       document.querySelector('.topbar-right')?.append(overdubBtn);
     }
   }
-  el.kbdPlay?.addEventListener('click',   () => togglePlay());
-  el.kbdStop?.addEventListener('click',   () => stopPlay());
+  el.kbdPlay?.addEventListener('click', () => togglePlay());
+  el.kbdStop?.addEventListener('click', () => stopPlay());
   el.kbdRecord?.addEventListener('click', () => emit('transport:record'));
-  if (el.btnTap)  el.btnTap.addEventListener('click', tapTempo);
-  if (el.btnTap)  el.btnTap.addEventListener('touchstart', e => {
-    e.preventDefault(); // prevent double-firing with click
-    tapTempo();
-    updateTopbar();
-  }, { passive: false });
+  if (el.btnTap) el.btnTap.addEventListener('click', tapTempo);
+  if (el.btnTap)
+    el.btnTap.addEventListener(
+      'touchstart',
+      (e) => {
+        e.preventDefault(); // prevent double-firing with click
+        tapTempo();
+        updateTopbar();
+      },
+      { passive: false },
+    );
   if (el.btnFill) el.btnFill.addEventListener('click', toggleFill);
 
   // BPM edit
   if (el.bpmInput) {
-    el.bpmInput.addEventListener('input', e => {
+    el.bpmInput.addEventListener('input', (e) => {
       emit('state:change', { path: 'bpm', value: Number(e.target.value) });
     });
     addNumericDrag(el.bpmInput);
@@ -2754,29 +2980,46 @@ function bindUI() {
     el.bpmDisplay.title = 'Double-click to edit BPM | Right-click for MIDI Learn';
     el.bpmDisplay.addEventListener('dblclick', () => {
       const inp = document.getElementById('bpm-input');
-      if (inp) { inp.focus(); inp.select(); }
+      if (inp) {
+        inp.focus();
+        inp.select();
+      }
     });
-    el.bpmDisplay.addEventListener('contextmenu', e => {
+    el.bpmDisplay.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       // Remove any existing context menu
       document.getElementById('bpm-ctx-menu')?.remove();
       const menu = document.createElement('div');
       menu.id = 'bpm-ctx-menu';
       menu.style.cssText = [
-        'position:fixed', `left:${e.clientX}px`, `top:${e.clientY}px`,
-        'background:#1a1e14', 'border:1px solid var(--accent)', 'border-radius:4px',
-        'padding:4px 0', 'z-index:3000', 'font-family:var(--font-mono)',
-        'font-size:0.65rem', 'color:var(--screen-text)', 'min-width:140px',
-        'box-shadow:0 4px 12px rgba(0,0,0,0.6)'
+        'position:fixed',
+        `left:${e.clientX}px`,
+        `top:${e.clientY}px`,
+        'background:#1a1e14',
+        'border:1px solid var(--accent)',
+        'border-radius:4px',
+        'padding:4px 0',
+        'z-index:3000',
+        'font-family:var(--font-mono)',
+        'font-size:0.65rem',
+        'color:var(--screen-text)',
+        'min-width:140px',
+        'box-shadow:0 4px 12px rgba(0,0,0,0.6)',
       ].join(';');
       const item = document.createElement('div');
       item.textContent = 'MIDI Learn BPM';
       item.style.cssText = 'padding:5px 12px; cursor:pointer;';
-      item.addEventListener('mouseenter', () => { item.style.background = 'var(--accent)'; item.style.color = '#000'; });
-      item.addEventListener('mouseleave', () => { item.style.background = ''; item.style.color = 'var(--screen-text)'; });
+      item.addEventListener('mouseenter', () => {
+        item.style.background = 'var(--accent)';
+        item.style.color = '#000';
+      });
+      item.addEventListener('mouseleave', () => {
+        item.style.background = '';
+        item.style.color = 'var(--screen-text)';
+      });
       item.addEventListener('click', () => {
         menu.remove();
-        window.startMidiLearn('bpm', normalized => {
+        window.startMidiLearn('bpm', (normalized) => {
           state.bpm = Math.round(40 + normalized * 200);
           state.engine?.setBpm?.(state.bpm);
           updateTopbar();
@@ -2786,21 +3029,28 @@ function bindUI() {
       menu.append(item);
       document.body.append(menu);
       // Dismiss on next click anywhere
-      const dismiss = ev => { if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('mousedown', dismiss); } };
+      const dismiss = (ev) => {
+        if (!menu.contains(ev.target)) {
+          menu.remove();
+          document.removeEventListener('mousedown', dismiss);
+        }
+      };
       setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
     });
   }
-  if (el.bpmDec) el.bpmDec.addEventListener('click', () => {
-    emit('state:change', { path: 'bpm', value: state.bpm - 1 });
-    if (el.bpmInput) el.bpmInput.value = state.bpm;
-  });
-  if (el.bpmInc) el.bpmInc.addEventListener('click', () => {
-    emit('state:change', { path: 'bpm', value: state.bpm + 1 });
-    if (el.bpmInput) el.bpmInput.value = state.bpm;
-  });
+  if (el.bpmDec)
+    el.bpmDec.addEventListener('click', () => {
+      emit('state:change', { path: 'bpm', value: state.bpm - 1 });
+      if (el.bpmInput) el.bpmInput.value = state.bpm;
+    });
+  if (el.bpmInc)
+    el.bpmInc.addEventListener('click', () => {
+      emit('state:change', { path: 'bpm', value: state.bpm + 1 });
+      if (el.bpmInput) el.bpmInput.value = state.bpm;
+    });
 
   if (el.masterVolume) {
-    el.masterVolume.addEventListener('input', e => {
+    el.masterVolume.addEventListener('input', (e) => {
       const v = parseFloat(e.target.value);
       state.masterLevel = v;
       if (state.engine) state.engine.setMasterLevel(v);
@@ -2809,7 +3059,7 @@ function bindUI() {
 
   // Sample file
   if (el.sampleFile) {
-    el.sampleFile.addEventListener('change', async e => {
+    el.sampleFile.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
       await ensureAudio();
@@ -2819,11 +3069,11 @@ function bindUI() {
   }
 
   // Knob events delegation (persistent on containers)
-  el.leftKnobs.addEventListener('knob:change', e => emit('knob:change', e.detail));
-  el.rightKnobs.addEventListener('knob:change', e => emit('knob:change', e.detail));
+  el.leftKnobs.addEventListener('knob:change', (e) => emit('knob:change', e.detail));
+  el.rightKnobs.addEventListener('knob:change', (e) => emit('knob:change', e.detail));
 
   // Undo / Redo keyboard shortcuts + Piano Roll copy/paste
-  document.addEventListener('keydown', e => {
+  document.addEventListener('keydown', (e) => {
     if (!e.ctrlKey && !e.metaKey) return;
 
     // Piano Roll copy/paste + select all
@@ -2890,9 +3140,15 @@ function bindUI() {
       if (e.shiftKey) {
         // Ctrl+Shift+M: mark named checkpoint at current history position
         const pageNames = {
-          pattern: 'Pattern edit', 'piano-roll': 'Piano roll edit', sound: 'Sound edit',
-          mixer: 'Mixer edit', fx: 'FX edit', scenes: 'Scene edit', banks: 'Bank edit',
-          arranger: 'Arranger edit', settings: 'Settings edit',
+          pattern: 'Pattern edit',
+          'piano-roll': 'Piano roll edit',
+          sound: 'Sound edit',
+          mixer: 'Mixer edit',
+          fx: 'FX edit',
+          scenes: 'Scene edit',
+          banks: 'Bank edit',
+          arranger: 'Arranger edit',
+          settings: 'Settings edit',
         };
         const label = pageNames[state.currentPage] || 'Edit';
         markCheckpoint(label);
@@ -3018,21 +3274,26 @@ function bindUI() {
   </div>
 `;
   document.body.append(helpModal);
-  helpModal.querySelector('.help-backdrop').addEventListener('click', () => helpModal.style.display = 'none');
-  helpModal.querySelector('.help-close').addEventListener('click', () => helpModal.style.display = 'none');
+  helpModal.querySelector('.help-backdrop').addEventListener('click', () => (helpModal.style.display = 'none'));
+  helpModal.querySelector('.help-close').addEventListener('click', () => (helpModal.style.display = 'none'));
 
   // Delete/Backspace: deactivate all selected steps on pattern page
-  document.addEventListener('keydown', e => {
-    if ((e.key === 'Delete' || e.key === 'Backspace') &&
-        state.currentPage === 'pattern') {
+  document.addEventListener('keydown', (e) => {
+    if ((e.key === 'Delete' || e.key === 'Backspace') && state.currentPage === 'pattern') {
       // Only act if focus is not in an input/textarea
-      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+      if (
+        document.activeElement &&
+        (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')
+      )
+        return;
       if (e.shiftKey) {
         // Shift+Delete: clear entire selected track
         e.preventDefault();
         pushHistory(state);
         const track = getActiveTrack(state);
-        track.steps.forEach(s => { s.active = false; });
+        track.steps.forEach((s) => {
+          s.active = false;
+        });
         state._selectedSteps = new Set();
         scheduleSave();
         renderPage();
@@ -3041,7 +3302,7 @@ function bindUI() {
         e.preventDefault();
         pushHistory(state);
         const track = getActiveTrack(state);
-        state._selectedSteps.forEach(si => {
+        state._selectedSteps.forEach((si) => {
           if (track.steps[si]) track.steps[si].active = false;
         });
         state._selectedSteps = new Set();
@@ -3052,12 +3313,20 @@ function bindUI() {
   });
 
   // ? opens help modal; F1-F9 navigate pages; Escape closes modal
-  document.addEventListener('keydown', e => {
+  document.addEventListener('keydown', (e) => {
     // F-key page navigation
     const F_KEY_PAGES = {
-      F1: 'settings', F2: 'pattern', F3: 'sound', F4: 'mixer',
-      F5: 'piano-roll', F6: 'fx', F7: 'arranger', F8: 'scenes', F9: 'banks',
-      F10: 'pad', F11: 'modmatrix',
+      F1: 'settings',
+      F2: 'pattern',
+      F3: 'sound',
+      F4: 'mixer',
+      F5: 'piano-roll',
+      F6: 'fx',
+      F7: 'arranger',
+      F8: 'scenes',
+      F9: 'banks',
+      F10: 'pad',
+      F11: 'modmatrix',
     };
     if (F_KEY_PAGES[e.key]) {
       e.preventDefault();
@@ -3071,12 +3340,15 @@ function bindUI() {
     }
     if (e.key === 'Escape') {
       const m = document.getElementById('help-modal');
-      if (m && m.style.display === 'flex') { m.style.display = 'none'; e.preventDefault(); }
+      if (m && m.style.display === 'flex') {
+        m.style.display = 'none';
+        e.preventDefault();
+      }
     }
   });
 
   // BPM +/- shortcuts, pattern page shortcuts (Escape, Ctrl+A, Home/End)
-  document.addEventListener('keydown', e => {
+  document.addEventListener('keydown', (e) => {
     if (e.target.matches('input, select, textarea')) return;
 
     // ` toggles performance overlay
@@ -3088,26 +3360,36 @@ function bindUI() {
 
     // Number row: 1-8 = select track, 9 = panic, 0 = mute, - = BPM-1, = = BPM+1
     if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-      const _digit = { Digit1:0, Digit2:1, Digit3:2, Digit4:3, Digit5:4, Digit6:5, Digit7:6, Digit8:7 }[e.code];
+      const _digit = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4, Digit6: 5, Digit7: 6, Digit8: 7 }[e.code];
       if (_digit !== undefined) {
         e.preventDefault();
         state.selectedTrackIndex = _digit;
         emit('track:select', { trackIndex: _digit });
         return;
       }
-      if (e.code === 'Digit9') { e.preventDefault(); state.engine?.panic?.(); return; }
-      if (e.code === 'Digit0') { e.preventDefault(); emit('track:mute', { trackIndex: state.selectedTrackIndex ?? 0 }); return; }
+      if (e.code === 'Digit9') {
+        e.preventDefault();
+        state.engine?.panic?.();
+        return;
+      }
+      if (e.code === 'Digit0') {
+        e.preventDefault();
+        emit('track:mute', { trackIndex: state.selectedTrackIndex ?? 0 });
+        return;
+      }
       if (e.code === 'Minus') {
         state.bpm = Math.max(40, (state.bpm ?? 120) - 1);
         state.engine?.setBpm?.(state.bpm);
-        updateTopbar(); saveState(state);
+        updateTopbar();
+        saveState(state);
         e.preventDefault();
         return;
       }
       if (e.code === 'Equal') {
         state.bpm = Math.min(240, (state.bpm ?? 120) + 1);
         state.engine?.setBpm?.(state.bpm);
-        updateTopbar(); saveState(state);
+        updateTopbar();
+        saveState(state);
         e.preventDefault();
         return;
       }
@@ -3117,13 +3399,15 @@ function bindUI() {
     if (!e.ctrlKey && !e.metaKey && !e.altKey) {
       if (e.key === '+' || e.key === '=') {
         state.bpm = Math.min(240, (state.bpm ?? 120) + 1);
-        updateTopbar(); saveState(state);
+        updateTopbar();
+        saveState(state);
         e.preventDefault();
         return;
       }
       if (e.key === '-' || e.key === '_') {
         state.bpm = Math.max(40, (state.bpm ?? 120) - 1);
-        updateTopbar(); saveState(state);
+        updateTopbar();
+        saveState(state);
         e.preventDefault();
         return;
       }
@@ -3153,7 +3437,7 @@ function bindUI() {
         const delta = (e.key === 'ArrowUp' ? 1 : -1) * (e.ctrlKey ? 12 : 1);
         const track = getActiveTrack(state);
         const sel = state.rollSelected ?? new Set();
-        sel.forEach(key => {
+        sel.forEach((key) => {
           const [midi, si] = key.split('_').map(Number);
           const step = track.steps[si];
           if (step) {
@@ -3163,10 +3447,12 @@ function bindUI() {
           }
         });
         // Update rollSelected keys to new MIDI values
-        state.rollSelected = new Set([...sel].map(key => {
-          const [midi, si] = key.split('_').map(Number);
-          return `${Math.max(24, Math.min(96, midi + delta))}_${si}`;
-        }));
+        state.rollSelected = new Set(
+          [...sel].map((key) => {
+            const [midi, si] = key.split('_').map(Number);
+            return `${Math.max(24, Math.min(96, midi + delta))}_${si}`;
+          }),
+        );
         emit('state:change', { path: 'rollScroll', value: state.rollScroll ?? 0.5 });
         return;
       }
@@ -3184,7 +3470,10 @@ function bindUI() {
         const pat = getActivePattern(state);
         const len = track.trackLength || pat.length;
         state._selectedSteps = new Set(
-          track.steps.slice(0, len).map((s, i) => s.active ? i : -1).filter(i => i >= 0)
+          track.steps
+            .slice(0, len)
+            .map((s, i) => (s.active ? i : -1))
+            .filter((i) => i >= 0),
         );
         renderPage();
         return;
@@ -3207,13 +3496,16 @@ function bindUI() {
           }
           tracks.forEach((t, ti) => {
             state.project.scenes[idx].tracks[ti] = {
-              cutoff: t.cutoff, decay: t.decay, delaySend: t.delaySend,
-              pitch: t.pitch, volume: t.volume,
+              cutoff: t.cutoff,
+              decay: t.decay,
+              delaySend: t.delaySend,
+              pitch: t.pitch,
+              volume: t.volume,
             };
           });
           // Also sync top-level scenes array
           if (state.scenes[idx]) {
-            state.scenes[idx].tracks = state.project.scenes[idx].tracks.map(t => ({ ...t }));
+            state.scenes[idx].tracks = state.project.scenes[idx].tracks.map((t) => ({ ...t }));
           }
           scheduleSave();
           renderPage();
@@ -3279,10 +3571,10 @@ function bindUI() {
   shortcutOverlay.querySelector('.shortcut-overlay-close').addEventListener('click', () => {
     shortcutOverlay.classList.add('hidden');
   });
-  shortcutOverlay.addEventListener('click', e => {
+  shortcutOverlay.addEventListener('click', (e) => {
     if (e.target === shortcutOverlay) shortcutOverlay.classList.add('hidden');
   });
-  document.addEventListener('keydown', e => {
+  document.addEventListener('keydown', (e) => {
     if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.target.matches('input,select,textarea')) {
       e.preventDefault();
       shortcutOverlay.classList.toggle('hidden');
@@ -3293,60 +3585,74 @@ function bindUI() {
   });
 
   // Tab / Shift+Tab: cycle through pages
-  document.addEventListener('keydown', e => {
+  document.addEventListener('keydown', (e) => {
     if (e.key !== 'Tab') return;
     if (e.target.matches('input, select, textarea')) return;
     e.preventDefault();
-    const PAGE_ORDER = ['pattern', 'pad', 'piano-roll', 'sound', 'mixer', 'fx', 'modmatrix', 'scenes', 'banks', 'arranger', 'settings'];
+    const PAGE_ORDER = [
+      'pattern',
+      'pad',
+      'piano-roll',
+      'sound',
+      'mixer',
+      'fx',
+      'modmatrix',
+      'scenes',
+      'banks',
+      'arranger',
+      'settings',
+    ];
     const cur = PAGE_ORDER.indexOf(state.currentPage);
-    const next = e.shiftKey
-      ? (cur - 1 + PAGE_ORDER.length) % PAGE_ORDER.length
-      : (cur + 1) % PAGE_ORDER.length;
+    const next = e.shiftKey ? (cur - 1 + PAGE_ORDER.length) % PAGE_ORDER.length : (cur + 1) % PAGE_ORDER.length;
     emit('page:set', { page: PAGE_ORDER[next] });
   });
 
   // Record quantize selector — inject next to record button if not already present
-  const recQuantizeSel = document.getElementById('rec-quantize') ?? (() => {
-    const sel = document.createElement('select');
-    sel.id = 'rec-quantize';
-    sel.className = 't-select';
-    sel.title = 'Record quantize';
-    [
-      { label: 'Free', value: 1 },
-      { label: '1/16', value: 1 },
-      { label: '1/8',  value: 2 },
-      { label: '1/4',  value: 4 },
-    ].forEach(({ label, value }) => {
-      const opt = document.createElement('option');
-      opt.value = value;
-      opt.textContent = label;
-      sel.append(opt);
-    });
-    sel.style.cssText = 'font-size:0.5rem;width:100%;margin-bottom:3px';
-    const bpmEditEl = document.getElementById('bpm-edit');
-    if (bpmEditEl) {
-      bpmEditEl.insertBefore(sel, bpmEditEl.firstChild);
-    } else {
-      document.querySelector('.transport-buttons')?.append(sel);
-    }
-    return sel;
-  })();
+  const recQuantizeSel =
+    document.getElementById('rec-quantize') ??
+    (() => {
+      const sel = document.createElement('select');
+      sel.id = 'rec-quantize';
+      sel.className = 't-select';
+      sel.title = 'Record quantize';
+      [
+        { label: 'Free', value: 1 },
+        { label: '1/16', value: 1 },
+        { label: '1/8', value: 2 },
+        { label: '1/4', value: 4 },
+      ].forEach(({ label, value }) => {
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = label;
+        sel.append(opt);
+      });
+      sel.style.cssText = 'font-size:0.5rem;width:100%;margin-bottom:3px';
+      const bpmEditEl = document.getElementById('bpm-edit');
+      if (bpmEditEl) {
+        bpmEditEl.insertBefore(sel, bpmEditEl.firstChild);
+      } else {
+        document.querySelector('.transport-buttons')?.append(sel);
+      }
+      return sel;
+    })();
   recQuantizeSel.value = state.recQuantize ?? 1;
-  recQuantizeSel.addEventListener('change', e => {
+  recQuantizeSel.addEventListener('change', (e) => {
     state.recQuantize = Number(e.target.value);
   });
 
   // Export button — inject into transport area if not already present
-  const exportBtn = document.getElementById('btn-export') ?? (() => {
-    const b = document.createElement('button');
-    b.id = 'btn-export';
-    b.className = 't-btn';
-    b.textContent = 'Exp';
-    b.title = 'Export 8s audio (WebM) [Ctrl+E]';
-    b.style.display = 'none'; // hidden; trigger via Ctrl+E keyboard shortcut
-    document.body.append(b);
-    return b;
-  })();
+  const exportBtn =
+    document.getElementById('btn-export') ??
+    (() => {
+      const b = document.createElement('button');
+      b.id = 'btn-export';
+      b.className = 't-btn';
+      b.textContent = 'Exp';
+      b.title = 'Export 8s audio (WebM) [Ctrl+E]';
+      b.style.display = 'none'; // hidden; trigger via Ctrl+E keyboard shortcut
+      document.body.append(b);
+      return b;
+    })();
   exportBtn.addEventListener('click', () => {
     if (state.engine) {
       showToast('Recording 8s…', 8500);
@@ -3355,16 +3661,18 @@ function bindUI() {
   });
 
   // Panic button — all notes off
-  const panicBtn = document.getElementById('btn-panic') ?? (() => {
-    const b = document.createElement('button');
-    b.id = 'btn-panic';
-    b.className = 't-btn t-btn--panic';
-    b.textContent = '!';
-    b.title = 'Panic — all notes off [key 9]';
-    b.style.display = 'none'; // hidden; trigger via keyboard key 9
-    document.body.append(b);
-    return b;
-  })();
+  const panicBtn =
+    document.getElementById('btn-panic') ??
+    (() => {
+      const b = document.createElement('button');
+      b.id = 'btn-panic';
+      b.className = 't-btn t-btn--panic';
+      b.textContent = '!';
+      b.title = 'Panic — all notes off [key 9]';
+      b.style.display = 'none'; // hidden; trigger via keyboard key 9
+      document.body.append(b);
+      return b;
+    })();
   panicBtn.addEventListener('click', () => {
     if (state.engine?.panic) state.engine.panic();
     else if (state.engine?.stopAllNotes) state.engine.stopAllNotes();
@@ -3466,7 +3774,7 @@ function initMacros() {
     slider.title = macro.name;
     slider.dataset.macroIndex = i;
 
-    slider.addEventListener('input', e => {
+    slider.addEventListener('input', (e) => {
       const v = parseFloat(e.target.value);
       state.macros[i].value = v;
       applyMacro(i);
@@ -3480,19 +3788,20 @@ function initMacros() {
     nameBtn.title = 'Click to map; double-click to rename';
 
     // Single click → show target param picker
-    nameBtn.addEventListener('click', e => {
+    nameBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       // Remove any existing popup
-      document.querySelectorAll('.macro-popup').forEach(p => p.remove());
+      document.querySelectorAll('.macro-popup').forEach((p) => p.remove());
 
       const popup = document.createElement('div');
       popup.className = 'macro-popup';
 
       const sel = document.createElement('select');
-      sel.innerHTML = `<option value="">— none —</option>` +
-        MACRO_PARAMS.map(p => `<option value="${p}"${macro.param === p ? ' selected' : ''}>${p}</option>`).join('');
+      sel.innerHTML =
+        `<option value="">— none —</option>` +
+        MACRO_PARAMS.map((p) => `<option value="${p}"${macro.param === p ? ' selected' : ''}>${p}</option>`).join('');
 
-      sel.addEventListener('change', ev => {
+      sel.addEventListener('change', (ev) => {
         state.macros[i].param = ev.target.value || null;
         popup.remove();
         applyMacro(i);
@@ -3503,12 +3812,12 @@ function initMacros() {
 
       // Position near the name button
       const rect = nameBtn.getBoundingClientRect();
-      popup.style.top  = (rect.bottom + window.scrollY + 2) + 'px';
-      popup.style.left = (rect.left  + window.scrollX)      + 'px';
+      popup.style.top = rect.bottom + window.scrollY + 2 + 'px';
+      popup.style.left = rect.left + window.scrollX + 'px';
       document.body.appendChild(popup);
 
       // Close on outside click
-      const dismiss = ev => {
+      const dismiss = (ev) => {
         if (!popup.contains(ev.target) && ev.target !== nameBtn) {
           popup.remove();
           document.removeEventListener('click', dismiss, true);
@@ -3519,7 +3828,7 @@ function initMacros() {
     });
 
     // Double-click → rename inline
-    nameBtn.addEventListener('dblclick', e => {
+    nameBtn.addEventListener('dblclick', (e) => {
       e.stopPropagation();
       const input = document.createElement('input');
       input.type = 'text';
@@ -3537,9 +3846,12 @@ function initMacros() {
       };
 
       input.addEventListener('blur', commit);
-      input.addEventListener('keydown', ev => {
+      input.addEventListener('keydown', (ev) => {
         if (ev.key === 'Enter') commit();
-        if (ev.key === 'Escape') { input.value = macro.name; commit(); }
+        if (ev.key === 'Escape') {
+          input.value = macro.name;
+          commit();
+        }
         ev.stopPropagation();
       });
 
@@ -3568,29 +3880,53 @@ function initMacros() {
 // SWIPE PAGE NAVIGATION
 // ─────────────────────────────────────────────
 function setupSwipe() {
-  const PAGE_ORDER = ['pattern', 'pad', 'piano-roll', 'sound', 'mixer', 'fx', 'modmatrix', 'scenes', 'banks', 'arranger', 'settings'];
-  const content = document.getElementById('main-content') ?? document.querySelector('.page-content') ?? document.querySelector('main');
+  const PAGE_ORDER = [
+    'pattern',
+    'pad',
+    'piano-roll',
+    'sound',
+    'mixer',
+    'fx',
+    'modmatrix',
+    'scenes',
+    'banks',
+    'arranger',
+    'settings',
+  ];
+  const content =
+    document.getElementById('main-content') ??
+    document.querySelector('.page-content') ??
+    document.querySelector('main');
   if (!content) return;
 
-  let touchStartX = 0, touchStartY = 0;
-  content.addEventListener('touchstart', e => {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-  }, { passive: true });
+  let touchStartX = 0,
+    touchStartY = 0;
+  content.addEventListener(
+    'touchstart',
+    (e) => {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    },
+    { passive: true },
+  );
 
-  content.addEventListener('touchend', e => {
-    const dx = e.changedTouches[0].clientX - touchStartX;
-    const dy = e.changedTouches[0].clientY - touchStartY;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2) {
-      const curPage = state.currentPage ?? 'pattern';
-      const idx = PAGE_ORDER.indexOf(curPage);
-      if (dx < 0 && idx < PAGE_ORDER.length - 1) {
-        emit('page:set', { page: PAGE_ORDER[idx + 1] });
-      } else if (dx > 0 && idx > 0) {
-        emit('page:set', { page: PAGE_ORDER[idx - 1] });
+  content.addEventListener(
+    'touchend',
+    (e) => {
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = e.changedTouches[0].clientY - touchStartY;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2) {
+        const curPage = state.currentPage ?? 'pattern';
+        const idx = PAGE_ORDER.indexOf(curPage);
+        if (dx < 0 && idx < PAGE_ORDER.length - 1) {
+          emit('page:set', { page: PAGE_ORDER[idx + 1] });
+        } else if (dx > 0 && idx > 0) {
+          emit('page:set', { page: PAGE_ORDER[idx - 1] });
+        }
       }
-    }
-  }, { passive: true });
+    },
+    { passive: true },
+  );
 }
 
 // ─────────────────────────────────────────────
@@ -3600,7 +3936,7 @@ function setupDoubleTap() {
   const content = document.getElementById('main-content') ?? document.querySelector('.page-content');
   if (!content) return;
   let lastTap = 0;
-  content.addEventListener('touchend', e => {
+  content.addEventListener('touchend', (e) => {
     const now = Date.now();
     if (now - lastTap < 300) {
       // Double tap

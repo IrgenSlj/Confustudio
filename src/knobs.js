@@ -6,9 +6,9 @@
 
 const CX = 26;
 const CY = 26;
-const TRACK_R = 18;   // arc radius
-const KNOB_R  = 22;   // outer knob rim radius
-const IND_R   = 14;   // indicator dot orbit radius (inside rim)
+const TRACK_R = 18; // arc radius
+const KNOB_R = 22; // outer knob rim radius
+const IND_R = 14; // indicator dot orbit radius (inside rim)
 
 // Total arc span in degrees (start = 225°, end = 315° going clockwise through 270°)
 const ARC_DEGREES = 270;
@@ -36,9 +36,9 @@ function polar(angleDeg, r, cx = CX, cy = CY) {
  */
 function arcPath(startDeg, endDeg, r) {
   const start = polar(startDeg, r);
-  const end   = polar(endDeg,   r);
+  const end = polar(endDeg, r);
   // large-arc-flag = 1 if arc spans > 180°
-  const span  = ((endDeg - startDeg) + 360) % 360;
+  const span = (endDeg - startDeg + 360) % 360;
   const largeArc = span > 180 ? 1 : 0;
   return `M ${start.x.toFixed(3)} ${start.y.toFixed(3)} A ${r} ${r} 0 ${largeArc} 1 ${end.x.toFixed(3)} ${end.y.toFixed(3)}`;
 }
@@ -77,15 +77,15 @@ function knobSVG(angle) {
   const clampedAngle = Math.max(-135, Math.min(135, angle));
 
   // Background track arc: full 270° from 225° to 135° (CW)
-  const trackStart = ARC_START_DEG;           // 225°
-  const trackEnd   = ARC_START_DEG + ARC_DEGREES; // 495° (= 135° normalised)
+  const trackStart = ARC_START_DEG; // 225°
+  const trackEnd = ARC_START_DEG + ARC_DEGREES; // 495° (= 135° normalised)
   const trackD = arcPath(trackStart, trackEnd, TRACK_R);
 
   // Value arc: from 225° to current knob position
   const valueEndDeg = knobAngleToSvgDeg(clampedAngle);
   // Only draw value arc if it has some length
   const hasValue = clampedAngle > -135 + 0.5;
-  const valueD  = hasValue ? arcPath(trackStart, valueEndDeg, TRACK_R) : '';
+  const valueD = hasValue ? arcPath(trackStart, valueEndDeg, TRACK_R) : '';
 
   // Indicator dot position: on the knob rim at the current angle
   // knobAngle -135 = 225° SVG, +135 = 135° SVG (via 495°)
@@ -103,8 +103,12 @@ function knobSVG(angle) {
   <circle cx="${CX}" cy="${CY}" r="${KNOB_R}" fill="#111" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
   <!-- Track arc (full 270°, background) -->
   <path d="${trackD}" fill="none" stroke="#2a2a2a" stroke-width="3" stroke-linecap="round"/>
-  ${hasValue ? `<!-- Value arc (amber, from min to current) -->
-  <path d="${valueD}" fill="none" stroke="var(--accent, #f0a500)" stroke-width="3" stroke-linecap="round"/>` : ''}
+  ${
+    hasValue
+      ? `<!-- Value arc (amber, from min to current) -->
+  <path d="${valueD}" fill="none" stroke="var(--accent, #f0a500)" stroke-width="3" stroke-linecap="round"/>`
+      : ''
+  }
   <!-- Knob face -->
   <circle cx="${CX}" cy="${CY}" r="14" fill="url(#kg-${Math.round(clampedAngle * 10)})"/>
   <!-- Indicator dot -->
@@ -170,8 +174,8 @@ function createKnob(index, { label, value = 0, min = 0, max = 1, step = 0.01 }) 
   const angle = valueToAngle(value, min, max);
   wrap.innerHTML = `${knobSVG(angle)}<div class="knob-label">${label}</div><div class="knob-tooltip" aria-live="polite">${formatKnobValue(value)}</div>`;
 
-  let startY    = 0;
-  let startVal  = value;
+  let startY = 0;
+  let startVal = value;
   let isDragging = false;
   let currentVal = value;
 
@@ -180,7 +184,7 @@ function createKnob(index, { label, value = 0, min = 0, max = 1, step = 0.01 }) 
 
   function applyDelta(clientY, shiftKey) {
     const delta = (startY - clientY) * sensitivity * (shiftKey ? 0.1 : 1);
-    const raw   = startVal + delta;
+    const raw = startVal + delta;
     const quantised = Math.round(raw / step) * step;
     currentVal = Math.max(min, Math.min(max, quantised));
     updateKnobDisplay(wrap, currentVal, min, max);
@@ -190,46 +194,63 @@ function createKnob(index, { label, value = 0, min = 0, max = 1, step = 0.01 }) 
     if (!isDragging) return;
     isDragging = false;
     wrap.classList.remove('active');
-    wrap.dispatchEvent(new CustomEvent('knob:change', {
-      bubbles: true,
-      detail: { index, value: currentVal },
-    }));
+    wrap.dispatchEvent(
+      new CustomEvent('knob:change', {
+        bubbles: true,
+        detail: { index, value: currentVal },
+      }),
+    );
   }
 
   // ── Mouse ──
-  const onMouseMove = (e) => { if (isDragging) applyDelta(e.clientY, e.shiftKey); };
-  const onMouseUp   = (e) => {
+  const onMouseMove = (e) => {
+    if (isDragging) applyDelta(e.clientY, e.shiftKey);
+  };
+  const onMouseUp = (e) => {
     document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('mouseup',   onMouseUp);
+    document.removeEventListener('mouseup', onMouseUp);
     endDrag();
   };
 
   wrap.addEventListener('mousedown', (e) => {
     e.preventDefault();
     isDragging = true;
-    startY    = e.clientY;
-    startVal  = currentVal;
+    startY = e.clientY;
+    startVal = currentVal;
     wrap.classList.add('active');
     document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup',   onMouseUp);
+    document.addEventListener('mouseup', onMouseUp);
   });
 
   // ── Touch ──
-  wrap.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    isDragging = true;
-    startY    = e.touches[0].clientY;
-    startVal  = currentVal;
-    wrap.classList.add('active');
-  }, { passive: false });
+  wrap.addEventListener(
+    'touchstart',
+    (e) => {
+      e.preventDefault();
+      isDragging = true;
+      startY = e.touches[0].clientY;
+      startVal = currentVal;
+      wrap.classList.add('active');
+    },
+    { passive: false },
+  );
 
-  wrap.addEventListener('touchmove', (e) => {
-    e.preventDefault();
-    if (isDragging) applyDelta(e.touches[0].clientY, false);
-  }, { passive: false });
+  wrap.addEventListener(
+    'touchmove',
+    (e) => {
+      e.preventDefault();
+      if (isDragging) applyDelta(e.touches[0].clientY, false);
+    },
+    { passive: false },
+  );
 
-  wrap.addEventListener('touchend', () => { endDrag(); });
-  wrap.addEventListener('touchcancel', () => { isDragging = false; wrap.classList.remove('active'); });
+  wrap.addEventListener('touchend', () => {
+    endDrag();
+  });
+  wrap.addEventListener('touchcancel', () => {
+    isDragging = false;
+    wrap.classList.remove('active');
+  });
 
   // Clear active state when mouse leaves without releasing (visual only)
   wrap.addEventListener('mouseleave', () => {
@@ -246,34 +267,34 @@ function createKnob(index, { label, value = 0, min = 0, max = 1, step = 0.01 }) 
 
 export const KNOB_MAPS = {
   pattern: [
-    { label: 'BPM',     param: 'bpm',          min: 40,   max: 240,   step: 1     },
-    { label: 'Swing',   param: 'swing',         min: 0,    max: 0.42,  step: 0.01  },
-    { label: 'Length',  param: 'length',        min: 4,    max: 64,    step: 1     },
-    { label: 'Steps',   param: 'steps',         min: 4,    max: 64,    step: 1     },
-    { label: 'Density', param: 'euclidBeats',   min: 1,    max: 16,    step: 1     },
-    { label: 'Shift',   param: 'patternShift',  min: 0,    max: 15,    step: 1     },
-    { label: 'Prob',    param: 'defaultProb',   min: 0,    max: 1,     step: 0.01  },
-    { label: 'Trig',    param: 'trigMode',      min: 0,    max: 4,     step: 1     },
+    { label: 'BPM', param: 'bpm', min: 40, max: 240, step: 1 },
+    { label: 'Swing', param: 'swing', min: 0, max: 0.42, step: 0.01 },
+    { label: 'Length', param: 'length', min: 4, max: 64, step: 1 },
+    { label: 'Steps', param: 'steps', min: 4, max: 64, step: 1 },
+    { label: 'Density', param: 'euclidBeats', min: 1, max: 16, step: 1 },
+    { label: 'Shift', param: 'patternShift', min: 0, max: 15, step: 1 },
+    { label: 'Prob', param: 'defaultProb', min: 0, max: 1, step: 0.01 },
+    { label: 'Trig', param: 'trigMode', min: 0, max: 4, step: 1 },
   ],
   'piano-roll': [
-    { label: 'Zoom',   param: 'rollZoom',    min: 0.5, max: 4,   step: 0.1  },
-    { label: 'Scroll', param: 'rollScroll',  min: 0,   max: 100, step: 1    },
-    { label: 'Gate',   param: 'noteLength',  min: 0.05,max: 1,   step: 0.05 },
-    { label: 'Vel',    param: 'velocity',    min: 0,   max: 1,   step: 0.01 },
-    { label: 'Oct',    param: 'octaveShift', min: -3,  max: 3,   step: 1    },
-    { label: 'Scale',  param: 'scale',       min: 0,   max: 7,   step: 1    },
-    { label: 'Quant',  param: 'quantize',    min: 0,   max: 4,   step: 1    },
-    { label: '—',      param: null,          min: 0,   max: 1,   step: 0.01 },
+    { label: 'Zoom', param: 'rollZoom', min: 0.5, max: 4, step: 0.1 },
+    { label: 'Scroll', param: 'rollScroll', min: 0, max: 100, step: 1 },
+    { label: 'Gate', param: 'noteLength', min: 0.05, max: 1, step: 0.05 },
+    { label: 'Vel', param: 'velocity', min: 0, max: 1, step: 0.01 },
+    { label: 'Oct', param: 'octaveShift', min: -3, max: 3, step: 1 },
+    { label: 'Scale', param: 'scale', min: 0, max: 7, step: 1 },
+    { label: 'Quant', param: 'quantize', min: 0, max: 4, step: 1 },
+    { label: '—', param: null, min: 0, max: 1, step: 0.01 },
   ],
   sound: [
-    { label: 'Pitch',  param: 'pitch',      min: 24,   max: 96,    step: 1     },
-    { label: 'Attack', param: 'attack',     min: 0.001,max: 0.5,   step: 0.001 },
-    { label: 'Decay',  param: 'decay',      min: 0.03, max: 3,     step: 0.01  },
-    { label: 'Gate',   param: 'noteLength', min: 0.05, max: 1,     step: 0.05  },
-    { label: 'Cutoff', param: 'cutoff',     min: 80,   max: 18000, step: 10    },
-    { label: 'Res',    param: 'resonance',  min: 0.1,  max: 20,    step: 0.1   },
-    { label: 'Drive',  param: 'drive',      min: 0,    max: 1,     step: 0.01  },
-    { label: 'Vol',    param: 'volume',     min: 0,    max: 1,     step: 0.01  },
+    { label: 'Pitch', param: 'pitch', min: 24, max: 96, step: 1 },
+    { label: 'Attack', param: 'attack', min: 0.001, max: 0.5, step: 0.001 },
+    { label: 'Decay', param: 'decay', min: 0.03, max: 3, step: 0.01 },
+    { label: 'Gate', param: 'noteLength', min: 0.05, max: 1, step: 0.05 },
+    { label: 'Cutoff', param: 'cutoff', min: 80, max: 18000, step: 10 },
+    { label: 'Res', param: 'resonance', min: 0.1, max: 20, step: 0.1 },
+    { label: 'Drive', param: 'drive', min: 0, max: 1, step: 0.01 },
+    { label: 'Vol', param: 'volume', min: 0, max: 1, step: 0.01 },
   ],
   mixer: [
     { label: 'Trk 1', param: 'track.0.volume', min: 0, max: 1, step: 0.01 },
@@ -286,24 +307,24 @@ export const KNOB_MAPS = {
     { label: 'Trk 8', param: 'track.7.volume', min: 0, max: 1, step: 0.01 },
   ],
   fx: [
-    { label: 'DlyTime', param: 'delayTime',      min: 0,   max: 1,    step: 0.01 },
-    { label: 'DlyFb',   param: 'delayFeedback',  min: 0,   max: 0.95, step: 0.01 },
-    { label: 'RevSize', param: 'reverbSize',      min: 0.1, max: 3,    step: 0.1  },
-    { label: 'RevMix',  param: 'convReverbMix',   min: 0,   max: 1,    step: 0.01 },
-    { label: 'LfoRate', param: 'lfoRate',          min: 0.1, max: 30,   step: 0.1  },
-    { label: 'LfoDep',  param: 'lfoDepth',         min: 0,   max: 1,    step: 0.01 },
-    { label: 'Drive',   param: 'drive',            min: 0,   max: 1,    step: 0.01 },
-    { label: '—',       param: null,               min: 0,   max: 1,    step: 0.01 },
+    { label: 'DlyTime', param: 'delayTime', min: 0, max: 1, step: 0.01 },
+    { label: 'DlyFb', param: 'delayFeedback', min: 0, max: 0.95, step: 0.01 },
+    { label: 'RevSize', param: 'reverbSize', min: 0.1, max: 3, step: 0.1 },
+    { label: 'RevMix', param: 'convReverbMix', min: 0, max: 1, step: 0.01 },
+    { label: 'LfoRate', param: 'lfoRate', min: 0.1, max: 30, step: 0.1 },
+    { label: 'LfoDep', param: 'lfoDepth', min: 0, max: 1, step: 0.01 },
+    { label: 'Drive', param: 'drive', min: 0, max: 1, step: 0.01 },
+    { label: '—', param: null, min: 0, max: 1, step: 0.01 },
   ],
   scenes: [
     { label: 'X-Fade', param: 'crossfader', min: 0, max: 1, step: 0.01 },
-    { label: 'SceneA', param: 'sceneA',     min: 0, max: 7, step: 1    },
-    { label: 'SceneB', param: 'sceneB',     min: 0, max: 7, step: 1    },
-    { label: '—',      param: null,         min: 0, max: 1, step: 0.01 },
-    { label: '—',      param: null,         min: 0, max: 1, step: 0.01 },
-    { label: '—',      param: null,         min: 0, max: 1, step: 0.01 },
-    { label: '—',      param: null,         min: 0, max: 1, step: 0.01 },
-    { label: '—',      param: null,         min: 0, max: 1, step: 0.01 },
+    { label: 'SceneA', param: 'sceneA', min: 0, max: 7, step: 1 },
+    { label: 'SceneB', param: 'sceneB', min: 0, max: 7, step: 1 },
+    { label: '—', param: null, min: 0, max: 1, step: 0.01 },
+    { label: '—', param: null, min: 0, max: 1, step: 0.01 },
+    { label: '—', param: null, min: 0, max: 1, step: 0.01 },
+    { label: '—', param: null, min: 0, max: 1, step: 0.01 },
+    { label: '—', param: null, min: 0, max: 1, step: 0.01 },
   ],
   banks: [
     { label: '—', param: null, min: 0, max: 1, step: 0.01 },
@@ -316,24 +337,24 @@ export const KNOB_MAPS = {
     { label: '—', param: null, min: 0, max: 1, step: 0.01 },
   ],
   arranger: [
-    { label: 'SecLen', param: 'sectionLen', min: 1,  max: 16,  step: 1    },
-    { label: 'BPM',    param: 'bpm',        min: 40, max: 240, step: 1    },
-    { label: 'Loop',   param: 'loopCount',  min: 1,  max: 16,  step: 1    },
-    { label: '—',      param: null,         min: 0,  max: 1,   step: 0.01 },
-    { label: '—',      param: null,         min: 0,  max: 1,   step: 0.01 },
-    { label: '—',      param: null,         min: 0,  max: 1,   step: 0.01 },
-    { label: '—',      param: null,         min: 0,  max: 1,   step: 0.01 },
-    { label: '—',      param: null,         min: 0,  max: 1,   step: 0.01 },
+    { label: 'SecLen', param: 'sectionLen', min: 1, max: 16, step: 1 },
+    { label: 'BPM', param: 'bpm', min: 40, max: 240, step: 1 },
+    { label: 'Loop', param: 'loopCount', min: 1, max: 16, step: 1 },
+    { label: '—', param: null, min: 0, max: 1, step: 0.01 },
+    { label: '—', param: null, min: 0, max: 1, step: 0.01 },
+    { label: '—', param: null, min: 0, max: 1, step: 0.01 },
+    { label: '—', param: null, min: 0, max: 1, step: 0.01 },
+    { label: '—', param: null, min: 0, max: 1, step: 0.01 },
   ],
   settings: [
-    { label: 'MIDI Ch', param: 'midiChannel',  min: 1, max: 16,   step: 1    },
-    { label: 'Sync',    param: 'sync',          min: 0, max: 1,    step: 1    },
-    { label: 'Level',   param: 'masterLevel',   min: 0, max: 1,    step: 0.01 },
-    { label: 'Swing',   param: 'swing',         min: 0, max: 0.42, step: 0.01 },
-    { label: 'Link',    param: 'abletonLink',   min: 0, max: 1,    step: 1    },
-    { label: 'Clock',   param: 'clockMode',     min: 0, max: 1,    step: 1    },
-    { label: 'Metro',   param: 'metronome',     min: 0, max: 1,    step: 1    },
-    { label: '—',       param: null,            min: 0, max: 1,    step: 0.01 },
+    { label: 'MIDI Ch', param: 'midiChannel', min: 1, max: 16, step: 1 },
+    { label: 'Sync', param: 'sync', min: 0, max: 1, step: 1 },
+    { label: 'Level', param: 'masterLevel', min: 0, max: 1, step: 0.01 },
+    { label: 'Swing', param: 'swing', min: 0, max: 0.42, step: 0.01 },
+    { label: 'Link', param: 'abletonLink', min: 0, max: 1, step: 1 },
+    { label: 'Clock', param: 'clockMode', min: 0, max: 1, step: 1 },
+    { label: 'Metro', param: 'metronome', min: 0, max: 1, step: 1 },
+    { label: '—', param: null, min: 0, max: 1, step: 0.01 },
   ],
 };
 
@@ -354,8 +375,7 @@ function getKnobValue(state, param) {
     const parts = param.split('.');
     const trackIndex = Number(parts[1]);
     const field = parts[2];
-    const pattern =
-      state.project?.banks[state.activeBank]?.patterns[state.activePattern];
+    const pattern = state.project?.banks[state.activeBank]?.patterns[state.activePattern];
     return pattern?.kit?.tracks[trackIndex]?.[field] ?? 0;
   }
 
@@ -382,8 +402,8 @@ export function renderKnobs(containerEl, page, state, startIndex = 0) {
 
   for (let i = startIndex; i < startIndex + 4; i++) {
     const knobDef = map[i] || { label: '—', param: null, min: 0, max: 1, step: 0.01 };
-    const value   = getKnobValue(state, knobDef.param);
-    const knobEl  = createKnob(i, { ...knobDef, value });
+    const value = getKnobValue(state, knobDef.param);
+    const knobEl = createKnob(i, { ...knobDef, value });
     containerEl.append(knobEl);
   }
 }

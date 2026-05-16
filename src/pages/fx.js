@@ -6,15 +6,22 @@ const FILTER_TYPES = ['lowpass', 'bandpass', 'highpass'];
 const FILTER_LABELS = { lowpass: 'LP', bandpass: 'BP', highpass: 'HP' };
 
 // Convolution reverb presets (6 types — used by ConvolverNode-based reverb)
-const CONV_REVERB_TYPES  = ['room', 'hall', 'plate', 'spring', 'cave', 'studio'];
-const CONV_REVERB_LABELS = { room: 'Room', hall: 'Hall', plate: 'Plate', spring: 'Spring', cave: 'Cave', studio: 'Studio' };
+const CONV_REVERB_TYPES = ['room', 'hall', 'plate', 'spring', 'cave', 'studio'];
+const CONV_REVERB_LABELS = {
+  room: 'Room',
+  hall: 'Hall',
+  plate: 'Plate',
+  spring: 'Spring',
+  cave: 'Cave',
+  studio: 'Studio',
+};
 const CONV_REVERB_PRESETS = {
-  room:   { mix: 0.25, preDelay: 0  },
-  hall:   { mix: 0.30, preDelay: 20 },
-  plate:  { mix: 0.28, preDelay: 5  },
-  spring: { mix: 0.32, preDelay: 0  },
-  cave:   { mix: 0.35, preDelay: 30 },
-  studio: { mix: 0.18, preDelay: 0  },
+  room: { mix: 0.25, preDelay: 0 },
+  hall: { mix: 0.3, preDelay: 20 },
+  plate: { mix: 0.28, preDelay: 5 },
+  spring: { mix: 0.32, preDelay: 0 },
+  cave: { mix: 0.35, preDelay: 30 },
+  studio: { mix: 0.18, preDelay: 0 },
 };
 
 function _reverbPresetInfo(type) {
@@ -27,15 +34,15 @@ const DELAY_SYNC_DIVS = ['1/32', '1/16', '1/8', '1/4', '1/2', '1/1'];
 
 // ─── EQ Canvas constants ──────────────────────────────────────────────────────
 
-const EQ_FREQ_MIN  = 20;
-const EQ_FREQ_MAX  = 20000;
-const EQ_DB_MIN    = -12;
-const EQ_DB_MAX    = 12;
+const EQ_FREQ_MIN = 20;
+const EQ_FREQ_MAX = 20000;
+const EQ_DB_MIN = -12;
+const EQ_DB_MAX = 12;
 const EQ_GRID_FREQS = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
 // Frequency positions for the 3 draggable points (low, mid, high)
-const EQ_LOW_FREQ  = 200;
-const EQ_HIGH_FREQ = 6000;  // matches engine highshelf at 6000 Hz
-const EQ_DOT_R     = 5;     // drag dot radius in px
+const EQ_LOW_FREQ = 200;
+const EQ_HIGH_FREQ = 6000; // matches engine highshelf at 6000 Hz
+const EQ_DOT_R = 5; // drag dot radius in px
 
 // ─── EQ Canvas helpers ────────────────────────────────────────────────────────
 
@@ -63,12 +70,11 @@ function yToDb(y, height) {
 function drawEQCanvas(canvas, low, mid, high, midFreq) {
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
-  const W = rect.width  || canvas.offsetWidth  || 200;
+  const W = rect.width || canvas.offsetWidth || 200;
   const H = rect.height || canvas.offsetHeight || 80;
 
-  if (canvas.width  !== Math.round(W * dpr) ||
-      canvas.height !== Math.round(H * dpr)) {
-    canvas.width  = Math.round(W * dpr);
+  if (canvas.width !== Math.round(W * dpr) || canvas.height !== Math.round(H * dpr)) {
+    canvas.width = Math.round(W * dpr);
     canvas.height = Math.round(H * dpr);
   }
 
@@ -96,7 +102,7 @@ function drawEQCanvas(canvas, low, mid, high, midFreq) {
     ctx.fillStyle = 'rgba(255,255,255,0.22)';
     ctx.font = `${Math.round(6 * dpr) / dpr}px monospace`;
     ctx.textAlign = 'center';
-    const label = f >= 1000 ? (f / 1000) + 'k' : String(f);
+    const label = f >= 1000 ? f / 1000 + 'k' : String(f);
     ctx.fillText(label, x, H - 2);
   }
   // Horizontal 0 dB line
@@ -124,7 +130,7 @@ function drawEQCanvas(canvas, low, mid, high, midFreq) {
 
     // Low shelf approximation (BiquadFilter lowshelf @200Hz)
     const lowRatio = Math.log2(f / EQ_LOW_FREQ);
-    db += low  * Math.max(0, Math.min(1, 0.5 - lowRatio / 2));
+    db += low * Math.max(0, Math.min(1, 0.5 - lowRatio / 2));
 
     // High shelf approximation (BiquadFilter highshelf @6kHz)
     const highRatio = Math.log2(f / EQ_HIGH_FREQ);
@@ -132,13 +138,13 @@ function drawEQCanvas(canvas, low, mid, high, midFreq) {
 
     // Mid peak: Q=1.0 approximation — bandwidth ≈ 1 octave
     const mfSafe = Math.max(200, Math.min(8000, midFreq));
-    const octDist = Math.log2(f / mfSafe);   // 0 at center
-    const bw = 1.4;                            // octaves at -3dB for Q≈1
+    const octDist = Math.log2(f / mfSafe); // 0 at center
+    const bw = 1.4; // octaves at -3dB for Q≈1
     db += mid * Math.exp(-(octDist * octDist) / (2 * (bw / 2.355) * (bw / 2.355)));
 
     const y = dbToY(Math.max(EQ_DB_MIN, Math.min(EQ_DB_MAX, db)), H);
-    if (i === 0) ctx.moveTo(i / SAMPLES * W, y);
-    else         ctx.lineTo(i / SAMPLES * W, y);
+    if (i === 0) ctx.moveTo((i / SAMPLES) * W, y);
+    else ctx.lineTo((i / SAMPLES) * W, y);
   }
 
   // Fill under curve
@@ -153,8 +159,8 @@ function drawEQCanvas(canvas, low, mid, high, midFreq) {
   for (let i = 0; i <= SAMPLES; i++) {
     const f = xToFreq((i / SAMPLES) * W, W);
     let db = 0;
-    const lowRatio  = Math.log2(f / EQ_LOW_FREQ);
-    db += low  * Math.max(0, Math.min(1, 0.5 - lowRatio / 2));
+    const lowRatio = Math.log2(f / EQ_LOW_FREQ);
+    db += low * Math.max(0, Math.min(1, 0.5 - lowRatio / 2));
     const highRatio = Math.log2(f / EQ_HIGH_FREQ);
     db += high * Math.max(0, Math.min(1, 0.5 + highRatio / 2));
     const mfSafe = Math.max(200, Math.min(8000, midFreq));
@@ -162,8 +168,8 @@ function drawEQCanvas(canvas, low, mid, high, midFreq) {
     const bw = 1.4;
     db += mid * Math.exp(-(octDist * octDist) / (2 * (bw / 2.355) * (bw / 2.355)));
     const y = dbToY(Math.max(EQ_DB_MIN, Math.min(EQ_DB_MAX, db)), H);
-    if (i === 0) ctx.moveTo(i / SAMPLES * W, y);
-    else         ctx.lineTo(i / SAMPLES * W, y);
+    if (i === 0) ctx.moveTo((i / SAMPLES) * W, y);
+    else ctx.lineTo((i / SAMPLES) * W, y);
   }
   ctx.strokeStyle = 'var(--screen-text, #f0c640)';
   ctx.lineWidth = 1.5;
@@ -171,9 +177,9 @@ function drawEQCanvas(canvas, low, mid, high, midFreq) {
 
   // ── Draggable dots ─────────────────────────────────────────────────────────
   const dots = [
-    { freq: EQ_LOW_FREQ,             db: low,  color: '#67d7ff', label: 'L', fixed: true  },
-    { freq: Math.max(200, Math.min(8000, midFreq)), db: mid,  color: '#f0c640', label: 'M', fixed: false },
-    { freq: EQ_HIGH_FREQ,            db: high, color: '#ff8c52', label: 'H', fixed: true  },
+    { freq: EQ_LOW_FREQ, db: low, color: '#67d7ff', label: 'L', fixed: true },
+    { freq: Math.max(200, Math.min(8000, midFreq)), db: mid, color: '#f0c640', label: 'M', fixed: false },
+    { freq: EQ_HIGH_FREQ, db: high, color: '#ff8c52', label: 'H', fixed: true },
   ];
 
   for (const dot of dots) {
@@ -206,26 +212,25 @@ function drawEQCanvas(canvas, low, mid, high, midFreq) {
 
 // ─── Drag state (module-level, one active drag at a time) ─────────────────────
 
-let _eqDrag = null;  // { dot: 'low'|'mid'|'high', canvas, track, state, emit, onUpdate }
+let _eqDrag = null; // { dot: 'low'|'mid'|'high', canvas, track, state, emit, onUpdate }
 
 // ─── FX bypass state (module-level) ──────────────────────────────────────────
 let _bypassed = false;
 let _bypassStore = {}; // stores pre-bypass values
 
 function _eqPointerDown(e, canvas, track, state, emit, onUpdate) {
-  const dpr  = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
-  const px   = (e.clientX - rect.left);
-  const py   = (e.clientY - rect.top);
-  const W    = rect.width;
-  const H    = rect.height;
+  const px = e.clientX - rect.left;
+  const py = e.clientY - rect.top;
+  const W = rect.width;
+  const H = rect.height;
 
   const midFreq = track.eqMidFreq ?? 1000;
 
   // Dot positions in CSS px
   const dots = [
-    { key: 'low',  x: freqToX(EQ_LOW_FREQ,  W), y: dbToY(track.eqLow  ?? 0, H) },
-    { key: 'mid',  x: freqToX(Math.max(200, Math.min(8000, midFreq)), W), y: dbToY(track.eqMid  ?? 0, H) },
+    { key: 'low', x: freqToX(EQ_LOW_FREQ, W), y: dbToY(track.eqLow ?? 0, H) },
+    { key: 'mid', x: freqToX(Math.max(200, Math.min(8000, midFreq)), W), y: dbToY(track.eqMid ?? 0, H) },
     { key: 'high', x: freqToX(EQ_HIGH_FREQ, W), y: dbToY(track.eqHigh ?? 0, H) },
   ];
 
@@ -245,12 +250,12 @@ function _eqPointerMove(e) {
   if (!_eqDrag) return;
   const { dot, canvas, track, state, emit, onUpdate, W, H } = _eqDrag;
   const rect = canvas.getBoundingClientRect();
-  const px   = e.clientX - rect.left;
-  const py   = e.clientY - rect.top;
+  const px = e.clientX - rect.left;
+  const py = e.clientY - rect.top;
 
-  const rawDb   = yToDb(py, H);
+  const rawDb = yToDb(py, H);
   const clampDb = Math.max(EQ_DB_MIN, Math.min(EQ_DB_MAX, rawDb));
-  const snapDb  = Math.round(clampDb * 2) / 2;  // snap to 0.5 dB steps
+  const snapDb = Math.round(clampDb * 2) / 2; // snap to 0.5 dB steps
 
   if (dot === 'low') {
     track.eqLow = snapDb;
@@ -263,9 +268,9 @@ function _eqPointerMove(e) {
     emit('track:change', { trackIndex: state.selectedTrackIndex, param: 'eqMid', value: snapDb });
 
     // Mid dot also moves left-right to change frequency
-    const rawFreq  = xToFreq(px, W);
+    const rawFreq = xToFreq(px, W);
     const clampFreq = Math.max(200, Math.min(8000, rawFreq));
-    const snapFreq  = Math.round(clampFreq / 10) * 10;  // snap to 10 Hz
+    const snapFreq = Math.round(clampFreq / 10) * 10; // snap to 10 Hz
     track.eqMidFreq = snapFreq;
     emit('track:change', { trackIndex: state.selectedTrackIndex, param: 'eqMidFreq', value: snapFreq });
   }
@@ -284,7 +289,7 @@ function _eqPointerUp() {
 // Attach global pointer listeners once
 if (typeof window !== 'undefined') {
   window.addEventListener('pointermove', _eqPointerMove, { passive: false });
-  window.addEventListener('pointerup',   _eqPointerUp);
+  window.addEventListener('pointerup', _eqPointerUp);
   window.addEventListener('pointercancel', _eqPointerUp);
 }
 
@@ -355,8 +360,8 @@ function eqCanvasSectionHTML(track) {
     </div>
     <canvas class="eq-canvas" data-eq-canvas></canvas>
     <div class="eq-band-row">
-      ${eqBandHTML('Low',  'eqLow',  track.eqLow  ?? 0)}
-      ${eqBandHTML('Mid',  'eqMid',  track.eqMid  ?? 0)}
+      ${eqBandHTML('Low', 'eqLow', track.eqLow ?? 0)}
+      ${eqBandHTML('Mid', 'eqMid', track.eqMid ?? 0)}
       ${eqBandHTML('High', 'eqHigh', track.eqHigh ?? 0)}
     </div>
     <label class="fx-row" style="margin-top:2px">
@@ -381,7 +386,8 @@ export default {
 
     // ── Header bar ────────────────────────────────────────────────────────────
     const headerBar = document.createElement('div');
-    headerBar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 10px 4px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.06)';
+    headerBar.style.cssText =
+      'display:flex;align-items:center;gap:8px;padding:6px 10px 4px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.06)';
     headerBar.innerHTML = `
       <span class="page-title" style="margin:0">FX</span>
       <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted)">${track.name}</span>
@@ -409,16 +415,18 @@ export default {
         ${eqCanvasSectionHTML(track)}
         <div style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);text-transform:uppercase;margin:6px 0 4px">Filter</div>
         <div style="display:flex;gap:4px;margin-bottom:6px">
-          ${FILTER_TYPES.map(ft => `
+          ${FILTER_TYPES.map(
+            (ft) => `
             <button class="ctx-btn${(track.filterType || 'lowpass') === ft ? ' active' : ''}"
                     data-filter-type="${ft}">${FILTER_LABELS[ft]}</button>
-          `).join('')}
+          `,
+          ).join('')}
         </div>
-        ${sliderHTML('CUT',  'cutoff',    'track', 80,   18000, 1,    track.cutoff    ?? 3200)}
-        ${sliderHTML('RES',  'resonance', 'track', 0.01, 30,    0.01, track.resonance ?? 1.8)}
-        ${sliderHTML('DRIV', 'drive',     'track', 0,    1,     0.01, track.drive     ?? 0.18)}
-        ${sliderHTML('BITS', 'bitDepth',  'track', 1,    16,    1,    track.bitDepth  ?? 16)}
-        ${sliderHTML('SRR',  'srDiv',     'track', 1,    32,    1,    track.srDiv     ?? 1)}
+        ${sliderHTML('CUT', 'cutoff', 'track', 80, 18000, 1, track.cutoff ?? 3200)}
+        ${sliderHTML('RES', 'resonance', 'track', 0.01, 30, 0.01, track.resonance ?? 1.8)}
+        ${sliderHTML('DRIV', 'drive', 'track', 0, 1, 0.01, track.drive ?? 0.18)}
+        ${sliderHTML('BITS', 'bitDepth', 'track', 1, 16, 1, track.bitDepth ?? 16)}
+        ${sliderHTML('SRR', 'srDiv', 'track', 1, 32, 1, track.srDiv ?? 1)}
       </div>
     `;
 
@@ -442,16 +450,18 @@ export default {
     stutterBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem';
 
     const stutterRateSelect = document.createElement('select');
-    stutterRateSelect.style.cssText = 'font-size:0.5rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:2px 5px';
+    stutterRateSelect.style.cssText =
+      'font-size:0.5rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:2px 5px';
 
     [
       { label: '1/32', value: 0.0625 },
       { label: '1/16', value: 0.125 },
-      { label: '1/8',  value: 0.25 },
-      { label: '1/4',  value: 0.5 },
-    ].forEach(({label, value}) => {
+      { label: '1/8', value: 0.25 },
+      { label: '1/4', value: 0.5 },
+    ].forEach(({ label, value }) => {
       const opt = document.createElement('option');
-      opt.value = String(value); opt.textContent = label;
+      opt.value = String(value);
+      opt.textContent = label;
       if (Math.abs(value - (state.stutterRate ?? 0.125)) < 0.001) opt.selected = true;
       stutterRateSelect.append(opt);
     });
@@ -479,77 +489,97 @@ export default {
     rightCol.innerHTML = `
       <div class="page-card" data-card="compressor">
         <h4>COMPRESSOR</h4>
-        ${compSliderHTML('THRESH',  'threshold', -60,   0,    1,     comp.threshold ?? -18,  'dB',  null)}
-        ${compSliderHTML('KNEE',    'knee',       0,    30,   1,     comp.knee      ?? 6,    'dB',  null)}
-        ${compSliderHTML('RATIO',   'ratio',      1,    20,   0.5,   comp.ratio     ?? 4,    ':1',  v => Number(v).toFixed(1))}
-        ${compSliderHTML('ATTACK',  'attack',     0.001, 0.5, 0.001, comp.attack    ?? 0.003,'ms',  v => (v * 1000).toFixed(1))}
-        ${compSliderHTML('RELEASE', 'release',    0.01,  2,   0.01,  comp.release   ?? 0.25, 'ms',  v => Number(v * 1000).toFixed(0))}
+        ${compSliderHTML('THRESH', 'threshold', -60, 0, 1, comp.threshold ?? -18, 'dB', null)}
+        ${compSliderHTML('KNEE', 'knee', 0, 30, 1, comp.knee ?? 6, 'dB', null)}
+        ${compSliderHTML('RATIO', 'ratio', 1, 20, 0.5, comp.ratio ?? 4, ':1', (v) => Number(v).toFixed(1))}
+        ${compSliderHTML('ATTACK', 'attack', 0.001, 0.5, 0.001, comp.attack ?? 0.003, 'ms', (v) => (v * 1000).toFixed(1))}
+        ${compSliderHTML('RELEASE', 'release', 0.01, 2, 0.01, comp.release ?? 0.25, 'ms', (v) => Number(v * 1000).toFixed(0))}
       </div>
 
-      ${cardHTML('REVERB', `
+      ${cardHTML(
+        'REVERB',
+        `
         <div style="font-family:var(--font-mono);font-size:0.5rem;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Convolution</div>
         <div class="fx-type-row" data-group="conv-reverb-preset">
-          ${CONV_REVERB_TYPES.map(t => `
+          ${CONV_REVERB_TYPES.map(
+            (t) => `
             <button class="fx-type-btn${(state.convReverbPreset ?? 'room') === t ? ' active' : ''}"
                     data-conv-reverb-preset="${t}">${CONV_REVERB_LABELS[t]}</button>
-          `).join('')}
+          `,
+          ).join('')}
         </div>
         <div class="fx-preset-info" data-reverb-preset-info style="font-size:0.68rem;opacity:0.55;margin:-2px 0 4px;letter-spacing:0.03em;">${_reverbPresetInfo(state.convReverbPreset ?? 'room')}</div>
-        ${sliderHTML('MIX',   'convReverbMix',      'global', 0,   1,   0.01, state.convReverbMix      ?? 0.3)}
-        ${sliderHTML('PRE',   'convReverbPreDelay', 'global', 0,   100, 1,    state.convReverbPreDelay ?? 0)}
-      `)}
+        ${sliderHTML('MIX', 'convReverbMix', 'global', 0, 1, 0.01, state.convReverbMix ?? 0.3)}
+        ${sliderHTML('PRE', 'convReverbPreDelay', 'global', 0, 100, 1, state.convReverbPreDelay ?? 0)}
+      `,
+      )}
 
-      ${cardHTML('DELAY', `
+      ${cardHTML(
+        'DELAY',
+        `
         <div class="fx-sync-header">
           <span class="fx-sync-label">TIME</span>
           <button class="fx-sync-btn${(state.delaySyncEnabled ?? false) ? ' active' : ''}"
                   data-delay-sync-toggle>SYNC</button>
         </div>
         <div data-delay-time-row>
-          ${!(state.delaySyncEnabled ?? false) ? `
+          ${
+            !(state.delaySyncEnabled ?? false)
+              ? `
             ${sliderHTML('', 'delayTime', 'global', 0.001, 1.0, 0.001, state.delayTime ?? 0.28)}
-          ` : `
+          `
+              : `
             <div class="fx-type-row fx-sync-divs" data-group="delay-sync-div">
-              ${DELAY_SYNC_DIVS.map(d => `
+              ${DELAY_SYNC_DIVS.map(
+                (d) => `
                 <button class="fx-type-btn${(state.delaySyncDiv ?? '1/8') === d ? ' active' : ''}"
                         data-delay-sync-div="${d}">${d}</button>
-              `).join('')}
+              `,
+              ).join('')}
             </div>
-          `}
+          `
+          }
         </div>
-        ${sliderHTML('FDBK',   'delayFeedback',  'global', 0,   0.85,   0.01,  state.delayFeedback  ?? 0.38)}
-        ${sliderHTML('FILT',   'delayFilterFreq','global', 500, 10000,  100,   state.delayFilterFreq ?? 6000)}
-        ${sliderHTML('MIX',    'delayWet',        'global', 0,  1,      0.01,  state.delayWet       ?? 0.3)}
-      `)}
+        ${sliderHTML('FDBK', 'delayFeedback', 'global', 0, 0.85, 0.01, state.delayFeedback ?? 0.38)}
+        ${sliderHTML('FILT', 'delayFilterFreq', 'global', 500, 10000, 100, state.delayFilterFreq ?? 6000)}
+        ${sliderHTML('MIX', 'delayWet', 'global', 0, 1, 0.01, state.delayWet ?? 0.3)}
+      `,
+      )}
 
-      ${cardHTML('CHORUS', `
-        ${sliderHTML('RATE',  'chorusRate',  'chorus', 0.1, 8,    0.1,  state.chorusRate  ?? 0.5)}
-        ${sliderHTML('DEPTH', 'chorusDepth', 'chorus', 0,   1,    0.01, state.chorusDepth ?? 0.25)}
-        ${sliderHTML('MIX',   'chorusMix',   'chorus', 0,   1,    0.01, state.chorusMix   ?? 0)}
-        ${sliderHTML('WIDTH', 'chorusWidth', 'chorus', 0,   1,    0.01, state.chorusWidth ?? 0.5)}
-      `)}
+      ${cardHTML(
+        'CHORUS',
+        `
+        ${sliderHTML('RATE', 'chorusRate', 'chorus', 0.1, 8, 0.1, state.chorusRate ?? 0.5)}
+        ${sliderHTML('DEPTH', 'chorusDepth', 'chorus', 0, 1, 0.01, state.chorusDepth ?? 0.25)}
+        ${sliderHTML('MIX', 'chorusMix', 'chorus', 0, 1, 0.01, state.chorusMix ?? 0)}
+        ${sliderHTML('WIDTH', 'chorusWidth', 'chorus', 0, 1, 0.01, state.chorusWidth ?? 0.5)}
+      `,
+      )}
 
-      ${cardHTML('MASTER', `
-        ${sliderHTML('DRIVE', 'masterDrive', 'global', 0, 1,    0.01, state.masterDrive ?? 0)}
-        ${sliderHTML('LEVEL', 'masterLevel', 'global', 0, 1,    0.01, state.masterLevel ?? 0.82)}
+      ${cardHTML(
+        'MASTER',
+        `
+        ${sliderHTML('DRIVE', 'masterDrive', 'global', 0, 1, 0.01, state.masterDrive ?? 0)}
+        ${sliderHTML('LEVEL', 'masterLevel', 'global', 0, 1, 0.01, state.masterLevel ?? 0.82)}
         <div style="font-family:var(--font-mono);font-size:0.5rem;color:var(--muted);text-transform:uppercase;margin:6px 0 2px">MASTER EQ</div>
         <div class="eq-band-row">
-          ${eqBandHTML('Low',  'masterEqLow',  state.masterEqLow  ?? 0, 'masterEQ')}
-          ${eqBandHTML('Mid',  'masterEqMid',  state.masterEqMid  ?? 0, 'masterEQ')}
+          ${eqBandHTML('Low', 'masterEqLow', state.masterEqLow ?? 0, 'masterEQ')}
+          ${eqBandHTML('Mid', 'masterEqMid', state.masterEqMid ?? 0, 'masterEQ')}
           ${eqBandHTML('High', 'masterEqHigh', state.masterEqHigh ?? 0, 'masterEQ')}
         </div>
-      `)}
+      `,
+      )}
     `;
 
     // ── Sidechain card (appended to right column after innerHTML is set) ──────
     const sc = state.sidechainConfig ?? {};
-    const scSource    = sc.source    ?? -1;
-    const scTarget    = sc.target    ?? -1;
+    const scSource = sc.source ?? -1;
+    const scTarget = sc.target ?? -1;
     const scThreshold = sc.threshold ?? -18;
-    const scRatio     = sc.ratio     ?? 4;
-    const scAttack    = sc.attack    ?? 10;
-    const scRelease   = sc.release   ?? 100;
-    const scEnabled   = sc.enabled   ?? false;
+    const scRatio = sc.ratio ?? 4;
+    const scAttack = sc.attack ?? 10;
+    const scRelease = sc.release ?? 100;
+    const scEnabled = sc.enabled ?? false;
 
     const scCard = document.createElement('div');
     scCard.className = 'page-card';
@@ -567,14 +597,14 @@ export default {
         <span style="min-width:52px;font-size:0.52rem;color:var(--muted)">SOURCE</span>
         <select data-sc-param="source" style="flex:1;font-family:var(--font-mono);font-size:0.52rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px">
           <option value="-1"${scSource === -1 ? ' selected' : ''}>None</option>
-          ${[0,1,2,3,4,5,6,7].map(i => `<option value="${i}"${scSource === i ? ' selected' : ''}>T${i+1}</option>`).join('')}
+          ${[0, 1, 2, 3, 4, 5, 6, 7].map((i) => `<option value="${i}"${scSource === i ? ' selected' : ''}>T${i + 1}</option>`).join('')}
         </select>
       </div>
       <div class="fx-row" style="align-items:center;gap:6px;margin-bottom:6px">
         <span style="min-width:52px;font-size:0.52rem;color:var(--muted)">TARGET</span>
         <select data-sc-param="target" style="flex:1;font-family:var(--font-mono);font-size:0.52rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 4px">
           <option value="-1"${scTarget === -1 ? ' selected' : ''}>All Tracks</option>
-          ${[0,1,2,3,4,5,6,7].map(i => `<option value="${i}"${scTarget === i ? ' selected' : ''}>Group ${i+1}</option>`).join('')}
+          ${[0, 1, 2, 3, 4, 5, 6, 7].map((i) => `<option value="${i}"${scTarget === i ? ' selected' : ''}>Group ${i + 1}</option>`).join('')}
         </select>
       </div>
       <label class="fx-row">
@@ -610,8 +640,12 @@ export default {
     presetBar.style.cssText = 'display:flex;gap:4px;align-items:center;margin-bottom:8px;flex-shrink:0;flex-wrap:wrap';
 
     const BUILTIN_PRESETS = [
-      { name: 'Clean', values: { eqLow: 0, eqMid: 0, eqHigh: 0, convReverbMix: 0, delayWet: 0, chorusMix: 0 }, comp: { threshold: -18 } },
-      { name: 'Warm',  values: { eqLow: 3, eqMid: -1, eqHigh: -2, convReverbMix: 0.1 }, comp: { threshold: -20 } },
+      {
+        name: 'Clean',
+        values: { eqLow: 0, eqMid: 0, eqHigh: 0, convReverbMix: 0, delayWet: 0, chorusMix: 0 },
+        comp: { threshold: -18 },
+      },
+      { name: 'Warm', values: { eqLow: 3, eqMid: -1, eqHigh: -2, convReverbMix: 0.1 }, comp: { threshold: -20 } },
       { name: 'Space', values: { convReverbMix: 0.4, delayWet: 0.2, chorusMix: 0.15, chorusDepth: 0.5 }, comp: {} },
       { name: 'Punch', values: { eqLow: 2 }, comp: { threshold: -24, ratio: 8, attack: 0.001, release: 0.1 } },
       { name: 'Lo-Fi', values: { eqHigh: -6, convReverbMix: 0.05 }, track: { bitDepth: 8, srDiv: 4 } },
@@ -703,14 +737,14 @@ export default {
       state.customFxPresets.push({
         name,
         values: {
-          eqLow:     t.eqLow     ?? 0,
-          eqMid:     t.eqMid     ?? 0,
-          eqHigh:    t.eqHigh    ?? 0,
-          convReverbMix: state.convReverbMix  ?? 0.3,
-          delayWet:  state.delayWet   ?? 0.3,
-          chorusMix: state.chorusMix  ?? 0,
-          bitDepth:  t.bitDepth  ?? 16,
-          srDiv:     t.srDiv     ?? 1,
+          eqLow: t.eqLow ?? 0,
+          eqMid: t.eqMid ?? 0,
+          eqHigh: t.eqHigh ?? 0,
+          convReverbMix: state.convReverbMix ?? 0.3,
+          delayWet: state.delayWet ?? 0.3,
+          chorusMix: state.chorusMix ?? 0,
+          bitDepth: t.bitDepth ?? 16,
+          srDiv: t.srDiv ?? 1,
         },
       });
       saveState(state);
@@ -728,7 +762,9 @@ export default {
     const bypassBtn = document.createElement('button');
     bypassBtn.className = 'seq-btn' + (_bypassed ? ' active' : '');
     bypassBtn.textContent = _bypassed ? '⚡ FX BYPASSED' : 'BYPASS ALL FX';
-    bypassBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;' + (_bypassed ? 'border-color:var(--record);color:var(--record)' : '');
+    bypassBtn.style.cssText =
+      'font-family:var(--font-mono);font-size:0.52rem;' +
+      (_bypassed ? 'border-color:var(--record);color:var(--record)' : '');
     bypassBtn.title = 'Bypass all global FX (reverb, delay, chorus)';
 
     bypassBtn.addEventListener('click', () => {
@@ -738,25 +774,26 @@ export default {
         // Store current values and mute wet signals
         _bypassStore = {
           convReverbMix: state.convReverbMix ?? 0.3,
-          delayWet:      state.delayWet      ?? 0.3,
-          chorusMix:     state.chorusMix     ?? 0,
+          delayWet: state.delayWet ?? 0.3,
+          chorusMix: state.chorusMix ?? 0,
         };
         if (eng?.setReverbConvMix) eng.setReverbConvMix(0);
-        if (eng?.setDelayMix)      eng.setDelayMix(0);
-        if (eng?.setChorusMix)     eng.setChorusMix(0);
-        if (eng?.setDelayMix2)     eng.setDelayMix2(0);
+        if (eng?.setDelayMix) eng.setDelayMix(0);
+        if (eng?.setChorusMix) eng.setChorusMix(0);
+        if (eng?.setDelayMix2) eng.setDelayMix2(0);
         bypassBtn.textContent = 'FX BYPASSED';
-        bypassBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;border-color:var(--record);color:var(--record)';
+        bypassBtn.style.cssText =
+          'font-family:var(--font-mono);font-size:0.52rem;border-color:var(--record);color:var(--record)';
         bypassBtn.classList.add('active');
       } else {
         // Restore saved values
         const crv = _bypassStore.convReverbMix ?? state.convReverbMix ?? 0.3;
-        const dw  = _bypassStore.delayWet      ?? state.delayWet      ?? 0.3;
-        const cm  = _bypassStore.chorusMix     ?? state.chorusMix     ?? 0;
+        const dw = _bypassStore.delayWet ?? state.delayWet ?? 0.3;
+        const cm = _bypassStore.chorusMix ?? state.chorusMix ?? 0;
         if (eng?.setReverbConvMix) eng.setReverbConvMix(crv);
-        if (eng?.setDelayMix)      eng.setDelayMix(dw);
-        if (eng?.setChorusMix)     eng.setChorusMix(cm);
-        if (eng?.setDelayMix2)     eng.setDelayMix2(state.delayWet ?? 0.3);
+        if (eng?.setDelayMix) eng.setDelayMix(dw);
+        if (eng?.setChorusMix) eng.setChorusMix(cm);
+        if (eng?.setDelayMix2) eng.setDelayMix2(state.delayWet ?? 0.3);
         bypassBtn.textContent = 'BYPASS ALL FX';
         bypassBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem';
         bypassBtn.classList.remove('active');
@@ -765,10 +802,11 @@ export default {
 
     // Status bar — shows current reverb preset and delay time
     const statusBar = document.createElement('div');
-    statusBar.style.cssText = 'font-family:var(--font-mono);font-size:0.5rem;color:var(--muted);letter-spacing:0.04em;display:flex;gap:10px;align-items:center';
+    statusBar.style.cssText =
+      'font-family:var(--font-mono);font-size:0.5rem;color:var(--muted);letter-spacing:0.04em;display:flex;gap:10px;align-items:center';
     const _cvPreset = state.convReverbPreset ?? 'room';
-    const _dtSec    = state.delayTime ?? 0.28;
-    const _dtMs     = Math.round(_dtSec * 1000);
+    const _dtSec = state.delayTime ?? 0.28;
+    const _dtMs = Math.round(_dtSec * 1000);
     statusBar.innerHTML =
       `<span>REV: <span style="color:var(--screen-text)">${_cvPreset.toUpperCase()}</span></span>` +
       `<span>DLY: <span style="color:var(--screen-text)">${_dtMs}ms</span></span>` +
@@ -781,12 +819,12 @@ export default {
     const compCard = container.querySelector('[data-card="compressor"]');
     if (compCard) {
       const grCanvas = document.createElement('canvas');
-      grCanvas.width = 8; grCanvas.height = 60;
+      grCanvas.width = 8;
+      grCanvas.height = 60;
       grCanvas.style.cssText = 'position:absolute;right:4px;top:24px;border-radius:2px;background:#111';
       compCard.style.position = 'relative';
       compCard.append(grCanvas);
 
-      let grRaf;
       function drawGR() {
         const reduction = state.engine?.masterCompressor?.reduction ?? 0;
         const ctx2d = grCanvas.getContext('2d');
@@ -794,11 +832,12 @@ export default {
         const h = Math.min(60, (Math.abs(reduction) / 20) * 60);
         if (h > 0) {
           const g = ctx2d.createLinearGradient(0, 60 - h, 0, 60);
-          g.addColorStop(0, '#f44'); g.addColorStop(1, '#4f4');
+          g.addColorStop(0, '#f44');
+          g.addColorStop(1, '#4f4');
           ctx2d.fillStyle = g;
           ctx2d.fillRect(0, 60 - h, 8, h);
         }
-        if (container.isConnected) grRaf = requestAnimationFrame(drawGR);
+        if (container.isConnected) requestAnimationFrame(drawGR);
       }
       drawGR();
     }
@@ -810,13 +849,7 @@ export default {
       if (!eqCanvas) return;
       // Sync slider displays with current track values
       _syncEQSliderDisplays(container, track);
-      drawEQCanvas(
-        eqCanvas,
-        track.eqLow     ?? 0,
-        track.eqMid     ?? 0,
-        track.eqHigh    ?? 0,
-        track.eqMidFreq ?? 1000
-      );
+      drawEQCanvas(eqCanvas, track.eqLow ?? 0, track.eqMid ?? 0, track.eqHigh ?? 0, track.eqMidFreq ?? 1000);
     }
 
     // Draw once layout is settled — double-rAF ensures the canvas has real
@@ -830,12 +863,12 @@ export default {
     eqCanvas._resizeObs = _resizeObs;
 
     // Drag start
-    eqCanvas.addEventListener('pointerdown', e => {
+    eqCanvas.addEventListener('pointerdown', (e) => {
       _eqPointerDown(e, eqCanvas, track, state, emit, redrawEQ);
     });
 
     // ── Slider / input events ────────────────────────────────────────────────
-    container.addEventListener('input', e => {
+    container.addEventListener('input', (e) => {
       const input = e.target;
       if (input.tagName !== 'INPUT' || input.type !== 'range') return;
       const { param, scope } = input.dataset;
@@ -881,9 +914,9 @@ export default {
         if (out) out.textContent = Number(v).toFixed(step < 1 ? 2 : 0);
         state[param] = v;
         const eng = window._confustudioEngine;
-        if (param === 'chorusRate'  && eng?.setChorusRate)  eng.setChorusRate(v);
+        if (param === 'chorusRate' && eng?.setChorusRate) eng.setChorusRate(v);
         if (param === 'chorusDepth' && eng?.setChorusDepth) eng.setChorusDepth(v);
-        if (param === 'chorusMix'   && eng?.setChorusMix)   eng.setChorusMix(v);
+        if (param === 'chorusMix' && eng?.setChorusMix) eng.setChorusMix(v);
         if (param === 'chorusWidth' && eng?.setChorusWidth) eng.setChorusWidth(v);
         saveState(state);
         return;
@@ -893,9 +926,9 @@ export default {
         const out = container.querySelector(`[data-comp-out="${param}"]`);
         if (out) {
           let displayed;
-          if (param === 'attack')  displayed = (v * 1000).toFixed(1) + ' ms';
+          if (param === 'attack') displayed = (v * 1000).toFixed(1) + ' ms';
           else if (param === 'release') displayed = (v * 1000).toFixed(0) + ' ms';
-          else if (param === 'ratio')   displayed = Number(v).toFixed(1) + ' :1';
+          else if (param === 'ratio') displayed = Number(v).toFixed(1) + ' :1';
           else if (param === 'threshold' || param === 'knee') displayed = Number(v).toFixed(0) + ' dB';
           else displayed = String(v);
           out.textContent = displayed;
@@ -922,15 +955,15 @@ export default {
       saveState(state);
     });
 
-    container.addEventListener('click', e => {
+    container.addEventListener('click', (e) => {
       // ── Filter type ─────────────────────────────────────────────────────────
       const filterBtn = e.target.closest('[data-filter-type]');
       if (filterBtn) {
         const ft = filterBtn.dataset.filterType;
         track.filterType = ft;
-        container.querySelectorAll('[data-filter-type]').forEach(b =>
-          b.classList.toggle('active', b.dataset.filterType === ft)
-        );
+        container
+          .querySelectorAll('[data-filter-type]')
+          .forEach((b) => b.classList.toggle('active', b.dataset.filterType === ft));
         emit('track:change', { trackIndex: state.selectedTrackIndex, param: 'filterType', value: ft });
         saveState(state);
         return;
@@ -941,9 +974,9 @@ export default {
       if (convReverbBtn) {
         const cp = convReverbBtn.dataset.convReverbPreset;
         state.convReverbPreset = cp;
-        container.querySelectorAll('[data-conv-reverb-preset]').forEach(b =>
-          b.classList.toggle('active', b.dataset.convReverbPreset === cp)
-        );
+        container
+          .querySelectorAll('[data-conv-reverb-preset]')
+          .forEach((b) => b.classList.toggle('active', b.dataset.convReverbPreset === cp));
         const eng = window._confustudioEngine ?? state.engine;
         if (eng?.setReverbConvPreset) eng.setReverbConvPreset(cp);
         // Apply default mix for this preset
@@ -968,10 +1001,12 @@ export default {
           if (state.delaySyncEnabled) {
             timeRow.innerHTML = `
               <div class="fx-type-row fx-sync-divs" data-group="delay-sync-div">
-                ${DELAY_SYNC_DIVS.map(d => `
+                ${DELAY_SYNC_DIVS.map(
+                  (d) => `
                   <button class="fx-type-btn${(state.delaySyncDiv ?? '1/8') === d ? ' active' : ''}"
                           data-delay-sync-div="${d}">${d}</button>
-                `).join('')}
+                `,
+                ).join('')}
               </div>`;
             const bpm = state.bpm ?? 120;
             const t = calcSyncDelayTime(bpm, state.delaySyncDiv ?? '1/8');
@@ -990,9 +1025,9 @@ export default {
       if (syncDivBtn) {
         const div = syncDivBtn.dataset.delaySyncDiv;
         state.delaySyncDiv = div;
-        container.querySelectorAll('[data-delay-sync-div]').forEach(b =>
-          b.classList.toggle('active', b.dataset.delaySyncDiv === div)
-        );
+        container
+          .querySelectorAll('[data-delay-sync-div]')
+          .forEach((b) => b.classList.toggle('active', b.dataset.delaySyncDiv === div));
         const bpm = state.bpm ?? 120;
         const t = calcSyncDelayTime(bpm, div);
         state.delayTime = t;
@@ -1010,16 +1045,17 @@ export default {
         scEnableBtn.classList.toggle('active', state.sidechainConfig.enabled);
         scEnableBtn.textContent = state.sidechainConfig.enabled ? 'ON' : 'OFF';
         const duckDot = container.querySelector('[data-sc-duck]');
-        if (duckDot) duckDot.style.background = state.sidechainConfig.enabled ? 'var(--record)' : 'rgba(255,255,255,0.1)';
+        if (duckDot)
+          duckDot.style.background = state.sidechainConfig.enabled ? 'var(--record)' : 'rgba(255,255,255,0.1)';
         const scSrc = state.sidechainConfig.source ?? -1;
         const eng4 = window._confustudioEngine ?? state.engine;
         if (state.sidechainConfig.enabled) {
           eng4?.setSidechainSource?.(scSrc);
           eng4?.setSidechainConfig?.({
             threshold: state.sidechainConfig.threshold ?? -18,
-            ratio:     state.sidechainConfig.ratio     ?? 4,
-            attack:    state.sidechainConfig.attack    ?? 10,
-            release:   state.sidechainConfig.release   ?? 100,
+            ratio: state.sidechainConfig.ratio ?? 4,
+            attack: state.sidechainConfig.attack ?? 10,
+            release: state.sidechainConfig.release ?? 100,
           });
         } else {
           eng4?.setSidechainSource?.(-1);
@@ -1032,18 +1068,18 @@ export default {
     // ── Sidechain knob/select changes ─────────────────────────────────────────
     const scCard2 = container.querySelector('[data-card="sidechain"]');
     if (scCard2) {
-      scCard2.addEventListener('input', e => {
+      scCard2.addEventListener('input', (e) => {
         const el = e.target;
         const param = el.dataset.scParam;
         if (!param) return;
         if (!state.sidechainConfig) state.sidechainConfig = {};
-        const v = (el.tagName === 'SELECT') ? parseInt(el.value, 10) : parseFloat(el.value);
+        const v = el.tagName === 'SELECT' ? parseInt(el.value, 10) : parseFloat(el.value);
         state.sidechainConfig[param] = v;
         // Update output label
         const out = scCard2.querySelector(`[data-sc-out="${param}"]`);
         if (out) {
           if (param === 'threshold') out.textContent = `${v} dB`;
-          else if (param === 'ratio')   out.textContent = `${v}:1`;
+          else if (param === 'ratio') out.textContent = `${v}:1`;
           else if (param === 'attack' || param === 'release') out.textContent = `${v} ms`;
         }
         const eng5 = window._confustudioEngine ?? state.engine;
@@ -1052,9 +1088,9 @@ export default {
         } else {
           eng5?.setSidechainConfig?.({
             threshold: state.sidechainConfig.threshold ?? -18,
-            ratio:     state.sidechainConfig.ratio     ?? 4,
-            attack:    state.sidechainConfig.attack    ?? 10,
-            release:   state.sidechainConfig.release   ?? 100,
+            ratio: state.sidechainConfig.ratio ?? 4,
+            attack: state.sidechainConfig.attack ?? 10,
+            release: state.sidechainConfig.release ?? 100,
           });
         }
         saveState(state);
@@ -1087,14 +1123,14 @@ export default {
   },
 
   knobMap: [
-    { label: 'RevRoom', param: 'reverbSize',    min: 0.1,  max: 0.98, step: 0.01 },
-    { label: 'RevDamp', param: 'reverbDamping', min: 0,    max: 1,    step: 0.01 },
-    { label: 'RevMix',  param: 'convReverbMix', min: 0,    max: 1,    step: 0.01 },
-    { label: 'DlyTime', param: 'delayTime',     min: 0.01, max: 1.4,  step: 0.01 },
-    { label: 'DlyFb',   param: 'delayFeedback', min: 0,    max: 0.95, step: 0.01 },
-    { label: 'ChrRate', param: 'chorusRate',    min: 0.1,  max: 8,    step: 0.1  },
-    { label: 'ChrMix',  param: 'chorusMix',     min: 0,    max: 1,    step: 0.01 },
-    { label: 'Drive',   param: 'masterDrive',   min: 0,    max: 1,    step: 0.01 },
+    { label: 'RevRoom', param: 'reverbSize', min: 0.1, max: 0.98, step: 0.01 },
+    { label: 'RevDamp', param: 'reverbDamping', min: 0, max: 1, step: 0.01 },
+    { label: 'RevMix', param: 'convReverbMix', min: 0, max: 1, step: 0.01 },
+    { label: 'DlyTime', param: 'delayTime', min: 0.01, max: 1.4, step: 0.01 },
+    { label: 'DlyFb', param: 'delayFeedback', min: 0, max: 0.95, step: 0.01 },
+    { label: 'ChrRate', param: 'chorusRate', min: 0.1, max: 8, step: 0.1 },
+    { label: 'ChrMix', param: 'chorusMix', min: 0, max: 1, step: 0.01 },
+    { label: 'Drive', param: 'masterDrive', min: 0, max: 1, step: 0.01 },
   ],
 
   keyboardContext: 'fx',
@@ -1127,12 +1163,21 @@ function _syncEQSliderDisplays(container, track) {
 function _applyGlobal(param, v, state) {
   const eng = window._confustudioEngine ?? state.engine;
   if (!eng) return;
-  if (param === 'delayTime'         && eng.setDelayTime)        { eng.setDelayTime(v); eng.setDelayTime2?.(v); }
-  if (param === 'delayFeedback'     && eng.setDelayFeedback)    { eng.setDelayFeedback(v); eng.setDelayFeedback2?.(v); }
-  if (param === 'delayFilterFreq'   && eng.setDelayFilter2)     eng.setDelayFilter2(v);
-  if (param === 'delayWet'          && eng.setDelayMix)         { eng.setDelayMix(v); eng.setDelayMix2?.(v); }
-  if (param === 'masterLevel'       && eng.setMasterLevel)      eng.setMasterLevel(v);
-  if (param === 'convReverbMix'     && eng.setReverbConvMix)    eng.setReverbConvMix(v);
-  if (param === 'convReverbPreDelay'&& eng.setReverbPreDelay)   eng.setReverbPreDelay(v);
-  if (param === 'masterDrive'       && eng.setMasterDrive)      eng.setMasterDrive(v);
+  if (param === 'delayTime' && eng.setDelayTime) {
+    eng.setDelayTime(v);
+    eng.setDelayTime2?.(v);
+  }
+  if (param === 'delayFeedback' && eng.setDelayFeedback) {
+    eng.setDelayFeedback(v);
+    eng.setDelayFeedback2?.(v);
+  }
+  if (param === 'delayFilterFreq' && eng.setDelayFilter2) eng.setDelayFilter2(v);
+  if (param === 'delayWet' && eng.setDelayMix) {
+    eng.setDelayMix(v);
+    eng.setDelayMix2?.(v);
+  }
+  if (param === 'masterLevel' && eng.setMasterLevel) eng.setMasterLevel(v);
+  if (param === 'convReverbMix' && eng.setReverbConvMix) eng.setReverbConvMix(v);
+  if (param === 'convReverbPreDelay' && eng.setReverbPreDelay) eng.setReverbPreDelay(v);
+  if (param === 'masterDrive' && eng.setMasterDrive) eng.setMasterDrive(v);
 }

@@ -34,10 +34,8 @@ export async function captureRecorderSlot(state, slotIndex, options = {}, deps) 
   const bars = options.bars ?? state.recorderBarCount ?? 4;
   const durationMs = getRecorderDurationMs(state, bars);
   const mediaDest = state.audioContext.createMediaStreamDestination();
-  const mimeType = [
-    'audio/webm;codecs=opus',
-    'audio/webm',
-  ].find((type) => window.MediaRecorder?.isTypeSupported?.(type)) || '';
+  const mimeType =
+    ['audio/webm;codecs=opus', 'audio/webm'].find((type) => window.MediaRecorder?.isTypeSupported?.(type)) || '';
 
   state.engine.master.connect(mediaDest);
   const recorder = new MediaRecorder(mediaDest.stream, mimeType ? { mimeType } : undefined);
@@ -50,13 +48,17 @@ export async function captureRecorderSlot(state, slotIndex, options = {}, deps) 
     };
     recorder.onerror = () => {
       state._recorderCaptureActive = null;
-      try { state.engine.master.disconnect(mediaDest); } catch (_) {}
+      try {
+        state.engine.master.disconnect(mediaDest);
+      } catch (_) {}
       showToast('Capture failed');
       resolve(false);
     };
     recorder.onstop = async () => {
       state._recorderCaptureActive = null;
-      try { state.engine.master.disconnect(mediaDest); } catch (_) {}
+      try {
+        state.engine.master.disconnect(mediaDest);
+      } catch (_) {}
       const blob = new Blob(chunks, { type: mimeType || 'audio/webm' });
       if (!blob.size) {
         showToast('Capture empty');

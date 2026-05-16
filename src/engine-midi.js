@@ -14,7 +14,7 @@ export async function initMidi() {
       access.outputs.forEach((output) => midiOutputs.push(output));
     };
   } catch (err) {
-    console.warn("WebMIDI unavailable:", err);
+    console.warn('WebMIDI unavailable:', err);
   }
 }
 
@@ -24,11 +24,11 @@ export function getMidiOutputById(id) {
 }
 
 export function attachMidiMethods(proto) {
-  proto.setBpm = function(bpm) {
+  proto.setBpm = function (bpm) {
     this._bpm = bpm;
   };
 
-  proto.sendMidiNote = function(track, note, velocity, durationSec) {
+  proto.sendMidiNote = function (track, note, velocity, durationSec) {
     if (!this.midiOutput) return;
     const ch = ((track.midiChannel ?? this.midiChannel ?? 1) - 1) & 0xf;
     const vel = Math.round(velocity * 127);
@@ -36,28 +36,31 @@ export function attachMidiMethods(proto) {
     setTimeout(() => this.midiOutput.send([0x80 | ch, note, 0]), durationSec * 1000);
   };
 
-  proto.startMidiClock = function(bpm) {
+  proto.startMidiClock = function (bpm) {
     this.stopMidiClock(); // clear any existing clock
     if (!this.midiOutput) return;
 
-    const intervalMs = (60000 / bpm) / 24;
+    const intervalMs = 60000 / bpm / 24;
     let nextTick = performance.now();
 
     this.sendMidiStart();
 
-    this._midiClockInterval = setInterval(() => {
-      const now = performance.now();
-      // Drift correction: fire immediately if we're behind, stay on schedule
-      if (now >= nextTick) {
-        if (this.midiOutput) this.midiOutput.send([0xf8]);
-        nextTick += intervalMs;
-        // If we've drifted more than one interval behind, resync
-        if (nextTick < now) nextTick = now + intervalMs;
-      }
-    }, Math.max(1, intervalMs * 0.5)); // poll at ~2x rate for accuracy
+    this._midiClockInterval = setInterval(
+      () => {
+        const now = performance.now();
+        // Drift correction: fire immediately if we're behind, stay on schedule
+        if (now >= nextTick) {
+          if (this.midiOutput) this.midiOutput.send([0xf8]);
+          nextTick += intervalMs;
+          // If we've drifted more than one interval behind, resync
+          if (nextTick < now) nextTick = now + intervalMs;
+        }
+      },
+      Math.max(1, intervalMs * 0.5),
+    ); // poll at ~2x rate for accuracy
   };
 
-  proto.stopMidiClock = function() {
+  proto.stopMidiClock = function () {
     if (this._midiClockInterval !== null) {
       clearInterval(this._midiClockInterval);
       this._midiClockInterval = null;
@@ -65,15 +68,15 @@ export function attachMidiMethods(proto) {
     this.sendMidiStop();
   };
 
-  proto.sendMidiStart = function() {
+  proto.sendMidiStart = function () {
     if (this.midiOutput) this.midiOutput.send([0xfa]);
   };
 
-  proto.sendMidiStop = function() {
+  proto.sendMidiStop = function () {
     if (this.midiOutput) this.midiOutput.send([0xfc]);
   };
 
-  proto.setMidiOutput = function(output) {
+  proto.setMidiOutput = function (output) {
     this.midiOutput = output || null;
     return this.midiOutput;
   };

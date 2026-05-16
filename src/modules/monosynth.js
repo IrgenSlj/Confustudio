@@ -6,118 +6,322 @@ export function createMonosynth(audioContext) {
   // ── Params ─────────────────────────────────────────────────────────────────
   const params = {
     // VCO
-    vco1Wave: 'sawtooth', vco1Octave: 2, vco1Vol: 0.8,  // octave index 0=32',1=16',2=8',3=4'
-    vco2Wave: 'sawtooth', vco2Octave: 2, vco2Vol: 0.7, vco2Fine: 0,
-    vco3Wave: 'sawtooth', vco3Octave: 1, vco3Vol: 0.0, vco3Free: true,
+    vco1Wave: 'sawtooth',
+    vco1Octave: 2,
+    vco1Vol: 0.8, // octave index 0=32',1=16',2=8',3=4'
+    vco2Wave: 'sawtooth',
+    vco2Octave: 2,
+    vco2Vol: 0.7,
+    vco2Fine: 0,
+    vco3Wave: 'sawtooth',
+    vco3Octave: 1,
+    vco3Vol: 0.0,
+    vco3Free: true,
     subVol: 0.0,
     // Filter
-    cutoff: 4000, resonance: 0, filterEnvAmt: 0.5, keyTrack: 0.5,
+    cutoff: 4000,
+    resonance: 0,
+    filterEnvAmt: 0.5,
+    keyTrack: 0.5,
     // Filter ADSR
-    fAttack: 0.01, fDecay: 0.4, fSustain: 0.5, fRelease: 0.4,
+    fAttack: 0.01,
+    fDecay: 0.4,
+    fSustain: 0.5,
+    fRelease: 0.4,
     // VCA ADSR
-    vAttack: 0.005, vDecay: 0.3, vSustain: 0.7, vRelease: 0.4,
+    vAttack: 0.005,
+    vDecay: 0.3,
+    vSustain: 0.7,
+    vRelease: 0.4,
     velSens: 0.5,
     // LFO
-    lfoRate: 3.0, lfoWave: 'sine', lfoAmount: 0,
-    lfoToPitch: true, lfoToFilter: false,
+    lfoRate: 3.0,
+    lfoWave: 'sine',
+    lfoAmount: 0,
+    lfoToPitch: true,
+    lfoToFilter: false,
     // Master
-    volume: 0.75, glide: 0,
+    volume: 0.75,
+    glide: 0,
   };
 
   const OCTAVE_DIVS = [0.5, 1, 2, 4]; // 32', 16', 8', 4' — multiplier relative to 8' base
   const OCTAVE_LABELS = ["32'", "16'", "8'", "4'"];
   const WAVEFORMS = ['sawtooth', 'triangle', 'square'];
-  const WAVE_LABELS = ['SAW', 'TRI', 'SQR'];
 
   // ── Presets ────────────────────────────────────────────────────────────────
   const PRESETS = {
-    'Init': {
-      vco1Wave:'sawtooth', vco1Octave:2, vco1Vol:0.8,
-      vco2Wave:'sawtooth', vco2Octave:2, vco2Vol:0.0, vco2Fine:0,
-      vco3Wave:'sawtooth', vco3Octave:1, vco3Vol:0.0, vco3Free:true,
-      subVol:0.0,
-      cutoff:18000, resonance:0, filterEnvAmt:0, keyTrack:0,
-      fAttack:0.01, fDecay:0.3, fSustain:1.0, fRelease:0.3,
-      vAttack:0.005, vDecay:0.3, vSustain:1.0, vRelease:0.3, velSens:0.5,
-      lfoRate:3.0, lfoWave:'sine', lfoAmount:0, lfoToPitch:true, lfoToFilter:false,
-      volume:0.75, glide:0,
+    Init: {
+      vco1Wave: 'sawtooth',
+      vco1Octave: 2,
+      vco1Vol: 0.8,
+      vco2Wave: 'sawtooth',
+      vco2Octave: 2,
+      vco2Vol: 0.0,
+      vco2Fine: 0,
+      vco3Wave: 'sawtooth',
+      vco3Octave: 1,
+      vco3Vol: 0.0,
+      vco3Free: true,
+      subVol: 0.0,
+      cutoff: 18000,
+      resonance: 0,
+      filterEnvAmt: 0,
+      keyTrack: 0,
+      fAttack: 0.01,
+      fDecay: 0.3,
+      fSustain: 1.0,
+      fRelease: 0.3,
+      vAttack: 0.005,
+      vDecay: 0.3,
+      vSustain: 1.0,
+      vRelease: 0.3,
+      velSens: 0.5,
+      lfoRate: 3.0,
+      lfoWave: 'sine',
+      lfoAmount: 0,
+      lfoToPitch: true,
+      lfoToFilter: false,
+      volume: 0.75,
+      glide: 0,
     },
     'Fat Bass': {
-      vco1Wave:'sawtooth', vco1Octave:1, vco1Vol:0.9,
-      vco2Wave:'sawtooth', vco2Octave:1, vco2Vol:0.5, vco2Fine:7,
-      vco3Wave:'square',   vco3Octave:0, vco3Vol:0.0, vco3Free:false,
-      subVol:0.6,
-      cutoff:800, resonance:0.35, filterEnvAmt:0.6, keyTrack:0.2,
-      fAttack:0.005, fDecay:0.3, fSustain:0.2, fRelease:0.2,
-      vAttack:0.005, vDecay:0.35, vSustain:0.3, vRelease:0.2, velSens:0.6,
-      lfoRate:3.0, lfoWave:'sine', lfoAmount:0, lfoToPitch:false, lfoToFilter:false,
-      volume:0.8, glide:0,
+      vco1Wave: 'sawtooth',
+      vco1Octave: 1,
+      vco1Vol: 0.9,
+      vco2Wave: 'sawtooth',
+      vco2Octave: 1,
+      vco2Vol: 0.5,
+      vco2Fine: 7,
+      vco3Wave: 'square',
+      vco3Octave: 0,
+      vco3Vol: 0.0,
+      vco3Free: false,
+      subVol: 0.6,
+      cutoff: 800,
+      resonance: 0.35,
+      filterEnvAmt: 0.6,
+      keyTrack: 0.2,
+      fAttack: 0.005,
+      fDecay: 0.3,
+      fSustain: 0.2,
+      fRelease: 0.2,
+      vAttack: 0.005,
+      vDecay: 0.35,
+      vSustain: 0.3,
+      vRelease: 0.2,
+      velSens: 0.6,
+      lfoRate: 3.0,
+      lfoWave: 'sine',
+      lfoAmount: 0,
+      lfoToPitch: false,
+      lfoToFilter: false,
+      volume: 0.8,
+      glide: 0,
     },
-    'Lead': {
-      vco1Wave:'square', vco1Octave:2, vco1Vol:0.85,
-      vco2Wave:'square', vco2Octave:2, vco2Vol:0.4, vco2Fine:5,
-      vco3Wave:'square', vco3Octave:1, vco3Vol:0.0, vco3Free:true,
-      subVol:0.0,
-      cutoff:3000, resonance:0.3, filterEnvAmt:0.6, keyTrack:0.5,
-      fAttack:0.01, fDecay:0.4, fSustain:0.5, fRelease:0.3,
-      vAttack:0.01, vDecay:0.3, vSustain:0.8, vRelease:0.3, velSens:0.5,
-      lfoRate:5.5, lfoWave:'sine', lfoAmount:0.15, lfoToPitch:true, lfoToFilter:false,
-      volume:0.8, glide:0.05,
+    Lead: {
+      vco1Wave: 'square',
+      vco1Octave: 2,
+      vco1Vol: 0.85,
+      vco2Wave: 'square',
+      vco2Octave: 2,
+      vco2Vol: 0.4,
+      vco2Fine: 5,
+      vco3Wave: 'square',
+      vco3Octave: 1,
+      vco3Vol: 0.0,
+      vco3Free: true,
+      subVol: 0.0,
+      cutoff: 3000,
+      resonance: 0.3,
+      filterEnvAmt: 0.6,
+      keyTrack: 0.5,
+      fAttack: 0.01,
+      fDecay: 0.4,
+      fSustain: 0.5,
+      fRelease: 0.3,
+      vAttack: 0.01,
+      vDecay: 0.3,
+      vSustain: 0.8,
+      vRelease: 0.3,
+      velSens: 0.5,
+      lfoRate: 5.5,
+      lfoWave: 'sine',
+      lfoAmount: 0.15,
+      lfoToPitch: true,
+      lfoToFilter: false,
+      volume: 0.8,
+      glide: 0.05,
     },
-    'Sweep': {
-      vco1Wave:'sawtooth', vco1Octave:2, vco1Vol:0.85,
-      vco2Wave:'sawtooth', vco2Octave:2, vco2Vol:0.5, vco2Fine:-5,
-      vco3Wave:'sawtooth', vco3Octave:1, vco3Vol:0.3, vco3Free:false,
-      subVol:0.0,
-      cutoff:400, resonance:0.65, filterEnvAmt:0.85, keyTrack:0.3,
-      fAttack:1.2, fDecay:0.8, fSustain:0.3, fRelease:0.6,
-      vAttack:0.02, vDecay:0.3, vSustain:0.85, vRelease:0.5, velSens:0.4,
-      lfoRate:3.0, lfoWave:'sine', lfoAmount:0, lfoToPitch:false, lfoToFilter:false,
-      volume:0.8, glide:0,
+    Sweep: {
+      vco1Wave: 'sawtooth',
+      vco1Octave: 2,
+      vco1Vol: 0.85,
+      vco2Wave: 'sawtooth',
+      vco2Octave: 2,
+      vco2Vol: 0.5,
+      vco2Fine: -5,
+      vco3Wave: 'sawtooth',
+      vco3Octave: 1,
+      vco3Vol: 0.3,
+      vco3Free: false,
+      subVol: 0.0,
+      cutoff: 400,
+      resonance: 0.65,
+      filterEnvAmt: 0.85,
+      keyTrack: 0.3,
+      fAttack: 1.2,
+      fDecay: 0.8,
+      fSustain: 0.3,
+      fRelease: 0.6,
+      vAttack: 0.02,
+      vDecay: 0.3,
+      vSustain: 0.85,
+      vRelease: 0.5,
+      velSens: 0.4,
+      lfoRate: 3.0,
+      lfoWave: 'sine',
+      lfoAmount: 0,
+      lfoToPitch: false,
+      lfoToFilter: false,
+      volume: 0.8,
+      glide: 0,
     },
-    'Acid': {
-      vco1Wave:'square', vco1Octave:2, vco1Vol:0.9,
-      vco2Wave:'square', vco2Octave:2, vco2Vol:0.0, vco2Fine:0,
-      vco3Wave:'square', vco3Octave:1, vco3Vol:0.0, vco3Free:true,
-      subVol:0.0,
-      cutoff:600, resonance:0.75, filterEnvAmt:0.8, keyTrack:0.0,
-      fAttack:0.002, fDecay:0.2, fSustain:0.0, fRelease:0.1,
-      vAttack:0.002, vDecay:0.25, vSustain:0.0, vRelease:0.1, velSens:0.7,
-      lfoRate:3.0, lfoWave:'sine', lfoAmount:0, lfoToPitch:false, lfoToFilter:false,
-      volume:0.85, glide:0.03,
+    Acid: {
+      vco1Wave: 'square',
+      vco1Octave: 2,
+      vco1Vol: 0.9,
+      vco2Wave: 'square',
+      vco2Octave: 2,
+      vco2Vol: 0.0,
+      vco2Fine: 0,
+      vco3Wave: 'square',
+      vco3Octave: 1,
+      vco3Vol: 0.0,
+      vco3Free: true,
+      subVol: 0.0,
+      cutoff: 600,
+      resonance: 0.75,
+      filterEnvAmt: 0.8,
+      keyTrack: 0.0,
+      fAttack: 0.002,
+      fDecay: 0.2,
+      fSustain: 0.0,
+      fRelease: 0.1,
+      vAttack: 0.002,
+      vDecay: 0.25,
+      vSustain: 0.0,
+      vRelease: 0.1,
+      velSens: 0.7,
+      lfoRate: 3.0,
+      lfoWave: 'sine',
+      lfoAmount: 0,
+      lfoToPitch: false,
+      lfoToFilter: false,
+      volume: 0.85,
+      glide: 0.03,
     },
-    'Strings': {
-      vco1Wave:'sawtooth', vco1Octave:2, vco1Vol:0.7,
-      vco2Wave:'sawtooth', vco2Octave:2, vco2Vol:0.65, vco2Fine:8,
-      vco3Wave:'sawtooth', vco3Octave:2, vco3Vol:0.4, vco3Free:false,
-      subVol:0.0,
-      cutoff:5000, resonance:0.05, filterEnvAmt:0.1, keyTrack:0.5,
-      fAttack:0.5, fDecay:0.6, fSustain:0.9, fRelease:1.0,
-      vAttack:0.6, vDecay:0.4, vSustain:0.9, vRelease:1.2, velSens:0.35,
-      lfoRate:3.8, lfoWave:'sine', lfoAmount:0.2, lfoToPitch:true, lfoToFilter:false,
-      volume:0.75, glide:0.08,
+    Strings: {
+      vco1Wave: 'sawtooth',
+      vco1Octave: 2,
+      vco1Vol: 0.7,
+      vco2Wave: 'sawtooth',
+      vco2Octave: 2,
+      vco2Vol: 0.65,
+      vco2Fine: 8,
+      vco3Wave: 'sawtooth',
+      vco3Octave: 2,
+      vco3Vol: 0.4,
+      vco3Free: false,
+      subVol: 0.0,
+      cutoff: 5000,
+      resonance: 0.05,
+      filterEnvAmt: 0.1,
+      keyTrack: 0.5,
+      fAttack: 0.5,
+      fDecay: 0.6,
+      fSustain: 0.9,
+      fRelease: 1.0,
+      vAttack: 0.6,
+      vDecay: 0.4,
+      vSustain: 0.9,
+      vRelease: 1.2,
+      velSens: 0.35,
+      lfoRate: 3.8,
+      lfoWave: 'sine',
+      lfoAmount: 0.2,
+      lfoToPitch: true,
+      lfoToFilter: false,
+      volume: 0.75,
+      glide: 0.08,
     },
-    'Chords': {
-      vco1Wave:'sawtooth', vco1Octave:2, vco1Vol:0.8,
-      vco2Wave:'sawtooth', vco2Octave:2, vco2Vol:0.75, vco2Fine:12,
-      vco3Wave:'triangle', vco3Octave:3, vco3Vol:0.35, vco3Free:false,
-      subVol:0.0,
-      cutoff:3500, resonance:0.08, filterEnvAmt:0.15, keyTrack:0.4,
-      fAttack:0.05, fDecay:0.5, fSustain:0.8, fRelease:0.6,
-      vAttack:0.04, vDecay:0.3, vSustain:0.85, vRelease:0.6, velSens:0.4,
-      lfoRate:4.0, lfoWave:'sine', lfoAmount:0.1, lfoToPitch:true, lfoToFilter:false,
-      volume:0.75, glide:0,
+    Chords: {
+      vco1Wave: 'sawtooth',
+      vco1Octave: 2,
+      vco1Vol: 0.8,
+      vco2Wave: 'sawtooth',
+      vco2Octave: 2,
+      vco2Vol: 0.75,
+      vco2Fine: 12,
+      vco3Wave: 'triangle',
+      vco3Octave: 3,
+      vco3Vol: 0.35,
+      vco3Free: false,
+      subVol: 0.0,
+      cutoff: 3500,
+      resonance: 0.08,
+      filterEnvAmt: 0.15,
+      keyTrack: 0.4,
+      fAttack: 0.05,
+      fDecay: 0.5,
+      fSustain: 0.8,
+      fRelease: 0.6,
+      vAttack: 0.04,
+      vDecay: 0.3,
+      vSustain: 0.85,
+      vRelease: 0.6,
+      velSens: 0.4,
+      lfoRate: 4.0,
+      lfoWave: 'sine',
+      lfoAmount: 0.1,
+      lfoToPitch: true,
+      lfoToFilter: false,
+      volume: 0.75,
+      glide: 0,
     },
-    'Percussion': {
-      vco1Wave:'square', vco1Octave:2, vco1Vol:0.9,
-      vco2Wave:'square', vco2Octave:3, vco2Vol:0.5, vco2Fine:0,
-      vco3Wave:'square', vco3Octave:1, vco3Vol:0.0, vco3Free:true,
-      subVol:0.3,
-      cutoff:6000, resonance:0.2, filterEnvAmt:0.7, keyTrack:0.0,
-      fAttack:0.001, fDecay:0.12, fSustain:0.0, fRelease:0.05,
-      vAttack:0.001, vDecay:0.15, vSustain:0.0, vRelease:0.06, velSens:0.8,
-      lfoRate:3.0, lfoWave:'sine', lfoAmount:0, lfoToPitch:false, lfoToFilter:false,
-      volume:0.9, glide:0,
+    Percussion: {
+      vco1Wave: 'square',
+      vco1Octave: 2,
+      vco1Vol: 0.9,
+      vco2Wave: 'square',
+      vco2Octave: 3,
+      vco2Vol: 0.5,
+      vco2Fine: 0,
+      vco3Wave: 'square',
+      vco3Octave: 1,
+      vco3Vol: 0.0,
+      vco3Free: true,
+      subVol: 0.3,
+      cutoff: 6000,
+      resonance: 0.2,
+      filterEnvAmt: 0.7,
+      keyTrack: 0.0,
+      fAttack: 0.001,
+      fDecay: 0.12,
+      fSustain: 0.0,
+      fRelease: 0.05,
+      vAttack: 0.001,
+      vDecay: 0.15,
+      vSustain: 0.0,
+      vRelease: 0.06,
+      velSens: 0.8,
+      lfoRate: 3.0,
+      lfoWave: 'sine',
+      lfoAmount: 0,
+      lfoToPitch: false,
+      lfoToFilter: false,
+      volume: 0.9,
+      glide: 0,
     },
   };
 
@@ -144,51 +348,71 @@ export function createMonosynth(audioContext) {
 
   if (ctx) {
     // VCO1
-    vco1 = ctx.createOscillator(); vco1.type = params.vco1Wave;
-    vco1Gain = ctx.createGain(); vco1Gain.gain.value = params.vco1Vol;
+    vco1 = ctx.createOscillator();
+    vco1.type = params.vco1Wave;
+    vco1Gain = ctx.createGain();
+    vco1Gain.gain.value = params.vco1Vol;
     vco1.connect(vco1Gain);
     vco1.start();
 
     // VCO2
-    vco2 = ctx.createOscillator(); vco2.type = params.vco2Wave;
-    vco2Gain = ctx.createGain(); vco2Gain.gain.value = params.vco2Vol;
+    vco2 = ctx.createOscillator();
+    vco2.type = params.vco2Wave;
+    vco2Gain = ctx.createGain();
+    vco2Gain.gain.value = params.vco2Vol;
     vco2.detune.value = params.vco2Fine;
     vco2.connect(vco2Gain);
     vco2.start();
 
     // VCO3
-    vco3 = ctx.createOscillator(); vco3.type = params.vco3Wave;
-    vco3Gain = ctx.createGain(); vco3Gain.gain.value = params.vco3Vol;
+    vco3 = ctx.createOscillator();
+    vco3.type = params.vco3Wave;
+    vco3Gain = ctx.createGain();
+    vco3Gain.gain.value = params.vco3Vol;
     vco3.connect(vco3Gain);
     vco3.start();
 
     // Sub oscillator (square, one octave below VCO1)
-    subOsc = ctx.createOscillator(); subOsc.type = 'square';
-    subGain = ctx.createGain(); subGain.gain.value = params.subVol;
+    subOsc = ctx.createOscillator();
+    subOsc.type = 'square';
+    subGain = ctx.createGain();
+    subGain.gain.value = params.subVol;
     subOsc.connect(subGain);
     subOsc.start();
 
     // Oscillator sum
-    oscSum = ctx.createGain(); oscSum.gain.value = 0.35;
+    oscSum = ctx.createGain();
+    oscSum.gain.value = 0.35;
     vco1Gain.connect(oscSum);
     vco2Gain.connect(oscSum);
     vco3Gain.connect(oscSum);
     subGain.connect(oscSum);
 
     // Ladder filter: 4 cascaded lowpass biquads (24dB/oct approx)
-    filter1 = ctx.createBiquadFilter(); filter1.type = 'lowpass'; filter1.Q.value = 0.6;
-    filter2 = ctx.createBiquadFilter(); filter2.type = 'lowpass'; filter2.Q.value = 0.6;
-    filter3 = ctx.createBiquadFilter(); filter3.type = 'lowpass'; filter3.Q.value = 0.6;
-    filter4 = ctx.createBiquadFilter(); filter4.type = 'lowpass'; filter4.Q.value = 0.6;
+    filter1 = ctx.createBiquadFilter();
+    filter1.type = 'lowpass';
+    filter1.Q.value = 0.6;
+    filter2 = ctx.createBiquadFilter();
+    filter2.type = 'lowpass';
+    filter2.Q.value = 0.6;
+    filter3 = ctx.createBiquadFilter();
+    filter3.type = 'lowpass';
+    filter3.Q.value = 0.6;
+    filter4 = ctx.createBiquadFilter();
+    filter4.type = 'lowpass';
+    filter4.Q.value = 0.6;
 
     // Resonance feedback: filter4 output → feedbackGain → filter1 input
-    filterFeedback = ctx.createGain(); filterFeedback.gain.value = 0;
+    filterFeedback = ctx.createGain();
+    filterFeedback.gain.value = 0;
 
     // VCA
-    vcaGain = ctx.createGain(); vcaGain.gain.value = 0;
+    vcaGain = ctx.createGain();
+    vcaGain.gain.value = 0;
 
     // Output
-    outputGain = ctx.createGain(); outputGain.gain.value = params.volume;
+    outputGain = ctx.createGain();
+    outputGain.gain.value = params.volume;
 
     // Signal chain
     oscSum.connect(filter1);
@@ -203,9 +427,13 @@ export function createMonosynth(audioContext) {
     outputGain.connect(ctx.destination);
 
     // LFO
-    lfo = ctx.createOscillator(); lfo.type = params.lfoWave; lfo.frequency.value = params.lfoRate;
-    lfoGain = ctx.createGain(); lfoGain.gain.value = 0;
-    lfoFilterGain = ctx.createGain(); lfoFilterGain.gain.value = 0;
+    lfo = ctx.createOscillator();
+    lfo.type = params.lfoWave;
+    lfo.frequency.value = params.lfoRate;
+    lfoGain = ctx.createGain();
+    lfoGain.gain.value = 0;
+    lfoFilterGain = ctx.createGain();
+    lfoFilterGain.gain.value = 0;
     lfo.connect(lfoGain);
     lfo.connect(lfoFilterGain);
     lfoGain.connect(vco1.detune);
@@ -227,7 +455,7 @@ export function createMonosynth(audioContext) {
     if (!ctx) return;
     const t = ctx.currentTime;
     const safeHz = Math.max(20, Math.min(hz, ctx.sampleRate / 2.2));
-    [filter1, filter2, filter3, filter4].forEach(f => {
+    [filter1, filter2, filter3, filter4].forEach((f) => {
       f.frequency.setTargetAtTime(safeHz, t, 0.01);
     });
   }
@@ -273,7 +501,7 @@ export function createMonosynth(audioContext) {
 
     const lastF1 = _lastFreq * OCTAVE_DIVS[params.vco1Octave];
     const lastF2 = _lastFreq * OCTAVE_DIVS[params.vco2Octave];
-    const lastFSub = _lastFreq * OCTAVE_DIVS[params.vco1Octave] / 2;
+    const lastFSub = (_lastFreq * OCTAVE_DIVS[params.vco1Octave]) / 2;
 
     setOscFreq(vco1, f1, lastF1);
     setOscFreq(vco2, f2, lastF2);
@@ -289,13 +517,13 @@ export function createMonosynth(audioContext) {
 
     // Filter envelope
     const envPeak = Math.min(ctx.sampleRate / 2.5, trackHz * (1 + params.filterEnvAmt * 6));
-    [filter1, filter2, filter3, filter4].forEach(f => {
+    [filter1, filter2, filter3, filter4].forEach((f) => {
       f.frequency.cancelScheduledValues(t);
       f.frequency.setValueAtTime(Math.max(20, trackHz), t);
       f.frequency.linearRampToValueAtTime(Math.max(20, envPeak), t + Math.max(0.001, params.fAttack));
       f.frequency.linearRampToValueAtTime(
         Math.max(20, trackHz * (0.2 + params.fSustain * 0.8)),
-        t + Math.max(0.001, params.fAttack) + Math.max(0.01, params.fDecay)
+        t + Math.max(0.001, params.fAttack) + Math.max(0.01, params.fDecay),
       );
     });
 
@@ -305,7 +533,7 @@ export function createMonosynth(audioContext) {
     vcaGain.gain.linearRampToValueAtTime(params.volume * velScale, t + Math.max(0.001, params.vAttack));
     vcaGain.gain.linearRampToValueAtTime(
       params.volume * params.vSustain * velScale,
-      t + Math.max(0.001, params.vAttack) + Math.max(0.01, params.vDecay)
+      t + Math.max(0.001, params.vAttack) + Math.max(0.01, params.vDecay),
     );
 
     _updateNoteLED(true);
@@ -323,7 +551,7 @@ export function createMonosynth(audioContext) {
     vcaGain.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(0.02, params.vRelease));
 
     // Filter release
-    [filter1, filter2, filter3, filter4].forEach(f => {
+    [filter1, filter2, filter3, filter4].forEach((f) => {
       const cf = f.frequency.value;
       f.frequency.cancelScheduledValues(t);
       f.frequency.setValueAtTime(Math.max(20, cf), t);
@@ -335,8 +563,8 @@ export function createMonosynth(audioContext) {
   }
 
   // Global event listeners
-  document.addEventListener('confustudio:note:on',  e => noteOn(e.detail.note, e.detail.velocity * 127));
-  document.addEventListener('confustudio:note:off', e => noteOff(e.detail.note));
+  document.addEventListener('confustudio:note:on', (e) => noteOn(e.detail.note, e.detail.velocity * 127));
+  document.addEventListener('confustudio:note:off', (e) => noteOff(e.detail.note));
   document.addEventListener('confustudio:clock', () => {});
 
   // ── Apply preset ────────────────────────────────────────────────────────────
@@ -372,42 +600,61 @@ export function createMonosynth(audioContext) {
   el.className = 'monosynth-chassis';
 
   function _waveIcon(type) {
-    if (type === 'sawtooth') return `<svg width="26" height="14" viewBox="0 0 26 14"><polyline points="0,12 13,2 13,12 26,2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>`;
-    if (type === 'triangle') return `<svg width="26" height="14" viewBox="0 0 26 14"><polyline points="0,12 7,2 19,12 26,2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>`;
-    if (type === 'square')   return `<svg width="26" height="14" viewBox="0 0 26 14"><polyline points="0,12 0,2 13,2 13,12 26,12 26,2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>`;
+    if (type === 'sawtooth')
+      return `<svg width="26" height="14" viewBox="0 0 26 14"><polyline points="0,12 13,2 13,12 26,2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>`;
+    if (type === 'triangle')
+      return `<svg width="26" height="14" viewBox="0 0 26 14"><polyline points="0,12 7,2 19,12 26,2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>`;
+    if (type === 'square')
+      return `<svg width="26" height="14" viewBox="0 0 26 14"><polyline points="0,12 0,2 13,2 13,12 26,12 26,2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>`;
     return '';
   }
 
   function _buildVcoSection(vcoNum) {
-    const wKey = `vco${vcoNum}Wave`, octKey = `vco${vcoNum}Octave`, volKey = `vco${vcoNum}Vol`;
-    const w = params[wKey], oct = params[octKey], vol = params[volKey];
+    const wKey = `vco${vcoNum}Wave`,
+      octKey = `vco${vcoNum}Octave`,
+      volKey = `vco${vcoNum}Vol`;
+    const w = params[wKey],
+      oct = params[octKey],
+      vol = params[volKey];
     return `
       <div class="monosynth-section" data-vco="${vcoNum}">
         <div class="monosynth-section-header">VCO ${vcoNum}</div>
         <div class="monosynth-section-body monosynth-vco-body">
           <div class="monosynth-wave-row">
-            ${WAVEFORMS.map(wf => `
+            ${WAVEFORMS.map(
+              (wf) => `
               <button class="monosynth-wave-btn ${w === wf ? 'monosynth-wave-btn--on' : ''}" data-vco="${vcoNum}" data-wave="${wf}" title="${wf}">
                 ${_waveIcon(wf)}
               </button>
-            `).join('')}
+            `,
+            ).join('')}
           </div>
           <div class="monosynth-oct-row">
-            ${OCTAVE_LABELS.map((lbl, i) => `
+            ${OCTAVE_LABELS.map(
+              (lbl, i) => `
               <button class="monosynth-oct-btn ${i === oct ? 'monosynth-oct-btn--on' : ''}" data-vco="${vcoNum}" data-oct="${i}">${lbl}</button>
-            `).join('')}
+            `,
+            ).join('')}
           </div>
-          ${vcoNum === 2 ? `
+          ${
+            vcoNum === 2
+              ? `
           <div class="monosynth-knob-row">
             <span class="monosynth-label">FINE</span>
             <input type="range" class="monosynth-slider monosynth-hz-slider" data-param="vco2Fine"
               min="-7" max="7" step="0.1" value="${params.vco2Fine}" orient="horizontal" />
             <span class="monosynth-fine-val">${params.vco2Fine >= 0 ? '+' : ''}${params.vco2Fine.toFixed(1)}</span>
-          </div>` : ''}
-          ${vcoNum === 3 ? `
+          </div>`
+              : ''
+          }
+          ${
+            vcoNum === 3
+              ? `
           <div class="monosynth-knob-row">
             <button class="monosynth-free-btn ${params.vco3Free ? 'monosynth-free-btn--on' : ''}" data-param="vco3Free">FREE</button>
-          </div>` : ''}
+          </div>`
+              : ''
+          }
           <div class="monosynth-vol-row">
             <span class="monosynth-label">VOL</span>
             <input type="range" class="monosynth-slider" data-param="${volKey}"
@@ -555,11 +802,15 @@ export function createMonosynth(audioContext) {
           <div class="monosynth-section-header">LFO</div>
           <div class="monosynth-section-body monosynth-lfo-body">
             <div class="monosynth-wave-row" style="flex-wrap:wrap; gap:2px;">
-              ${['sine','triangle','square'].map(wf => `
+              ${['sine', 'triangle', 'square']
+                .map(
+                  (wf) => `
                 <button class="monosynth-lfo-wave-btn ${params.lfoWave === wf ? 'monosynth-lfo-wave-btn--on' : ''}" data-lfowave="${wf}" title="${wf}">
                   ${_waveIcon(wf)}
                 </button>
-              `).join('')}
+              `,
+                )
+                .join('')}
             </div>
             <div class="monosynth-knob-col">
               <input type="range" class="monosynth-slider monosynth-vert-slider" data-param="lfoRate"
@@ -600,7 +851,9 @@ export function createMonosynth(audioContext) {
           <div class="monosynth-section-header">PRESET</div>
           <div class="monosynth-section-body" style="flex-direction:column; gap:5px; align-items:stretch; padding:8px;">
             <select class="monosynth-preset-select">
-              ${Object.keys(PRESETS).map(n => `<option value="${n}">${n}</option>`).join('')}
+              ${Object.keys(PRESETS)
+                .map((n) => `<option value="${n}">${n}</option>`)
+                .join('')}
             </select>
             <button class="monosynth-load-preset">LOAD</button>
           </div>
@@ -1041,13 +1294,13 @@ export function createMonosynth(audioContext) {
   // ── Sync UI from params ────────────────────────────────────────────────────
   function _syncUIFromParams() {
     // VCO wave buttons
-    [1,2,3].forEach(vn => {
+    [1, 2, 3].forEach((vn) => {
       const wKey = `vco${vn}Wave`;
-      el.querySelectorAll(`.monosynth-wave-btn[data-vco="${vn}"]`).forEach(btn => {
+      el.querySelectorAll(`.monosynth-wave-btn[data-vco="${vn}"]`).forEach((btn) => {
         btn.classList.toggle('monosynth-wave-btn--on', btn.dataset.wave === params[wKey]);
       });
       const oKey = `vco${vn}Octave`;
-      el.querySelectorAll(`.monosynth-oct-btn[data-vco="${vn}"]`).forEach(btn => {
+      el.querySelectorAll(`.monosynth-oct-btn[data-vco="${vn}"]`).forEach((btn) => {
         btn.classList.toggle('monosynth-oct-btn--on', parseInt(btn.dataset.oct) === params[oKey]);
       });
       const volSlider = el.querySelector(`.monosynth-slider[data-param="vco${vn}Vol"]`);
@@ -1067,30 +1320,45 @@ export function createMonosynth(audioContext) {
     const subSlider = el.querySelector('.monosynth-slider[data-param="subVol"]');
     if (subSlider) subSlider.value = params.subVol;
     // All other numeric sliders
-    ['cutoff','resonance','filterEnvAmt','keyTrack',
-     'fAttack','fDecay','fSustain','fRelease',
-     'vAttack','vDecay','vSustain','vRelease','velSens',
-     'lfoRate','lfoAmount','glide','volume'].forEach(p => {
+    [
+      'cutoff',
+      'resonance',
+      'filterEnvAmt',
+      'keyTrack',
+      'fAttack',
+      'fDecay',
+      'fSustain',
+      'fRelease',
+      'vAttack',
+      'vDecay',
+      'vSustain',
+      'vRelease',
+      'velSens',
+      'lfoRate',
+      'lfoAmount',
+      'glide',
+      'volume',
+    ].forEach((p) => {
       const sl = el.querySelector(`.monosynth-slider[data-param="${p}"]`);
       if (sl) sl.value = params[p];
     });
     const cv = el.querySelector('.monosynth-cutoff-val');
     if (cv) cv.textContent = `${Math.round(params.cutoff)}Hz`;
     // LFO wave
-    el.querySelectorAll('.monosynth-lfo-wave-btn').forEach(btn => {
+    el.querySelectorAll('.monosynth-lfo-wave-btn').forEach((btn) => {
       btn.classList.toggle('monosynth-lfo-wave-btn--on', btn.dataset.lfowave === params.lfoWave);
     });
     // LFO dest
-    el.querySelectorAll('.monosynth-dest-btn').forEach(btn => {
+    el.querySelectorAll('.monosynth-dest-btn').forEach((btn) => {
       btn.classList.toggle('monosynth-dest-btn--on', !!params[btn.dataset.dest]);
     });
   }
 
   // ── Keyboard ───────────────────────────────────────────────────────────────
   const kbEl = el.querySelector('.monosynth-keyboard');
-  const WHITE_PATTERN = [0,2,4,5,7,9,11];
+  const WHITE_PATTERN = [0, 2, 4, 5, 7, 9, 11];
   const MIDI_START = 48;
-  const MIDI_END   = 72;
+  const MIDI_END = 72;
   const whiteKeys = [];
   const blackKeys = [];
   for (let midi = MIDI_START; midi <= MIDI_END; midi++) {
@@ -1098,21 +1366,21 @@ export function createMonosynth(audioContext) {
     if (WHITE_PATTERN.includes(semi)) whiteKeys.push(midi);
     else blackKeys.push(midi);
   }
-  whiteKeys.forEach(midi => {
+  whiteKeys.forEach((midi) => {
     const k = document.createElement('div');
     k.className = 'monosynth-key-white';
     k.dataset.midi = midi;
     if (midi % 12 === 0) {
       const lbl = document.createElement('span');
       lbl.className = 'monosynth-key-label';
-      lbl.textContent = `C${Math.floor(midi/12)-1}`;
+      lbl.textContent = `C${Math.floor(midi / 12) - 1}`;
       k.appendChild(lbl);
     }
     kbEl.appendChild(k);
   });
   const wkW = 100 / whiteKeys.length;
-  blackKeys.forEach(midi => {
-    const prevWhiteIdx = whiteKeys.findIndex(w => w > midi) - 1;
+  blackKeys.forEach((midi) => {
+    const prevWhiteIdx = whiteKeys.findIndex((w) => w > midi) - 1;
     if (prevWhiteIdx < 0) return;
     const k = document.createElement('div');
     k.className = 'monosynth-key-black';
@@ -1121,7 +1389,7 @@ export function createMonosynth(audioContext) {
     kbEl.appendChild(k);
   });
 
-  kbEl.addEventListener('pointerdown', e => {
+  kbEl.addEventListener('pointerdown', (e) => {
     const k = e.target.closest('[data-midi]');
     if (!k) return;
     e.preventDefault();
@@ -1129,13 +1397,13 @@ export function createMonosynth(audioContext) {
     k.classList.add('pressed');
     noteOn(parseInt(k.dataset.midi), 80);
   });
-  kbEl.addEventListener('pointerup', e => {
+  kbEl.addEventListener('pointerup', (e) => {
     const k = e.target.closest('[data-midi]');
     if (!k) return;
     k.classList.remove('pressed');
     noteOff(parseInt(k.dataset.midi));
   });
-  kbEl.addEventListener('pointercancel', e => {
+  kbEl.addEventListener('pointercancel', (e) => {
     const k = e.target.closest('[data-midi]');
     if (!k) return;
     k.classList.remove('pressed');
@@ -1143,7 +1411,7 @@ export function createMonosynth(audioContext) {
   });
 
   // ── Slider interactions ────────────────────────────────────────────────────
-  el.querySelectorAll('.monosynth-slider').forEach(slider => {
+  el.querySelectorAll('.monosynth-slider').forEach((slider) => {
     slider.addEventListener('input', () => {
       const p = slider.dataset.param;
       const v = parseFloat(slider.value);
@@ -1155,10 +1423,13 @@ export function createMonosynth(audioContext) {
   function _onParamChange(p, v) {
     if (!ctx) return;
     const t = ctx.currentTime;
-    switch(p) {
+    switch (p) {
       case 'cutoff':
         _applyFilterCutoff(v);
-        { const cv = el.querySelector('.monosynth-cutoff-val'); if (cv) cv.textContent = `${Math.round(v)}Hz`; }
+        {
+          const cv = el.querySelector('.monosynth-cutoff-val');
+          if (cv) cv.textContent = `${Math.round(v)}Hz`;
+        }
         break;
       case 'resonance':
         _applyFilterResonance(v);
@@ -1172,25 +1443,37 @@ export function createMonosynth(audioContext) {
       case 'lfoAmount':
         _applyLFO();
         break;
-      case 'vco1Vol': vco1Gain.gain.setTargetAtTime(v, t, 0.02); break;
-      case 'vco2Vol': vco2Gain.gain.setTargetAtTime(v, t, 0.02); break;
-      case 'vco3Vol': vco3Gain.gain.setTargetAtTime(v, t, 0.02); break;
-      case 'subVol':  subGain.gain.setTargetAtTime(v, t, 0.02); break;
-      case 'vco2Fine': vco2.detune.setTargetAtTime(v, t, 0.01);
-        { const fv = el.querySelector('.monosynth-fine-val'); if (fv) fv.textContent = `${v >= 0 ? '+' : ''}${v.toFixed(1)}`; }
+      case 'vco1Vol':
+        vco1Gain.gain.setTargetAtTime(v, t, 0.02);
+        break;
+      case 'vco2Vol':
+        vco2Gain.gain.setTargetAtTime(v, t, 0.02);
+        break;
+      case 'vco3Vol':
+        vco3Gain.gain.setTargetAtTime(v, t, 0.02);
+        break;
+      case 'subVol':
+        subGain.gain.setTargetAtTime(v, t, 0.02);
+        break;
+      case 'vco2Fine':
+        vco2.detune.setTargetAtTime(v, t, 0.01);
+        {
+          const fv = el.querySelector('.monosynth-fine-val');
+          if (fv) fv.textContent = `${v >= 0 ? '+' : ''}${v.toFixed(1)}`;
+        }
         break;
     }
   }
 
   // ── VCO wave buttons ───────────────────────────────────────────────────────
-  el.querySelectorAll('.monosynth-wave-btn').forEach(btn => {
+  el.querySelectorAll('.monosynth-wave-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const vn = parseInt(btn.dataset.vco);
       const wf = btn.dataset.wave;
       const wKey = `vco${vn}Wave`;
       params[wKey] = wf;
-      el.querySelectorAll(`.monosynth-wave-btn[data-vco="${vn}"]`).forEach(b =>
-        b.classList.toggle('monosynth-wave-btn--on', b.dataset.wave === wf)
+      el.querySelectorAll(`.monosynth-wave-btn[data-vco="${vn}"]`).forEach((b) =>
+        b.classList.toggle('monosynth-wave-btn--on', b.dataset.wave === wf),
       );
       if (ctx) {
         if (vn === 1) vco1.type = wf;
@@ -1201,37 +1484,37 @@ export function createMonosynth(audioContext) {
   });
 
   // ── VCO octave buttons ─────────────────────────────────────────────────────
-  el.querySelectorAll('.monosynth-oct-btn').forEach(btn => {
+  el.querySelectorAll('.monosynth-oct-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const vn = parseInt(btn.dataset.vco);
       const oi = parseInt(btn.dataset.oct);
       params[`vco${vn}Octave`] = oi;
-      el.querySelectorAll(`.monosynth-oct-btn[data-vco="${vn}"]`).forEach(b =>
-        b.classList.toggle('monosynth-oct-btn--on', parseInt(b.dataset.oct) === oi)
+      el.querySelectorAll(`.monosynth-oct-btn[data-vco="${vn}"]`).forEach((b) =>
+        b.classList.toggle('monosynth-oct-btn--on', parseInt(b.dataset.oct) === oi),
       );
     });
   });
 
   // ── VCO3 free toggle ───────────────────────────────────────────────────────
-  el.querySelector('.monosynth-free-btn')?.addEventListener('click', e => {
+  el.querySelector('.monosynth-free-btn')?.addEventListener('click', (e) => {
     params.vco3Free = !params.vco3Free;
     e.currentTarget.classList.toggle('monosynth-free-btn--on', params.vco3Free);
   });
 
   // ── LFO wave buttons ───────────────────────────────────────────────────────
-  el.querySelectorAll('.monosynth-lfo-wave-btn').forEach(btn => {
+  el.querySelectorAll('.monosynth-lfo-wave-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const wf = btn.dataset.lfowave;
       params.lfoWave = wf;
       if (ctx) lfo.type = wf;
-      el.querySelectorAll('.monosynth-lfo-wave-btn').forEach(b =>
-        b.classList.toggle('monosynth-lfo-wave-btn--on', b.dataset.lfowave === wf)
+      el.querySelectorAll('.monosynth-lfo-wave-btn').forEach((b) =>
+        b.classList.toggle('monosynth-lfo-wave-btn--on', b.dataset.lfowave === wf),
       );
     });
   });
 
   // ── LFO destination buttons ────────────────────────────────────────────────
-  el.querySelectorAll('.monosynth-dest-btn').forEach(btn => {
+  el.querySelectorAll('.monosynth-dest-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const dest = btn.dataset.dest;
       params[dest] = !params[dest];

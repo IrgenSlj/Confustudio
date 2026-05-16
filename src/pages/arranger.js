@@ -6,14 +6,17 @@ const TIME_SIGNATURES = ['4/4', '3/4', '6/8', '5/4', '7/8'];
 
 // ── Section color map ──────────────────────────────────────────────────────
 const SECTION_COLORS = {
-  intro:   '#67d7ff',
-  verse:   '#5add71',
-  chorus:  '#f0c640',
-  bridge:  '#c67dff',
-  outro:   '#f05b52',
+  intro: '#67d7ff',
+  verse: '#5add71',
+  chorus: '#f0c640',
+  bridge: '#c67dff',
+  outro: '#f05b52',
 };
 function sectionColor(name) {
-  const key = (name ?? '').toLowerCase().replace(/\s+\d+$/, '').trim();
+  const key = (name ?? '')
+    .toLowerCase()
+    .replace(/\s+\d+$/, '')
+    .trim();
   return SECTION_COLORS[key] ?? '#888';
 }
 
@@ -103,11 +106,16 @@ export default {
       return null;
     };
     const replaceArranger = (nextArranger, label = 'Arranger updated', extra = {}) => {
-      if (executeCommands({
-        type: 'replace-arranger',
-        arranger: nextArranger,
-        arrangementCursor: extra.arrangementCursor ?? state.arrangementCursor,
-      }, label)) {
+      if (
+        executeCommands(
+          {
+            type: 'replace-arranger',
+            arranger: nextArranger,
+            arrangementCursor: extra.arrangementCursor ?? state.arrangementCursor,
+          },
+          label,
+        )
+      ) {
         return true;
       }
       state.arranger = nextArranger;
@@ -115,13 +123,13 @@ export default {
       emit('state:change', { path: 'arranger', value: state.arranger });
       return false;
     };
-    const activeSectionIdx = (arrangementMode && isPlaying) ? (state._arrSection ?? 0) : -1;
+    const activeSectionIdx = arrangementMode && isPlaying ? (state._arrSection ?? 0) : -1;
     if (state.arrSoloSection == null) state.arrSoloSection = null; // ensure defined
 
     // ── Loop state (stored on state, defaulting here) ──────────────────────
-    const arrLoop      = state.arrLoop      ?? false;
+    const arrLoop = state.arrLoop ?? false;
     const arrLoopStart = state.arrLoopStart ?? 0;
-    const arrLoopEnd   = state.arrLoopEnd   ?? Math.max(0, arranger.length - 1);
+    const arrLoopEnd = state.arrLoopEnd ?? Math.max(0, arranger.length - 1);
 
     // ── Header ─────────────────────────────────────────────────────────────
     const header = document.createElement('div');
@@ -144,7 +152,17 @@ export default {
     clearBtn.title = 'Clear all sections and reset to one default section';
     clearBtn.addEventListener('click', () => {
       if (!confirm('Clear arranger? All sections will be lost.')) return;
-      const nextArranger = [{ sceneIdx: 0, bars: 4, name: 'Section 1', repeat: 1, muted: false, followAction: 'next', trackMutes: Array(8).fill(false) }];
+      const nextArranger = [
+        {
+          sceneIdx: 0,
+          bars: 4,
+          name: 'Section 1',
+          repeat: 1,
+          muted: false,
+          followAction: 'next',
+          trackMutes: Array(8).fill(false),
+        },
+      ];
       replaceArranger(nextArranger, 'Arranger reset', { arrangementCursor: 0 });
       state.arrangementCursor = 0;
       state._arrSection = 0;
@@ -217,17 +235,34 @@ export default {
       `;
       const quickAdd = document.createElement('div');
       quickAdd.className = 'arr-quick-add';
-      ['Intro', 'Verse', 'Chorus', 'Bridge', 'Outro'].forEach(name => {
+      ['Intro', 'Verse', 'Chorus', 'Bridge', 'Outro'].forEach((name) => {
         const qBtn = document.createElement('button');
         qBtn.className = 'arr-quick-btn';
         const col = sectionColor(name);
         qBtn.style.setProperty('--quick-color', col);
         qBtn.style.cssText = `padding:4px 10px;font-size:0.6rem;font-weight:600;border-radius:3px;border:1px solid ${col}55;background:${col}11;color:${col};cursor:pointer;font-family:var(--font-mono);transition:all 0.1s`;
         qBtn.textContent = `+ ${name}`;
-        qBtn.addEventListener('mouseenter', () => { qBtn.style.borderColor = col; qBtn.style.background = col + '22'; });
-        qBtn.addEventListener('mouseleave', () => { qBtn.style.borderColor = col + '55'; qBtn.style.background = col + '11'; });
+        qBtn.addEventListener('mouseenter', () => {
+          qBtn.style.borderColor = col;
+          qBtn.style.background = col + '22';
+        });
+        qBtn.addEventListener('mouseleave', () => {
+          qBtn.style.borderColor = col + '55';
+          qBtn.style.background = col + '11';
+        });
         qBtn.addEventListener('click', () => {
-          const next = [...state.arranger, { sceneIdx: 0, bars: 4, name, repeat: 1, muted: false, followAction: 'next', trackMutes: Array(8).fill(false) }];
+          const next = [
+            ...state.arranger,
+            {
+              sceneIdx: 0,
+              bars: 4,
+              name,
+              repeat: 1,
+              muted: false,
+              followAction: 'next',
+              trackMutes: Array(8).fill(false),
+            },
+          ];
           replaceArranger(next, `Added ${name}`, { arrangementCursor: next.length - 1 });
         });
         quickAdd.append(qBtn);
@@ -238,14 +273,14 @@ export default {
       // Build the timeline
       const timelineWrap2 = document.createElement('div');
       timelineWrap2.className = 'arr-timeline';
-      timelineWrap2.style.cssText = 'overflow-x:auto;overflow-y:hidden;flex:1;min-height:0;background:rgba(0,0,0,0.2);border-radius:4px;display:flex;flex-direction:column';
+      timelineWrap2.style.cssText =
+        'overflow-x:auto;overflow-y:hidden;flex:1;min-height:0;background:rgba(0,0,0,0.2);border-radius:4px;display:flex;flex-direction:column';
 
       // Bar ruler
-      const totalBarsForRuler = arranger.reduce((s, sec) => s + (sec.bars ?? 4), 0) || 1;
       const ruler = document.createElement('div');
       ruler.className = 'arr-ruler';
       let barCount = 1;
-      arranger.forEach(sec => {
+      arranger.forEach((sec) => {
         const secBars = sec.bars ?? 4;
         for (let b = 0; b < secBars; b++) {
           const mark = document.createElement('div');
@@ -283,17 +318,21 @@ export default {
         `;
 
         // Right-click context menu
-        block.addEventListener('contextmenu', e => {
+        block.addEventListener('contextmenu', (e) => {
           e.preventDefault();
           e.stopPropagation();
-          document.querySelectorAll('.arr-ctx-menu').forEach(m => m.remove());
+          document.querySelectorAll('.arr-ctx-menu').forEach((m) => m.remove());
           const menu = document.createElement('div');
           menu.className = 'arr-ctx-menu';
           menu.style.cssText = [
-            'position:fixed','z-index:9999',
-            'background:#1e1e1e','border:1px solid var(--border)',
-            'border-radius:5px','padding:4px 0',
-            'font-family:var(--font-mono)','font-size:0.62rem',
+            'position:fixed',
+            'z-index:9999',
+            'background:#1e1e1e',
+            'border:1px solid var(--border)',
+            'border-radius:5px',
+            'padding:4px 0',
+            'font-family:var(--font-mono)',
+            'font-size:0.62rem',
             'box-shadow:0 4px 16px rgba(0,0,0,0.6)',
             'min-width:144px',
           ].join(';');
@@ -301,22 +340,34 @@ export default {
           menu.style.top = `${e.clientY}px`;
           const menuItem = (label, icon, action) => {
             const item = document.createElement('div');
-            item.style.cssText = 'padding:6px 14px;cursor:pointer;color:var(--screen-text);display:flex;align-items:center;gap:8px';
+            item.style.cssText =
+              'padding:6px 14px;cursor:pointer;color:var(--screen-text);display:flex;align-items:center;gap:8px';
             item.innerHTML = `<span style="opacity:0.65">${icon}</span>${label}`;
-            item.addEventListener('mouseenter', () => { item.style.background = 'rgba(255,255,255,0.06)'; });
-            item.addEventListener('mouseleave', () => { item.style.background = ''; });
-            item.addEventListener('click', () => { menu.remove(); action(); });
+            item.addEventListener('mouseenter', () => {
+              item.style.background = 'rgba(255,255,255,0.06)';
+            });
+            item.addEventListener('mouseleave', () => {
+              item.style.background = '';
+            });
+            item.addEventListener('click', () => {
+              menu.remove();
+              action();
+            });
             return item;
           };
           const faOptions = [
-            { value: 'next', label: '→ Next' }, { value: 'loop', label: '↻ Loop' },
-            { value: 'stop', label: '■ Stop' }, { value: 'jump', label: '↩ Jump' },
+            { value: 'next', label: '→ Next' },
+            { value: 'loop', label: '↻ Loop' },
+            { value: 'stop', label: '■ Stop' },
+            { value: 'jump', label: '↩ Jump' },
           ];
           menu.append(
             menuItem('Rename', '✎', () => {
               const name = prompt('Section name:', section.name ?? `Section ${idx + 1}`);
               if (name !== null) {
-                const next = state.arranger.map((item, sectionIndex) => sectionIndex === idx ? { ...item, name } : item);
+                const next = state.arranger.map((item, sectionIndex) =>
+                  sectionIndex === idx ? { ...item, name } : item,
+                );
                 replaceArranger(next, 'Renamed section', { arrangementCursor: idx });
               }
             }),
@@ -329,19 +380,27 @@ export default {
             }),
             menuItem('Insert Before', '↑+', () => {
               const newName = `Section ${state.arranger.length + 1}`;
-              const newSec = { sceneIdx: section.sceneIdx ?? 0, bars: section.bars ?? 4, name: newName, repeat: 1, muted: false, followAction: 'next', trackMutes: Array(8).fill(false) };
+              const newSec = {
+                sceneIdx: section.sceneIdx ?? 0,
+                bars: section.bars ?? 4,
+                name: newName,
+                repeat: 1,
+                muted: false,
+                followAction: 'next',
+                trackMutes: Array(8).fill(false),
+              };
               const next = [...state.arranger];
               next.splice(idx, 0, newSec);
               replaceArranger(next, 'Inserted section', { arrangementCursor: idx });
             }),
-            ...faOptions.map(({ value, label }) => menuItem(
-              (value === (section.followAction ?? 'next') ? '✓ ' : '') + 'Follow: ' + label,
-              '',
-              () => {
-                const next = state.arranger.map((item, sectionIndex) => sectionIndex === idx ? { ...item, followAction: value } : item);
+            ...faOptions.map(({ value, label }) =>
+              menuItem((value === (section.followAction ?? 'next') ? '✓ ' : '') + 'Follow: ' + label, '', () => {
+                const next = state.arranger.map((item, sectionIndex) =>
+                  sectionIndex === idx ? { ...item, followAction: value } : item,
+                );
                 replaceArranger(next, 'Updated follow action', { arrangementCursor: idx });
-              }
-            )),
+              }),
+            ),
             menuItem('Delete', '✕', () => emit('state:change', { path: 'action_arrRemove', value: idx })),
           );
           document.body.append(menu);
@@ -350,8 +409,11 @@ export default {
             if (mr.right > window.innerWidth) menu.style.left = `${e.clientX - mr.width}px`;
             if (mr.bottom > window.innerHeight) menu.style.top = `${e.clientY - mr.height}px`;
           });
-          const closeMenu = ev => {
-            if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener('click', closeMenu, true); }
+          const closeMenu = (ev) => {
+            if (!menu.contains(ev.target)) {
+              menu.remove();
+              document.removeEventListener('click', closeMenu, true);
+            }
           };
           setTimeout(() => document.addEventListener('click', closeMenu, true), 0);
         });
@@ -363,11 +425,11 @@ export default {
         });
 
         // Double-click to rename inline
-        block.addEventListener('dblclick', e => {
+        block.addEventListener('dblclick', (e) => {
           e.stopPropagation();
           const name = prompt('Section name:', section.name ?? `Section ${idx + 1}`);
           if (name !== null) {
-            const next = state.arranger.map((item, sectionIndex) => sectionIndex === idx ? { ...item, name } : item);
+            const next = state.arranger.map((item, sectionIndex) => (sectionIndex === idx ? { ...item, name } : item));
             replaceArranger(next, 'Renamed section', { arrangementCursor: idx });
           }
         });
@@ -379,7 +441,7 @@ export default {
       if (activeSectionIdx >= 0) {
         const barsBeforePlaying = arranger.slice(0, activeSectionIdx).reduce((s, sec) => s + (sec.bars ?? 4), 0);
         const sectionBars = arranger[activeSectionIdx]?.bars ?? 4;
-        const sectionProgress = state._arrSectionBars != null ? (state._arrSectionBars / sectionBars) : 0;
+        const sectionProgress = state._arrSectionBars != null ? state._arrSectionBars / sectionBars : 0;
         const playheadPx = (barsBeforePlaying + sectionProgress * sectionBars) * 30 + 4; // 4 = track padding
         const playhead = document.createElement('div');
         playhead.style.cssText = `
@@ -417,7 +479,8 @@ export default {
 
     // ── Section detail panel (for selected section) ────────────────────────
     const detailPanel = document.createElement('div');
-    detailPanel.style.cssText = 'flex-shrink:0;background:rgba(0,0,0,0.15);border-radius:4px;padding:5px 8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-family:var(--font-mono);font-size:0.58rem;min-height:36px';
+    detailPanel.style.cssText =
+      'flex-shrink:0;background:rgba(0,0,0,0.15);border-radius:4px;padding:5px 8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-family:var(--font-mono);font-size:0.58rem;min-height:36px';
 
     const selIdx = state._arrSelectedSection ?? 0;
     const selSection = arranger[selIdx];
@@ -434,28 +497,41 @@ export default {
       barsLabel.style.cssText = 'color:var(--muted)';
       barsLabel.textContent = `${selSection.bars ?? 4}B`;
       barsLabel.title = 'Double-click to edit bar count';
-      barsLabel.addEventListener('dblclick', e => {
+      barsLabel.addEventListener('dblclick', (e) => {
         e.stopPropagation();
         const barsInput = document.createElement('input');
         barsInput.type = 'number';
-        barsInput.min = '1'; barsInput.max = '64';
+        barsInput.min = '1';
+        barsInput.max = '64';
         barsInput.value = String(selSection.bars ?? 4);
-        barsInput.style.cssText = 'width:36px;background:#222;border:1px solid var(--accent);border-radius:2px;padding:0 2px;font-family:var(--font-mono);font-size:0.58rem;color:var(--screen-text);text-align:right';
+        barsInput.style.cssText =
+          'width:36px;background:#222;border:1px solid var(--accent);border-radius:2px;padding:0 2px;font-family:var(--font-mono);font-size:0.58rem;color:var(--screen-text);text-align:right';
         const commit = () => {
           const newBars = Math.max(1, Math.min(64, parseInt(barsInput.value) || 4));
           barsLabel.textContent = `${newBars}B`;
           barsInput.replaceWith(barsLabel);
-          if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { bars: newBars } }, 'Updated bars')) {
+          if (
+            !executeCommands(
+              { type: 'update-arranger-section', sectionIndex: selIdx, patch: { bars: newBars } },
+              'Updated bars',
+            )
+          ) {
             emit('state:change', { path: `arranger[${selIdx}].bars`, value: newBars });
           }
         };
         barsInput.addEventListener('blur', commit);
-        barsInput.addEventListener('keydown', ev => {
-          if (ev.key === 'Enter') { ev.preventDefault(); barsInput.blur(); }
-          if (ev.key === 'Escape') { barsInput.replaceWith(barsLabel); }
+        barsInput.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter') {
+            ev.preventDefault();
+            barsInput.blur();
+          }
+          if (ev.key === 'Escape') {
+            barsInput.replaceWith(barsLabel);
+          }
         });
         barsLabel.replaceWith(barsInput);
-        barsInput.focus(); barsInput.select();
+        barsInput.focus();
+        barsInput.select();
       });
       const minusBtn2 = document.createElement('button');
       minusBtn2.className = 'bpm-arrow';
@@ -463,7 +539,12 @@ export default {
       minusBtn2.addEventListener('click', () => {
         const v = Math.max(1, (selSection.bars ?? 4) - 1);
         barsLabel.textContent = `${v}B`;
-        if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { bars: v } }, 'Updated bars')) {
+        if (
+          !executeCommands(
+            { type: 'update-arranger-section', sectionIndex: selIdx, patch: { bars: v } },
+            'Updated bars',
+          )
+        ) {
           emit('state:change', { path: `arranger[${selIdx}].bars`, value: v });
         }
       });
@@ -473,7 +554,12 @@ export default {
       plusBtn2.addEventListener('click', () => {
         const v = Math.min(64, (selSection.bars ?? 4) + 1);
         barsLabel.textContent = `${v}B`;
-        if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { bars: v } }, 'Updated bars')) {
+        if (
+          !executeCommands(
+            { type: 'update-arranger-section', sectionIndex: selIdx, patch: { bars: v } },
+            'Updated bars',
+          )
+        ) {
           emit('state:change', { path: `arranger[${selIdx}].bars`, value: v });
         }
       });
@@ -486,14 +572,20 @@ export default {
       const repeatInput2 = document.createElement('input');
       repeatInput2.type = 'number';
       repeatInput2.className = 'arr-bpm-input';
-      repeatInput2.min = '1'; repeatInput2.max = '16';
+      repeatInput2.min = '1';
+      repeatInput2.max = '16';
       repeatInput2.value = String(selSection.repeat ?? 1);
       repeatInput2.title = 'Repeat count';
       repeatInput2.style.width = '32px';
       repeatInput2.addEventListener('change', () => {
         const repeat = Math.max(1, Math.min(16, parseInt(repeatInput2.value) || 1));
         repeatInput2.value = String(repeat);
-        if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { repeat } }, 'Updated repeat')) {
+        if (
+          !executeCommands(
+            { type: 'update-arranger-section', sectionIndex: selIdx, patch: { repeat } },
+            'Updated repeat',
+          )
+        ) {
           selSection.repeat = repeat;
           emit('state:change', { path: 'arranger', value: state.arranger });
         }
@@ -503,16 +595,28 @@ export default {
       // Follow action
       const followSelect2 = document.createElement('select');
       followSelect2.title = 'Follow action';
-      followSelect2.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 2px;cursor:pointer;max-width:70px';
-      [{ value:'next',label:'→ Next'},{value:'loop',label:'↻ Loop'},{value:'stop',label:'■ Stop'},{value:'jump',label:'↩ Jump'}].forEach(({value,label}) => {
+      followSelect2.style.cssText =
+        'font-family:var(--font-mono);font-size:0.52rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 2px;cursor:pointer;max-width:70px';
+      [
+        { value: 'next', label: '→ Next' },
+        { value: 'loop', label: '↻ Loop' },
+        { value: 'stop', label: '■ Stop' },
+        { value: 'jump', label: '↩ Jump' },
+      ].forEach(({ value, label }) => {
         const opt = document.createElement('option');
-        opt.value = value; opt.textContent = label;
+        opt.value = value;
+        opt.textContent = label;
         if (value === (selSection.followAction ?? 'next')) opt.selected = true;
         followSelect2.append(opt);
       });
       followSelect2.addEventListener('change', () => {
         jumpTargetWrap.style.display = followSelect2.value === 'jump' ? 'flex' : 'none';
-        if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { followAction: followSelect2.value } }, 'Updated follow action')) {
+        if (
+          !executeCommands(
+            { type: 'update-arranger-section', sectionIndex: selIdx, patch: { followAction: followSelect2.value } },
+            'Updated follow action',
+          )
+        ) {
           selSection.followAction = followSelect2.value;
           emit('state:change', { path: 'arranger', value: state.arranger });
         }
@@ -521,13 +625,15 @@ export default {
 
       // Jump target selector (visible only when follow action is "jump")
       const jumpTargetWrap = document.createElement('div');
-      jumpTargetWrap.style.cssText = 'display:' + (selSection.followAction === 'jump' ? 'flex' : 'none') + ';align-items:center;gap:3px';
+      jumpTargetWrap.style.cssText =
+        'display:' + (selSection.followAction === 'jump' ? 'flex' : 'none') + ';align-items:center;gap:3px';
       const jumpLabel = document.createElement('span');
       jumpLabel.style.cssText = 'color:var(--muted);font-size:0.52rem';
       jumpLabel.textContent = '→';
       const jumpSelect = document.createElement('select');
       jumpSelect.title = 'Jump to section';
-      jumpSelect.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 2px;cursor:pointer;max-width:80px';
+      jumpSelect.style.cssText =
+        'font-family:var(--font-mono);font-size:0.52rem;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:3px;padding:1px 2px;cursor:pointer;max-width:80px';
       arranger.forEach((sec, idx) => {
         const opt = document.createElement('option');
         opt.value = String(idx);
@@ -537,7 +643,12 @@ export default {
       });
       jumpSelect.addEventListener('change', () => {
         const jumpTarget = parseInt(jumpSelect.value, 10);
-        if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { jumpTarget } }, 'Updated jump target')) {
+        if (
+          !executeCommands(
+            { type: 'update-arranger-section', sectionIndex: selIdx, patch: { jumpTarget } },
+            'Updated jump target',
+          )
+        ) {
           selSection.jumpTarget = jumpTarget;
           emit('state:change', { path: 'arranger', value: state.arranger });
         }
@@ -552,13 +663,19 @@ export default {
       const bpmInput2 = document.createElement('input');
       bpmInput2.type = 'number';
       bpmInput2.className = 'arr-bpm-input';
-      bpmInput2.min = '0'; bpmInput2.max = '300';
+      bpmInput2.min = '0';
+      bpmInput2.max = '300';
       bpmInput2.value = String(selSection.bpmOverride ?? 0);
       bpmInput2.placeholder = String(state.bpm);
       bpmInput2.title = '0 = use global BPM';
       bpmInput2.addEventListener('change', () => {
         const bpmOverride = parseInt(bpmInput2.value) || 0;
-        if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { bpmOverride } }, 'Updated BPM override')) {
+        if (
+          !executeCommands(
+            { type: 'update-arranger-section', sectionIndex: selIdx, patch: { bpmOverride } },
+            'Updated BPM override',
+          )
+        ) {
           selSection.bpmOverride = bpmOverride;
           emit('state:change', { path: 'arranger', value: state.arranger });
         }
@@ -569,14 +686,20 @@ export default {
       const tsSelect2 = document.createElement('select');
       tsSelect2.className = 'arr-ts-select';
       tsSelect2.title = 'Time signature';
-      TIME_SIGNATURES.forEach(ts => {
+      TIME_SIGNATURES.forEach((ts) => {
         const opt = document.createElement('option');
-        opt.value = ts; opt.textContent = ts;
+        opt.value = ts;
+        opt.textContent = ts;
         if (ts === (selSection.timeSignature ?? '4/4')) opt.selected = true;
         tsSelect2.append(opt);
       });
       tsSelect2.addEventListener('change', () => {
-        if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { timeSignature: tsSelect2.value } }, 'Updated time signature')) {
+        if (
+          !executeCommands(
+            { type: 'update-arranger-section', sectionIndex: selIdx, patch: { timeSignature: tsSelect2.value } },
+            'Updated time signature',
+          )
+        ) {
           selSection.timeSignature = tsSelect2.value;
           emit('state:change', { path: 'arranger', value: state.arranger });
         }
@@ -589,25 +712,27 @@ export default {
       muteBtn2.textContent = 'M';
       muteBtn2.title = selSection.muted ? 'Muted — click to unmute' : 'Mute section';
       muteBtn2.style.cssText = `font-size:0.52rem;padding:2px 5px;${selSection.muted ? 'color:var(--live);border-color:var(--live);' : 'opacity:0.45;'}`;
-      muteBtn2.addEventListener('click', e => {
+      muteBtn2.addEventListener('click', (e) => {
         e.stopPropagation();
         const muted = !selSection.muted;
         muteBtn2.classList.toggle('active', muted);
         muteBtn2.style.cssText = `font-size:0.52rem;padding:2px 5px;${muted ? 'color:var(--live);border-color:var(--live);' : 'opacity:0.45;'}`;
-        if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { muted } }, 'Updated mute')) {
+        if (
+          !executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { muted } }, 'Updated mute')
+        ) {
           selSection.muted = muted;
           emit('state:change', { path: 'arranger', value: state.arranger });
         }
       });
 
       // Solo
-      const soloActive2 = (state.arrSoloSection === selIdx);
+      const soloActive2 = state.arrSoloSection === selIdx;
       const soloBtn2 = document.createElement('button');
       soloBtn2.className = 'seq-btn' + (soloActive2 ? ' active' : '');
       soloBtn2.textContent = 'S';
       soloBtn2.title = soloActive2 ? 'Solo — click to clear' : 'Solo this section';
       soloBtn2.style.cssText = `font-size:0.52rem;padding:2px 5px;${soloActive2 ? 'color:#ffe066;border-color:#ffe066;' : 'opacity:0.45;'}`;
-      soloBtn2.addEventListener('click', e => {
+      soloBtn2.addEventListener('click', (e) => {
         e.stopPropagation();
         emit('state:change', { path: 'arrSoloSection', value: state.arrSoloSection === selIdx ? null : selIdx });
       });
@@ -625,10 +750,15 @@ export default {
         const tc = TRACK_COLORS[ti % TRACK_COLORS.length];
         sq.style.cssText = `width:8px;height:8px;border-radius:1px;cursor:pointer;flex-shrink:0;background:${muted ? '#2a2a2a' : tc};border:1px solid ${muted ? '#444' : tc};opacity:${muted ? '0.35' : '1'};transition:background 0.1s,opacity 0.1s`;
         sq.title = `Track ${ti + 1} — ${muted ? 'muted' : 'active'}`;
-        sq.addEventListener('click', e => {
+        sq.addEventListener('click', (e) => {
           e.stopPropagation();
-          const nextTrackMutes = selSection.trackMutes.map((item, muteIndex) => muteIndex === ti ? !item : item);
-          if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { trackMutes: nextTrackMutes } }, 'Updated track mute')) {
+          const nextTrackMutes = selSection.trackMutes.map((item, muteIndex) => (muteIndex === ti ? !item : item));
+          if (
+            !executeCommands(
+              { type: 'update-arranger-section', sectionIndex: selIdx, patch: { trackMutes: nextTrackMutes } },
+              'Updated track mute',
+            )
+          ) {
             selSection.trackMutes[ti] = !selSection.trackMutes[ti];
             emit('state:change', { path: 'arranger', value: state.arranger });
           }
@@ -645,10 +775,16 @@ export default {
       const colorPick2 = document.createElement('input');
       colorPick2.type = 'color';
       colorPick2.value = selSection.color ?? '#3a4a5a';
-      colorPick2.style.cssText = 'width:100%;height:100%;padding:0;border:none;border-radius:2px;cursor:pointer;opacity:0;position:absolute;inset:0';
+      colorPick2.style.cssText =
+        'width:100%;height:100%;padding:0;border:none;border-radius:2px;cursor:pointer;opacity:0;position:absolute;inset:0';
       colorPick2.addEventListener('change', () => {
         colorSwatch2.style.background = colorPick2.value;
-        if (!executeCommands({ type: 'update-arranger-section', sectionIndex: selIdx, patch: { color: colorPick2.value } }, 'Updated section color')) {
+        if (
+          !executeCommands(
+            { type: 'update-arranger-section', sectionIndex: selIdx, patch: { color: colorPick2.value } },
+            'Updated section color',
+          )
+        ) {
           selSection.color = colorPick2.value;
           emit('state:change', { path: 'arranger', value: state.arranger });
         }
@@ -703,9 +839,12 @@ export default {
     // ── rAF loop: animate playing block highlight ──────────────────────────
     if (container._hlRaf) cancelAnimationFrame(container._hlRaf);
     function highlightBlocks() {
-      if (!container.isConnected) { container._hlRaf = null; return; }
+      if (!container.isConnected) {
+        container._hlRaf = null;
+        return;
+      }
       const idx = state._arrSection ?? -1;
-      container.querySelectorAll('.arr-block').forEach(block => {
+      container.querySelectorAll('.arr-block').forEach((block) => {
         const bIdx = parseInt(block.dataset.sectionIdx, 10);
         const isPlaying = bIdx === idx && state.isPlaying && state.arrangementMode;
         block.classList.toggle('playing', isPlaying);
@@ -715,15 +854,18 @@ export default {
     container._hlRaf = requestAnimationFrame(highlightBlocks);
 
     // Ensure color defaults are set for all sections
-    arranger.forEach(section => { if (section.color == null) section.color = sectionColor(section.name ?? ''); });
-
+    arranger.forEach((section) => {
+      if (section.color == null) section.color = sectionColor(section.name ?? '');
+    });
 
     // ── Add section toolbar ────────────────────────────────────────────────
     const toolbar = document.createElement('div');
-    toolbar.style.cssText = 'display:flex;gap:6px;margin-top:8px;flex-shrink:0;flex-wrap:wrap;align-items:center;border-top:1px solid rgba(255,255,255,0.08);padding-top:6px;margin-top:auto';
+    toolbar.style.cssText =
+      'display:flex;gap:6px;margin-top:8px;flex-shrink:0;flex-wrap:wrap;align-items:center;border-top:1px solid rgba(255,255,255,0.08);padding-top:6px;margin-top:auto';
 
     const sceneSelect = document.createElement('select');
-    sceneSelect.style.cssText = 'padding:4px 8px;border-radius:4px;border:1px solid var(--border);background:#1a1a1a;color:var(--screen-text);font-family:var(--font-mono);font-size:0.66rem';
+    sceneSelect.style.cssText =
+      'padding:4px 8px;border-radius:4px;border:1px solid var(--border);background:#1a1a1a;color:var(--screen-text);font-family:var(--font-mono);font-size:0.66rem';
     scenes.forEach((scene, si) => {
       const opt = document.createElement('option');
       opt.value = si;
@@ -735,7 +877,7 @@ export default {
     addBtn.className = 'screen-btn';
     addBtn.textContent = '+ Add Section';
     addBtn.addEventListener('click', () =>
-      emit('state:change', { path: 'action_arrAdd', value: { sceneIdx: parseInt(sceneSelect.value), bars: 2 } })
+      emit('state:change', { path: 'action_arrAdd', value: { sceneIdx: parseInt(sceneSelect.value), bars: 2 } }),
     );
 
     // Export button
@@ -751,7 +893,7 @@ export default {
         const sceneName = String.fromCharCode(65 + (s.sceneIdx ?? i % 8));
         const bpmStr = s.bpmOverride ? ` BPM: ${s.bpmOverride}` : '';
         const ts = s.timeSignature ?? '4/4';
-        txt += `${i+1}. Scene ${sceneName} — ${s.bars ?? 1} bar${s.bars !== 1 ? 's' : ''} (${ts})${bpmStr}\n`;
+        txt += `${i + 1}. Scene ${sceneName} — ${s.bars ?? 1} bar${s.bars !== 1 ? 's' : ''} (${ts})${bpmStr}\n`;
       });
       const blob = new Blob([txt], { type: 'text/plain' });
       const a = document.createElement('a');
@@ -768,9 +910,37 @@ export default {
     templateWrap.append(templateLabel);
 
     const templates = [
-      { name: 'Song', sections: [['Intro', 2], ['Verse', 4], ['Chorus', 4], ['Verse', 4], ['Bridge', 2], ['Chorus', 4], ['Outro', 2]] },
-      { name: 'Live', sections: [['Scene A', 8], ['Scene B', 8], ['Scene C', 8], ['Break', 4], ['Final', 8]] },
-      { name: 'Loop Set', sections: [['Main', 8], ['Lift', 4], ['Drop', 8], ['Break', 4]] },
+      {
+        name: 'Song',
+        sections: [
+          ['Intro', 2],
+          ['Verse', 4],
+          ['Chorus', 4],
+          ['Verse', 4],
+          ['Bridge', 2],
+          ['Chorus', 4],
+          ['Outro', 2],
+        ],
+      },
+      {
+        name: 'Live',
+        sections: [
+          ['Scene A', 8],
+          ['Scene B', 8],
+          ['Scene C', 8],
+          ['Break', 4],
+          ['Final', 8],
+        ],
+      },
+      {
+        name: 'Loop Set',
+        sections: [
+          ['Main', 8],
+          ['Lift', 4],
+          ['Drop', 8],
+          ['Break', 4],
+        ],
+      },
     ];
     templates.forEach((template) => {
       const btn = document.createElement('button');
@@ -799,9 +969,9 @@ export default {
   },
 
   knobMap: [
-    { label: 'SecLen',   param: 'sectionLen',    min: 1, max: 64, step: 1 },
-    { label: 'BPM Ovr',  param: 'bpmOverride',   min: 40, max: 240, step: 1 },
-    { label: 'Loop',     param: 'loopEnabled',   min: 0, max: 1, step: 1 },
+    { label: 'SecLen', param: 'sectionLen', min: 1, max: 64, step: 1 },
+    { label: 'BPM Ovr', param: 'bpmOverride', min: 40, max: 240, step: 1 },
+    { label: 'Loop', param: 'loopEnabled', min: 0, max: 1, step: 1 },
     { label: '—', param: null, min: 0, max: 1, step: 1 },
     { label: '—', param: null, min: 0, max: 1, step: 1 },
     { label: '—', param: null, min: 0, max: 1, step: 1 },

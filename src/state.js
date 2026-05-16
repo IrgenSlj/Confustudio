@@ -1,25 +1,21 @@
 // CONFUstudio v3 — state.js
 // Central state module: project structure, accessors, persistence
 
-import {
-  ensureProjectAssetId,
-  queuePersistAssets,
-  scheduleAssetHydration,
-} from './asset-store.js';
+import { ensureProjectAssetId, queuePersistAssets, scheduleAssetHydration } from './asset-store.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-export const STORAGE_KEY   = "confustudio-v3";
-export const LEGACY_STORAGE_KEYS = ["confusynth-v3", "confustudio-v2", "confusynth-v2"];
-export const APP_VERSION = "0.1.0";
+export const STORAGE_KEY = 'confustudio-v3';
+export const LEGACY_STORAGE_KEYS = ['confusynth-v3', 'confustudio-v2', 'confusynth-v2'];
+export const APP_VERSION = '0.1.0';
 export const APP_DISPLAY_VERSION = `v${APP_VERSION}`;
-export const PROJECT_SCHEMA_VERSION = "3.1.0";
-export const PROJECT_PACKAGE_VERSION = "1.0.0";
-export const STEP_COUNT    = 64;
-export const TRACK_COUNT   = 8;
-export const BANK_COUNT    = 8;
+export const PROJECT_SCHEMA_VERSION = '3.1.0';
+export const PROJECT_PACKAGE_VERSION = '1.0.0';
+export const STEP_COUNT = 64;
+export const TRACK_COUNT = 8;
+export const BANK_COUNT = 8;
 export const PATTERN_COUNT = 16;
-export const PROB_LEVELS   = [1, 0.75, 0.5, 0.25];
+export const PROB_LEVELS = [1, 0.75, 0.5, 0.25];
 export const RECORDER_SLOT_COUNT = 4;
 
 export const TRACK_COLORS = [
@@ -37,15 +33,15 @@ export const TRACK_COLORS = [
 
 export function createStep(stepIndex, trackIndex) {
   return {
-    active:        (stepIndex + trackIndex) % 5 === 0,
-    accent:        stepIndex % 8 === 4,
-    note:          60,
-    velocity:      1,
-    probability:   1,
-    trigCondition: "always",  // "always"|"fill"|"first"|"not:first"|"1:2"|"1:4"|"3:4"
-    paramLocks:    {},
-    microTime:     0,         // -0.5 to +0.5, fraction of one step duration
-    gate:          0.5,       // 0.05–1.0, fraction of step duration for note gate
+    active: (stepIndex + trackIndex) % 5 === 0,
+    accent: stepIndex % 8 === 4,
+    note: 60,
+    velocity: 1,
+    probability: 1,
+    trigCondition: 'always', // "always"|"fill"|"first"|"not:first"|"1:2"|"1:4"|"3:4"
+    paramLocks: {},
+    microTime: 0, // -0.5 to +0.5, fraction of one step duration
+    gate: 0.5, // 0.05–1.0, fraction of step duration for note gate
   };
 }
 
@@ -63,130 +59,128 @@ function createRecorderSlotMeta(index) {
 // ─── Factory: Track ───────────────────────────────────────────────────────────
 
 export function createTrack(index) {
-  const panAlt  = index % 2 === 0 ? -0.15 : 0.15;
-  const isMidi  = index >= 8;
+  const panAlt = index % 2 === 0 ? -0.15 : 0.15;
+  const isMidi = index >= 8;
 
   // Build default steps array (STEP_COUNT entries)
-  const steps = Array.from({ length: STEP_COUNT }, (_, si) =>
-    createStep(si, index)
-  );
+  const steps = Array.from({ length: STEP_COUNT }, (_, si) => createStep(si, index));
 
   return {
     // Identity
-    name:         `Track ${index + 1}`,
-    machine:      isMidi ? "midi" : "tone", // "tone"|"noise"|"sample"|"midi"|"plaits"|"clouds"|"rings"
+    name: `Track ${index + 1}`,
+    machine: isMidi ? 'midi' : 'tone', // "tone"|"noise"|"sample"|"midi"|"plaits"|"clouds"|"rings"
     isMidi,
 
     // Sound
-    waveform:     "triangle",
-    volume:       0.72,
-    pan:          panAlt,
-    pitch:        48 + index * 2,
-    attack:       0.005,
-    decay:        0.28 + index * 0.03,
-    noteLength:   0.6,
-    cutoff:       3200 - index * 180,
-    resonance:    1.8,
-    drive:        0.18,
-    delaySend:    0.24,
-    reverbSend:   0.18,
-    lfoRate:      2,
-    lfoDepth:     0,
-    lfoTarget:    "cutoff",
+    waveform: 'triangle',
+    volume: 0.72,
+    pan: panAlt,
+    pitch: 48 + index * 2,
+    attack: 0.005,
+    decay: 0.28 + index * 0.03,
+    noteLength: 0.6,
+    cutoff: 3200 - index * 180,
+    resonance: 1.8,
+    drive: 0.18,
+    delaySend: 0.24,
+    reverbSend: 0.18,
+    lfoRate: 2,
+    lfoDepth: 0,
+    lfoTarget: 'cutoff',
 
     // MIDI
-    midiChannel:  null,     // null = use global state.midiChannel
-    midiPort:     null,
+    midiChannel: null, // null = use global state.midiChannel
+    midiPort: null,
 
     // Per-track length (0 = follow pattern.length)
-    trackLength:  0,
+    trackLength: 0,
 
     // Per-track step count override for polyrhythm (null = use global pattern.length)
-    stepCount:    null,
+    stepCount: null,
 
     // Per-track swing (null = use global state.swing)
-    swing:        null,
+    swing: null,
 
     // Recording
-    recArmed:     false,
+    recArmed: false,
 
     // Mixer
-    mute:         false,
-    solo:         false,
-    cue:          false,
-    inputGain:    1.0,
-    stereoWidth:  1,    // 0=mono, 1=normal, 2=wide
-    outputBus:    'master', // 'master' | 'bus1' | 'bus2'
-    groupIndex:   null,     // null = no group, 0-7 = group index
+    mute: false,
+    solo: false,
+    cue: false,
+    inputGain: 1.0,
+    stereoWidth: 1, // 0=mono, 1=normal, 2=wide
+    outputBus: 'master', // 'master' | 'bus1' | 'bus2'
+    groupIndex: null, // null = no group, 0-7 = group index
     velocityCurve: 'linear', // 'linear' | 'exp' | 'comp'
 
     // Sidechain
-    isSidechainSource: false,  // true = this track triggers ducking on others
-    sidechainAmount:   0,      // 0=no duck, 1=full mute
+    isSidechainSource: false, // true = this track triggers ducking on others
+    sidechainAmount: 0, // 0=no duck, 1=full mute
 
     // Per-track FX
-    filterType:   "lowpass",  // "lowpass"|"highpass"|"bandpass"|"notch"|"peaking"|"lowshelf"|"highshelf"
-    filterQ:      1.0,        // BiquadFilter Q / resonance (0.1–20)
-    bitDepth:     32,         // 4–32, integer; 32 = off (full resolution)
-    srDiv:        1,          // 1–16, sample rate reduction divisor; 1 = off
+    filterType: 'lowpass', // "lowpass"|"highpass"|"bandpass"|"notch"|"peaking"|"lowshelf"|"highshelf"
+    filterQ: 1.0, // BiquadFilter Q / resonance (0.1–20)
+    bitDepth: 32, // 4–32, integer; 32 = off (full resolution)
+    srDiv: 1, // 1–16, sample rate reduction divisor; 1 = off
 
     // Per-track 3-band EQ
-    eqLow:       0,           // -12..+12 dB, low shelf @200Hz
-    eqMid:       0,           // -12..+12 dB, peaking band
-    eqMidFreq:   1000,        // 200–8000 Hz, peaking band center frequency
-    eqHigh:      0,           // -12..+12 dB, high shelf @6kHz
+    eqLow: 0, // -12..+12 dB, low shelf @200Hz
+    eqMid: 0, // -12..+12 dB, peaking band
+    eqMidFreq: 1000, // 200–8000 Hz, peaking band center frequency
+    eqHigh: 0, // -12..+12 dB, high shelf @6kHz
 
     // Plaits multi-engine synth
-    plEngine:    0,
-    plTimbre:    0.5,
+    plEngine: 0,
+    plTimbre: 0.5,
     plHarmonics: 0.5,
-    plMorph:     0.5,
+    plMorph: 0.5,
 
     // Clouds granular
     clPosition: 0.5,
-    clSize:     0.3,
-    clDensity:  0.5,
-    clTexture:  0.5,
+    clSize: 0.3,
+    clDensity: 0.5,
+    clTexture: 0.5,
 
     // Rings modal resonator
-    rnStructure:  0.5,
+    rnStructure: 0.5,
     rnBrightness: 0.7,
-    rnDamping:    0.7,
-    rnExciter:    0,
+    rnDamping: 0.7,
+    rnExciter: 0,
 
     // Polyphony
-    maxVoices: 8,      // 1–16, maximum simultaneous voices before voice stealing
+    maxVoices: 8, // 1–16, maximum simultaneous voices before voice stealing
 
     // LFO routing destinations (multi-target flags)
-    lfoToCutoff:  false,
-    lfoToPitch:   false,
-    lfoToVolume:  false,
+    lfoToCutoff: false,
+    lfoToPitch: false,
+    lfoToVolume: false,
 
     // Legato
     legato: false,
 
     // Arpeggiator
     arpEnabled: false,
-    arpMode:    'up',
-    arpRange:   1,
-    arpSpeed:   1,
-    arpHold:    false,
+    arpMode: 'up',
+    arpRange: 1,
+    arpSpeed: 1,
+    arpHold: false,
 
     // Sample root note (MIDI 21–108) used for key tracking pitch detection.
     // Set manually or via auto-detect (detectPitch in sound.js).
-    note:         60,
+    note: 60,
 
     // Key tracking: when true, sample pitch tracks the sequencer note relative to `note`.
     // Default false (drums play at unity); enable for melodic sample tracks.
-    keyTracking:  false,
+    keyTracking: false,
 
     // Sample playback region (0–1 fractions of total buffer)
-    sampleStart:  0,
-    sampleEnd:    1,
+    sampleStart: 0,
+    sampleEnd: 1,
 
     // Loop points (0–1 fractions of total buffer)
-    loopStart:   0,
-    loopEnd:     1,
+    loopStart: 0,
+    loopEnd: 1,
     loopEnabled: false,
 
     // Runtime (not serialized)
@@ -196,13 +190,13 @@ export function createTrack(index) {
 
     // Scene defaults (crossfader endpoints)
     sceneA: {
-      cutoff:    2200,
-      decay:     0.22,
+      cutoff: 2200,
+      decay: 0.22,
       delaySend: 0.1,
     },
     sceneB: {
-      cutoff:    6400,
-      decay:     0.8,
+      cutoff: 6400,
+      decay: 0.8,
       delaySend: 0.45,
     },
 
@@ -215,8 +209,8 @@ export function createTrack(index) {
 
 function createPattern(patternIndex) {
   return {
-    name:   `Pattern ${String(patternIndex + 1).padStart(2, "0")}`,
-    length: 16,   // 1–64 steps
+    name: `Pattern ${String(patternIndex + 1).padStart(2, '0')}`,
+    length: 16, // 1–64 steps
     kit: {
       tracks: Array.from({ length: TRACK_COUNT }, (_, ti) => createTrack(ti)),
     },
@@ -228,10 +222,8 @@ function createPattern(patternIndex) {
 function createBank(bankIndex) {
   const letter = String.fromCharCode(65 + bankIndex); // A–H
   return {
-    name:     `Bank ${letter}`,
-    patterns: Array.from({ length: PATTERN_COUNT }, (_, pi) =>
-      createPattern(pi)
-    ),
+    name: `Bank ${letter}`,
+    patterns: Array.from({ length: PATTERN_COUNT }, (_, pi) => createPattern(pi)),
   };
 }
 
@@ -240,13 +232,13 @@ function createBank(bankIndex) {
 function createScene(sceneIndex) {
   const letter = String.fromCharCode(65 + sceneIndex); // A–H
   return {
-    name:   `Scene ${letter}`,
+    name: `Scene ${letter}`,
     tracks: Array.from({ length: TRACK_COUNT }, () => ({
-      cutoff:    3200,
-      decay:     0.28,
+      cutoff: 3200,
+      decay: 0.28,
       delaySend: 0.24,
-      pitch:     60,
-      volume:    0.72,
+      pitch: 60,
+      volume: 0.72,
     })),
   };
 }
@@ -254,26 +246,25 @@ function createScene(sceneIndex) {
 function ensureSceneShape(scene, sceneIndex = 0) {
   const letter = String.fromCharCode(65 + sceneIndex);
   const base = createScene(sceneIndex);
-  const next = scene && typeof scene === "object" ? { ...base, ...scene } : base;
+  const next = scene && typeof scene === 'object' ? { ...base, ...scene } : base;
   next.name = next.name || `Scene ${letter}`;
   next.noInterp = Array.isArray(next.noInterp) ? [...next.noInterp] : [];
   next.tracks = Array.from({ length: TRACK_COUNT }, (_, trackIndex) => ({
     ...base.tracks[trackIndex],
-    ...(scene?.tracks?.[trackIndex] ?? {})
+    ...(scene?.tracks?.[trackIndex] ?? {}),
   }));
   return next;
 }
 
 function normalizeScenes(state) {
-  const candidateScenes = Array.isArray(state?.project?.scenes) && state.project.scenes.length
-    ? state.project.scenes
-    : Array.isArray(state?.scenes) && state.scenes.length
-      ? state.scenes
-      : [];
-  const scenes = Array.from({ length: 8 }, (_, index) =>
-    ensureSceneShape(candidateScenes[index], index)
-  );
-  if (!state.project || typeof state.project !== "object") {
+  const candidateScenes =
+    Array.isArray(state?.project?.scenes) && state.project.scenes.length
+      ? state.project.scenes
+      : Array.isArray(state?.scenes) && state.scenes.length
+        ? state.scenes
+        : [];
+  const scenes = Array.from({ length: 8 }, (_, index) => ensureSceneShape(candidateScenes[index], index));
+  if (!state.project || typeof state.project !== 'object') {
     state.project = createProject();
   }
   state.project.scenes = scenes;
@@ -286,13 +277,13 @@ function normalizeScenes(state) {
 export function createProject() {
   const createdAt = Date.now();
   return {
-    name:        "New Project",
-    author:      "",
-    description: "",
+    name: 'New Project',
+    author: '',
+    description: '',
     createdAt,
-    assetId:     ensureProjectAssetId({ createdAt }),
-    banks:       Array.from({ length: BANK_COUNT }, (_, bi) => createBank(bi)),
-    scenes:      Array.from({ length: 8 }, (_, i) => createScene(i)),
+    assetId: ensureProjectAssetId({ createdAt }),
+    banks: Array.from({ length: BANK_COUNT }, (_, bi) => createBank(bi)),
+    scenes: Array.from({ length: 8 }, (_, i) => createScene(i)),
   };
 }
 
@@ -350,9 +341,10 @@ export function applyProjectPackageToState(state, packageOrProject) {
   if (!state || typeof state !== 'object') {
     throw new TypeError('state is required');
   }
-  const snapshot = packageOrProject?.state && typeof packageOrProject.state === 'object'
-    ? packageOrProject.state
-    : { project: unwrapProjectPackage(packageOrProject) };
+  const snapshot =
+    packageOrProject?.state && typeof packageOrProject.state === 'object'
+      ? packageOrProject.state
+      : { project: unwrapProjectPackage(packageOrProject) };
   const runtime = {
     audioContext: state.audioContext,
     engine: state.engine,
@@ -372,119 +364,123 @@ export function createAppState() {
   return normalizeScenes({
     // Audio (runtime only)
     audioContext: null,
-    engine:       null,
+    engine: null,
 
     // Navigation
-    currentPage:        "pattern",
-    activeBank:         0,
-    activePattern:      0,
+    currentPage: 'pattern',
+    activeBank: 0,
+    activePattern: 0,
     selectedTrackIndex: 0,
 
     // Playback
-    isPlaying:          false,
-    isRecording:        false,
-    overdubMode:        false,
-    stepRecordMode:     false,
-    _stepRecordCursor:  0,
-    currentStep:        -1,
-    arrangementMode:    false,
-    arrangementCursor:  0,
+    isPlaying: false,
+    isRecording: false,
+    overdubMode: false,
+    stepRecordMode: false,
+    _stepRecordCursor: 0,
+    currentStep: -1,
+    arrangementMode: false,
+    arrangementCursor: 0,
 
     // Global parameters (flat, knob-accessible)
-    bpm:           122,
-    swing:         0.0,
+    bpm: 122,
+    swing: 0.0,
     patternLength: 16,
-    euclidBeats:   4,
-    patternShift:  0,
-    defaultProb:   1,
-    trigMode:      0,
-    masterLevel:   0.82,
-    cueLevel:      1,
+    euclidBeats: 4,
+    patternShift: 0,
+    defaultProb: 1,
+    trigMode: 0,
+    masterLevel: 0.82,
+    cueLevel: 1,
     cueMonitorEnabled: true,
-    bus1Level:     1.0,
-    bus2Level:     1.0,
-    bus1EqLow: 0, bus1EqMid: 0, bus1EqHigh: 0,
-    bus2EqLow: 0, bus2EqMid: 0, bus2EqHigh: 0,
+    bus1Level: 1.0,
+    bus2Level: 1.0,
+    bus1EqLow: 0,
+    bus1EqMid: 0,
+    bus1EqHigh: 0,
+    bus2EqLow: 0,
+    bus2EqMid: 0,
+    bus2EqHigh: 0,
 
     // FX globals
-    delayTime:        0.28,
-    delayFeedback:    0.38,
+    delayTime: 0.28,
+    delayFeedback: 0.38,
     delaySyncEnabled: false,
-    delaySyncDiv:     '1/8',
-    convReverbMix:    0.3,
+    delaySyncDiv: '1/8',
+    convReverbMix: 0.3,
     convReverbPreDelay: 0,
     convReverbPreset: 'room',
-    masterDrive:      0,
-    lfoRate:          2,
-    lfoDepth:         0,
-    chorusWidth:      0.5,
+    masterDrive: 0,
+    lfoRate: 2,
+    lfoDepth: 0,
+    chorusWidth: 0.5,
 
     // Settings
-    midiChannel:   1,
-    metronome:     false,
-    abletonLink:   false,
-    clockMode:     0,
-    midiClockOut:  false,
-    clockSource:   "internal",
-    latencyCompMs:    0,
-    audioBufferSize:  512,
-    maxVoicesGlobal:  16,
-    oscMode:          'wave',
-    midiOutputId:     null,
-    midiOutputName:   null,
+    midiChannel: 1,
+    metronome: false,
+    abletonLink: false,
+    clockMode: 0,
+    midiClockOut: false,
+    clockSource: 'internal',
+    latencyCompMs: 0,
+    audioBufferSize: 512,
+    maxVoicesGlobal: 16,
+    oscMode: 'wave',
+    midiOutputId: null,
+    midiOutputName: null,
     recorderSlotsMeta: Array.from({ length: RECORDER_SLOT_COUNT }, (_, i) => createRecorderSlotMeta(i)),
-    recorderBuffers:   Array.from({ length: RECORDER_SLOT_COUNT }, () => null),
+    recorderBuffers: Array.from({ length: RECORDER_SLOT_COUNT }, () => null),
     selectedRecorderSlot: 0,
-    recorderBarCount:  4,
+    recorderBarCount: 4,
 
     // Pattern editing
-    octaveShift:       0,
-    copyBuffer:        null,
-    tapTimes:          [],
+    octaveShift: 0,
+    copyBuffer: null,
+    tapTimes: [],
     activeKeyboardKey: null,
-    keyboardVelocity:  1.0,
-    velocityCurve:     'linear',
-    kbdChordMode:      'off',
-    chordMode:         false,
-    chordVoicing:      'triad',
-    humanizeAmount:    0.2,
-    scaleLock:         false,
-    splitKeyboard:     false,
-    splitTrackLeft:    0,
-    splitTrackRight:   1,
+    keyboardVelocity: 1.0,
+    velocityCurve: 'linear',
+    kbdChordMode: 'off',
+    chordMode: false,
+    chordVoicing: 'triad',
+    humanizeAmount: 0.2,
+    scaleLock: false,
+    splitKeyboard: false,
+    splitTrackLeft: 0,
+    splitTrackRight: 1,
 
     // Scenes / crossfader
     crossfader: 0,
-    sceneA:     0,  // index of scene slot at crossfader A end
-    sceneB:     1,  // index of scene slot at crossfader B end
-    scenes:     Array.from({ length: 8 }, (_, i) => createScene(i)),
+    sceneA: 0, // index of scene slot at crossfader A end
+    sceneB: 1, // index of scene slot at crossfader B end
+    scenes: Array.from({ length: 8 }, (_, i) => createScene(i)),
 
     // Scene chain mode — auto-advance through scene slots
     sceneChainEnabled: false,
-    sceneChainBars:    4,
-    sceneChainIdx:     0,
+    sceneChainBars: 4,
+    sceneChainIdx: 0,
 
     // Scene auto-morph
     sceneMorphActive: false,
-    sceneMorphBars:   4,
-    morphCurve:       'linear', // 'linear' | 'ease' | 'bounce'
+    sceneMorphBars: 4,
+    morphCurve: 'linear', // 'linear' | 'ease' | 'bounce'
 
     // Arranger
-    arranger: [],   // [{sceneIdx, bars, bpmOverride, timeSignature, name, followAction, repeat, muted}]
-    arrLoop:      false,
+    arranger: [], // [{sceneIdx, bars, bpmOverride, timeSignature, name, followAction, repeat, muted}]
+    arrLoop: false,
     arrLoopStart: 0,
-    arrLoopEnd:   0,
+    arrLoopEnd: 0,
 
     // Fader links — array of {a, b} track index pairs that move together
     faderLinks: [],
 
     // Track groups (G1-G8): mute/solo all tracks in a group together
     groups: Array.from({ length: 8 }, (_, i) => ({
-      name:   `G${i + 1}`,
-      muted:  false,
-      solo:   false,
+      name: `G${i + 1}`,
+      muted: false,
+      solo: false,
       volume: 1,
-      pan:    0,
+      pan: 0,
     })),
 
     // Global macro controls (4 mappable knobs)
@@ -497,14 +493,14 @@ export function createAppState() {
 
     // Mod Matrix
     modMatrix: {
-      routes: [],  // array of {sourceId, destId, trackIndex, amount, enabled}
+      routes: [], // array of {sourceId, destId, trackIndex, amount, enabled}
       lfos: [
-        { rate: 1,   shape: 'sine',     amount: 0, sync: false },
+        { rate: 1, shape: 'sine', amount: 0, sync: false },
         { rate: 0.5, shape: 'triangle', amount: 0, sync: false },
       ],
       envs: [
         { attack: 0.01, decay: 0.2, sustain: 0.5, release: 0.3, amount: 0, trigger: 'note' },
-        { attack: 0.1,  decay: 0.5, sustain: 0.3, release: 0.8, amount: 0, trigger: 'note' },
+        { attack: 0.1, decay: 0.5, sustain: 0.3, release: 0.8, amount: 0, trigger: 'note' },
       ],
     },
 
@@ -553,7 +549,7 @@ export function setScene(state, sceneIdx, trackIdx, params) {
 
 // ─── Scene interpolation ──────────────────────────────────────────────────────
 
-const INTERPOLATED_PARAMS = ["cutoff", "decay", "delaySend", "pitch", "volume"];
+const INTERPOLATED_PARAMS = ['cutoff', 'decay', 'delaySend', 'pitch', 'volume'];
 
 /**
  * Blend sceneA and sceneB at the current crossfader position (0–1).
@@ -564,7 +560,7 @@ export function interpolateScenes(state) {
   const { sceneA, sceneB, crossfader, scenes } = state;
   const sA = scenes[sceneA];
   const sB = scenes[sceneB];
-  const t  = Math.max(0, Math.min(1, crossfader));
+  const t = Math.max(0, Math.min(1, crossfader));
 
   // noInterp is stored on the project scene object (keyed by sceneA index)
   const noInterp = state.project?.scenes?.[sceneA]?.noInterp ?? [];
@@ -591,28 +587,24 @@ export function interpolateScenes(state) {
 
 function stripRuntime(state) {
   // Deep-clone the serializable parts; exclude AudioBuffers and runtime refs.
-  const {
-    _assetHydrationPending,
-    _assetHydrationComplete,
-    ...runtimeSafeState
-  } = state;
+  const { _assetHydrationPending, _assetHydrationComplete, ...runtimeSafeState } = state;
   const plain = {
     ...runtimeSafeState,
     audioContext: null,
-    engine:       null,
+    engine: null,
     recorderBuffers: Array.isArray(state.recorderBuffers)
       ? state.recorderBuffers.map(() => null)
       : Array.from({ length: RECORDER_SLOT_COUNT }, () => null),
     project: {
       ...state.project,
-      banks: state.project.banks.map(bank => ({
+      banks: state.project.banks.map((bank) => ({
         ...bank,
-        patterns: bank.patterns.map(pat => ({
+        patterns: bank.patterns.map((pat) => ({
           ...pat,
           kit: {
             ...pat.kit,
-            tracks: pat.kit.tracks.map(track => {
-              const { sampleBuffer, ...rest } = track; // drop AudioBuffer
+            tracks: pat.kit.tracks.map((track) => {
+              const { sampleBuffer: _sampleBuffer, ...rest } = track; // drop AudioBuffer
               return rest;
             }),
           },
@@ -697,10 +689,10 @@ export function saveState(state) {
           void queuePersistAssets(state);
           return;
         } catch (fallbackErr) {
-          console.warn("[CONFUstudio] saveState failed after sparse fallback:", fallbackErr);
+          console.warn('[CONFUstudio] saveState failed after sparse fallback:', fallbackErr);
         }
       } else {
-        console.warn("[CONFUstudio] saveState failed:", err);
+        console.warn('[CONFUstudio] saveState failed:', err);
       }
     }
   }, 400);
@@ -722,9 +714,7 @@ function repairState(state) {
   // Ensure banks array is the right length and fully populated
   if (!Array.isArray(state.project.banks) || state.project.banks.length < BANK_COUNT) {
     const fresh = createProject();
-    state.project.banks = Array.from({ length: BANK_COUNT }, (_, bi) =>
-      state.project.banks?.[bi] ?? fresh.banks[bi]
-    );
+    state.project.banks = Array.from({ length: BANK_COUNT }, (_, bi) => state.project.banks?.[bi] ?? fresh.banks[bi]);
   }
 
   state.project.banks = state.project.banks.map((bank, bi) => {
@@ -732,9 +722,10 @@ function repairState(state) {
 
     if (!Array.isArray(bank.patterns) || bank.patterns.length < PATTERN_COUNT) {
       const freshBank = createBank(bi);
-      bank = { ...bank, patterns: Array.from({ length: PATTERN_COUNT }, (_, pi) =>
-        bank.patterns?.[pi] ?? freshBank.patterns[pi]
-      )};
+      bank = {
+        ...bank,
+        patterns: Array.from({ length: PATTERN_COUNT }, (_, pi) => bank.patterns?.[pi] ?? freshBank.patterns[pi]),
+      };
     }
 
     bank.patterns = bank.patterns.map((pat, pi) => {
@@ -742,9 +733,12 @@ function repairState(state) {
 
       if (!pat.kit || !Array.isArray(pat.kit.tracks) || pat.kit.tracks.length < TRACK_COUNT) {
         const freshPat = createPattern(pi);
-        pat = { ...pat, kit: { tracks: Array.from({ length: TRACK_COUNT }, (_, ti) =>
-          pat.kit?.tracks?.[ti] ?? freshPat.kit.tracks[ti]
-        )}};
+        pat = {
+          ...pat,
+          kit: {
+            tracks: Array.from({ length: TRACK_COUNT }, (_, ti) => pat.kit?.tracks?.[ti] ?? freshPat.kit.tracks[ti]),
+          },
+        };
       }
 
       pat.kit.tracks = pat.kit.tracks.map((track, ti) => {
@@ -752,9 +746,10 @@ function repairState(state) {
 
         if (!Array.isArray(track.steps) || track.steps.length < STEP_COUNT) {
           const freshTrack = createTrack(ti);
-          track = { ...track, steps: Array.from({ length: STEP_COUNT }, (_, si) =>
-            track.steps?.[si] ?? freshTrack.steps[si]
-          )};
+          track = {
+            ...track,
+            steps: Array.from({ length: STEP_COUNT }, (_, si) => track.steps?.[si] ?? freshTrack.steps[si]),
+          };
         }
 
         track.steps = track.steps.map((step, si) => {
@@ -775,12 +770,12 @@ function repairState(state) {
   });
 
   // Clamp navigation indices so they never point outside valid ranges
-  const banks    = state.project.banks;
+  const banks = state.project.banks;
   const patterns = banks[0]?.patterns;
-  const tracks   = patterns?.[0]?.kit?.tracks;
-  state.activeBank         = Math.max(0, Math.min((banks?.length    ?? 1) - 1, state.activeBank         ?? 0));
-  state.activePattern      = Math.max(0, Math.min((patterns?.length ?? 1) - 1, state.activePattern      ?? 0));
-  state.selectedTrackIndex = Math.max(0, Math.min((tracks?.length   ?? 1) - 1, state.selectedTrackIndex ?? 0));
+  const tracks = patterns?.[0]?.kit?.tracks;
+  state.activeBank = Math.max(0, Math.min((banks?.length ?? 1) - 1, state.activeBank ?? 0));
+  state.activePattern = Math.max(0, Math.min((patterns?.length ?? 1) - 1, state.activePattern ?? 0));
+  state.selectedTrackIndex = Math.max(0, Math.min((tracks?.length ?? 1) - 1, state.selectedTrackIndex ?? 0));
 
   return state;
 }
@@ -832,11 +827,11 @@ export function loadState() {
       // Forward-fill group fields added after an older save was made
       if (Array.isArray(parsed.groups)) {
         parsed.groups = parsed.groups.map((g, i) => ({
-          name:   `G${i + 1}`,
-          muted:  false,
-          solo:   false,
+          name: `G${i + 1}`,
+          muted: false,
+          solo: false,
           volume: 1,
-          pan:    0,
+          pan: 0,
           ...g,
         }));
       }
@@ -847,15 +842,15 @@ export function loadState() {
       return next;
     }
   } catch (err) {
-    console.warn("[CONFUstudio] loadState v3 failed:", err);
+    console.warn('[CONFUstudio] loadState v3 failed:', err);
   }
 
   // ── Try legacy track imports (import tracks from first pattern only) ──
   try {
-    const raw = localStorage.getItem("confustudio-v2") ?? localStorage.getItem("confusynth-v2");
+    const raw = localStorage.getItem('confustudio-v2') ?? localStorage.getItem('confusynth-v2');
     if (raw) {
       const legacy = JSON.parse(raw);
-      const state  = createAppState();
+      const state = createAppState();
       // v2 stored a flat tracks array at top level or under state.tracks
       const legacyTracks = legacy.tracks || (legacy.state && legacy.state.tracks);
       if (Array.isArray(legacyTracks)) {
@@ -869,7 +864,7 @@ export function loadState() {
       return next;
     }
   } catch (err) {
-    console.warn("[CONFUstudio] loadState v2 legacy import failed:", err);
+    console.warn('[CONFUstudio] loadState v2 legacy import failed:', err);
   }
 
   return null;
@@ -886,19 +881,14 @@ function deepMerge(target, source) {
       return deepMerge(target[index], srcVal);
     });
   }
-  if (!source || typeof source !== "object" || Array.isArray(source)) {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) {
     return source !== undefined ? source : target;
   }
   const result = { ...target };
   for (const key of Object.keys(source)) {
-    const srcVal  = source[key];
-    const tgtVal  = target[key];
-    if (
-      srcVal !== null &&
-      typeof srcVal === "object" &&
-      tgtVal !== null &&
-      typeof tgtVal === "object"
-    ) {
+    const srcVal = source[key];
+    const tgtVal = target[key];
+    if (srcVal !== null && typeof srcVal === 'object' && tgtVal !== null && typeof tgtVal === 'object') {
       // Recursively merge both objects AND arrays (arrays hit the array branch above)
       result[key] = deepMerge(tgtVal, srcVal);
     } else {

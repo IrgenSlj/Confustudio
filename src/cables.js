@@ -57,8 +57,9 @@ export function initCables() {
     const moduleEl = el?.closest?.('.studio-module');
     const portName = el?.dataset?.port;
     if (!moduleEl?.id || !portName) return null;
-    const matchingPorts = [...moduleEl.querySelectorAll('.port, .djm-port')]
-      .filter((port) => port.dataset.port === portName);
+    const matchingPorts = [...moduleEl.querySelectorAll('.port, .djm-port')].filter(
+      (port) => port.dataset.port === portName,
+    );
     return {
       moduleId: moduleEl.id,
       port: portName,
@@ -70,20 +71,23 @@ export function initCables() {
     if (!ref?.moduleId || !ref?.port) return null;
     const moduleEl = document.getElementById(ref.moduleId);
     if (!moduleEl?.classList?.contains('studio-module')) return null;
-    const matchingPorts = [...moduleEl.querySelectorAll('.port, .djm-port')]
-      .filter((port) => port.dataset.port === ref.port);
+    const matchingPorts = [...moduleEl.querySelectorAll('.port, .djm-port')].filter(
+      (port) => port.dataset.port === ref.port,
+    );
     return matchingPorts[ref.index || 0] || matchingPorts[0] || null;
   }
 
   function cableMatchesRef(cable, saved) {
     const from = portRef(cable.fromEl);
     const to = portRef(cable.toEl);
-    return from?.moduleId === saved?.from?.moduleId
-      && from?.port === saved?.from?.port
-      && (from?.index || 0) === (saved?.from?.index || 0)
-      && to?.moduleId === saved?.to?.moduleId
-      && to?.port === saved?.to?.port
-      && (to?.index || 0) === (saved?.to?.index || 0);
+    return (
+      from?.moduleId === saved?.from?.moduleId &&
+      from?.port === saved?.from?.port &&
+      (from?.index || 0) === (saved?.from?.index || 0) &&
+      to?.moduleId === saved?.to?.moduleId &&
+      to?.port === saved?.to?.port &&
+      (to?.index || 0) === (saved?.to?.index || 0)
+    );
   }
 
   function serializeCable(cable) {
@@ -351,7 +355,7 @@ export function initCables() {
     group.appendChild(layers.shine);
 
     const plugFrom = createJackPlug(color);
-    const plugTo   = createJackPlug(color);
+    const plugTo = createJackPlug(color);
     group.appendChild(plugFrom);
     group.appendChild(plugTo);
 
@@ -363,11 +367,11 @@ export function initCables() {
 
     // Audio routing: if connecting synth audio-out to DJ mixer input
     const fromPort = fromEl.closest('.studio-module');
-    const toPort   = toEl.closest('.studio-module');
-    const toType   = toEl.textContent.trim().toLowerCase();
+    const toPort = toEl.closest('.studio-module');
+    const toType = toEl.textContent.trim().toLowerCase();
 
     if (fromPort && toPort) {
-      const engine  = window._confustudioEngine;
+      const engine = window._confustudioEngine;
       const djmixer = toPort.querySelector('[data-djm]') || fromPort.querySelector('[data-djm]');
 
       if (engine && djmixer?._djmAudio) {
@@ -382,7 +386,7 @@ export function initCables() {
         } catch (_) {}
         try {
           sourceNode.connect(targetInput);
-        } catch(e) {
+        } catch (e) {
           console.warn('[cables] audio routing failed:', e.message);
         }
         // DJ mixer already connects to destination via masterGain
@@ -396,12 +400,14 @@ export function initCables() {
     }
 
     // Notify listeners that a cable was connected
-    document.dispatchEvent(new CustomEvent('cable:connected', {
-      detail: { fromEl, toEl, fromPort: fromEl.dataset.port, toPort: toEl.dataset.port }
-    }));
+    document.dispatchEvent(
+      new CustomEvent('cable:connected', {
+        detail: { fromEl, toEl, fromPort: fromEl.dataset.port, toPort: toEl.dataset.port },
+      }),
+    );
 
     // Right-click on body to remove cable
-    layers.body.addEventListener('contextmenu', e => {
+    layers.body.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       removeCable(cable);
     });
@@ -416,7 +422,9 @@ export function initCables() {
       try {
         cable._sourceNode.disconnect(cable._targetInput);
       } catch (_) {}
-      const remainingAudioRoutes = cables.some((entry) => entry !== cable && entry._audioRouted && entry._sourceNode === cable._sourceNode);
+      const remainingAudioRoutes = cables.some(
+        (entry) => entry !== cable && entry._audioRouted && entry._sourceNode === cable._sourceNode,
+      );
       if (!remainingAudioRoutes) {
         try {
           cable._sourceNode.connect(cable._destinationNode ?? cable._engine.context.destination);
@@ -444,7 +452,7 @@ export function initCables() {
     e.stopPropagation();
     const NS = 'http://www.w3.org/2000/svg';
     const fromEl = e.currentTarget;
-    const color  = nextColor();
+    const color = nextColor();
 
     // Dashed drag preview: single path + plug at origin
     const tempPath = document.createElementNS(NS, 'path');
@@ -469,7 +477,7 @@ export function initCables() {
     const wr = studioWrap.getBoundingClientRect();
     const mx = clientX - wr.left;
     const my = clientY - wr.top;
-    const a  = portCenter(dragging.fromEl);
+    const a = portCenter(dragging.fromEl);
     const geom = getBezierGeometry(a.x, a.y, mx, my);
     dragging.tempPath.setAttribute('d', geom.d);
     const startTangent = bezierTangent(geom, 0.02);
@@ -493,7 +501,7 @@ export function initCables() {
     if (toEl && toEl !== dragging.fromEl) {
       // Don't allow connecting a port to itself on the same module
       const fromMod = dragging.fromEl.closest('.studio-module');
-      const toMod   = toEl.closest('.studio-module');
+      const toMod = toEl.closest('.studio-module');
       if (fromMod !== toMod || fromMod === null) {
         addCable(dragging.fromEl, toEl);
       }
@@ -501,19 +509,19 @@ export function initCables() {
     dragging = null;
   }
 
-  window.addEventListener('pointermove', e => {
+  window.addEventListener('pointermove', (e) => {
     if (!dragging) return;
     if (dragging.pointerId != null && e.pointerId !== dragging.pointerId) return;
     updateDraggingCable(e.clientX, e.clientY);
   });
 
-  window.addEventListener('pointerup', e => {
+  window.addEventListener('pointerup', (e) => {
     if (!dragging) return;
     if (dragging.pointerId != null && e.pointerId !== dragging.pointerId) return;
     finishDraggingCable(e.clientX, e.clientY);
   });
 
-  window.addEventListener('pointercancel', e => {
+  window.addEventListener('pointercancel', (e) => {
     if (!dragging) return;
     if (dragging.pointerId != null && e.pointerId !== dragging.pointerId) return;
     finishDraggingCable(e.clientX, e.clientY);
@@ -563,8 +571,6 @@ export function initCables() {
     if (dragging && moduleEl.contains(dragging.fromEl)) {
       cancelDraggingCable();
     }
-    cables
-      .filter((cable) => moduleEl.contains(cable.fromEl) || moduleEl.contains(cable.toEl))
-      .forEach(removeCable);
+    cables.filter((cable) => moduleEl.contains(cable.fromEl) || moduleEl.contains(cable.toEl)).forEach(removeCable);
   });
 }

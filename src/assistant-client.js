@@ -1,4 +1,4 @@
-const ASSISTANT_API_ROOT = "/api/assistant";
+const ASSISTANT_API_ROOT = '/api/assistant';
 
 let cachedContextPromise = null;
 let cachedProvidersPromise = null;
@@ -16,7 +16,7 @@ async function readJson(response) {
 async function requestJson(path, options = {}) {
   const response = await fetch(`${ASSISTANT_API_ROOT}${path}`, {
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
       ...(options.headers || {}),
     },
     ...options,
@@ -38,7 +38,7 @@ export async function fetchAssistantContext(forceRefresh = false) {
     return cachedContextPromise;
   }
 
-  cachedContextPromise = requestJson("/context");
+  cachedContextPromise = requestJson('/context');
   return cachedContextPromise;
 }
 
@@ -47,26 +47,26 @@ export async function fetchAssistantProviders(forceRefresh = false) {
     return cachedProvidersPromise;
   }
 
-  cachedProvidersPromise = requestJson("/providers");
+  cachedProvidersPromise = requestJson('/providers');
   return cachedProvidersPromise;
 }
 
 export async function chatAssistant(payload) {
-  if (!payload || typeof payload !== "object") {
-    throw new TypeError("payload must be an object");
+  if (!payload || typeof payload !== 'object') {
+    throw new TypeError('payload must be an object');
   }
 
-  const message = typeof payload.message === "string" ? payload.message.trim() : "";
+  const message = typeof payload.message === 'string' ? payload.message.trim() : '';
   const messages = Array.isArray(payload.messages) ? payload.messages : undefined;
 
   if (!message && (!messages || messages.length === 0)) {
-    throw new TypeError("message or messages is required");
+    throw new TypeError('message or messages is required');
   }
 
-  return requestJson("/chat", {
-    method: "POST",
+  return requestJson('/chat', {
+    method: 'POST',
     body: JSON.stringify({
-      provider: payload.provider || "auto",
+      provider: payload.provider || 'auto',
       message: message || undefined,
       messages,
       context: payload.context || undefined,
@@ -79,19 +79,19 @@ export async function chatAssistant(payload) {
 }
 
 export async function planAssistantActions(payload) {
-  if (!payload || typeof payload !== "object") {
-    throw new TypeError("payload must be an object");
+  if (!payload || typeof payload !== 'object') {
+    throw new TypeError('payload must be an object');
   }
 
-  const message = typeof payload.message === "string" ? payload.message.trim() : "";
+  const message = typeof payload.message === 'string' ? payload.message.trim() : '';
   if (!message) {
-    throw new TypeError("message is required");
+    throw new TypeError('message is required');
   }
 
-  return requestJson("/actions/plan", {
-    method: "POST",
+  return requestJson('/actions/plan', {
+    method: 'POST',
     body: JSON.stringify({
-      provider: payload.provider || "auto",
+      provider: payload.provider || 'auto',
       message,
       context: payload.context || undefined,
       model: payload.model || undefined,
@@ -113,10 +113,10 @@ export function buildAssistantPrompt(context = {}) {
   if (context.pattern != null) lines.push(`Pattern: ${context.pattern}`);
   if (context.summary) lines.push(`Summary: ${context.summary}`);
 
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
-export function installAssistantBridge(target = typeof window !== "undefined" ? window : globalThis) {
+export function installAssistantBridge(target = typeof window !== 'undefined' ? window : globalThis) {
   if (!target) return null;
 
   const api = {
@@ -132,7 +132,7 @@ export function installAssistantBridge(target = typeof window !== "undefined" ? 
   return api;
 }
 
-if (typeof window !== "undefined") {
+if (typeof window !== 'undefined') {
   installAssistantBridge(window);
 }
 
