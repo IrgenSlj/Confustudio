@@ -13,6 +13,7 @@ import {
   isModuleInteractiveTarget,
   moduleById,
   removeModule,
+  saveLayout,
   saveView,
   selectModule,
   shouldHideLensForTarget,
@@ -46,6 +47,20 @@ export function initStudio() {
     _restoredSelectedModuleId: null,
     hideZoomLens: null,
     scheduleZoomLensRefresh: null,
+  };
+
+  window.__CONFUSTUDIO__ = window.__CONFUSTUDIO__ || {};
+  window.__CONFUSTUDIO__.workspace = {
+    saveLayout: () => saveLayout(S),
+    getLayout: () => {
+      saveLayout(S);
+      try {
+        return JSON.parse(localStorage.getItem(STUDIO_LAYOUT_KEY) || '[]');
+      } catch (_) {
+        return [];
+      }
+    },
+    getView: () => ({ scale: S.scale, panX: S.panX, panY: S.panY, autoZoom: S._autoZoom }),
   };
 
   const ZOOM_LENS_KEY = 'confustudio-zoom-lens-v2';
@@ -313,6 +328,7 @@ export function initStudio() {
             select: false,
             fit: false,
             persist: false,
+            moduleState: item.moduleState,
           });
         }
         if (!mod) return;
@@ -336,7 +352,7 @@ export function initStudio() {
     attachModuleChrome(S, module0);
   }
 
-  const hasLayout = restoreLayout();
+  restoreLayout();
   restoreView();
   const initialSelection =
     (S._restoredSelectedModuleId && canvas.querySelector(`#${S._restoredSelectedModuleId}`)) ||

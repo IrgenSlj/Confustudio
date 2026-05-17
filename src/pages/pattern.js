@@ -39,7 +39,8 @@ export default {
         },
         label,
       );
-    const rerenderPattern = () => emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
+    const rerenderPattern = () =>
+      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
 
     function cloneStepData(step) {
       return {
@@ -109,7 +110,9 @@ export default {
     }
     patLockBtn.addEventListener('click', () => {
       const locked = !state.patternLengthLocked;
-      if (!executeCommands({ type: 'set-setting', key: 'patternLengthLocked', value: locked }, 'Updated pattern lock')) {
+      if (
+        !executeCommands({ type: 'set-setting', key: 'patternLengthLocked', value: locked }, 'Updated pattern lock')
+      ) {
         state.patternLengthLocked = locked;
       }
       patLockBtn.textContent = locked ? '🔒' : '🔓';
@@ -358,9 +361,7 @@ export default {
       pasteBtn.style.opacity = state._stepClipboard ? '1' : '0.45';
       pasteBtn.addEventListener('click', () => {
         if (!state._stepClipboard) return;
-        if (
-          !commitStepPatch(stepIndex, cloneStepData(state._stepClipboard), `Pasted step ${stepIndex + 1}`)
-        ) {
+        if (!commitStepPatch(stepIndex, cloneStepData(state._stepClipboard), `Pasted step ${stepIndex + 1}`)) {
           Object.assign(track.steps[stepIndex], cloneStepData(state._stepClipboard));
           rerenderPattern();
         }
@@ -1680,7 +1681,10 @@ export default {
     lockBtn.style.cssText = 'font-size:0.7rem;padding:2px 5px';
     lockBtn.title = 'Lock/unlock pattern for morph source';
     lockBtn.addEventListener('click', () => {
-      executeCommands({ type: 'set-setting', key: 'patternLocked', value: !state.patternLocked }, 'Updated pattern lock');
+      executeCommands(
+        { type: 'set-setting', key: 'patternLocked', value: !state.patternLocked },
+        'Updated pattern lock',
+      );
       emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
     });
     actionsDiv.prepend(lockBtn);
@@ -1783,7 +1787,10 @@ export default {
       genreSelect.append(opt);
     });
     genreSelect.addEventListener('change', () => {
-      executeCommands({ type: 'set-setting', key: 'randomizeGenre', value: genreSelect.value }, 'Updated randomize genre');
+      executeCommands(
+        { type: 'set-setting', key: 'randomizeGenre', value: genreSelect.value },
+        'Updated randomize genre',
+      );
     });
 
     const rndAllBtn = document.createElement('button');

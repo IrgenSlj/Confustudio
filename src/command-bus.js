@@ -280,10 +280,7 @@ export function executeStudioCommand(state, command) {
 
     case 'select-bank': {
       const nextBank = bankIndex;
-      const nextPattern =
-        command.patternIndex !== undefined
-          ? clamp(command.patternIndex, 0, PATTERN_COUNT - 1, 0)
-          : 0;
+      const nextPattern = command.patternIndex !== undefined ? clamp(command.patternIndex, 0, PATTERN_COUNT - 1, 0) : 0;
       state.activeBank = nextBank;
       state.activePattern = nextPattern;
       return { changed: true, summary: `Selected bank ${nextBank + 1}` };
@@ -293,12 +290,7 @@ export function executeStudioCommand(state, command) {
       state.activeBank = bankIndex;
       state.activePattern = patternIndex;
       if (command.trackIndex !== undefined) {
-        state.selectedTrackIndex = clamp(
-          command.trackIndex,
-          0,
-          TRACK_COUNT - 1,
-          state.selectedTrackIndex ?? 0,
-        );
+        state.selectedTrackIndex = clamp(command.trackIndex, 0, TRACK_COUNT - 1, state.selectedTrackIndex ?? 0);
       }
       return { changed: true, summary: `Selected pattern ${patternIndex + 1}` };
     }
@@ -367,7 +359,8 @@ export function executeStudioCommand(state, command) {
       const track = getTrack(state, bankIndex, patternIndex, trackIndex);
       if (!track) return { changed: false, summary: 'Track not found' };
       const interval = clamp(command.interval ?? 4, 1, 64, 4);
-      const len = track.trackLength > 0 ? track.trackLength : getPattern(state, bankIndex, patternIndex)?.length ?? 16;
+      const len =
+        track.trackLength > 0 ? track.trackLength : (getPattern(state, bankIndex, patternIndex)?.length ?? 16);
       track.steps.slice(0, len).forEach((step, stepIndex) => {
         step.active = stepIndex % interval === 0;
       });
@@ -377,7 +370,8 @@ export function executeStudioCommand(state, command) {
     case 'mutate-track-steps': {
       const track = getTrack(state, bankIndex, patternIndex, trackIndex);
       if (!track) return { changed: false, summary: 'Track not found' };
-      const len = track.trackLength > 0 ? track.trackLength : getPattern(state, bankIndex, patternIndex)?.length ?? 16;
+      const len =
+        track.trackLength > 0 ? track.trackLength : (getPattern(state, bankIndex, patternIndex)?.length ?? 16);
       const flips = clamp(command.flips ?? 1 + Math.floor(Math.random() * 2), 1, len, 1);
       for (let i = 0; i < flips; i++) {
         const stepIndex = Math.floor(Math.random() * len);
@@ -391,7 +385,8 @@ export function executeStudioCommand(state, command) {
       const track = getTrack(state, bankIndex, patternIndex, trackIndex);
       if (!track) return { changed: false, summary: 'Track not found' };
       const grid = clamp(command.grid ?? 1, 1, 64, 1);
-      const len = track.trackLength > 0 ? track.trackLength : getPattern(state, bankIndex, patternIndex)?.length ?? 16;
+      const len =
+        track.trackLength > 0 ? track.trackLength : (getPattern(state, bankIndex, patternIndex)?.length ?? 16);
       const newActive = new Set();
       track.steps.slice(0, len).forEach((step, stepIndex) => {
         if (step.active) {
@@ -409,7 +404,8 @@ export function executeStudioCommand(state, command) {
       const track = getTrack(state, bankIndex, patternIndex, trackIndex);
       if (!track) return { changed: false, summary: 'Track not found' };
       const amount = clamp(command.amount ?? 0.2, 0, 1, 0.2);
-      const len = track.trackLength > 0 ? track.trackLength : getPattern(state, bankIndex, patternIndex)?.length ?? 16;
+      const len =
+        track.trackLength > 0 ? track.trackLength : (getPattern(state, bankIndex, patternIndex)?.length ?? 16);
       track.steps.slice(0, len).forEach((step) => {
         if (!step.active) return;
         step.microTime = (Math.random() - 0.5) * amount;

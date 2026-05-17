@@ -321,6 +321,57 @@ export function createDJMixer(audioContext) {
 
   // ── Make knobs draggable (visual + audio) ──
   const knobState = {};
+  const faderState = { ch1: 1, ch2: 1, xfader: 0.5 };
+  const cueState = { ch1: false, ch2: false };
+
+  function applyKnobValue(key, param, chNum, value) {
+    const v = Math.max(0, Math.min(1, Number(value) || 0));
+    knobState[key] = v;
+    const knob = el.querySelector(`.djm-knob[data-param="${param}"]${chNum ? `[data-ch="${chNum}"]` : ''}`);
+    if (knob) updateKnobVisual(knob, v);
+
+    if (!audioContext) return;
+    const ch = chNum === '1' ? ch1 : chNum === '2' ? ch2 : null;
+    if (ch) {
+      if (param === 'hi') ch.setEQ(ch.hiEQ, v);
+      if (param === 'mid') ch.setEQ(ch.midEQ, v);
+      if (param === 'lo') ch.setEQ(ch.loEQ, v);
+      if (param === 'gain') ch.fader.gain.setTargetAtTime(v, audioContext.currentTime, 0.02);
+      if (param === 'trim') ch.setTrim(v);
+      if (param === 'filter') ch.setFilter(v);
+    }
+    if (param === 'masterGain' && masterGain) {
+      masterGain.gain.setTargetAtTime(v * 1.2, audioContext.currentTime, 0.02);
+    }
+    if (param === 'headGain' && window._confustudioEngine?.setCueGain) {
+      window._confustudioEngine.setCueGain(v * 1.4);
+    }
+  }
+
+  function applyFaderValue(chNum, value) {
+    const v = Math.max(0, Math.min(1, Number(value) || 0));
+    faderState[`ch${chNum}`] = v;
+    const fader = el.querySelector(`.djm-fader[data-ch="${chNum}"]`);
+    if (fader) fader.value = String(v);
+    if (!audioContext) return;
+    const ch = chNum === '1' ? ch1 : ch2;
+    if (ch) ch.fader.gain.setTargetAtTime(v, audioContext.currentTime, 0.02);
+  }
+
+  function applyXfaderValue(value) {
+    const v = Math.max(0, Math.min(1, Number(value) || 0));
+    faderState.xfader = v;
+    const xfaderEl = el.querySelector('.djm-xfader');
+    if (xfaderEl) xfaderEl.value = String(v);
+    if (audioContext) setXfader(v);
+  }
+
+  function applyCueValue(chNum, value) {
+    const enabled = Boolean(value);
+    cueState[`ch${chNum}`] = enabled;
+    el.querySelector(`.djm-cue-btn[data-ch="${chNum}"]`)?.classList.toggle('active', enabled);
+  }
+
   el.querySelectorAll('.djm-knob').forEach((knob) => {
     const param = knob.dataset.param;
     const chNum = knob.dataset.ch;
@@ -340,27 +391,7 @@ export function createDJMixer(audioContext) {
     knob.addEventListener('pointermove', (e) => {
       if (!e.buttons) return;
       const delta = (startY - e.clientY) / 120;
-      knobState[key] = Math.max(0, Math.min(1, startVal + delta));
-      updateKnobVisual(knob, knobState[key]);
-
-      if (!audioContext) return;
-      const v = knobState[key];
-      const ch = chNum === '1' ? ch1 : chNum === '2' ? ch2 : null;
-
-      if (ch) {
-        if (param === 'hi') ch.setEQ(ch.hiEQ, v);
-        if (param === 'mid') ch.setEQ(ch.midEQ, v);
-        if (param === 'lo') ch.setEQ(ch.loEQ, v);
-        if (param === 'gain') ch.fader.gain.setTargetAtTime(v, audioContext.currentTime, 0.02);
-        if (param === 'trim') ch.setTrim(v);
-        if (param === 'filter') ch.setFilter(v);
-      }
-      if (param === 'masterGain' && masterGain) {
-        masterGain.gain.setTargetAtTime(v * 1.2, audioContext.currentTime, 0.02);
-      }
-      if (param === 'headGain' && window._confustudioEngine?.setCueGain) {
-        window._confustudioEngine.setCueGain(v * 1.4);
-      }
+      applyKnobValue(key, param, chNum, Math.max(0, Math.min(1, startVal + delta)));
     });
   });
 
@@ -372,11 +403,8 @@ export function createDJMixer(audioContext) {
   // ── Fader interaction ──
   el.querySelectorAll('.djm-fader').forEach((fader) => {
     fader.addEventListener('input', () => {
-      if (!audioContext) return;
-      const v = parseFloat(fader.value);
       const chNum = fader.dataset.ch;
-      const ch = chNum === '1' ? ch1 : ch2;
-      if (ch) ch.fader.gain.setTargetAtTime(v, audioContext.currentTime, 0.02);
+      applyFaderValue(chNum, parseFloat(fader.value));
     });
   });
 
@@ -384,15 +412,43 @@ export function createDJMixer(audioContext) {
   const xfaderEl = el.querySelector('.djm-xfader');
   if (xfaderEl) {
     xfaderEl.addEventListener('input', () => {
-      if (!audioContext) return;
-      setXfader(parseFloat(xfaderEl.value));
+      applyXfaderValue(parseFloat(xfaderEl.value));
     });
   }
 
   // ── Cue buttons ──
   el.querySelectorAll('.djm-cue-btn').forEach((btn) => {
-    btn.addEventListener('click', () => btn.classList.toggle('active'));
+    btn.addEventListener('click', () => {
+      const chNum = btn.dataset.ch;
+      applyCueValue(chNum, !cueState[`ch${chNum}`]);
+    });
   });
+
+  el.__confustudioModule = {
+    serialize() {
+      return {
+        knobs: { ...knobState },
+        faders: { ...faderState },
+        cues: { ...cueState },
+      };
+    },
+    restore(savedState = {}) {
+      Object.entries(savedState.knobs ?? {}).forEach(([key, value]) => {
+        const [chNumRaw, param] = key.split('-');
+        const chNum = chNumRaw === 'undefined' ? undefined : chNumRaw;
+        applyKnobValue(key, param, chNum, value);
+      });
+      if (savedState.faders) {
+        if (savedState.faders.ch1 != null) applyFaderValue('1', savedState.faders.ch1);
+        if (savedState.faders.ch2 != null) applyFaderValue('2', savedState.faders.ch2);
+        if (savedState.faders.xfader != null) applyXfaderValue(savedState.faders.xfader);
+      }
+      if (savedState.cues) {
+        if (savedState.cues.ch1 != null) applyCueValue('1', savedState.cues.ch1);
+        if (savedState.cues.ch2 != null) applyCueValue('2', savedState.cues.ch2);
+      }
+    },
+  };
 
   return el;
 }

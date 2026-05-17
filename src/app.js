@@ -3,13 +3,11 @@ import {
   createAppState,
   getActivePattern,
   getActiveTrack,
-  getActiveStep,
   applyParamLock,
   setScene,
   interpolateScenes,
   saveState,
   loadState,
-  PROB_LEVELS,
   TRACK_COUNT,
   STORAGE_KEY,
   TRACK_COLORS,
@@ -1450,7 +1448,12 @@ function emit(type, payload = {}) {
       const seekSection = state.arranger[seekSectionIdx];
       if (seekSection != null) {
         const nextPattern = Math.max(0, Math.min(15, seekSection.sceneIdx ?? 0));
-        if (!executeStudioCommand({ type: 'select-pattern', bankIndex: state.activeBank, patternIndex: nextPattern }, 'Selected pattern')) {
+        if (
+          !executeStudioCommand(
+            { type: 'select-pattern', bankIndex: state.activeBank, patternIndex: nextPattern },
+            'Selected pattern',
+          )
+        ) {
           emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.ACTIVE_PATTERN, value: nextPattern });
         }
         if (state.bpmOverride && seekSection.bpmOverride) {

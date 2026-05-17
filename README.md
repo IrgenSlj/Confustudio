@@ -229,6 +229,8 @@ What is implemented:
 - Phase 1 mechanical splits complete — 6 largest files extracted into 11 new modules. Total JS lines reduced from ~34,258 to ~29,178.
 - Phase 2 reverb collapse complete — legacy Freeverb graph removed, convolution-only reverb with backward-compat stubs.
 - Project package helpers now normalize save/load/backup flows.
+- Project packages now include portable audio-buffer assets for imported samples and recorder slots, plus workspace layout/view/cable data.
+- Studio layout records now carry a v1 module-state payload; DJ Mixer modules restore knob, fader, crossfader, and cue state.
 - A command/history layer exists in `src/command-bus.js`.
 - The app exposes `window.confustudioCommands.execute(...)` for bounded command execution.
 - `scenes`, `arranger`, `banks`, and key `pattern` toolbar actions already use that structured mutation path.
@@ -267,7 +269,9 @@ All 6 largest source files split. No logic changes.
 
 ### Phase 3: Persistence
 
-- Module state serialization: save/restore actual instrument parameters
+- ~~Project asset packaging: exported projects carry sample and recorder audio buffers~~
+- ~~Workspace packaging: exported projects carry studio layout, view, cable, and v1 module-state data~~
+- Module state serialization: expand save/restore contracts beyond DJ Mixer to polysynth, monosynth, FM synth, drum machine, and Acid Machine
 - Deep migration of `pattern.js` step editor internals to command/history layer
 - Normalize remaining direct mutation in settings page
 
@@ -275,7 +279,7 @@ All 6 largest source files split. No logic changes.
 
 - In-app assistant action preview/apply on top of `/api/assistant/actions/plan`
 - Real Ableton Link tempo sync via `node-ateletonlink`
-- Asset packaging: exported projects carry sample and module state
+- Asset packaging hardening: compression/deduplication for large sample-backed projects
 - Mobile/responsive layout pass
 - Rust/WASM DSP core (long-term)
 

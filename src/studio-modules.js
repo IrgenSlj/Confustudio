@@ -139,6 +139,95 @@ export function applySavedLayoutItem(mod, item) {
   mod.style.top = item.top || '0px';
   mod.style.zoom = item.zoom && item.zoom !== 1 ? item.zoom : '';
   if (item.type) mod.dataset.moduleType = item.type;
+  if (item.moduleState && !mod.dataset.pendingModuleState) applyModuleState(mod, item.moduleState);
+}
+
+export function serializeModuleState(mod) {
+  if (!mod) return null;
+  const moduleApi = mod.__confustudioModule ?? mod.querySelector(':scope > *')?.__confustudioModule;
+  const apiState = moduleApi?.serialize?.();
+  const controls = [...mod.querySelectorAll('input, select, textarea')]
+    .map((control, index) => {
+      const selector = moduleControlSelector(control, index);
+      if (!selector) return null;
+      return {
+        selector,
+        value: control.value,
+        checked: control instanceof HTMLInputElement ? control.checked : undefined,
+      };
+    })
+    .filter(Boolean);
+  const activeButtons = [...mod.querySelectorAll('button')]
+    .map((button, index) => {
+      const selector = moduleControlSelector(button, index);
+      if (!selector || !button.className) return null;
+      const activeClasses = [...button.classList].filter((className) => /active|--on|selected/i.test(className));
+      return activeClasses.length ? { selector, activeClasses } : null;
+    })
+    .filter(Boolean);
+  if (!apiState && !controls.length && !activeButtons.length) return null;
+  return {
+    version: 1,
+    apiState,
+    controls,
+    activeButtons,
+  };
+}
+
+export function applyModuleState(mod, moduleState) {
+  if (!mod || !moduleState) return;
+  mod.dataset.pendingModuleState = JSON.stringify(moduleState);
+  requestAnimationFrame(() => {
+    const pendingRaw = mod.dataset.pendingModuleState;
+    if (!pendingRaw) return;
+    let pending;
+    try {
+      pending = JSON.parse(pendingRaw);
+    } catch (_) {
+      delete mod.dataset.pendingModuleState;
+      return;
+    }
+    const moduleApi = mod.__confustudioModule ?? mod.querySelector(':scope > *')?.__confustudioModule;
+    if (pending.apiState && typeof moduleApi?.restore === 'function') {
+      moduleApi.restore(pending.apiState);
+    }
+    (pending.controls ?? []).forEach((savedControl) => {
+      const control = mod.querySelector(savedControl.selector);
+      if (!control) return;
+      if (control instanceof HTMLInputElement && typeof savedControl.checked === 'boolean') {
+        control.checked = savedControl.checked;
+      }
+      if ('value' in savedControl) control.value = savedControl.value;
+      control.dispatchEvent(new Event('input', { bubbles: true }));
+      control.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    (pending.activeButtons ?? []).forEach((savedButton) => {
+      const button = mod.querySelector(savedButton.selector);
+      if (!button) return;
+      savedButton.activeClasses?.forEach((className) => button.classList.add(className));
+    });
+    delete mod.dataset.pendingModuleState;
+  });
+}
+
+function moduleControlSelector(control, index) {
+  if (!(control instanceof Element)) return null;
+  const parts = [control.tagName.toLowerCase()];
+  ['data-param', 'data-ch', 'data-port', 'data-module', 'data-voice', 'data-op', 'data-step', 'data-slot'].forEach(
+    (name) => {
+      const value = control.getAttribute(name);
+      if (value != null) parts.push(`[${name}="${escapeHtml(value)}"]`);
+    },
+  );
+  if (control.id) parts.push(`#${CSS.escape(control.id)}`);
+  if (control.classList.length) {
+    parts.push(`.${CSS.escape([...control.classList][0])}`);
+  }
+  const selector = parts.join('');
+  try {
+    if (control.closest('.studio-module')?.querySelectorAll(selector).length === 1) return selector;
+  } catch (_) {}
+  return `${control.tagName.toLowerCase()}:nth-of-type(${index + 1})`;
 }
 
 // --- State-reading helpers ---
@@ -227,6 +316,7 @@ export function saveLayout(S) {
     top: mod.style.top || '0px',
     zoom: parseFloat(mod.style.zoom) || 1,
     selected: mod === S._selectedModule,
+    moduleState: serializeModuleState(mod),
   }));
   try {
     localStorage.setItem(STUDIO_LAYOUT_KEY, JSON.stringify(layout));
@@ -426,6 +516,16 @@ export function attachModuleChrome(S, modEl) {
     e.stopPropagation();
     focusModule(S, modEl);
   });
+  if (!modEl.dataset.moduleStateListener) {
+    modEl.dataset.moduleStateListener = '1';
+    ['input', 'change', 'click'].forEach((eventName) => {
+      modEl.addEventListener(eventName, (event) => {
+        if (!(event.target instanceof Element)) return;
+        if (!event.target.closest('input, select, textarea, button, [data-param]')) return;
+        saveLayout(S);
+      });
+    });
+  }
 }
 
 export function enableModuleDrag(S, modEl) {
@@ -684,6 +784,7 @@ export function addModule(S, type, options = {}) {
     select = true,
     fit = true,
     persist = true,
+    moduleState = null,
   } = options;
   const mod = document.createElement('div');
   mod.className = 'studio-module';
@@ -697,6 +798,12 @@ export function addModule(S, type, options = {}) {
   enableModuleDrag(S, mod);
   attachModuleChrome(S, mod);
 
+  const finishModuleLoad = () => {
+    attachModuleChrome(S, mod);
+    if (moduleState) applyModuleState(mod, moduleState);
+    if (mod === getSelectedModule(S)) updateSelectionUi(S);
+  };
+
   if (type === 'synth') {
     const original = document.querySelector('#module-0 .chassis');
     if (original) {
@@ -705,10 +812,10 @@ export function addModule(S, type, options = {}) {
         el.id = `${el.id}-clone-${Date.now()}`;
       });
       mod.appendChild(clone);
+      finishModuleLoad();
     } else {
       mod.innerHTML = '<div class="module-loading-shell">CONFUsynth</div>';
-      attachModuleChrome(S, mod);
-      if (mod === getSelectedModule(S)) updateSelectionUi(S);
+      finishModuleLoad();
     }
   } else if (type === 'djmixer') {
     mod.innerHTML = '<div class="module-loading-shell">Loading Mixer</div>';
@@ -716,8 +823,7 @@ export function addModule(S, type, options = {}) {
       const ctx = window._confustudioEngine?.context ?? null;
       mod.innerHTML = '';
       mod.appendChild(m.createDJMixer(ctx));
-      attachModuleChrome(S, mod);
-      if (mod === getSelectedModule(S)) updateSelectionUi(S);
+      finishModuleLoad();
     });
   } else if (type === 'acid_machine') {
     mod.innerHTML =
@@ -726,8 +832,7 @@ export function addModule(S, type, options = {}) {
       const ctx = window._confustudioEngine?.context ?? null;
       mod.innerHTML = '';
       mod.appendChild(m.createAcidMachine(ctx));
-      attachModuleChrome(S, mod);
-      if (mod === getSelectedModule(S)) updateSelectionUi(S);
+      finishModuleLoad();
     });
   } else if (type === 'polysynth') {
     mod.innerHTML =
@@ -735,8 +840,7 @@ export function addModule(S, type, options = {}) {
     import('./modules/polysynth.js').then((m) => {
       mod.innerHTML = '';
       mod.appendChild(m.createPolysynth(window._confustudioEngine?.context ?? null));
-      attachModuleChrome(S, mod);
-      if (mod === getSelectedModule(S)) updateSelectionUi(S);
+      finishModuleLoad();
     });
   } else if (type === 'drum_machine') {
     mod.innerHTML =
@@ -744,8 +848,7 @@ export function addModule(S, type, options = {}) {
     import('./modules/drum_machine.js').then((m) => {
       mod.innerHTML = '';
       mod.appendChild(m.createDrumMachine(window._confustudioEngine?.context ?? null));
-      attachModuleChrome(S, mod);
-      if (mod === getSelectedModule(S)) updateSelectionUi(S);
+      finishModuleLoad();
     });
   } else if (type === 'fm_synth') {
     mod.innerHTML =
@@ -753,8 +856,7 @@ export function addModule(S, type, options = {}) {
     import('./modules/fm_synth.js').then((m) => {
       mod.innerHTML = '';
       mod.appendChild(m.createFMSynth(window._confustudioEngine?.context ?? null));
-      attachModuleChrome(S, mod);
-      if (mod === getSelectedModule(S)) updateSelectionUi(S);
+      finishModuleLoad();
     });
   } else if (type === 'monosynth') {
     mod.innerHTML =
@@ -762,8 +864,7 @@ export function addModule(S, type, options = {}) {
     import('./modules/monosynth.js').then((m) => {
       mod.innerHTML = '';
       mod.appendChild(m.createMonosynth(window._confustudioEngine?.context ?? null));
-      attachModuleChrome(S, mod);
-      if (mod === getSelectedModule(S)) updateSelectionUi(S);
+      finishModuleLoad();
     });
   } else if (type.startsWith('figure-')) {
     const emoji =
@@ -773,8 +874,7 @@ export function addModule(S, type, options = {}) {
         'figure-cactus': '🌵',
       }[type] || '🎵';
     mod.innerHTML = `<div class="studio-figure">${emoji}</div>`;
-    attachModuleChrome(S, mod);
-    if (mod === getSelectedModule(S)) updateSelectionUi(S);
+    finishModuleLoad();
   }
 
   S.canvas.appendChild(mod);

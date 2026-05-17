@@ -705,12 +705,7 @@ export default {
       btn.className = 'bank-tab' + (bi === activeBank ? ' active' : '');
       btn.textContent = letter;
       btn.addEventListener('click', () => {
-        if (
-          !executeCommands(
-            { type: 'select-bank', bankIndex: bi },
-            `Selected bank ${letter}`,
-          )
-        ) {
+        if (!executeCommands({ type: 'select-bank', bankIndex: bi }, `Selected bank ${letter}`)) {
           emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.ACTIVE_BANK, value: bi });
           emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.ACTIVE_PATTERN, value: 0 });
           this.render(container, { ...state, activeBank: bi, activePattern: 0 }, emit);

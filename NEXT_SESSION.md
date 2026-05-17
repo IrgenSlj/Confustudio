@@ -20,8 +20,13 @@ Server starts clean on `http://127.0.0.1:4173`.
 - [x] Route bank and mixer selection UI through the command bus when available.
 - [x] Route common pattern edit actions and step toggles through the command bus.
 - [x] Route pattern metadata, step inspector, and batch edit tools through the command bus.
+- [x] Add portable project package assets for sample tracks and recorder slots.
+- [x] Add workspace package data for studio layout, view, cables, and v1 module-state payloads.
+- [x] Add DJ Mixer module serialize/restore hooks for knobs, faders, crossfader, and cue state.
 - [ ] Extract shared state and event strings into constants for the remaining page modules.
 - [ ] Sweep the remaining direct state edits in `pattern.js`, `settings.js`, and transport handlers into command helpers.
+- [ ] Extend module serialize/restore hooks to polysynth, monosynth, FM synth, drum machine, and Acid Machine.
+- [ ] Add project-package compression/deduplication for large sample exports.
 - [x] Add tests for selection-driven navigation and history coverage.
 
 ## Codebase Metrics
@@ -47,6 +52,7 @@ Server starts clean on `http://127.0.0.1:4173`.
 - Working audio engine with voice stealing, sidechain, per-track FX, MIDI I/O
 - Command bus with undo/redo history (100-deep)
 - Modular studio canvas with cable routing, persistence, module picker
+- Portable project packages with embedded sample/recorder assets and workspace state
 - Server-side assistant bridge (OpenAI, Anthropic, Ollama, local)
 - Project package import/export with schema versioning
 - State forward-fill on load (handles schema drift)
@@ -107,9 +113,10 @@ Estimate: 6-8 hours
 ```
 
 1. Define module state serialization contract for dynamic modules (djmixer, polysynth, etc.)
-2. Add save/restore hooks → include module param state in project package
-3. Deep migration of `pattern.js` step editor, selection tools, random fill, morph to command bus
-4. Normalize remaining direct mutation in settings page to command/history layer
+2. ~~Add save/restore hooks → include module param state in project package~~ ✓ for workspace layout and DJ Mixer v1
+3. Extend module restore APIs to polysynth, monosynth, FM synth, drum machine, and Acid Machine
+4. Deep migration of `pattern.js` step editor, selection tools, random fill, morph to command bus
+5. Normalize remaining direct mutation in settings page to command/history layer
 
 ### Phase 4: Feature Delivery (next)
 
@@ -120,7 +127,7 @@ Estimate: ongoing
 
 1. In-app assistant action preview/apply flow on top of `/api/assistant/actions/plan`
 2. Integrate `node-abletonlink` for real Ableton Link tempo sync
-3. Asset packaging — exported projects carry sample-backed and module-backed state
+3. Asset packaging hardening — compression, dedupe, and progress UI for large sample-backed projects
 4. Mobile/responsive pass for compact picker, transport keyboard, overlays
 5. Rust/WASM DSP core for sequencing and voice allocation (long-term)
 

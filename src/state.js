@@ -1,7 +1,13 @@
 // CONFUstudio v3 — state.js
 // Central state module: project structure, accessors, persistence
 
-import { ensureProjectAssetId, queuePersistAssets, scheduleAssetHydration } from './asset-store.js';
+import {
+  createPortableAssetBundle,
+  ensureProjectAssetId,
+  hydrateStateFromPortableAssetBundle,
+  queuePersistAssets,
+  scheduleAssetHydration,
+} from './asset-store.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -10,13 +16,16 @@ export const LEGACY_STORAGE_KEYS = ['confusynth-v3', 'confustudio-v2', 'confusyn
 export const APP_VERSION = '0.1.0';
 export const APP_DISPLAY_VERSION = `v${APP_VERSION}`;
 export const PROJECT_SCHEMA_VERSION = '3.1.0';
-export const PROJECT_PACKAGE_VERSION = '1.0.0';
+export const PROJECT_PACKAGE_VERSION = '1.1.0';
 export const STEP_COUNT = 64;
 export const TRACK_COUNT = 8;
 export const BANK_COUNT = 8;
 export const PATTERN_COUNT = 16;
 export const PROB_LEVELS = [1, 0.75, 0.5, 0.25];
 export const RECORDER_SLOT_COUNT = 4;
+const STUDIO_LAYOUT_KEY = 'confustudio-studio-layout-v4';
+const STUDIO_VIEW_KEY = 'confustudio-studio-view-v3';
+const STUDIO_CABLES_KEY = 'confustudio-studio-cables-v1';
 
 export const TRACK_COLORS = [
   '#f0c640', // amber  — T1
@@ -318,6 +327,8 @@ export function createProjectPackage(stateOrProject, metadata = {}) {
         project,
       })
     : { project };
+  const assets = hasAppStateShape ? createPortableAssetBundle(stateOrProject) : { version: 1, records: [] };
+  const workspace = hasAppStateShape ? captureWorkspacePackage() : null;
   return {
     format: 'confustudio-project-package',
     packageVersion: PROJECT_PACKAGE_VERSION,
@@ -334,7 +345,65 @@ export function createProjectPackage(stateOrProject, metadata = {}) {
     },
     state: session,
     project,
+    assets,
+    workspace,
   };
+}
+
+function captureWorkspacePackage() {
+  const workspaceApi = globalThis.window?.__CONFUSTUDIO__?.workspace;
+  const localStorageRef =
+    typeof globalThis.window?.localStorage?.getItem === 'function' ? globalThis.window.localStorage : null;
+  const studioLayout = (() => {
+    try {
+      return typeof workspaceApi?.getLayout === 'function'
+        ? workspaceApi.getLayout()
+        : JSON.parse(localStorageRef?.getItem(STUDIO_LAYOUT_KEY) || '[]');
+    } catch (_) {
+      return [];
+    }
+  })();
+  const studioView = (() => {
+    try {
+      return typeof workspaceApi?.getView === 'function'
+        ? workspaceApi.getView()
+        : JSON.parse(localStorageRef?.getItem(STUDIO_VIEW_KEY) || 'null');
+    } catch (_) {
+      return null;
+    }
+  })();
+  const studioCables = (() => {
+    try {
+      return JSON.parse(localStorageRef?.getItem(STUDIO_CABLES_KEY) || '[]');
+    } catch (_) {
+      return [];
+    }
+  })();
+  return {
+    version: 1,
+    studioLayout: Array.isArray(studioLayout) ? studioLayout : [],
+    studioView: studioView && typeof studioView === 'object' ? studioView : null,
+    studioCables: Array.isArray(studioCables) ? studioCables : [],
+  };
+}
+
+function applyWorkspacePackage(workspace) {
+  const localStorageRef =
+    typeof globalThis.window?.localStorage?.setItem === 'function' ? globalThis.window.localStorage : null;
+  if (!workspace || !localStorageRef) return;
+  try {
+    if (Array.isArray(workspace.studioLayout)) {
+      localStorageRef.setItem(STUDIO_LAYOUT_KEY, JSON.stringify(workspace.studioLayout));
+    }
+    if (workspace.studioView && typeof workspace.studioView === 'object') {
+      localStorageRef.setItem(STUDIO_VIEW_KEY, JSON.stringify(workspace.studioView));
+    }
+    if (Array.isArray(workspace.studioCables)) {
+      localStorageRef.setItem(STUDIO_CABLES_KEY, JSON.stringify(workspace.studioCables));
+    }
+  } catch (error) {
+    console.warn('[CONFUstudio] Workspace restore failed:', error);
+  }
 }
 
 export function applyProjectPackageToState(state, packageOrProject) {
@@ -354,6 +423,8 @@ export function applyProjectPackageToState(state, packageOrProject) {
   };
   const next = repairState(normalizeScenes(deepMerge(createAppState(), snapshot)));
   Object.assign(state, next, runtime);
+  hydrateStateFromPortableAssetBundle(state, packageOrProject?.assets);
+  applyWorkspacePackage(packageOrProject?.workspace);
   scheduleAssetHydration(state);
   return state.project;
 }
@@ -587,7 +658,7 @@ export function interpolateScenes(state) {
 
 function stripRuntime(state) {
   // Deep-clone the serializable parts; exclude AudioBuffers and runtime refs.
-  const { _assetHydrationPending, _assetHydrationComplete, ...runtimeSafeState } = state;
+  const { _assetHydrationPending, _assetHydrationComplete, _pendingPortableAssets, ...runtimeSafeState } = state;
   const plain = {
     ...runtimeSafeState,
     audioContext: null,

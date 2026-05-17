@@ -753,7 +753,9 @@ export default {
         const next = !state.midiClockOut;
         btn.classList.toggle('active', next);
         btn.textContent = next ? 'ON' : 'OFF';
-        if (!executeStudioCommand({ type: 'set-setting', key: 'midiClockOut', value: next }, 'Updated MIDI clock out')) {
+        if (
+          !executeStudioCommand({ type: 'set-setting', key: 'midiClockOut', value: next }, 'Updated MIDI clock out')
+        ) {
           state.midiClockOut = next;
           saveState(state);
         }
@@ -793,10 +795,7 @@ export default {
         btn.classList.toggle('active', next);
         btn.textContent = next ? 'ON' : 'OFF';
         if (
-          !executeStudioCommand(
-            { type: 'set-setting', key: 'cueMonitorEnabled', value: next },
-            'Updated cue monitor',
-          )
+          !executeStudioCommand({ type: 'set-setting', key: 'cueMonitorEnabled', value: next }, 'Updated cue monitor')
         ) {
           state.cueMonitorEnabled = next;
           saveState(state);
@@ -822,7 +821,11 @@ export default {
 
       if (action === 'selectRecorderSlot') {
         executeStudioCommand(
-          { type: 'set-setting', key: 'selectedRecorderSlot', value: Math.max(0, parseInt(btn.dataset.value, 10) || 0) },
+          {
+            type: 'set-setting',
+            key: 'selectedRecorderSlot',
+            value: Math.max(0, parseInt(btn.dataset.value, 10) || 0),
+          },
           'Selected recorder slot',
         );
         emit(EVENTS.STATE_CHANGE, { path: 'action_renderPage', value: true });
@@ -1184,7 +1187,9 @@ export default {
 
       bufferSelect.addEventListener('change', () => {
         const next = parseInt(bufferSelect.value);
-        if (!executeStudioCommand({ type: 'set-setting', key: 'audioBufferSize', value: next }, 'Updated buffer size')) {
+        if (
+          !executeStudioCommand({ type: 'set-setting', key: 'audioBufferSize', value: next }, 'Updated buffer size')
+        ) {
           state.audioBufferSize = next;
           emit(EVENTS.STATE_CHANGE, { param: 'audioBufferSize', value: state.audioBufferSize });
         }
@@ -1410,7 +1415,10 @@ export default {
     screenTextInput.style.cssText = 'width:32px;height:24px;border:none;background:none;cursor:pointer;padding:0';
     screenTextInput.addEventListener('input', (e) => {
       document.documentElement.style.setProperty('--screen-text', e.target.value);
-      executeStudioCommand({ type: 'set-setting', key: 'customScreenText', value: e.target.value }, 'Updated screen text');
+      executeStudioCommand(
+        { type: 'set-setting', key: 'customScreenText', value: e.target.value },
+        'Updated screen text',
+      );
       saveState(state);
     });
 
@@ -1702,7 +1710,9 @@ export default {
 
       if (action === 'recorderBars') {
         const next = Math.max(1, Math.min(32, parseInt(el.value, 10) || 4));
-        if (!executeStudioCommand({ type: 'set-setting', key: 'recorderBarCount', value: next }, 'Updated recorder bars')) {
+        if (
+          !executeStudioCommand({ type: 'set-setting', key: 'recorderBarCount', value: next }, 'Updated recorder bars')
+        ) {
           state.recorderBarCount = next;
           saveState(state);
         }

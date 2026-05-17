@@ -75,10 +75,10 @@ function assetKey(projectId, kind, indexParts) {
   return [projectId, kind, ...indexParts].join(':');
 }
 
-function bufferToPayload(buffer) {
+function bufferToPayload(buffer, { portable = false } = {}) {
   if (!buffer || typeof buffer.getChannelData !== 'function') return null;
 
-  const cached = serializationCache.get(buffer);
+  const cached = portable ? null : serializationCache.get(buffer);
   if (cached) return cached;
 
   const payload = {
@@ -87,11 +87,11 @@ function bufferToPayload(buffer) {
     length: buffer.length,
     sampleRate: buffer.sampleRate,
     channelData: Array.from({ length: buffer.numberOfChannels }, (_, channel) =>
-      buffer.getChannelData(channel).slice(),
+      portable ? Array.from(buffer.getChannelData(channel)) : buffer.getChannelData(channel).slice(),
     ),
   };
 
-  serializationCache.set(buffer, payload);
+  if (!portable) serializationCache.set(buffer, payload);
   return payload;
 }
 
@@ -288,6 +288,48 @@ function hydrateStateFromRecords(state, records) {
   });
 }
 
+function portableRefForRecord(projectId, record) {
+  const parts = String(record.key || '').split(':');
+  if (parts[0] !== projectId) return null;
+  if (record.kind === 'sample' && parts.length >= 5) {
+    return {
+      bankIndex: Number(parts[2]),
+      patternIndex: Number(parts[3]),
+      trackIndex: Number(parts[4]),
+    };
+  }
+  if (record.kind === 'recorder' && parts.length >= 3) {
+    return {
+      slotIndex: Number(parts[2]),
+    };
+  }
+  return null;
+}
+
+function recordKeyFromPortableRecord(projectId, record) {
+  if (record?.key) return record.key;
+  if (record?.kind === 'sample' && record.ref) {
+    return assetKey(projectId, 'sample', [record.ref.bankIndex, record.ref.patternIndex, record.ref.trackIndex]);
+  }
+  if (record?.kind === 'recorder' && record.ref) {
+    return assetKey(projectId, 'recorder', [record.ref.slotIndex]);
+  }
+  return null;
+}
+
+function normalizePortableRecord(projectId, record) {
+  const key = recordKeyFromPortableRecord(projectId, record);
+  if (!key || !record?.kind || !record?.payload) return null;
+  return {
+    key,
+    kind: record.kind,
+    projectId,
+    ref: record.ref ?? portableRefForRecord(projectId, { key, kind: record.kind }),
+    payload: record.payload,
+    updatedAt: record.updatedAt ?? now(),
+  };
+}
+
 async function hydrateStateAssets(state) {
   if (!state || hydrationStates.has(state)) return;
   hydrationStates.add(state);
@@ -299,6 +341,9 @@ async function hydrateStateAssets(state) {
     if (!state || state._assetHydrationComplete) return;
     if (!state.audioContext || typeof state.audioContext.createBuffer !== 'function') {
       return false;
+    }
+    if (state._pendingPortableAssets?.records?.length) {
+      hydrateStateFromPortableAssetBundle(state, state._pendingPortableAssets);
     }
     const records = await loadRecords(projectId);
     if (!records.length) {
@@ -371,4 +416,66 @@ export function ensureProjectAssetId(projectLike) {
     project.assetId = `proj-${project.createdAt || now()}-${randomId().slice(0, 8)}`;
   }
   return project.assetId;
+}
+
+export function createPortableAssetBundle(state) {
+  if (!state?.project) {
+    return { version: 1, projectId: null, records: [] };
+  }
+  const projectId = normalizeProjectId(state);
+  const snapshot = collectAssetSnapshot(state);
+  const records = snapshot.records
+    .map((record) => {
+      const payloadSource = record.kind === 'sample' ? findSampleBuffer(state, projectId, record) : null;
+      const payload =
+        payloadSource && typeof payloadSource.getChannelData === 'function'
+          ? bufferToPayload(payloadSource, { portable: true })
+          : makePortablePayload(record.payload);
+      if (!payload) return null;
+      return {
+        key: record.key,
+        kind: record.kind,
+        ref: portableRefForRecord(projectId, record),
+        payload,
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    version: 1,
+    projectId,
+    records,
+  };
+}
+
+function findSampleBuffer(state, projectId, record) {
+  const ref = portableRefForRecord(projectId, record);
+  if (record.kind !== 'sample' || !ref) return null;
+  return state.project?.banks?.[ref.bankIndex]?.patterns?.[ref.patternIndex]?.kit?.tracks?.[ref.trackIndex]
+    ?.sampleBuffer;
+}
+
+function makePortablePayload(payload) {
+  if (!payload || payload.type !== 'audio-buffer') return null;
+  return {
+    ...payload,
+    channelData: (payload.channelData ?? []).map((channel) => Array.from(channel ?? [])),
+  };
+}
+
+export function hydrateStateFromPortableAssetBundle(state, bundle) {
+  if (!state || !bundle?.records?.length) return false;
+  const projectId = normalizeProjectId(state);
+  const records = bundle.records.map((record) => normalizePortableRecord(projectId, record)).filter(Boolean);
+  if (!records.length) return false;
+  if (!state.audioContext || typeof state.audioContext.createBuffer !== 'function') {
+    state._pendingPortableAssets = { version: bundle.version ?? 1, projectId, records };
+    return false;
+  }
+  hydrateStateFromRecords(state, records);
+  state._pendingPortableAssets = null;
+  void persistToIndexedDb({ projectId, records }, true).catch((error) => {
+    console.warn('[CONFUstudio] Portable asset persistence failed:', error);
+  });
+  return true;
 }

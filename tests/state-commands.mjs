@@ -8,19 +8,62 @@ import {
   restoreCommandState,
 } from '../src/command-bus.js';
 
+function createFakeBuffer(channelData, sampleRate = 44100) {
+  const channels = channelData.map((data) => Float32Array.from(data));
+  return {
+    numberOfChannels: channels.length,
+    length: channels[0]?.length ?? 0,
+    sampleRate,
+    getChannelData(channelIndex) {
+      return channels[channelIndex];
+    },
+  };
+}
+
+function createFakeAudioContext() {
+  return {
+    createBuffer(numberOfChannels, length, sampleRate) {
+      const channels = Array.from({ length: numberOfChannels }, () => new Float32Array(length));
+      return {
+        numberOfChannels,
+        length,
+        sampleRate,
+        getChannelData(channelIndex) {
+          return channels[channelIndex];
+        },
+        copyToChannel(source, channelIndex) {
+          channels[channelIndex].set(source);
+        },
+      };
+    },
+  };
+}
+
 const state = createAppState();
 state.project.name = 'Command Test';
 state.project.author = 'Confu';
+state.recorderBuffers[0] = createFakeBuffer([
+  [0.25, -0.25, 0.5],
+  [0.1, -0.1, 0.2],
+]);
+state.project.banks[0].patterns[0].kit.tracks[0].machine = 'sample';
+state.project.banks[0].patterns[0].kit.tracks[0].sampleBuffer = createFakeBuffer([[0, 0.5, -0.5, 1]]);
 
 const pkg = createProjectPackage(state, { source: 'test' });
 assert.equal(pkg.format, 'confustudio-project-package');
 assert.equal(pkg.project.name, 'Command Test');
+assert.equal(pkg.packageVersion, '1.1.0');
+assert.equal(pkg.assets.records.length, 2);
+assert.equal(pkg.assets.records[0].payload.channelData[0][1], 0.5);
 
 const imported = createAppState();
+imported.audioContext = createFakeAudioContext();
 applyProjectPackageToState(imported, pkg);
 assert.equal(imported.project.name, 'Command Test');
 assert.equal(imported.project.author, 'Confu');
 assert.equal(imported.project.banks.length, 8);
+assert.equal(imported.project.banks[0].patterns[0].kit.tracks[0].sampleBuffer.getChannelData(0)[3], 1);
+assert.ok(Math.abs(imported.recorderBuffers[0].getChannelData(1)[2] - 0.2) < 0.00001);
 
 const before = captureCommandState(imported);
 const result = executeStudioCommands(imported, [
@@ -36,7 +79,15 @@ const result = executeStudioCommands(imported, [
   { type: 'fill-track-steps', bankIndex: 0, patternIndex: 0, trackIndex: 4, interval: 4 },
   { type: 'set-pattern-length', bankIndex: 0, patternIndex: 0, length: 32 },
   { type: 'update-pattern-meta', bankIndex: 0, patternIndex: 0, name: 'Groove Lab', followAction: 'loop' },
-  { type: 'generate-drum-pattern', bankIndex: 0, patternIndex: 0, trackIndex: 0, length: 16, style: 'broken', density: 0.8 },
+  {
+    type: 'generate-drum-pattern',
+    bankIndex: 0,
+    patternIndex: 0,
+    trackIndex: 0,
+    length: 16,
+    style: 'broken',
+    density: 0.8,
+  },
   { type: 'generate-euclid', bankIndex: 0, patternIndex: 0, trackIndex: 1, beats: 5, steps: 16, offset: 2 },
   {
     type: 'replace-track-steps',
