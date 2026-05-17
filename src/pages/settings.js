@@ -821,8 +821,10 @@ export default {
       }
 
       if (action === 'selectRecorderSlot') {
-        state.selectedRecorderSlot = Math.max(0, parseInt(btn.dataset.value, 10) || 0);
-        saveState(state);
+        executeStudioCommand(
+          { type: 'set-setting', key: 'selectedRecorderSlot', value: Math.max(0, parseInt(btn.dataset.value, 10) || 0) },
+          'Selected recorder slot',
+        );
         emit(EVENTS.STATE_CHANGE, { path: 'action_renderPage', value: true });
       }
 
@@ -1133,7 +1135,10 @@ export default {
           .catch(() => {});
 
         devSel.addEventListener('change', (e) => {
-          state.audioOutputDevice = e.target.value;
+          executeStudioCommand(
+            { type: 'set-setting', key: 'audioOutputDevice', value: e.target.value },
+            'Updated output device',
+          );
           if (state.audioContext?.setSinkId) {
             state.audioContext.setSinkId(e.target.value || '').catch((err) => console.warn('setSinkId:', err));
           }
@@ -1251,9 +1256,9 @@ export default {
     latVal.textContent = `${state.latencyCompMs ?? 0}ms`;
 
     latSlider.addEventListener('input', () => {
-      state.latencyCompMs = parseInt(latSlider.value);
-      latVal.textContent = `${state.latencyCompMs}ms`;
-      emit(EVENTS.STATE_CHANGE, { param: 'latencyCompMs', value: state.latencyCompMs });
+      const next = parseInt(latSlider.value);
+      executeStudioCommand({ type: 'set-setting', key: 'latencyCompMs', value: next }, 'Updated latency compensation');
+      latVal.textContent = `${state.latencyCompMs ?? next}ms`;
     });
 
     latRow.append(latLabel, latSlider, latVal);
@@ -1360,13 +1365,13 @@ export default {
       swatch.style.background = themeAccentColors[theme];
       btn.append(swatch, theme.charAt(0).toUpperCase() + theme.slice(1));
       btn.addEventListener('click', () => {
-        state.theme = theme;
+        executeStudioCommand({ type: 'set-setting', key: 'theme', value: theme }, 'Updated theme');
         document.documentElement.dataset.theme = theme === 'default' ? '' : theme;
         // Clear custom accent overrides when switching theme presets
         document.documentElement.style.removeProperty('--accent');
         document.documentElement.style.removeProperty('--screen-text');
-        state.customAccent = null;
-        state.customScreenText = null;
+        executeStudioCommand({ type: 'set-setting', key: 'customAccent', value: null }, 'Reset accent');
+        executeStudioCommand({ type: 'set-setting', key: 'customScreenText', value: null }, 'Reset screen text');
         saveState(state);
         emit(EVENTS.STATE_CHANGE, { path: 'action_renderPage', value: true });
       });
@@ -1390,7 +1395,7 @@ export default {
     accentInput.style.cssText = 'width:32px;height:24px;border:none;background:none;cursor:pointer;padding:0';
     accentInput.addEventListener('input', (e) => {
       document.documentElement.style.setProperty('--accent', e.target.value);
-      state.customAccent = e.target.value;
+      executeStudioCommand({ type: 'set-setting', key: 'customAccent', value: e.target.value }, 'Updated accent');
       saveState(state);
     });
 
@@ -1405,7 +1410,7 @@ export default {
     screenTextInput.style.cssText = 'width:32px;height:24px;border:none;background:none;cursor:pointer;padding:0';
     screenTextInput.addEventListener('input', (e) => {
       document.documentElement.style.setProperty('--screen-text', e.target.value);
-      state.customScreenText = e.target.value;
+      executeStudioCommand({ type: 'set-setting', key: 'customScreenText', value: e.target.value }, 'Updated screen text');
       saveState(state);
     });
 
@@ -1417,8 +1422,8 @@ export default {
     resetColorsBtn.addEventListener('click', () => {
       document.documentElement.style.removeProperty('--accent');
       document.documentElement.style.removeProperty('--screen-text');
-      state.customAccent = null;
-      state.customScreenText = null;
+      executeStudioCommand({ type: 'set-setting', key: 'customAccent', value: null }, 'Reset accent');
+      executeStudioCommand({ type: 'set-setting', key: 'customScreenText', value: null }, 'Reset screen text');
       accentInput.value = themeAccentColors[state.theme ?? 'default'];
       screenTextInput.value = '#c8e0a0';
       saveState(state);
@@ -1518,7 +1523,10 @@ export default {
           message,
           context: buildLiveContext(),
         });
-        state.assistantProvider = assistantProvider.value || 'auto';
+        executeStudioCommand(
+          { type: 'set-setting', key: 'assistantProvider', value: assistantProvider.value || 'auto' },
+          'Updated assistant provider',
+        );
         saveState(state);
         assistantOutput.textContent = response.text || 'No response text returned.';
       } catch (error) {

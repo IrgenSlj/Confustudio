@@ -1680,7 +1680,7 @@ export default {
     lockBtn.style.cssText = 'font-size:0.7rem;padding:2px 5px';
     lockBtn.title = 'Lock/unlock pattern for morph source';
     lockBtn.addEventListener('click', () => {
-      state.patternLocked = !state.patternLocked;
+      executeCommands({ type: 'set-setting', key: 'patternLocked', value: !state.patternLocked }, 'Updated pattern lock');
       emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.EUCLID_BEATS, value: state.euclidBeats });
     });
     actionsDiv.prepend(lockBtn);
@@ -1767,9 +1767,7 @@ export default {
 
     densitySlider.addEventListener('input', () => {
       const next = parseFloat(densitySlider.value);
-      if (!executeCommands({ type: 'set-setting', key: 'randomizeDensity', value: next }, 'Updated randomize density')) {
-        state.randomizeDensity = next;
-      }
+      executeCommands({ type: 'set-setting', key: 'randomizeDensity', value: next }, 'Updated randomize density');
       densityLabel.textContent = Math.round((state.randomizeDensity ?? next) * 100) + '%';
     });
 
@@ -1785,9 +1783,7 @@ export default {
       genreSelect.append(opt);
     });
     genreSelect.addEventListener('change', () => {
-      if (!executeCommands({ type: 'set-setting', key: 'randomizeGenre', value: genreSelect.value }, 'Updated randomize genre')) {
-        state.randomizeGenre = genreSelect.value;
-      }
+      executeCommands({ type: 'set-setting', key: 'randomizeGenre', value: genreSelect.value }, 'Updated randomize genre');
     });
 
     const rndAllBtn = document.createElement('button');
@@ -1934,9 +1930,7 @@ export default {
     });
     qSelect.addEventListener('change', () => {
       const next = parseInt(qSelect.value);
-      if (!executeCommands({ type: 'set-setting', key: 'quantizeGrid', value: next }, 'Updated quantize grid')) {
-        state.quantizeGrid = next;
-      }
+      executeCommands({ type: 'set-setting', key: 'quantizeGrid', value: next }, 'Updated quantize grid');
     });
 
     const quantizeBtn = document.createElement('button');
@@ -1991,9 +1985,7 @@ export default {
     humanizeLabel.textContent = `±${Math.round(humanizeAmtInit * 100)}% ${humanizeDesc(humanizeAmtInit)}`;
     humanizeDiv.querySelector('input').addEventListener('input', (e) => {
       const next = parseFloat(e.target.value);
-      if (!executeCommands({ type: 'set-setting', key: 'humanizeAmount', value: next }, 'Updated humanize amount')) {
-        state.humanizeAmount = next;
-      }
+      executeCommands({ type: 'set-setting', key: 'humanizeAmount', value: next }, 'Updated humanize amount');
       humanizeLabel.textContent = `±${Math.round((state.humanizeAmount ?? next) * 100)}% ${humanizeDesc(state.humanizeAmount ?? next)}`;
     });
     humanizeDiv.querySelector('button').addEventListener('click', () => {
