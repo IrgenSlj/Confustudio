@@ -538,7 +538,8 @@ export function enableModuleDrag(S, modEl) {
     if (!(target instanceof Element)) return false;
     if (isModuleInteractiveTarget(target)) return false;
     if (target.closest('.module-drag-handle, .ports-bar, .studio-figure')) return true;
-    return target.classList.contains('module-loading-shell') || target === modEl;
+    if (target.classList.contains('module-loading-shell') || target === modEl) return true;
+    return target.closest('.studio-module') === modEl;
   }
 
   modEl.addEventListener('pointerdown', (e) => {
@@ -594,6 +595,10 @@ export function enableModuleResize(S, modEl) {
     let startZoom = 1;
     let naturalW = 0,
       naturalH = 0;
+    let startLeft = 0,
+      startTop = 0;
+    let anchorRight = 0,
+      anchorBottom = 0;
     let pointerId = null;
 
     handle.addEventListener('pointerdown', (e) => {
@@ -605,19 +610,38 @@ export function enableModuleResize(S, modEl) {
       startX = e.clientX;
       startY = e.clientY;
       startZoom = parseFloat(modEl.style.zoom) || 1;
+      startLeft = _parsePx(modEl.style.left);
+      startTop = _parsePx(modEl.style.top);
       const rect = modEl.getBoundingClientRect();
-      naturalW = rect.width / startZoom / Math.max(S.scale, 0.001);
-      naturalH = rect.height / startZoom / Math.max(S.scale, 0.001);
+      const startWorldW = rect.width / Math.max(S.scale, 0.001);
+      const startWorldH = rect.height / Math.max(S.scale, 0.001);
+      naturalW = startWorldW / startZoom;
+      naturalH = startWorldH / startZoom;
+      anchorRight = startLeft + startWorldW;
+      anchorBottom = startTop + startWorldH;
     });
 
     handle.addEventListener('pointermove', (e) => {
       if (!resizing || e.pointerId !== pointerId) return;
-      const dx = ((e.clientX - startX) * xDir) / Math.max(S.scale, 0.001);
-      const dy = ((e.clientY - startY) * yDir) / Math.max(S.scale, 0.001);
-      const diag = Math.sqrt(naturalW ** 2 + naturalH ** 2) || 1;
-      const delta = (dx + dy) / 2;
-      const newZoom = Math.max(0.3, Math.min(3, startZoom + (delta / diag) * startZoom));
+      const dx = (e.clientX - startX) / Math.max(S.scale, 0.001);
+      const dy = (e.clientY - startY) / Math.max(S.scale, 0.001);
+      const widthDelta = (dx * xDir) / Math.max(naturalW * startZoom, 1);
+      const heightDelta = (dy * yDir) / Math.max(naturalH * startZoom, 1);
+      const ratio = Math.max(0.1, 1 + (widthDelta + heightDelta) / 2);
+      const newZoom = Math.max(0.3, Math.min(3, startZoom * ratio));
+      const newWorldW = naturalW * newZoom;
+      const newWorldH = naturalH * newZoom;
       modEl.style.zoom = newZoom;
+      if (xDir < 0) {
+        modEl.style.left = `${anchorRight - newWorldW}px`;
+      } else {
+        modEl.style.left = `${startLeft}px`;
+      }
+      if (yDir < 0) {
+        modEl.style.top = `${anchorBottom - newWorldH}px`;
+      } else {
+        modEl.style.top = `${startTop}px`;
+      }
     });
 
     const stopResize = (e) => {
@@ -625,6 +649,7 @@ export function enableModuleResize(S, modEl) {
       resizing = false;
       pointerId = null;
       saveLayout(S);
+      clampViewport(S);
     };
 
     handle.addEventListener('pointerup', stopResize);

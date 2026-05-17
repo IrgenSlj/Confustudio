@@ -297,6 +297,71 @@ try {
     { mixerKnobBefore, mixerKnobAfter },
   );
 
+  const mixerDragBefore = await page.evaluate(() => {
+    const mod = document.querySelector('.studio-module[data-module-type="djmixer"]');
+    return { left: mod?.style.left, top: mod?.style.top };
+  });
+  const mixerBodyBox = await page
+    .locator('.studio-module[data-module-type="djmixer"] .djm-ch-label')
+    .first()
+    .boundingBox();
+  assert(mixerBodyBox, 'DJ mixer non-control body label is missing');
+  await page.mouse.move(mixerBodyBox.x + mixerBodyBox.width / 2, mixerBodyBox.y + mixerBodyBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(mixerBodyBox.x + mixerBodyBox.width / 2 + 90, mixerBodyBox.y + mixerBodyBox.height / 2 + 60, {
+    steps: 8,
+  });
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  const mixerDragAfter = await page.evaluate(() => {
+    const mod = document.querySelector('.studio-module[data-module-type="djmixer"]');
+    return { left: mod?.style.left, top: mod?.style.top };
+  });
+  assert(
+    mixerDragBefore.left !== mixerDragAfter.left || mixerDragBefore.top !== mixerDragAfter.top,
+    'Dragging a non-control module surface did not move the module',
+    { mixerDragBefore, mixerDragAfter },
+  );
+
+  const resizeBefore = await page.evaluate(() => {
+    const mod = document.querySelector('.studio-module[data-module-type="djmixer"]');
+    return {
+      left: parseFloat(mod?.style.left || '0'),
+      top: parseFloat(mod?.style.top || '0'),
+      zoom: parseFloat(mod?.style.zoom || '1'),
+    };
+  });
+  const resizeHandleBox = await page
+    .locator('.studio-module[data-module-type="djmixer"] .module-resize-se')
+    .boundingBox();
+  assert(resizeHandleBox, 'Module resize handle is missing');
+  await page.mouse.move(resizeHandleBox.x + resizeHandleBox.width / 2, resizeHandleBox.y + resizeHandleBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(resizeHandleBox.x + 70, resizeHandleBox.y + 50, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  const resizeAfter = await page.evaluate(() => {
+    const mod = document.querySelector('.studio-module[data-module-type="djmixer"]');
+    return {
+      left: parseFloat(mod?.style.left || '0'),
+      top: parseFloat(mod?.style.top || '0'),
+      zoom: parseFloat(mod?.style.zoom || '1'),
+    };
+  });
+  assert(
+    resizeAfter.zoom > resizeBefore.zoom && resizeAfter.zoom < resizeBefore.zoom + 0.8,
+    'Resize zoom is unstable',
+    {
+      resizeBefore,
+      resizeAfter,
+    },
+  );
+  assert(
+    Math.abs(resizeAfter.left - resizeBefore.left) < 0.01 && Math.abs(resizeAfter.top - resizeBefore.top) < 0.01,
+    'Southeast resize should keep the module origin anchored',
+    { resizeBefore, resizeAfter },
+  );
+
   const mixerFaderBefore = await page.evaluate(
     () => document.querySelector('.studio-module[data-module-type="djmixer"] .djm-fader')?.value,
   );
@@ -319,6 +384,20 @@ try {
     mixerFaderBefore,
     mixerFaderAfter,
   });
+
+  const toolbarFit = await page.evaluate(() =>
+    [...document.querySelectorAll('#studio-controls button')].map((button) => ({
+      id: button.id,
+      width: button.clientWidth,
+      scrollWidth: button.scrollWidth,
+      text: button.textContent.trim(),
+    })),
+  );
+  assert(
+    toolbarFit.every((button) => button.scrollWidth <= button.width + 1 && button.text.length <= 2),
+    'Studio toolbar buttons should be compact icon controls',
+    toolbarFit,
+  );
 
   await page.click('#fit-all');
   await page.waitForTimeout(150);

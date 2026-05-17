@@ -10,7 +10,7 @@ const CABLE_COLORS = [
   '#ff8844', // orange
   '#aa44ff', // purple
 ];
-const STUDIO_CABLES_KEY = 'confustudio-studio-cables-v1';
+export const STUDIO_CABLES_KEY = 'confustudio-studio-cables-v1';
 
 let _colorIdx = 0;
 function nextColor() {

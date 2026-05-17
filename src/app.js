@@ -17,10 +17,11 @@ import { AudioEngine, drawOscilloscope, initMidi, midiOutputs, getMidiOutputById
 import { initKeyboard, renderKbdContext, renderPiano, lightPianoKey, pressKey, updateHelpStrip } from './keyboard.js';
 import { renderKnobs, KNOB_MAPS } from './knobs.js';
 import { initStudio } from './studio.js';
-import { initCables } from './cables.js';
+import { initCables, STUDIO_CABLES_KEY } from './cables.js';
 import { initBackground } from './background.js';
 import { captureCommandState, executeStudioCommands } from './command-bus.js';
 import { EVENTS, STATE_PATHS } from './constants.js';
+import { STUDIO_LAYOUT_KEY, STUDIO_VIEW_KEY } from './studio-modules.js';
 import {
   resetRecorderSlotMeta,
   cloneJson,
@@ -480,10 +481,13 @@ function handleAction(path, value, pattern) {
     case 'action_clearStorage':
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(LEGACY_STORAGE_KEY);
+      localStorage.removeItem(STUDIO_LAYOUT_KEY);
+      localStorage.removeItem(STUDIO_VIEW_KEY);
+      localStorage.removeItem(STUDIO_CABLES_KEY);
       state = createAppState();
       state._playingNotes = new Set();
       state._pressedKeys = new Set();
-      renderAll();
+      window.location.reload();
       return true;
 
     case 'action_loadSample':

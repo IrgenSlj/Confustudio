@@ -99,8 +99,9 @@ export function initStudio() {
   function updateLensToggleButton() {
     const button = getLensToggleButton();
     if (!button) return;
-    button.textContent = 'Lens';
+    button.textContent = '◎';
     button.title = _zoomLensEnabled ? 'Turn cursor zoom lens off' : 'Turn cursor zoom lens on';
+    button.setAttribute('aria-label', button.title);
     button.classList.toggle('lens-off', !_zoomLensEnabled);
   }
 
@@ -297,10 +298,11 @@ export function initStudio() {
       applyTransform(S);
       const autoZoomBtn = document.getElementById('auto-zoom');
       if (autoZoomBtn) {
-        autoZoomBtn.textContent = S._autoZoom ? 'Auto Fit' : 'Manual';
+        autoZoomBtn.textContent = S._autoZoom ? 'A' : 'M';
         autoZoomBtn.title = S._autoZoom
           ? 'Auto-fit is on and the studio recenters itself on resize'
           : 'Manual view is on and the studio stays where you leave it';
+        autoZoomBtn.setAttribute('aria-label', autoZoomBtn.title);
         autoZoomBtn.style.color = S._autoZoom ? '' : 'rgba(255,255,255,0.35)';
       }
       return true;
@@ -386,10 +388,11 @@ export function initStudio() {
   const autoZoomBtn = document.getElementById('auto-zoom');
   autoZoomBtn?.addEventListener('click', () => {
     S._autoZoom = !S._autoZoom;
-    autoZoomBtn.textContent = S._autoZoom ? 'Auto' : 'Free';
+    autoZoomBtn.textContent = S._autoZoom ? 'A' : 'M';
     autoZoomBtn.title = S._autoZoom
       ? 'Auto-fit is on and the studio recenters itself on resize'
       : 'Manual view is on and the studio stays where you leave it';
+    autoZoomBtn.setAttribute('aria-label', autoZoomBtn.title);
     autoZoomBtn.style.color = S._autoZoom ? '' : 'rgba(255,255,255,0.35)';
     if (S._autoZoom) {
       S._userHasPanned = false;

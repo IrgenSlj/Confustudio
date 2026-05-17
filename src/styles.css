@@ -196,13 +196,13 @@ body {
   right: 12px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   max-width: calc(100vw - 24px);
   background: rgba(8, 12, 7, 0.9);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
-  padding: 6px 8px;
+  border-radius: 10px;
+  padding: 5px 6px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
@@ -220,13 +220,13 @@ body {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .studio-controls-group + .studio-controls-group {
   position: relative;
-  margin-left: 8px;
-  padding-left: 10px;
+  margin-left: 5px;
+  padding-left: 7px;
 }
 
 .studio-controls-group + .studio-controls-group::before {
@@ -253,11 +253,15 @@ body {
 }
 
 #studio-controls button {
-  height: 30px;
-  padding: 0 9px;
-  font-size: 0.6rem;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+  font-size: 0.72rem;
   font-weight: 600;
-  border-radius: 7px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.68);
@@ -265,6 +269,7 @@ body {
   cursor: pointer;
   transition: all 0.12s;
   white-space: nowrap;
+  line-height: 1;
 }
 
 #studio-controls button:hover {
@@ -289,7 +294,7 @@ body {
   border-color: rgba(90, 221, 113, 0.3) !important;
   color: var(--live) !important;
   min-width: 32px;
-  padding: 0 10px;
+  padding: 0;
   font-family: var(--font-mono) !important;
   letter-spacing: 0.05em;
 }
