@@ -780,7 +780,6 @@ export default {
         if (eng?.setReverbConvMix) eng.setReverbConvMix(0);
         if (eng?.setDelayMix) eng.setDelayMix(0);
         if (eng?.setChorusMix) eng.setChorusMix(0);
-        if (eng?.setDelayMix2) eng.setDelayMix2(0);
         bypassBtn.textContent = 'FX BYPASSED';
         bypassBtn.style.cssText =
           'font-family:var(--font-mono);font-size:0.52rem;border-color:var(--record);color:var(--record)';
@@ -793,7 +792,6 @@ export default {
         if (eng?.setReverbConvMix) eng.setReverbConvMix(crv);
         if (eng?.setDelayMix) eng.setDelayMix(dw);
         if (eng?.setChorusMix) eng.setChorusMix(cm);
-        if (eng?.setDelayMix2) eng.setDelayMix2(state.delayWet ?? 0.3);
         bypassBtn.textContent = 'BYPASS ALL FX';
         bypassBtn.style.cssText = 'font-family:var(--font-mono);font-size:0.52rem';
         bypassBtn.classList.remove('active');
@@ -1165,16 +1163,13 @@ function _applyGlobal(param, v, state) {
   if (!eng) return;
   if (param === 'delayTime' && eng.setDelayTime) {
     eng.setDelayTime(v);
-    eng.setDelayTime2?.(v);
   }
   if (param === 'delayFeedback' && eng.setDelayFeedback) {
     eng.setDelayFeedback(v);
-    eng.setDelayFeedback2?.(v);
   }
-  if (param === 'delayFilterFreq' && eng.setDelayFilter2) eng.setDelayFilter2(v);
+  if (param === 'delayFilterFreq' && eng.setDelayFilter) eng.setDelayFilter(v);
   if (param === 'delayWet' && eng.setDelayMix) {
     eng.setDelayMix(v);
-    eng.setDelayMix2?.(v);
   }
   if (param === 'masterLevel' && eng.setMasterLevel) eng.setMasterLevel(v);
   if (param === 'convReverbMix' && eng.setReverbConvMix) eng.setReverbConvMix(v);

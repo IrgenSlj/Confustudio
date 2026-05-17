@@ -1198,6 +1198,7 @@ export default {
         arpModeRow.querySelectorAll('.seq-btn').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
         emit('track:change', { trackIndex: ti, param: 'arpMode', value: btn.dataset.mode });
+        refreshArpPreview();
       });
     });
 
@@ -1218,6 +1219,7 @@ export default {
       const v = parseInt(arpRangeInput.value);
       arpRangeVal.textContent = v + ' oct';
       emit('track:change', { trackIndex: ti, param: 'arpRange', value: v });
+      refreshArpPreview();
     });
 
     // Wire speed slider
@@ -1243,16 +1245,6 @@ export default {
       _arpPreview.replaceWith(newPreview);
       _arpPreview = newPreview;
     }
-    arpModeRow.querySelectorAll('.seq-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        track.arpMode = btn.dataset.mode;
-        refreshArpPreview();
-      });
-    });
-    arpRangeInput.addEventListener('input', () => {
-      track.arpRange = parseInt(arpRangeInput.value);
-      refreshArpPreview();
-    });
 
     synthWrapper.append(arpCard);
 

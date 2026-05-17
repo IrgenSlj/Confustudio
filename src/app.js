@@ -345,6 +345,9 @@ window.confustudioCommands = {
     return runStudioCommands(commands, label);
   },
   history: {
+    push() {
+      pushHistory(state);
+    },
     undo() {
       undoHistory(state);
       renderAll();
@@ -790,12 +793,14 @@ function handleStateChange(path, value, pattern) {
       'masterLimiter',
       'recorderBarCount',
       'cueLevel',
+      'morphCurve',
     ].includes(path)
   ) {
     if (executeStudioCommand({ type: 'set-setting', key: path, value }, `Updated ${path}`)) return;
   }
 
   if (path === 'maxVoicesGlobal') {
+    pushHistory(state);
     state.maxVoicesGlobal = Math.max(1, Math.round(value));
     if (state.engine?.setMaxVoicesGlobal) state.engine.setMaxVoicesGlobal(state.maxVoicesGlobal);
     scheduleSave();
@@ -803,6 +808,7 @@ function handleStateChange(path, value, pattern) {
   }
 
   if (path === 'sidechainSource') {
+    pushHistory(state);
     // value: track index (0-7) or -1 to clear
     const tracks = getActivePattern(state).kit.tracks;
     tracks.forEach((t, i) => {
@@ -822,19 +828,14 @@ function handleStateChange(path, value, pattern) {
   }
 
   if (path === 'swing') {
+    if (executeStudioCommand({ type: 'set-transport', swing: value }, 'Updated swing')) return;
     state.swing = value;
     scheduleSave();
     return;
   }
 
-  if (path === 'morphCurve') {
-    state.morphCurve = value;
-    scheduleSave();
-    renderPage();
-    return;
-  }
-
   if (path === 'scene_noInterp') {
+    pushHistory(state);
     // value: { sceneIdx, param, checked }
     const { sceneIdx, param, checked } = value;
     if (!state.project.scenes[sceneIdx]) state.project.scenes[sceneIdx] = {};
@@ -851,6 +852,7 @@ function handleStateChange(path, value, pattern) {
   }
 
   if (path === 'scene_recall') {
+    pushHistory(state);
     // value: { idx } — set crossfader to 0, select scene as A
     const { idx } = value;
     state.sceneA = idx;
@@ -861,6 +863,7 @@ function handleStateChange(path, value, pattern) {
   }
 
   if (path === 'patternShift') {
+    pushHistory(state);
     state.patternShift = value;
     const track = getActiveTrack(state);
     const trackLen = track.steps.length;
@@ -933,6 +936,7 @@ function handleStateChange(path, value, pattern) {
   }
 
   if (path === 'trigCondition') {
+    pushHistory(state);
     state.trigCondition = value;
     const conditions = ['always', 'fill', 'not_fill', 'first', 'not_first'];
     const condStr = conditions[Math.round(value)] ?? 'always';
@@ -963,6 +967,7 @@ function handleStateChange(path, value, pattern) {
     return;
   }
 
+  pushHistory(state);
   state[path] = value;
   scheduleSave();
   renderPage();
@@ -1499,8 +1504,6 @@ function handleKnobChange(knobIndex, value) {
 
   _activeKnobIndex = typeof knobIndex === 'number' ? knobIndex : null;
 
-  const pattern = getActivePattern(state);
-
   const TRACK_PARAMS = [
     'pitch',
     'attack',
@@ -1517,26 +1520,37 @@ function handleKnobChange(knobIndex, value) {
     'reverbSend',
   ];
 
+  const cmd = (type, extra = {}) => ({
+    type,
+    bankIndex: state.activeBank,
+    patternIndex: state.activePattern,
+    ...extra,
+  });
+
   if (def.param.startsWith('track.')) {
     const [, idx, field] = def.param.split('.');
-    pattern.kit.tracks[Number(idx)][field] = value;
+    runStudioCommands(
+      cmd('set-track-param', { trackIndex: Number(idx), param: field, value }),
+      `Set track ${Number(idx) + 1} ${field}`,
+    );
   } else if (TRACK_PARAMS.includes(def.param)) {
-    getActiveTrack(state)[def.param] = value;
+    runStudioCommands(
+      cmd('set-track-param', { trackIndex: state.selectedTrackIndex, param: def.param, value }),
+      `Set track ${(state.selectedTrackIndex ?? 0) + 1} ${def.param}`,
+    );
   } else if (def.param === 'bpm') {
-    state.bpm = Math.max(40, Math.min(240, value));
-    updateTopbar();
+    runStudioCommands({ type: 'set-transport', bpm: Math.max(40, Math.min(240, value)) }, 'Updated tempo');
   } else if (def.param === 'length' || def.param === 'patternLength' || def.param === 'steps') {
-    const len = Math.max(4, Math.min(64, Math.round(value)));
-    pattern.length = len;
-    state.patternLength = len;
+    runStudioCommands(
+      cmd('set-pattern-length', { length: Math.max(4, Math.min(64, Math.round(value))) }),
+      'Updated pattern length',
+    );
   } else {
-    state[def.param] = value;
+    runStudioCommands({ type: 'set-setting', key: def.param, value }, `Updated ${def.param}`);
   }
 
-  scheduleSave();
   renderKnobsForPage();
   renderKnobBar();
-  renderPage();
 
   // Clear active highlight after brief delay
   clearTimeout(_activeKnobTimer);
@@ -1750,8 +1764,8 @@ async function ensureAudio() {
   }
 
   // Restore delay filter frequency
-  if (state.engine?.setDelayFilter2 && state.delayFilterFreq) {
-    state.engine.setDelayFilter2(state.delayFilterFreq);
+  if (state.engine?.setDelayFilter && state.delayFilterFreq) {
+    state.engine.setDelayFilter(state.delayFilterFreq);
   }
 
   // Restore sidechain state from saved track data

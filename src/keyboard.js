@@ -909,6 +909,10 @@ export function pressKey(containerEl, code, pressed) {
 
 const WHITE_SEMITONES = [0, 2, 4, 5, 7, 9, 11];
 const BLACK_TO_GAP = { 1: 1, 3: 2, 6: 4, 8: 5, 10: 6 };
+function _midiToNoteName(midi) {
+  const octave = Math.floor(midi / 12) - 1;
+  return NOTE_NAMES[midi % 12] + octave;
+}
 
 export function renderPiano(containerEl, state) {
   containerEl.innerHTML = '';
@@ -936,6 +940,9 @@ export function renderPiano(containerEl, state) {
       k.className = 'piano-white' + (active.has(midi) ? ' lit' : '');
       k.dataset.midi = midi;
       k.dataset.octave = String(oct);
+      k.tabIndex = 0;
+      k.setAttribute('role', 'button');
+      k.setAttribute('aria-label', _midiToNoteName(midi));
 
       // Split keyboard tint (applied via inline style so it can stack with scale classes)
       if (splitActive) {
@@ -977,6 +984,9 @@ export function renderPiano(containerEl, state) {
       k.className = 'piano-black' + (active.has(midi) ? ' lit' : '');
       k.dataset.midi = midi;
       k.dataset.octave = String(oct);
+      k.tabIndex = 0;
+      k.setAttribute('role', 'button');
+      k.setAttribute('aria-label', _midiToNoteName(midi));
 
       // Split keyboard tint for black keys
       if (splitActive) {
@@ -1056,7 +1066,7 @@ export function initPianoTouch(pianoContainerEl, state, emit) {
   function _triggerNote(keyEl, touch) {
     const midi = _midiFromEl(keyEl);
     if (midi == null) return;
-    const rawVel = _getVelocityFromTouch(touch, keyEl);
+    const rawVel = touch ? _getVelocityFromTouch(touch, keyEl) : (state.keyboardVelocity ?? 1);
     const velocity = applyVelocityCurve(rawVel, state.velocityCurve ?? 'linear');
     const voicing = CHORD_VOICINGS[state.kbdChordMode ?? 'off'] ?? [];
     const trackOverride = _resolveTrack(midi);
@@ -1158,6 +1168,24 @@ export function initPianoTouch(pianoContainerEl, state, emit) {
     },
     { passive: false },
   );
+
+  wrapper.addEventListener('keydown', (e) => {
+    const keyEl = e.target.closest('.piano-white, .piano-black');
+    if (!keyEl) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (!keyEl._touchActive) _triggerNote(keyEl, null);
+    }
+  });
+
+  wrapper.addEventListener('keyup', (e) => {
+    const keyEl = e.target.closest('.piano-white, .piano-black');
+    if (!keyEl) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (keyEl._touchActive) _releaseNote(keyEl);
+    }
+  });
 }
 
 // ─── Global keyboard handler ───────────────────────────────────────────────────

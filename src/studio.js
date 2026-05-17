@@ -361,11 +361,11 @@ export function initStudio() {
     canvas.querySelector('#module-0') ||
     canvas.querySelector('.studio-module');
   if (initialSelection) selectModule(S, initialSelection, { focus: false });
-  requestAnimationFrame(() =>
-    requestAnimationFrame(() => {
-      fitToWindow(S, { force: true });
-    }),
-  );
+  if (document.readyState === 'complete') {
+    fitToWindow(S, { force: true });
+  } else {
+    window.addEventListener('load', () => fitToWindow(S, { force: true }), { once: true });
+  }
 
   const zoomInBtn = document.getElementById('zoom-in');
   const zoomOutBtn = document.getElementById('zoom-out');

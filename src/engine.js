@@ -83,17 +83,9 @@ export class AudioEngine {
     this.analyser.fftSize = 1024;
     this.analyser.smoothingTimeConstant = 0.6;
 
-    // Delay line (legacy send path — tracks still route here via delaySend param)
-    this.delay = context.createDelay(1.4);
-    this.delay.delayTime.value = 0.28;
-    this.delayFeedback = context.createGain();
-    this.delayFeedback.gain.value = 0.38;
-    this.delayWet = context.createGain();
-    this.delayWet.gain.value = 0.28;
-
     // ── Send/return delay bus ─────────────────────────────────────────────────
-    // delaySendBus → delayNode → delayFilter → delayFeedback2 → delayNode (loop)
-    // delayNode also taps → delayWet2 → analyser
+    // _trackDelaySendGains[ti] → delaySendBus → delayNode → delayFilter → delayFeedback2 → delayNode (loop)
+    // delayNode also taps → delayWet2 → master
     this.delaySendBus = context.createGain();
     this.delaySendBus.gain.value = 1;
     this.delayNode = context.createDelay(1.4);
@@ -154,13 +146,7 @@ export class AudioEngine {
     this._cloudsReady = false;
     this._ringsReady = false;
 
-    // Routing — legacy delay send bus
-    this.delay.connect(this.delayFeedback);
-    this.delayFeedback.connect(this.delay);
-    this.delay.connect(this.delayWet);
-    this.delayWet.connect(this.master);
-
-    // Routing — new send/return delay bus
+    // Routing — send/return delay bus
     this.delaySendBus.connect(this.delayNode);
     this.delayNode.connect(this.delayFilter);
     this.delayFilter.connect(this.delayFeedback2);
@@ -396,32 +382,20 @@ export class AudioEngine {
   // Send/return delay bus controls
   // ——————————————————————————————————————————————
 
-  setDelayTime2(s) {
+  setDelayTime(s) {
     this.delayNode.delayTime.setTargetAtTime(Math.max(0.001, Math.min(1.3, s)), this.context.currentTime, 0.01);
   }
 
-  setDelayFeedback2(v) {
+  setDelayFeedback(v) {
     this.delayFeedback2.gain.setTargetAtTime(Math.max(0, Math.min(0.85, v)), this.context.currentTime, 0.01);
   }
 
-  setDelayFilter2(freq) {
+  setDelayFilter(freq) {
     this.delayFilter.frequency.setTargetAtTime(Math.max(500, Math.min(20000, freq)), this.context.currentTime, 0.01);
   }
 
-  setDelayMix2(v) {
-    this.delayWet2.gain.setTargetAtTime(Math.max(0, Math.min(1, v)), this.context.currentTime, 0.01);
-  }
-
-  setDelayFeedback(v) {
-    this.delayFeedback.gain.setTargetAtTime(Math.max(0, Math.min(0.95, v)), this.context.currentTime, 0.01);
-  }
-
-  setDelayTime(v) {
-    this.delay.delayTime.setTargetAtTime(Math.max(0.01, Math.min(1.3, v)), this.context.currentTime, 0.01);
-  }
-
   setDelayMix(v) {
-    this.delayWet.gain.setTargetAtTime(Math.max(0, Math.min(1, v)), this.context.currentTime, 0.01);
+    this.delayWet2.gain.setTargetAtTime(Math.max(0, Math.min(1, v)), this.context.currentTime, 0.01);
   }
 
   setMasterLevel(v) {
@@ -901,7 +875,7 @@ export class AudioEngine {
     const delaySend = this.context.createGain();
     delaySend.gain.value = delaySendGain;
     saturator.connect(delaySend);
-    delaySend.connect(this.delay);
+    delaySend.connect(this.delaySendBus);
 
     const reverbSend = this.context.createGain();
     reverbSend.gain.value = params.reverbSend;

@@ -47,10 +47,9 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
       'font-family:var(--font-mono);font-size:0.55rem;width:100%;background:#111;color:var(--screen-text);border:1px solid var(--accent);border-radius:2px;padding:0 2px';
     const commit = () => {
       const newName = input.value.trim() || currentName;
-      track.name = newName;
       nameSpan.textContent = newName;
       if (nameRow.contains(input)) nameRow.replaceChild(nameSpan, input);
-      emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.TRACKS, value: state.tracks });
+      emit('track:change', { trackIndex: ti, param: 'name', value: newName });
     };
     input.addEventListener('blur', commit);
     input.addEventListener('keydown', (ev) => {
@@ -96,12 +95,14 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
   }
 
   const { wrap: revWrap } = makeSendKnob('R', stTrack.reverbSend ?? 0, (v) => {
+    window.confustudioCommands?.history?.push();
     stTrack.reverbSend = v;
     track.reverbSend = v;
     state.engine?.setTrackReverbSend?.(ti, v);
     emit(EVENTS.STATE_CHANGE, { path: `tracks.${ti}.reverbSend`, value: v });
   });
   const { wrap: dlyWrap } = makeSendKnob('D', stTrack.delaySend ?? 0, (v) => {
+    window.confustudioCommands?.history?.push();
     stTrack.delaySend = v;
     track.delaySend = v;
     state.engine?.setTrackDelaySend?.(ti, v);
@@ -150,11 +151,7 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
     const linked = links.find((l) => l.a === ti || l.b === ti);
     if (linked) {
       const otherIdx = linked.a === ti ? linked.b : linked.a;
-      const otherTrack = state.project.banks[state.activeBank].patterns[state.activePattern].kit.tracks[otherIdx];
-      if (otherTrack) {
-        otherTrack.volume = v;
-        emit(EVENTS.TRACK_CHANGE, { trackIndex: otherIdx, param: 'volume', value: v });
-      }
+      emit(EVENTS.TRACK_CHANGE, { trackIndex: otherIdx, param: 'volume', value: v });
     }
   });
 
@@ -182,9 +179,9 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
   muteBtn.textContent = 'M';
   muteBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    track.mute = !track.mute;
-    muteBtn.classList.toggle('on', track.mute);
-    emit(EVENTS.TRACK_CHANGE, { trackIndex: ti, param: 'mute', value: track.mute });
+    const newMute = !track.mute;
+    muteBtn.classList.toggle('on', newMute);
+    emit(EVENTS.TRACK_CHANGE, { trackIndex: ti, param: 'mute', value: newMute });
   });
 
   const soloBtn = document.createElement('button');
@@ -192,9 +189,9 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
   soloBtn.textContent = 'S';
   soloBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    track.solo = !track.solo;
-    soloBtn.classList.toggle('on', track.solo);
-    emit(EVENTS.TRACK_CHANGE, { trackIndex: ti, param: 'solo', value: track.solo });
+    const newSolo = !track.solo;
+    soloBtn.classList.toggle('on', newSolo);
+    emit(EVENTS.TRACK_CHANGE, { trackIndex: ti, param: 'solo', value: newSolo });
     // update solo dimming for all strips
     const anySolo = stripEls.some((el, i) => {
       const t = state.project.banks[state.activeBank].patterns[state.activePattern].kit.tracks[i];
@@ -213,9 +210,9 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
   cueBtn.title = 'Cue / pre-fader listen';
   cueBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    track.cue = !track.cue;
-    cueBtn.classList.toggle('on', track.cue);
-    emit(EVENTS.TRACK_CHANGE, { trackIndex: ti, param: 'cue', value: track.cue });
+    const newCue = !track.cue;
+    cueBtn.classList.toggle('on', newCue);
+    emit(EVENTS.TRACK_CHANGE, { trackIndex: ti, param: 'cue', value: newCue });
   });
 
   msRow.append(muteBtn, soloBtn, cueBtn);
@@ -249,6 +246,7 @@ function buildGroupRow(group, gi, state, emit) {
   panSlider.title = 'Pan';
   panSlider.addEventListener('input', () => {
     const v = parseFloat(panSlider.value);
+    window.confustudioCommands?.history?.push();
     group.pan = v;
     if (state.engine) state.engine.setGroupPan(gi, v);
     emit(EVENTS.STATE_CHANGE, { path: `groups.${gi}.pan`, value: v });
@@ -272,6 +270,7 @@ function buildGroupRow(group, gi, state, emit) {
   fader.addEventListener('input', () => {
     const v = parseFloat(fader.value);
     valSpan.textContent = Math.round(v * 100);
+    window.confustudioCommands?.history?.push();
     group.volume = v;
     if (state.engine) state.engine.setGroupVolume(gi, v);
     emit(EVENTS.STATE_CHANGE, { path: `groups.${gi}.volume`, value: v });
@@ -284,6 +283,7 @@ function buildGroupRow(group, gi, state, emit) {
   muteBtn.textContent = 'M';
   muteBtn.addEventListener('click', (e) => {
     e.stopPropagation();
+    window.confustudioCommands?.history?.push();
     group.muted = !group.muted;
     muteBtn.classList.toggle('on', group.muted);
     if (state.engine) {
@@ -324,6 +324,7 @@ export default {
     muteAllBtn.className = 'mx-bulk-btn';
     muteAllBtn.textContent = 'Mute All';
     muteAllBtn.addEventListener('click', () => {
+      window.confustudioCommands?.history?.push();
       tracks.forEach((t) => {
         t.mute = true;
       });
@@ -335,6 +336,7 @@ export default {
     unmuteAllBtn.className = 'mx-bulk-btn';
     unmuteAllBtn.textContent = 'Unmute All';
     unmuteAllBtn.addEventListener('click', () => {
+      window.confustudioCommands?.history?.push();
       tracks.forEach((t) => {
         t.mute = false;
       });
@@ -346,6 +348,7 @@ export default {
     soloOffBtn.className = 'mx-bulk-btn';
     soloOffBtn.textContent = 'Solo Off';
     soloOffBtn.addEventListener('click', () => {
+      window.confustudioCommands?.history?.push();
       tracks.forEach((t) => {
         t.solo = false;
       });

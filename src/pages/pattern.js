@@ -3,18 +3,10 @@
 import { TRACK_COLORS } from '../state.js';
 import { EVENTS, STATE_PATHS } from '../constants.js';
 
-import {
-  getGenreStepWeights,
-  midiToNoteName,
-  euclidean,
-  PLOCK_PARAMS,
-  STEP_CONDITIONS,
-  injectPatternCSS,
-} from './pattern-tools.js';
+import { getGenreStepWeights, midiToNoteName, euclidean, PLOCK_PARAMS, STEP_CONDITIONS } from './pattern-tools.js';
 
 export default {
   render(container, state, emit) {
-    injectPatternCSS();
     container.innerHTML = '';
     container.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow:hidden;padding:6px 8px;gap:4px';
 

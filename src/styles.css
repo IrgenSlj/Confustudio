@@ -1282,7 +1282,6 @@ button {
   border: 1px solid var(--accent);
   border-radius: 2px;
   text-align: center;
-  outline: none;
 }
 
 /* Macro target popup */
@@ -1302,7 +1301,6 @@ button {
   background: #111810;
   color: var(--screen-text);
   border: none;
-  outline: none;
   padding: 3px 6px;
   cursor: pointer;
   min-width: 80px;
