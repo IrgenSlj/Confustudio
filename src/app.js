@@ -82,10 +82,10 @@ function showToast(msg, duration = 1200) {
 // ─────────────────────────────────────────────
 // MIDI CC LEARN FRAMEWORK
 // ─────────────────────────────────────────────
-window._midiLearnTarget = null;
+window.__CONFUSTUDIO__.midiLearnTarget = null;
 
 window.startMidiLearn = function startMidiLearn(param, setter) {
-  window._midiLearnTarget = { param, setter };
+  window.__CONFUSTUDIO__.midiLearnTarget = { param, setter };
   showToast('Wiggle a knob…', 4000);
 };
 
@@ -1564,8 +1564,167 @@ async function ensureAudio() {
       renderAll();
     }, 250);
   }
-  window._confustudioEngine = state.engine;
-  window._confusynthEngine = state.engine;
+  // Central namespace for all app globals
+  window.__CONFUSTUDIO__ = window.__CONFUSTUDIO__ || {};
+  // Forward old window._* references to the namespace
+  // (compatibility layer — new code should use __CONFUSTUDIO__ directly)
+  Object.defineProperties(window, {
+    _confustudioEngine: {
+      get() {
+        return window.__CONFUSTUDIO__.engine;
+      },
+      set(v) {
+        window.__CONFUSTUDIO__.engine = v;
+      },
+      configurable: true,
+    },
+    _confusynthEngine: {
+      get() {
+        return window.__CONFUSTUDIO__.synthEngine;
+      },
+      set(v) {
+        window.__CONFUSTUDIO__.synthEngine = v;
+      },
+      configurable: true,
+    },
+    _confustudioState: {
+      get() {
+        return window.__CONFUSTUDIO__.state;
+      },
+      set(v) {
+        window.__CONFUSTUDIO__.state = v;
+      },
+      configurable: true,
+    },
+    _confusynthState: {
+      get() {
+        return window.__CONFUSTUDIO__.synthState;
+      },
+      set(v) {
+        window.__CONFUSTUDIO__.synthState = v;
+      },
+      configurable: true,
+    },
+    _midiLearnTarget: {
+      get() {
+        return window.__CONFUSTUDIO__.midiLearnTarget;
+      },
+      set(v) {
+        window.__CONFUSTUDIO__.midiLearnTarget = v;
+      },
+      configurable: true,
+    },
+    _currentStep: {
+      get() {
+        return window.__CONFUSTUDIO__.currentStep;
+      },
+      set(v) {
+        window.__CONFUSTUDIO__.currentStep = v;
+      },
+      configurable: true,
+    },
+    _stutterActive: {
+      get() {
+        return window.__CONFUSTUDIO__.stutterActive;
+      },
+      set(v) {
+        window.__CONFUSTUDIO__.stutterActive = v;
+      },
+      configurable: true,
+    },
+    _stutterSize: {
+      get() {
+        return window.__CONFUSTUDIO__.stutterSize;
+      },
+      set(v) {
+        window.__CONFUSTUDIO__.stutterSize = v;
+      },
+      configurable: true,
+    },
+    _stutterStartStep: {
+      get() {
+        return window.__CONFUSTUDIO__.stutterStartStep;
+      },
+      set(v) {
+        window.__CONFUSTUDIO__.stutterStartStep = v;
+      },
+      configurable: true,
+    },
+    _patternChain: {
+      get() {
+        return window.__CONFUSTUDIO__.patternChain;
+      },
+      set(v) {
+        window.__CONFUSTUDIO__.patternChain = v;
+      },
+      configurable: true,
+    },
+    _renderChainList: {
+      get() {
+        return window.__CONFUSTUDIO__.renderChainList;
+      },
+      set(v) {
+        window.__CONFUSTUDIO__.renderChainList = v;
+      },
+      configurable: true,
+    },
+    _redrawCables: {
+      get() {
+        return window.__CONFUSTUDIO__.redrawCables;
+      },
+      set(v) {
+        window.__CONFUSTUDIO__.redrawCables = v;
+      },
+      configurable: true,
+    },
+    _patternDragHandlerSet: {
+      get() {
+        return window.__CONFUSTUDIO__.patternDragHandlerSet;
+      },
+      set(v) {
+        window.__CONFUSTUDIO__.patternDragHandlerSet = v;
+      },
+      configurable: true,
+    },
+    _autoLanes: {
+      get() {
+        return window.__CONFUSTUDIO__.autoLanes;
+      },
+      set(v) {
+        window.__CONFUSTUDIO__.autoLanes = v;
+      },
+      configurable: true,
+    },
+    _connectedModules: {
+      get() {
+        return window.__CONFUSTUDIO__.connectedModules;
+      },
+      set(v) {
+        window.__CONFUSTUDIO__.connectedModules = v;
+      },
+      configurable: true,
+    },
+    _trackPeaks: {
+      get() {
+        return window.__CONFUSTUDIO__.trackPeaks;
+      },
+      set(v) {
+        window.__CONFUSTUDIO__.trackPeaks = v;
+      },
+      configurable: true,
+    },
+    _trackPeakTimes: {
+      get() {
+        return window.__CONFUSTUDIO__.trackPeakTimes;
+      },
+      set(v) {
+        window.__CONFUSTUDIO__.trackPeakTimes = v;
+      },
+      configurable: true,
+    },
+  });
+  window.__CONFUSTUDIO__.engine = state.engine;
+  window.__CONFUSTUDIO__.synthEngine = state.engine;
   state.engine.setBpm(state.bpm ?? 120);
   state.engine.initWorklets(); // async — loads cs-resampler worklet in background
   state.engine.setMasterLevel(state.masterLevel);
@@ -1654,14 +1813,14 @@ async function ensureAudio() {
       .setupMidiInput((cc, value) => {
         const map = state.midiLearnMap ?? {};
 
-        // New window._midiLearnTarget learn system
-        if (window._midiLearnTarget) {
-          const { param, setter } = window._midiLearnTarget;
+        // New window.__CONFUSTUDIO__.midiLearnTarget learn system
+        if (window.__CONFUSTUDIO__.midiLearnTarget) {
+          const { param, setter } = window.__CONFUSTUDIO__.midiLearnTarget;
           state.midiLearnMap = state.midiLearnMap ?? {};
           state.midiLearnMap[cc] = { param, setter: null }; // functions not serializable
           const normalized = value / 127;
           if (typeof setter === 'function') setter(normalized);
-          window._midiLearnTarget = null;
+          window.__CONFUSTUDIO__.midiLearnTarget = null;
           saveState(state);
           showToast(`CC ${cc} → ${param}`);
           return;
@@ -2004,10 +2163,10 @@ function scheduleLoop() {
 
       // Advance all per-track step counters individually
       // Stutter / beat-repeat: loop within a fixed window instead of advancing
-      if (window._stutterActive) {
+      if (window.__CONFUSTUDIO__.stutterActive) {
         const STUTTER_SIZES = { '1/32': 0.5, '1/16': 1, '1/8': 2, '1/4': 4, '1/2': 8 };
-        const stutterSteps = STUTTER_SIZES[window._stutterSize ?? '1/8'] ?? 2;
-        const startStep = window._stutterStartStep ?? 0;
+        const stutterSteps = STUTTER_SIZES[window.__CONFUSTUDIO__.stutterSize ?? '1/8'] ?? 2;
+        const startStep = window.__CONFUSTUDIO__.stutterStartStep ?? 0;
         pattern.kit.tracks.forEach((track, ti) => {
           const trackLen = track.stepCount ?? (track.trackLength > 0 ? track.trackLength : pattern.length);
           const advanced = (_trackStepIdx[ti] + 1) % trackLen;
@@ -2021,7 +2180,7 @@ function scheduleLoop() {
         });
       }
       // Expose current step index for stutter start capture
-      window._currentStep = _trackStepIdx[0];
+      window.__CONFUSTUDIO__.currentStep = _trackStepIdx[0];
 
       // state.currentStep tracks track 0 for the playhead display
       state.currentStep = _trackStepIdx[0];
@@ -2183,8 +2342,8 @@ function scheduleLoop() {
         }
 
         // _patternChain editor: advance through user-defined chain steps on each pattern loop
-        if (window._patternChain?.active && window._patternChain.steps.length > 0) {
-          const pc = window._patternChain;
+        if (window.__CONFUSTUDIO__.patternChain?.active && window.__CONFUSTUDIO__.patternChain.steps.length > 0) {
+          const pc = window.__CONFUSTUDIO__.patternChain;
           const curStep = pc.steps[pc.currentStep];
           if (curStep) {
             pc._loopCount = (pc._loopCount ?? 0) + 1;
@@ -2209,8 +2368,8 @@ function scheduleLoop() {
                 }
               }
               // Refresh the chain list UI if it's visible
-              if (typeof window._renderChainList === 'function') {
-                window._renderChainList();
+              if (typeof window.__CONFUSTUDIO__.renderChainList === 'function') {
+                window.__CONFUSTUDIO__.renderChainList();
               }
             }
           }
@@ -2416,8 +2575,8 @@ function tapTempo() {
 // RENDER
 // ─────────────────────────────────────────────
 function renderAll() {
-  window._confustudioState = state;
-  window._confusynthState = state;
+  window.__CONFUSTUDIO__.state = state;
+  window.__CONFUSTUDIO__.synthState = state;
   updateTopbar();
   renderPageTabs();
   renderPage();

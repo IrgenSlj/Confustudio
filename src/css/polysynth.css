@@ -1,0 +1,445 @@
+.polysynth-chassis {
+  background: #1a1810;
+  border-radius: 6px 6px 4px 4px;
+  width: 920px;
+  min-height: 240px;
+  box-sizing: border-box;
+  font-family: monospace;
+  display: flex;
+  flex-direction: column;
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border: 1px solid #2a2818;
+  position: relative;
+  overflow: hidden;
+}
+/* Wood-grain sides */
+.polysynth-chassis::before,
+.polysynth-chassis::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 18px;
+  height: 100%;
+  background: repeating-linear-gradient(180deg, #5c3a1e 0px, #7a4e28 4px, #5c3a1e 8px);
+  z-index: 1;
+}
+.polysynth-chassis::before {
+  left: 0;
+  border-radius: 6px 0 0 4px;
+}
+.polysynth-chassis::after {
+  right: 0;
+  border-radius: 0 6px 4px 0;
+}
+
+.polysynth-ports-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 28px;
+  background: #141210;
+  border-bottom: 1px solid #2a2818;
+  min-height: 26px;
+  position: relative;
+  z-index: 2;
+}
+.polysynth-ports-bar .port {
+  font-size: 9px;
+  color: #aaa;
+  letter-spacing: 0.08em;
+  background: #222;
+  border: 1px solid #444;
+  border-radius: 3px;
+  padding: 2px 6px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+.polysynth-ports-bar .port:hover {
+  background: #333;
+}
+.polysynth-title {
+  margin-left: auto;
+  margin-right: 20px;
+  font-size: 22px;
+  font-weight: bold;
+  color: #fff;
+  letter-spacing: 0.12em;
+  font-family: monospace;
+  text-shadow: 0 0 8px rgba(255, 200, 100, 0.3);
+}
+
+.polysynth-body {
+  display: flex;
+  flex-direction: row;
+  gap: 2px;
+  padding: 8px 24px;
+  align-items: stretch;
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.polysynth-section {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #c05010;
+  margin: 2px;
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 54px;
+}
+.polysynth-section--wide {
+  min-width: 100px;
+}
+
+.polysynth-section-header {
+  background: #c05010;
+  color: #fff;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  font-weight: bold;
+  text-align: center;
+  padding: 2px 4px;
+  white-space: nowrap;
+}
+
+.polysynth-section-body {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  padding: 6px 4px 4px;
+  align-items: flex-end;
+  flex: 1;
+}
+
+.polysynth-knob-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.polysynth-slider {
+  -webkit-appearance: slider-vertical;
+  appearance: slider-vertical;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 18px;
+  height: 72px;
+  cursor: pointer;
+  accent-color: #e07030;
+  background: transparent;
+}
+
+.polysynth-label {
+  font-size: 8px;
+  color: #ccc;
+  letter-spacing: 0.05em;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.polysynth-switch-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 0;
+}
+
+.polysynth-sw {
+  font-family: monospace;
+  font-size: 8px;
+  padding: 2px 5px;
+  background: #2a2818;
+  color: #888;
+  border: 1px solid #444;
+  border-radius: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.1s,
+    color 0.1s;
+  letter-spacing: 0.05em;
+}
+.polysynth-sw--on {
+  background: #e07030;
+  color: #fff;
+  border-color: #e07030;
+}
+
+.polysynth-hpf-body {
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+.polysynth-hpf-btn {
+  font-family: monospace;
+  font-size: 10px;
+  width: 26px;
+  padding: 2px 0;
+  background: #2a2818;
+  color: #888;
+  border: 1px solid #444;
+  border-radius: 2px;
+  cursor: pointer;
+  text-align: center;
+  transition:
+    background 0.1s,
+    color 0.1s;
+}
+.polysynth-hpf-btn--active {
+  background: #e07030;
+  color: #fff;
+  border-color: #e07030;
+}
+
+.polysynth-chorus-body {
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+.polysynth-chorus-btn {
+  font-family: monospace;
+  font-size: 9px;
+  width: 36px;
+  padding: 3px 0;
+  background: #2a2818;
+  color: #888;
+  border: 1px solid #444;
+  border-radius: 2px;
+  cursor: pointer;
+  text-align: center;
+  letter-spacing: 0.08em;
+  transition:
+    background 0.1s,
+    color 0.1s;
+}
+.polysynth-chorus-btn--active {
+  background: #e07030;
+  color: #fff;
+  border-color: #e07030;
+  box-shadow: 0 0 6px rgba(224, 112, 48, 0.6);
+}
+
+/* ADSR canvas */
+.polysynth-adsr-canvas {
+  display: block;
+  background: #0e0e08;
+  border: 1px solid #333;
+  border-radius: 2px;
+}
+
+/* Portamento value display */
+.polysynth-porta-val {
+  font-size: 8px;
+  color: #e07030;
+  font-family: monospace;
+  letter-spacing: 0.05em;
+}
+
+/* HOLD button */
+.polysynth-hold-btn {
+  font-family: monospace;
+  font-size: 9px;
+  padding: 4px 8px;
+  background: #2a2818;
+  color: #888;
+  border: 1px solid #555;
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  transition:
+    background 0.1s,
+    color 0.1s;
+  width: 100%;
+}
+.polysynth-hold-btn.active {
+  background: #8040e0;
+  color: #fff;
+  border-color: #a060ff;
+  box-shadow: 0 0 6px rgba(128, 64, 224, 0.6);
+}
+
+/* ARP buttons */
+.polysynth-arp-btn {
+  font-family: monospace;
+  font-size: 9px;
+  padding: 3px 6px;
+  background: #2a2818;
+  color: #888;
+  border: 1px solid #555;
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 0.07em;
+  transition:
+    background 0.1s,
+    color 0.1s;
+  white-space: nowrap;
+}
+.polysynth-arp-btn.active {
+  background: #20a060;
+  color: #fff;
+  border-color: #40c880;
+  box-shadow: 0 0 6px rgba(32, 160, 96, 0.6);
+}
+.polysynth-arp-rate {
+  font-family: monospace;
+  font-size: 9px;
+  background: #1a1a10;
+  color: #ccc;
+  border: 1px solid #444;
+  border-radius: 3px;
+  padding: 2px 3px;
+  cursor: pointer;
+}
+.polysynth-arp-mode {
+  font-family: monospace;
+  font-size: 8px;
+  padding: 3px 5px;
+  background: #2a2020;
+  color: #aaa;
+  border: 1px solid #555;
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  transition: background 0.1s;
+  white-space: nowrap;
+}
+.polysynth-arp-mode:hover {
+  background: #444;
+}
+
+/* Patch controls */
+.polysynth-patch-select {
+  font-family: monospace;
+  font-size: 9px;
+  background: #1a1a10;
+  color: #e07030;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 2px 4px;
+  cursor: pointer;
+  width: 100%;
+}
+.polysynth-load-patch {
+  font-family: monospace;
+  font-size: 9px;
+  padding: 3px 6px;
+  background: #333;
+  color: #e07030;
+  border: 1px solid #555;
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  transition: background 0.1s;
+  width: 100%;
+}
+.polysynth-load-patch:hover {
+  background: #555;
+}
+
+/* Lower bar with voice dots + keyboard */
+.polysynth-lower-bar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 0 24px;
+  z-index: 2;
+  position: relative;
+}
+
+/* Voice indicator dots */
+.polysynth-voice-dots {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+  flex-shrink: 0;
+}
+.polysynth-voice-label {
+  font-size: 7px;
+  color: #666;
+  letter-spacing: 0.06em;
+  margin-left: 3px;
+}
+.polysynth-voice-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2a2818;
+  border: 1px solid #444;
+  transition:
+    background 0.08s,
+    box-shadow 0.08s;
+}
+.polysynth-voice-dot.active {
+  background: #e07030;
+  border-color: #ff9050;
+  box-shadow: 0 0 5px rgba(224, 112, 48, 0.7);
+}
+
+/* Keyboard */
+.polysynth-keyboard {
+  position: relative;
+  height: 54px;
+  flex: 1;
+  display: flex;
+  z-index: 2;
+  margin-bottom: 6px;
+}
+.polysynth-key-white {
+  flex: 1;
+  background: linear-gradient(180deg, #f5f5f0 0%, #e8e8e0 100%);
+  border: 1px solid #999;
+  border-top: none;
+  border-radius: 0 0 3px 3px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.06s;
+  min-width: 0;
+}
+.polysynth-key-white .polysynth-key-label {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 6px;
+  color: #888;
+  font-family: monospace;
+  pointer-events: none;
+}
+.polysynth-key-white:active,
+.polysynth-key-white.pressed {
+  background: linear-gradient(180deg, #d0c8b8 0%, #b8b0a0 100%);
+}
+.polysynth-key-black {
+  position: absolute;
+  width: 58%;
+  height: 60%;
+  background: linear-gradient(180deg, #1a1a1a 0%, #333 100%);
+  border-radius: 0 0 2px 2px;
+  cursor: pointer;
+  z-index: 3;
+  top: 0;
+  transform: translateX(-50%);
+  transition: background 0.06s;
+  border: 1px solid #000;
+}
+.polysynth-key-black:active,
+.polysynth-key-black.pressed {
+  background: linear-gradient(180deg, #333 0%, #555 100%);
+}

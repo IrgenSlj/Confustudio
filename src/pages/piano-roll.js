@@ -1193,7 +1193,7 @@ export default {
     }
 
     // Persistent open-lane state on window so it survives re-renders
-    window._autoLanes = window._autoLanes ?? [];
+    window.__CONFUSTUDIO__.autoLanes = window.__CONFUSTUDIO__.autoLanes ?? [];
 
     const LANE_HEIGHT = 60;
     const stepW = cellW; // each bar = one step cell
@@ -1235,7 +1235,7 @@ export default {
     function buildLaneEl(paramId) {
       const paramDef = AUTO_PARAMS.find((p) => p.id === paramId);
       const label = paramDef?.label ?? paramId;
-      const isOpen = window._autoLanes.includes(paramId);
+      const isOpen = window.__CONFUSTUDIO__.autoLanes.includes(paramId);
 
       const laneEl = document.createElement('div');
       laneEl.className = 'auto-lane';
@@ -1268,7 +1268,7 @@ export default {
       // Close / remove lane
       header.querySelector('.auto-lane-close').addEventListener('click', (e) => {
         e.stopPropagation();
-        window._autoLanes = window._autoLanes.filter((id) => id !== paramId);
+        window.__CONFUSTUDIO__.autoLanes = window.__CONFUSTUDIO__.autoLanes.filter((id) => id !== paramId);
         laneEl.remove();
       });
 
@@ -1349,7 +1349,7 @@ export default {
     autoSection.style.cssText = 'flex-shrink:0;';
 
     // Render existing open lanes
-    window._autoLanes.forEach((paramId) => {
+    window.__CONFUSTUDIO__.autoLanes.forEach((paramId) => {
       autoSection.append(buildLaneEl(paramId));
     });
 
@@ -1366,7 +1366,7 @@ export default {
       const dropdown = document.createElement('div');
       dropdown.className = 'auto-add-dropdown';
 
-      const available = AUTO_PARAMS.filter((p) => !window._autoLanes.includes(p.id));
+      const available = AUTO_PARAMS.filter((p) => !window.__CONFUSTUDIO__.autoLanes.includes(p.id));
       if (available.length === 0) {
         const item = document.createElement('div');
         item.className = 'auto-add-dropdown-item';
@@ -1381,8 +1381,8 @@ export default {
           item.textContent = param.label;
           item.addEventListener('click', () => {
             dropdown.remove();
-            if (!window._autoLanes.includes(param.id)) {
-              window._autoLanes.push(param.id);
+            if (!window.__CONFUSTUDIO__.autoLanes.includes(param.id)) {
+              window.__CONFUSTUDIO__.autoLanes.push(param.id);
               const laneEl = buildLaneEl(param.id);
               autoSection.insertBefore(laneEl, addLaneBtn);
               // Open immediately since we just added it

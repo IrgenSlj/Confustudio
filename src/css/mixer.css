@@ -1,0 +1,402 @@
+.mixer-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+}
+.mx-section {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 8px 10px;
+  flex-shrink: 0;
+}
+.mx-section-hdr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  font-family: var(--font-mono);
+}
+.mx-section-hdr .mx-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+.mx-bulk-btn {
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.45);
+  border-radius: 2px;
+  cursor: pointer;
+}
+.mx-bulk-btn:hover {
+  color: rgba(255, 255, 255, 0.8);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Track strips */
+.mx-tracks {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.mx-track-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 64px;
+  max-width: 80px;
+  flex: 1;
+  padding: 6px 4px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-top: 2px solid var(--tc, #888);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.mx-track-strip:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.mx-track-strip.selected {
+  outline: 1px solid rgba(240, 198, 64, 0.4);
+  outline-offset: -1px;
+}
+.mx-track-strip.strip-muted-by-solo {
+  opacity: 0.35;
+}
+.mx-track-name {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  font-family: var(--font-mono);
+}
+.mx-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tc, #888);
+  flex-shrink: 0;
+}
+.mx-sends {
+  display: flex;
+  gap: 6px;
+}
+.mx-send-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.mx-send-knob-input {
+  width: 22px;
+  height: 22px;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  appearance: none;
+  -webkit-appearance: slider-vertical;
+  cursor: ns-resize;
+  accent-color: var(--tc, #888);
+}
+.mx-send-lbl {
+  font-size: 0.46rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-family: var(--font-mono);
+}
+.mx-pan {
+  width: 100%;
+  height: 3px;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  cursor: ew-resize;
+  accent-color: var(--tc, #888);
+}
+.mx-pan::-webkit-slider-thumb {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tc, #888);
+  appearance: none;
+}
+.mx-fader-wrap {
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mx-fader {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 3px;
+  height: 62px;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  cursor: ns-resize;
+  accent-color: var(--tc, #888);
+}
+.mx-fader::-webkit-slider-thumb {
+  width: 22px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--tc, #888);
+  appearance: none;
+}
+.mx-vol-readout {
+  font-size: 0.52rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+.mx-ms-row {
+  display: flex;
+  gap: 3px;
+}
+.mx-mute,
+.mx-solo,
+.mx-cue {
+  width: 22px;
+  height: 16px;
+  font-size: 0.5rem;
+  font-weight: 700;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+.mx-mute.on {
+  background: rgba(240, 91, 82, 0.3);
+  color: #f05b52;
+  border-color: #f05b52;
+}
+.mx-solo.on {
+  background: rgba(240, 198, 64, 0.3);
+  color: #f0c640;
+  border-color: #f0c640;
+}
+.mx-cue.on {
+  background: rgba(103, 215, 255, 0.24);
+  color: #67d7ff;
+  border-color: #67d7ff;
+}
+.mx-meter-wrap {
+  width: 100%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 1px;
+}
+.mx-meter-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--tc, #5add71);
+  border-radius: 2px;
+  transition: width 0.05s;
+}
+
+/* VU bars */
+.mx-vu-bar {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  position: relative;
+  overflow: visible;
+  margin-top: 2px;
+}
+.mx-vu-fill {
+  height: 100%;
+  border-radius: 2px;
+  width: 0%;
+  transition: width 0.05s ease-out;
+  background: #5add71;
+}
+.mx-vu-peak {
+  position: absolute;
+  top: -1px;
+  width: 2px;
+  height: 6px;
+  background: white;
+  border-radius: 1px;
+  left: 0%;
+  transition: opacity 0.3s;
+}
+
+/* Master VU bar next to master fader */
+.mx-master-vu {
+  width: 2px;
+  height: 100%;
+  position: absolute;
+  right: -4px;
+  top: 0;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.mx-master-vu-fill {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  background: #5add71;
+  height: 0%;
+  border-radius: 1px;
+  transition: height 0.05s ease-out;
+}
+
+/* Master spectrum analyzer */
+.mx-spectrum-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  margin-top: 6px;
+}
+.mx-spectrum-lbl {
+  font-size: 0.46rem;
+  color: rgba(255, 255, 255, 0.3);
+  font-family: var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.mx-spectrum-canvas {
+  display: block;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Groups */
+.mx-groups-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+.mx-group-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 3px;
+  border-left: 2px solid var(--gc, #888);
+}
+.mx-group-lbl {
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+  width: 20px;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+}
+.mx-group-fader {
+  flex: 1;
+  height: 3px;
+  accent-color: var(--gc, #888);
+}
+.mx-group-pan {
+  width: 40px;
+  height: 3px;
+  accent-color: var(--gc, #888);
+  flex-shrink: 0;
+}
+.mx-group-val {
+  font-size: 0.52rem;
+  color: rgba(255, 255, 255, 0.4);
+  width: 24px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+.mx-group-mute {
+  width: 16px;
+  height: 14px;
+  font-size: 0.45rem;
+  font-weight: 700;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+}
+.mx-group-mute.on {
+  background: rgba(240, 91, 82, 0.25);
+  color: #f05b52;
+  border-color: #f05b52;
+}
+
+/* External modules */
+.mx-ext-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 3px;
+  border-left: 2px solid #a060d0;
+  font-family: var(--font-mono);
+}
+.mx-ext-name {
+  font-size: 0.55rem;
+  color: #c090f0;
+  font-weight: bold;
+  min-width: 52px;
+  flex-shrink: 0;
+}
+.mx-ext-fader {
+  flex: 1;
+  height: 3px;
+  accent-color: #a060d0;
+}
+.mx-ext-val {
+  font-size: 0.5rem;
+  color: rgba(255, 255, 255, 0.35);
+  width: 26px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.mx-ext-pan {
+  width: 40px;
+  height: 3px;
+  accent-color: #a060d0;
+}
+.mx-ext-mute {
+  width: 16px;
+  height: 14px;
+  font-size: 0.45rem;
+  font-weight: 700;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.mx-ext-mute.on {
+  background: rgba(240, 91, 82, 0.25);
+  color: #f05b52;
+  border-color: #f05b52;
+}

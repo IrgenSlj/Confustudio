@@ -75,41 +75,6 @@ function executeStudioCommand(command, label) {
   return Boolean(result?.changed);
 }
 
-// ─── Inject Settings CSS (once) ───────────────────────────────────────────────
-if (!document.getElementById('_settings-extra-css')) {
-  const s = document.createElement('style');
-  s.id = '_settings-extra-css';
-  s.textContent = `
-.set-shortcuts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 6px; }
-.set-shortcut-category { display: flex; flex-direction: column; gap: 3px; }
-.set-shortcut-cat-label {
-  font-size: 0.55rem; font-weight: 700; letter-spacing: 0.1em;
-  color: rgba(255,255,255,0.4); text-transform: uppercase;
-  margin-bottom: 3px; padding-bottom: 3px;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
-}
-.set-shortcut-row { display: flex; align-items: center; gap: 6px; padding: 1px 0; }
-.set-kbd {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 26px; padding: 1px 5px; height: 17px;
-  border-radius: 3px; border: 1px solid rgba(255,255,255,0.2);
-  background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7);
-  font-family: monospace; font-size: 0.55rem; font-weight: 700;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.5);
-  white-space: nowrap; flex-shrink: 0;
-}
-.set-shortcut-action { font-size: 0.58rem; color: rgba(255,255,255,0.4); }
-.set-accent-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 4px; }
-.set-accent-swatch {
-  width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
-  border: 2px solid transparent; transition: transform 0.1s, border-color 0.1s;
-}
-.set-accent-swatch:hover { transform: scale(1.15); }
-.set-accent-swatch.active { border-color: #fff; transform: scale(1.1); }
-`;
-  document.head.append(s);
-}
-
 function _getRecorderEditMeta(state, slotIndex) {
   const meta = state.recorderSlotsMeta?.[slotIndex] || {};
   return {

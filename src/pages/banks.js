@@ -6,8 +6,8 @@ const BANK_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
 // ─── Pattern Chain State ───────────────────────────────────────────────────────
 function getChain() {
-  if (!window._patternChain) {
-    window._patternChain = {
+  if (!window.__CONFUSTUDIO__.patternChain) {
+    window.__CONFUSTUDIO__.patternChain = {
       steps: [], // [{bank:0-7, pattern:0-15, repeats:1-8, mute:false}]
       active: false, // chain mode overrides normal pattern selection
       currentStep: 0, // which chain step is currently playing
@@ -15,7 +15,7 @@ function getChain() {
       _stepCount: 0, // internal tick counter
     };
   }
-  return window._patternChain;
+  return window.__CONFUSTUDIO__.patternChain;
 }
 
 // ─── MIDI SMF Encoder ─────────────────────────────────────────────────────────
@@ -232,49 +232,6 @@ function decodeMIDI(arrayBuffer) {
 }
 
 const TRACK_COLORS = ['#f0c640', '#5add71', '#67d7ff', '#ff8c52', '#c67dff', '#ff6eb4', '#40e0d0', '#f05b52'];
-
-// ─── Inject Bank page CSS (once) ──────────────────────────────────────────────
-if (!document.getElementById('_banks-css')) {
-  const s = document.createElement('style');
-  s.id = '_banks-css';
-  s.textContent = `
-.bank-pattern-card {
-  border-radius: 4px; cursor: pointer; overflow: hidden;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  transition: border-color 0.12s, background 0.12s;
-  display: flex; flex-direction: column; gap: 0;
-  position: relative;
-}
-.bank-pattern-card:hover { border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.07); }
-.bank-pattern-card.active { border-color: var(--live); box-shadow: 0 0 6px rgba(90,221,113,0.25); }
-.bank-pattern-card.active::after {
-  content: '▶'; position: absolute; top: 2px; right: 4px;
-  font-size: 0.55rem; color: var(--live); pointer-events: none;
-}
-.bank-pat-num {
-  font-size: 0.65rem; font-weight: 700; color: rgba(255,255,255,0.4);
-  padding: 3px 5px 0; font-family: var(--font-mono);
-}
-.bank-pat-canvas { width: 100%; display: block; }
-.bank-pat-bpm {
-  font-size: 0.5rem; color: rgba(255,255,255,0.25);
-  padding: 1px 4px 3px; font-variant-numeric: tabular-nums;
-  font-family: var(--font-mono);
-}
-.bank-tabs { display: flex; gap: 2px; padding: 4px 6px; }
-.bank-tab {
-  flex: 1; padding: 5px 4px; font-size: 0.65rem; font-weight: 700;
-  border-radius: 3px; border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.45);
-  cursor: pointer; text-align: center; transition: all 0.1s; letter-spacing: 0.05em;
-  font-family: var(--font-mono);
-}
-.bank-tab:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); }
-.bank-tab.active { background: rgba(90,221,113,0.15); color: var(--live); border-color: var(--live); }
-`;
-  document.head.append(s);
-}
 
 // ─── Pattern Canvas Thumbnail ─────────────────────────────────────────────────
 function buildPatternThumbnail(pattern, trackColors) {
@@ -691,7 +648,7 @@ export default {
     renderChainList();
 
     // Expose re-render so the clock handler can call it
-    window._renderChainList = renderChainList;
+    window.__CONFUSTUDIO__.renderChainList = renderChainList;
 
     container.append(chainSection);
 

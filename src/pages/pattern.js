@@ -402,8 +402,8 @@ export default {
     let dragActivating = null; // true = activate, false = deactivate
     let isDragging = false;
 
-    if (!window._patternDragHandlerSet) {
-      window._patternDragHandlerSet = true;
+    if (!window.__CONFUSTUDIO__.patternDragHandlerSet) {
+      window.__CONFUSTUDIO__.patternDragHandlerSet = true;
       window.addEventListener('mouseup', () => {
         isDragging = false;
         dragActivating = null;
@@ -2084,8 +2084,8 @@ export default {
     toolbar.append(swingDiv);
 
     // ── STUTTER / Beat-Repeat ─────────────────────────────────────────────────
-    const stutterActive = !!window._stutterActive;
-    const stutterSize = window._stutterSize ?? '1/8';
+    const stutterActive = !!window.__CONFUSTUDIO__.stutterActive;
+    const stutterSize = window.__CONFUSTUDIO__.stutterSize ?? '1/8';
 
     const stutterWrap = document.createElement('div');
     stutterWrap.className = 'stutter-section';
@@ -2109,7 +2109,7 @@ export default {
         btn.style.cssText +
         (stutterSize === sz ? ';background:var(--accent);color:#000;border-color:var(--accent)' : '');
       btn.addEventListener('click', () => {
-        window._stutterSize = sz;
+        window.__CONFUSTUDIO__.stutterSize = sz;
         stutterSizes.querySelectorAll('.stutter-size-btn').forEach((b) => {
           const on = b.dataset.size === sz;
           b.classList.toggle('active', on);
@@ -2128,11 +2128,11 @@ export default {
       : '';
     stutterToggle.title = 'Toggle stutter / beat-repeat';
     stutterToggle.addEventListener('click', () => {
-      const nowActive = !window._stutterActive;
-      window._stutterActive = nowActive;
+      const nowActive = !window.__CONFUSTUDIO__.stutterActive;
+      window.__CONFUSTUDIO__.stutterActive = nowActive;
       if (nowActive) {
         // Capture the starting step index at the moment stutter activates
-        window._stutterStartStep = window._currentStep ?? 0;
+        window.__CONFUSTUDIO__.stutterStartStep = window.__CONFUSTUDIO__.currentStep ?? 0;
         stutterToggle.style.cssText = 'background:#ff6eb4;color:#000;border-color:#ff6eb4;font-weight:bold';
         stutterToggle.classList.add('active');
       } else {

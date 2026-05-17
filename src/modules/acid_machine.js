@@ -1128,5 +1128,48 @@ export function createAcidMachine(audioContext) {
     if (outPort) outPort._audioNode = outputGain;
   }
 
+  el.__confustudioModule = {
+    serialize() {
+      return {
+        steps: JSON.parse(JSON.stringify(_steps)),
+        params: { ..._params },
+        waveform: _waveform,
+        currentScale: _currentScale,
+        standaloneBPM: _standaloneBPM,
+      };
+    },
+    restore(savedState = {}) {
+      if (savedState.steps) {
+        savedState.steps.forEach((s, i) => {
+          if (_steps[i]) Object.assign(_steps[i], s);
+        });
+      }
+      if (savedState.params) Object.assign(_params, savedState.params);
+      if (savedState.waveform) _waveform = savedState.waveform;
+      if (savedState.currentScale) _currentScale = savedState.currentScale;
+      if (savedState.standaloneBPM != null) _standaloneBPM = savedState.standaloneBPM;
+      _rebuildStepButtons();
+      const scaleEl = el.querySelector('.acid-machine-scale-select');
+      if (scaleEl) scaleEl.value = _currentScale;
+      el.querySelectorAll('.acid-machine-wave-btn').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.wave === _waveform);
+      });
+      el.querySelectorAll('.acid-machine-knob').forEach((knob) => {
+        const param = knob.dataset.param;
+        if (_params[param] != null) {
+          _updateKnobVisual(knob, _params[param]);
+        }
+      });
+      const bpmEl = el.querySelector('.acid-machine-bpm');
+      if (bpmEl) bpmEl.textContent = _standaloneBPM;
+      if (ctx) {
+        _applyFilterParams();
+        _applyDriveCurve();
+        _applyVolume();
+        if (osc) osc.type = _waveform;
+      }
+    },
+  };
+
   return el;
 }

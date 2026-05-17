@@ -531,7 +531,7 @@ export function initCables() {
   function redrawAllCables() {
     for (const cable of cables) drawCable(cable);
   }
-  window._redrawCables = redrawAllCables;
+  window.__CONFUSTUDIO__.redrawCables = redrawAllCables;
 
   // Redraw cables when modules move (on animation frame)
   function tick() {

@@ -71,7 +71,7 @@ export function createDrumMachine(audioContext) {
   };
 
   // Per-voice mute/solo state
-  const _mutedVoices = new Set();
+  let _mutedVoices = new Set();
   let _soloVoice = null;
 
   let _seqStep = 0;
@@ -772,439 +772,6 @@ export function createDrumMachine(audioContext) {
     _seqStep = (s + 1) % 16;
   });
 
-  // ── DOM ───────────────────────────────────────────────────────────────────
-  if (!document.querySelector('#drum-machine-styles')) {
-    const style = document.createElement('style');
-    style.id = 'drum-machine-styles';
-    style.textContent = `
-      .drum-machine-chassis {
-        font-family: 'Helvetica Neue', Arial, sans-serif;
-        background: linear-gradient(180deg, #ddd5c2 0%, #cfc5b0 100%);
-        border: 2px solid #a89880;
-        border-radius: 8px;
-        width: 960px;
-        min-height: 280px;
-        box-shadow: 0 4px 18px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.3);
-        padding: 8px 12px 12px;
-        box-sizing: border-box;
-        color: #2a2218;
-        user-select: none;
-        position: relative;
-      }
-
-      /* Port bar */
-      .drum-machine-port-bar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 6px;
-        padding-bottom: 4px;
-        border-bottom: 1px solid #b8a890;
-      }
-      .drum-machine-brand {
-        font-size: 13px;
-        font-weight: 700;
-        letter-spacing: 3px;
-        color: #3a2e1e;
-        text-transform: uppercase;
-      }
-      .drum-machine-port-bar .port {
-        display: inline-block;
-        background: #1a1614;
-        color: #e8a020;
-        font-size: 9px;
-        font-weight: 700;
-        padding: 3px 7px;
-        border-radius: 3px;
-        border: 1px solid #3a3028;
-        letter-spacing: 1px;
-        cursor: pointer;
-        transition: background 0.15s;
-      }
-      .drum-machine-port-bar .port:hover { background: #2e2824; }
-
-      /* Pattern slot buttons */
-      .drum-machine-pattern-slots {
-        display: flex;
-        gap: 4px;
-        align-items: center;
-      }
-      .drum-machine-slot-btn {
-        background: linear-gradient(180deg, #4a4440 0%, #2e2a28 100%);
-        color: #c0a870;
-        border: 1px solid #1a1614;
-        border-radius: 3px;
-        padding: 3px 9px;
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 1px;
-        cursor: pointer;
-        text-transform: uppercase;
-      }
-      .drum-machine-slot-btn.active {
-        background: linear-gradient(180deg, #e07000 0%, #a04800 100%);
-        color: #fff8e8;
-        box-shadow: 0 0 6px rgba(255,140,0,0.4);
-      }
-      .drum-machine-slot-btn:hover:not(.active) { background: linear-gradient(180deg, #5a5450 0%, #3e3a38 100%); }
-      .drum-machine-copy-paste {
-        display: flex;
-        gap: 3px;
-        margin-left: 4px;
-      }
-      .drum-machine-copy-paste button {
-        background: linear-gradient(180deg, #383430 0%, #201e1c 100%);
-        color: #a09070;
-        border: 1px solid #1a1614;
-        border-radius: 3px;
-        padding: 3px 7px;
-        font-size: 9px;
-        font-weight: 700;
-        letter-spacing: 0.5px;
-        cursor: pointer;
-      }
-      .drum-machine-copy-paste button:hover { background: linear-gradient(180deg, #484440 0%, #302e2c 100%); }
-
-      /* Pads row */
-      .drum-machine-pads-row {
-        display: flex;
-        gap: 5px;
-        margin-bottom: 6px;
-        align-items: flex-end;
-      }
-      .drum-machine-pad-wrap {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 2px;
-        flex: 1;
-      }
-      .drum-machine-pad {
-        width: 100%;
-        aspect-ratio: 1;
-        background: linear-gradient(160deg, #5a5248 0%, #3a3230 100%);
-        border: 1px solid #2a2220;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: background 0.08s, box-shadow 0.08s;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
-        min-width: 44px;
-        min-height: 44px;
-        position: relative;
-      }
-      .drum-machine-pad:hover {
-        background: linear-gradient(160deg, #6e6460 0%, #4e4a48 100%);
-      }
-      .drum-machine-pad.triggered {
-        background: linear-gradient(160deg, #ff9010 0%, #e06000 100%);
-        box-shadow: 0 0 10px rgba(255,140,0,0.7), inset 0 1px 0 rgba(255,255,200,0.3);
-      }
-      .drum-machine-pad-label {
-        font-size: 9px;
-        font-weight: 700;
-        letter-spacing: 1px;
-        color: #5a4e3a;
-        text-transform: uppercase;
-      }
-
-      /* VU meter strip */
-      .drum-machine-vu {
-        width: 100%;
-        height: 4px;
-        background: #1a1614;
-        border-radius: 2px;
-        overflow: hidden;
-        position: relative;
-      }
-      .drum-machine-vu-bar {
-        height: 100%;
-        width: 0%;
-        background: linear-gradient(90deg, #40c040, #e0e000, #e04000);
-        border-radius: 2px;
-        transition: width 0.03s ease-out;
-      }
-      .drum-machine-vu-bar.flash {
-        width: 100%;
-        transition: none;
-      }
-      .drum-machine-vu-bar.fade {
-        width: 0%;
-        transition: width 0.25s ease-out;
-      }
-
-      /* Mute button */
-      .drum-machine-mute-btn {
-        font-size: 8px;
-        font-weight: 700;
-        color: #786858;
-        background: #2a2220;
-        border: 1px solid #1a1614;
-        border-radius: 2px;
-        padding: 1px 4px;
-        cursor: pointer;
-        letter-spacing: 0.5px;
-        line-height: 1.4;
-      }
-      .drum-machine-mute-btn.muted {
-        background: #602000;
-        color: #ff8040;
-        border-color: #903020;
-      }
-      .drum-machine-mute-btn.solo {
-        background: #006020;
-        color: #40ff80;
-        border-color: #209050;
-      }
-
-      /* Voice knob rows */
-      .drum-machine-voice-knobs {
-        display: flex;
-        gap: 5px;
-        margin-bottom: 6px;
-      }
-      .drum-machine-voice-col {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 3px;
-      }
-      .drum-machine-mini-knob-wrap {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 1px;
-      }
-      .drum-machine-mini-knob {
-        width: 22px;
-        height: 22px;
-        background: radial-gradient(circle at 40% 35%, #6a6560, #2a2820);
-        border-radius: 50%;
-        border: 1px solid #1a1814;
-        cursor: pointer;
-        position: relative;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.6);
-      }
-      .drum-machine-mini-knob::after {
-        content: '';
-        position: absolute;
-        top: 2px;
-        left: 50%;
-        transform: translateX(-50%) rotate(0deg);
-        transform-origin: bottom center;
-        width: 2px;
-        height: 7px;
-        background: #e8d8b0;
-        border-radius: 1px;
-      }
-      .drum-machine-mini-label {
-        font-size: 7px;
-        font-weight: 700;
-        color: #7a6a50;
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
-      }
-
-      /* Sequencer steps */
-      .drum-machine-seq-section {
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-      }
-      .drum-machine-seq-row {
-        display: flex;
-        align-items: center;
-        gap: 3px;
-      }
-      .drum-machine-seq-voice-label {
-        font-size: 9px;
-        font-weight: 700;
-        color: #5a4e3a;
-        width: 24px;
-        text-align: right;
-        flex-shrink: 0;
-        letter-spacing: 0.5px;
-      }
-      .drum-machine-steps {
-        display: flex;
-        gap: 3px;
-        flex: 1;
-      }
-      .drum-machine-step {
-        flex: 1;
-        height: 22px;
-        background: #3a3230;
-        border: 1px solid #2a2220;
-        border-radius: 3px;
-        cursor: pointer;
-        transition: background 0.06s;
-        position: relative;
-        min-width: 0;
-      }
-      .drum-machine-step:nth-child(4n+1) { margin-left: 3px; }
-      .drum-machine-step.active {
-        background: #c06000;
-        border-color: #ff8c00;
-        box-shadow: 0 0 4px rgba(255,140,0,0.5);
-      }
-      .drum-machine-step.active-low  { background: #804000; border-color: #a05000; }
-      .drum-machine-step.active-mid  { background: #c06000; border-color: #e07000; }
-      .drum-machine-step.active-high { background: #ff8c00; border-color: #ffaa30; box-shadow: 0 0 5px rgba(255,140,0,0.6); }
-      .drum-machine-step.playing {
-        outline: 2px solid #ffe060;
-        outline-offset: 1px;
-        background: #ffe060 !important;
-        border-color: #ffe060 !important;
-      }
-      .drum-machine-step:hover { filter: brightness(1.2); }
-
-      /* Accent dot on step */
-      .drum-machine-step .accent-dot {
-        display: none;
-        position: absolute;
-        bottom: 2px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 4px;
-        height: 4px;
-        background: #ff6010;
-        border-radius: 50%;
-        box-shadow: 0 0 3px rgba(255,96,16,0.8);
-      }
-      .drum-machine-step.accented .accent-dot { display: block; }
-
-      /* Bottom controls */
-      .drum-machine-bottom {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-top: 8px;
-        padding-top: 6px;
-        border-top: 1px solid #b8a890;
-        flex-wrap: wrap;
-        gap: 6px;
-      }
-      .drum-machine-transport {
-        display: flex;
-        gap: 6px;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-      .drum-machine-btn {
-        background: linear-gradient(180deg, #4a4440 0%, #2e2a28 100%);
-        color: #e8d0a0;
-        border: 1px solid #1a1614;
-        border-radius: 4px;
-        padding: 5px 12px;
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 1px;
-        cursor: pointer;
-        text-transform: uppercase;
-        transition: background 0.12s;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.4);
-      }
-      .drum-machine-btn:hover { background: linear-gradient(180deg, #5a5450 0%, #3e3a38 100%); }
-      .drum-machine-btn.active {
-        background: linear-gradient(180deg, #e07000 0%, #a04800 100%);
-        color: #fff8e8;
-        box-shadow: 0 0 8px rgba(255,140,0,0.4);
-      }
-      .drum-machine-sync-btn {
-        background: linear-gradient(180deg, #3a4040 0%, #202828 100%);
-        color: #80b0a0;
-        border: 1px solid #1a2020;
-        border-radius: 4px;
-        padding: 5px 10px;
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 1px;
-        cursor: pointer;
-        text-transform: uppercase;
-        transition: background 0.12s;
-      }
-      .drum-machine-sync-btn.active {
-        background: linear-gradient(180deg, #205050 0%, #103030 100%);
-        color: #40e0d0;
-        box-shadow: 0 0 6px rgba(64,224,208,0.3);
-      }
-      .drum-machine-comp-btn {
-        background: linear-gradient(180deg, #3a3040 0%, #201828 100%);
-        color: #a080c0;
-        border: 1px solid #1a1020;
-        border-radius: 4px;
-        padding: 5px 10px;
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 1px;
-        cursor: pointer;
-        text-transform: uppercase;
-        transition: background 0.12s;
-      }
-      .drum-machine-comp-btn.active {
-        background: linear-gradient(180deg, #503070 0%, #301850 100%);
-        color: #d0a0ff;
-        box-shadow: 0 0 6px rgba(160,80,255,0.3);
-      }
-      .drum-machine-master-knob-wrap {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-      .drum-machine-knob-lg {
-        width: 34px;
-        height: 34px;
-        background: radial-gradient(circle at 38% 32%, #7a7470, #2a2820);
-        border-radius: 50%;
-        border: 1px solid #1a1814;
-        cursor: pointer;
-        position: relative;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.7);
-      }
-      .drum-machine-knob-lg::after {
-        content: '';
-        position: absolute;
-        top: 3px;
-        left: 50%;
-        transform: translateX(-50%) rotate(0deg);
-        transform-origin: bottom center;
-        width: 2px;
-        height: 11px;
-        background: #e8d8b0;
-        border-radius: 1px;
-      }
-      .drum-machine-bpm-display {
-        background: #0a100a;
-        color: #40e040;
-        font-family: 'Courier New', monospace;
-        font-size: 14px;
-        font-weight: 700;
-        padding: 4px 8px;
-        border-radius: 4px;
-        border: 1px solid #1a2a1a;
-        min-width: 54px;
-        text-align: center;
-        letter-spacing: 2px;
-        cursor: pointer;
-      }
-      .drum-machine-label-sm {
-        font-size: 9px;
-        font-weight: 700;
-        color: #7a6a50;
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
-      }
-      /* Swing knob row */
-      .drum-machine-swing-wrap {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
   // ── Build DOM ─────────────────────────────────────────────────────────────
   const el = document.createElement('div');
   el.className = 'studio-module drum-machine-chassis';
@@ -1638,6 +1205,79 @@ export function createDrumMachine(audioContext) {
     const outPort = el.querySelector('.port[data-port="audio-out"]');
     if (outPort) outPort._audioNode = outputGain;
   }
+
+  el.__confustudioModule = {
+    serialize() {
+      return {
+        patternSlots: JSON.parse(JSON.stringify(_patternSlots)),
+        activeSlot: _activeSlot,
+        voiceParams: JSON.parse(JSON.stringify(_voiceParams)),
+        mutedVoices: [..._mutedVoices],
+        soloVoice: _soloVoice,
+        masterVolume: _masterVolume,
+        swing: _swing,
+        compEnabled: _compEnabled,
+        standaloneBPM: _standaloneBPM,
+      };
+    },
+    restore(savedState = {}) {
+      if (savedState.standaloneBPM != null) _standaloneBPM = savedState.standaloneBPM;
+      if (savedState.masterVolume != null) _masterVolume = savedState.masterVolume;
+      if (savedState.swing != null) _swing = savedState.swing;
+      if (savedState.compEnabled != null) _compEnabled = savedState.compEnabled;
+      if (savedState.soloVoice != null) _soloVoice = savedState.soloVoice;
+      if (savedState.mutedVoices) _mutedVoices = new Set(savedState.mutedVoices);
+      if (savedState.voiceParams) {
+        Object.keys(savedState.voiceParams).forEach((v) => {
+          if (_voiceParams[v]) Object.assign(_voiceParams[v], savedState.voiceParams[v]);
+        });
+      }
+      if (savedState.patternSlots) {
+        Object.keys(savedState.patternSlots).forEach((slot) => {
+          if (!_patternSlots[slot]) _patternSlots[slot] = {};
+          Object.keys(savedState.patternSlots[slot]).forEach((voice) => {
+            _patternSlots[slot][voice] = savedState.patternSlots[slot][voice].map((s) => ({ ...s }));
+          });
+        });
+      }
+      if (savedState.activeSlot) {
+        _activeSlot = savedState.activeSlot;
+        _steps = _patternSlots[_activeSlot];
+      }
+      // Sync DOM
+      const bpmEl = el.querySelector(`#${_id}-bpm`);
+      if (bpmEl) bpmEl.textContent = _standaloneBPM;
+      _setKnobRotation(el.querySelector(`#${_id}-mvol`), _masterVolume);
+      _setKnobRotation(el.querySelector(`#${_id}-swing`), _swing);
+      const compEl = el.querySelector(`#${_id}-comp`);
+      if (compEl) compEl.classList.toggle('active', _compEnabled);
+      // Refresh step buttons
+      el.querySelectorAll('.drum-machine-step').forEach((stepEl) => {
+        const voice = stepEl.dataset.voice;
+        const i = parseInt(stepEl.dataset.step);
+        if (_steps[voice]?.[i]) _updateStepEl(stepEl, _steps[voice][i]);
+      });
+      // Refresh mini knobs
+      el.querySelectorAll('.drum-machine-mini-knob').forEach((knob) => {
+        const voice = knob.dataset.voice;
+        const param = knob.dataset.param;
+        const val = _voiceParams[voice]?.[param] ?? 0.5;
+        _setKnobRotation(knob, val);
+      });
+      // Refresh mute/solo button states
+      el.querySelectorAll('.drum-machine-mute-btn').forEach((btn) => {
+        const voice = btn.dataset.mute;
+        btn.classList.toggle('muted', _mutedVoices.has(voice));
+        btn.classList.toggle('solo', _soloVoice === voice);
+        btn.textContent = _soloVoice === voice ? 'S' : 'M';
+      });
+      // Refresh slot buttons
+      el.querySelectorAll('.drum-machine-slot-btn').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.slot === _activeSlot);
+      });
+      _refreshAllMuteGains();
+    },
+  };
 
   return el;
 }
