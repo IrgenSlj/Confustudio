@@ -4,6 +4,10 @@
 
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap');
 
+/* Canonical design tokens (Claude Design handoff). Imported first so all 68
+   tokens resolve; the legacy :root below keeps its own names additively. */
+@import url('./css/tokens.css');
+
 :root {
   /* Army green chassis */
   --chassis-bg: #4e5f3c;
@@ -52,64 +56,8 @@
   --font-mono: 'IBM Plex Mono', 'SFMono-Regular', monospace;
   --font-ui: 'Space Grotesk', 'Avenir Next', sans-serif;
 
-  /* ── Design-system scale tokens (additive; safe for existing CSS) ── */
-
-  /* Semantic colour aliases — prefer these in new CSS */
-  --success: var(--live);
-  --info: var(--electric);
-  --focus-ring: var(--electric);
-
-  /* Type scale */
-  --fs-display: 1.5rem; /* 24px */
-  --fs-xl: 1.125rem; /* 18px */
-  --fs-lg: 1rem; /* 16px */
-  --fs-md: 0.875rem; /* 14px */
-  --fs-sm: 0.75rem; /* 12px */
-  --fs-xs: 0.625rem; /* 10px */
-  --lh-tight: 1.2;
-  --lh-normal: 1.5;
-  --fw-regular: 400;
-  --fw-medium: 500;
-  --fw-semibold: 600;
-
-  /* Spacing — 4px grid */
-  --space-0: 0;
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-10: 40px;
-  --space-12: 48px;
-
-  /* Radius */
-  --radius-sm: 3px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
-  --radius-full: 999px;
-
-  /* Elevation / shadow */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
-  --shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.5);
-  --glow-accent: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent);
-
-  /* Motion — keep off the layout-thrashing path (transform/opacity only) */
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --dur-fast: 120ms;
-  --dur-base: 200ms;
-
-  /* Interaction */
-  --touch-min: 44px;
-
-  /* Z-index scale */
-  --z-canvas: 1;
-  --z-overlay: 1000;
-  --z-toast: 2000;
-  --z-modal: 3000;
+  /* Scale tokens (spacing/radius/shadow/type/motion/z) now live in the
+     canonical token system — see src/css/tokens.css, imported above. */
 }
 
 /* ============================================================
