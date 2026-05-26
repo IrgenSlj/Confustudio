@@ -46,6 +46,11 @@ import settingsPage from './pages/settings.js';
 import modMatrixPage from './pages/modmatrix.js';
 
 // ─────────────────────────────────────────────
+// Module-level globals
+// ─────────────────────────────────────────────
+window.__CONFUSTUDIO__ = window.__CONFUSTUDIO__ || {};
+
+// ─────────────────────────────────────────────
 // TOAST NOTIFICATION
 // ─────────────────────────────────────────────
 function showToast(msg, duration = 1200) {
@@ -1582,8 +1587,7 @@ async function ensureAudio() {
       renderAll();
     }, 250);
   }
-  // Central namespace for all app globals
-  window.__CONFUSTUDIO__ = window.__CONFUSTUDIO__ || {};
+  // Central namespace for all app globals (already initialized at module level)
   // Forward old window._* references to the namespace
   // (compatibility layer — new code should use __CONFUSTUDIO__ directly)
   Object.defineProperties(window, {
