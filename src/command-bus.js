@@ -1,4 +1,4 @@
-import { BANK_COUNT, PATTERN_COUNT, TRACK_COUNT, createStep, normalizeProject } from './state.js';
+import { BANK_COUNT, PATTERN_COUNT, TRACK_COUNT, createStep, normalizeProject, recordSignal, computePathToRoot } from './state.js';
 import { getGenreStepWeights } from './pages/pattern-tools.js';
 
 function cloneJson(value) {
@@ -251,7 +251,13 @@ export function createHistoryController(limit = 100) {
   };
 }
 
-export function executeStudioCommand(state, command) {
+/**
+ * @param {object} state
+ * @param {object} command
+ * @param {number|null} [parentSignalId] — signal-graph parent ID for sequential chaining
+ * @returns {{ changed: boolean, summary: string, signalId?: number }}
+ */
+export function executeStudioCommand(state, command, parentSignalId = null) {
   if (!state || typeof state !== 'object') throw new TypeError('state is required');
   if (!command || typeof command !== 'object') throw new TypeError('command must be an object');
 
@@ -653,13 +659,54 @@ export function executeStudioCommand(state, command) {
   }
 }
 
+/**
+ * Execute a command and optionally record a signal graph node.
+ * Internal helper called by executeStudioCommand.
+ */
+function executeAndRecord(state, command, parentSignalId) {
+  const result = executeStudioCommand(state, command, parentSignalId);
+  if (state._signalGraph && result.changed) {
+    result.signalId = recordSignal(state._signalGraph, command, parentSignalId, result);
+  }
+  return result;
+}
+
 export function executeStudioCommands(state, commands = []) {
   const results = [];
   let changed = false;
+  let parentSignalId = null;
   for (const command of commands) {
-    const result = executeStudioCommand(state, command);
+    const result = executeAndRecord(state, command, parentSignalId);
     results.push({ command, ...result });
     if (result.changed) changed = true;
+    if (result.signalId !== undefined) parentSignalId = result.signalId;
   }
   return { changed, results };
+}
+
+/**
+ * Replay a signal subgraph by cloning state, re-executing every command
+ * on the critical path from root to targetNodeId, and returning the new state.
+ *
+ * @param {object} state — live state (not mutated)
+ * @param {object} graph — signal graph
+ * @param {number} targetNodeId — node in the graph to replay up to
+ * @param {object} [opts]
+ * @param {boolean} [opts.inPlace] — if true, mutate state in-place instead of cloning
+ * @returns {{ state: object, results: object[] }}
+ */
+export function replaySignalSubgraph(state, graph, targetNodeId, opts = {}) {
+  const path = computePathToRoot(graph, targetNodeId);
+  const working = opts.inPlace ? state : JSON.parse(JSON.stringify(state));
+  const results = [];
+  const nodeMap = new Map(graph.nodes.map((n) => [n.id, n]));
+
+  for (const nodeId of path) {
+    const node = nodeMap.get(nodeId);
+    if (!node) continue;
+    const result = executeStudioCommand(working, { type: node.type });
+    results.push({ nodeId: node.id, type: node.type, ...result });
+  }
+
+  return { state: working, results };
 }

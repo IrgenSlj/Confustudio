@@ -578,6 +578,9 @@ export function createAppState() {
     // MIDI output routing (per-track channel, 0 = off/internal, 1–16 = MIDI channel)
     midiOutputChannels: new Array(8).fill(0),
 
+    // Runtime signal graph (optional, stripped on serialization)
+    _signalGraph: null,
+
     // Project
     project: createProject(),
   });
@@ -967,4 +970,68 @@ function deepMerge(target, source) {
     }
   }
   return result;
+}
+
+// ─── Signal Graph ──────────────────────────────────────────────────────────────
+// Lightweight DAG recording command execution history.
+// Used for undo/redo, branching, and critical-path analysis.
+// Stored as state._signalGraph (runtime-only, stripped on serialization).
+
+export function createSignalGraph() {
+  return {
+    nodes: [],
+    edges: [],
+    nextId: 1,
+    headId: null,
+  };
+}
+
+export function recordSignal(graph, command, parentId = null, result = null) {
+  const id = graph.nextId++;
+  graph.nodes.push({
+    id,
+    type: command.type,
+    timestamp: Date.now(),
+    parentId,
+    changed: result ? Boolean(result.changed) : false,
+    summary: result ? result.summary : null,
+  });
+  if (parentId !== null) {
+    graph.edges.push({ from: parentId, to: id });
+  }
+  graph.headId = id;
+  return id;
+}
+
+/**
+ * Walk backwards from nodeId to the root, returning ordered ancestor IDs.
+ */
+export function computePathToRoot(graph, nodeId) {
+  const path = [];
+  const map = new Map(graph.nodes.map((n) => [n.id, n]));
+  let current = map.get(nodeId);
+  while (current) {
+    path.unshift(current.id);
+    current = current.parentId ? map.get(current.parentId) : null;
+  }
+  return path;
+}
+
+/**
+ * Walk forward from root to nodeId, collecting the critical path.
+ * For a linear history (single parent each), this is the same as computePathToRoot.
+ * For a branching graph, this picks the canonical path.
+ */
+export function computeCriticalPath(graph, fromId, toId) {
+  if (fromId === toId) return [fromId];
+  const path = [];
+  const map = new Map(graph.nodes.map((n) => [n.id, n]));
+  // Walk backwards from toId until we hit fromId
+  let current = map.get(toId);
+  while (current && current.id !== fromId) {
+    path.unshift(current.id);
+    current = current.parentId ? map.get(current.parentId) : null;
+  }
+  if (current) path.unshift(current.id);
+  return path;
 }
