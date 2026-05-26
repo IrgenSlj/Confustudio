@@ -1,6 +1,14 @@
 // Modular Engine — compiles signalGraph into Web Audio nodes
 import { getPlugin } from './plugins/index.js';
 
+const WORKLET_MODULES = [
+  '/src/worklets/resampler-worklet.js',
+  '/src/worklets/bitcrusher-worklet.js',
+  '/src/worklets/plaits-worklet.js',
+  '/src/worklets/clouds-worklet.js',
+  '/src/worklets/rings-worklet.js',
+];
+
 export class ModularEngine {
   constructor(ctx, masterInput) {
     this.ctx = ctx;
@@ -8,7 +16,29 @@ export class ModularEngine {
     this.nodeMap = new Map();
     this.connectionMap = new Map();
     this.enabled = false;
+    this._workletsReady = false;
     this._workletInit = null;
+  }
+
+  async initWorklets() {
+    if (this._workletsReady) return;
+    if (typeof AudioWorkletNode !== 'function') {
+      console.warn('[ModularEngine] AudioWorkletNode not available');
+      return;
+    }
+    const results = await Promise.allSettled(
+      WORKLET_MODULES.map((url) => this.ctx.audioWorklet.addModule(url)),
+    );
+    const ok = results.filter((r) => r.status === 'fulfilled').length;
+    const fail = results.filter((r) => r.status === 'rejected').length;
+    if (fail > 0) {
+      for (let i = 0; i < results.length; i++) {
+        if (results[i].status === 'rejected') {
+          console.warn(`[ModularEngine] Worklet load failed: ${WORKLET_MODULES[i]}`, results[i].reason);
+        }
+      }
+    }
+    this._workletsReady = ok > 0;
   }
 
   compile(graph) {
@@ -31,12 +61,10 @@ export class ModularEngine {
     const currentIds = new Set(this.nodeMap.keys());
     const graphIds = new Set(Object.keys(graph.nodes || {}));
 
-    // Remove deleted nodes
     for (const id of currentIds) {
       if (!graphIds.has(id)) this.removeNode(id);
     }
 
-    // Add or update nodes
     for (const [id, nodeDef] of Object.entries(graph.nodes || {})) {
       if (this.nodeMap.has(id)) {
         const existing = this.nodeMap.get(id);
@@ -49,7 +77,6 @@ export class ModularEngine {
       }
     }
 
-    // Sync connections
     const currentConns = new Set(this.connectionMap.keys());
     const graphConns = new Set((graph.connections || []).map(c => c.id));
     for (const id of currentConns) {
@@ -68,9 +95,10 @@ export class ModularEngine {
       console.warn(`[ModularEngine] Unknown plugin: ${nodeDef.plugin}`);
       return;
     }
-    const compiled = this._instantiate(plugin, nodeDef.params || {});
+    const params = nodeDef.params || {};
+    const compiled = this._instantiate(plugin, params);
     if (compiled) {
-      this.nodeMap.set(id, { ...compiled, id, plugin: nodeDef.plugin });
+      this.nodeMap.set(id, { ...compiled, id, plugin: nodeDef.plugin, _params: { ...params } });
     }
   }
 
@@ -89,15 +117,16 @@ export class ModularEngine {
 
   addNode(id, nodeDef) {
     this._compileNode(id, nodeDef);
-    if (!this.masterInput || !this.enabled) return;
-    // If this node has no outgoing connections, connect it to master
-    // (handled by syncConnections)
   }
 
   removeNode(id) {
     const entry = this.nodeMap.get(id);
     if (!entry) return;
     try {
+      if (entry._plaitsReTrigger) clearInterval(entry._plaitsReTrigger);
+      if (entry.workletNode) {
+        entry.workletNode.port.postMessage({ type: 'stop' });
+      }
       for (const n of entry.allNodes) {
         n.disconnect();
       }
@@ -105,14 +134,69 @@ export class ModularEngine {
     this.nodeMap.delete(id);
   }
 
+  setNodeParam(nodeId, key, value) {
+    const entry = this.nodeMap.get(nodeId);
+    if (!entry) return;
+    const plugin = getPlugin(entry.plugin);
+    if (!plugin) return;
+
+    // Store param value in entry for later use (e.g., re-trigger)
+    if (entry._params) entry._params[key] = value;
+
+    if (entry.workletNode) {
+      switch (entry.plugin) {
+        case 'plaits': {
+          entry.workletNode.port.postMessage({
+            type: 'trigger',
+            ...this._pluckParams(entry._params || {}, ['engine', 'timbre', 'harmonics', 'morph', 'pitch']),
+            frequency: this._midiToHz((entry._params?.pitch ?? 60)),
+            sampleRate: this.ctx.sampleRate,
+          });
+          return;
+        }
+        case 'rings': {
+          entry.workletNode.port.postMessage({
+            type: 'trigger',
+            ...this._pluckParams(entry._params || {}, ['pitch', 'structure', 'brightness', 'damping']),
+            frequency: this._midiToHz((entry._params?.pitch ?? 60)),
+            exciter: 2,
+            sampleRate: this.ctx.sampleRate,
+          });
+          return;
+        }
+        case 'bitcrusher': {
+          entry.workletNode.port.postMessage({ type: 'config', bitDepth: value, srDiv: 2 });
+          return;
+        }
+      }
+    }
+
+    const audioNode = entry.inputNode;
+    if (!audioNode) return;
+    switch (entry.plugin) {
+      case 'gain': audioNode.gain.value = value; break;
+      case 'biquad':
+        if (key === 'freq') audioNode.frequency.value = value;
+        if (key === 'Q') audioNode.Q.value = value;
+        break;
+      case 'panner': audioNode.pan.value = value; break;
+      case 'master-out': audioNode.gain.value = value; break;
+    }
+  }
+
+  _pluckParams(params, keys) {
+    const result = {};
+    for (const k of keys) {
+      if (params[k] !== undefined) result[k] = params[k];
+    }
+    return result;
+  }
+
   addConnection(connDef) {
     this._compileConnection(connDef);
   }
 
   removeConnection(id) {
-    // Disconnect is best-effort; we can't easily reverse a specific
-    // `connect()` call without tracking the exact wiring, so recompile
-    // the affected nodes.
     const conn = this.connectionMap.get(id);
     if (conn) {
       const fromEntry = this.nodeMap.get(conn.fromNode);
@@ -309,12 +393,122 @@ export class ModularEngine {
           return { inputNode: g, outputNode: g, allNodes: [g] };
         }
 
-        case 'sampler':
-        case 'plaits':
-        case 'clouds':
-        case 'rings':
-          console.warn(`[ModularEngine] ${plugin.id} requires AudioWorklet — not yet implemented`);
-          return null;
+        // ── AudioWorklet nodes ────────────────────────────────────────────
+
+        case 'bitcrusher': {
+          if (typeof AudioWorkletNode !== 'function') return null;
+          const bc = new AudioWorkletNode(ctx, 'cs-bitcrusher', {
+            numberOfInputs: 1, numberOfOutputs: 1,
+          });
+          bc.port.postMessage({ type: 'config', bitDepth: params.bitDepth ?? 16, srDiv: params.sampleRateDiv ?? 2 });
+          const out = ctx.createGain();
+          bc.connect(out);
+          return { inputNode: bc, outputNode: out, allNodes: [bc, out], workletNode: bc };
+        }
+
+        case 'plaits': {
+          if (typeof AudioWorkletNode !== 'function') return null;
+          const pn = new AudioWorkletNode(ctx, 'cs-plaits');
+          const out = ctx.createGain();
+          out.gain.value = 0.72;
+          pn.connect(out);
+          const entryRef = { _params: { ...params } };
+          const trig = () => pn.port.postMessage({
+            type: 'trigger', engine: entryRef._params.engine ?? 0,
+            frequency: this._midiToHz(entryRef._params.pitch ?? 60),
+            timbre: entryRef._params.timbre ?? 0.5,
+            harmonics: entryRef._params.harmonics ?? 0.5,
+            morph: entryRef._params.morph ?? 0.5,
+            sampleRate: ctx.sampleRate,
+          });
+          trig();
+          const _plaitsReTrigger = setInterval(trig, 2000);
+          return {
+            inputNode: out, outputNode: out, allNodes: [pn, out], workletNode: pn,
+            _plaitsReTrigger, _params: entryRef._params,
+          };
+        }
+
+        case 'rings': {
+          if (typeof AudioWorkletNode !== 'function') return null;
+          const rn = new AudioWorkletNode(ctx, 'cs-rings');
+          const out = ctx.createGain();
+          out.gain.value = 0.72;
+          rn.connect(out);
+          rn.port.postMessage({
+            type: 'trigger',
+            frequency: this._midiToHz(params.pitch ?? 60),
+            structure: params.structure ?? 0.5,
+            brightness: params.brightness ?? 0.5,
+            damping: params.damping ?? 0.5,
+            exciter: 2, // continuous bow
+            sampleRate: ctx.sampleRate,
+          });
+          return { inputNode: out, outputNode: out, allNodes: [rn, out], workletNode: rn };
+        }
+
+        case 'clouds': {
+          if (typeof AudioWorkletNode !== 'function') return null;
+          const cn = new AudioWorkletNode(ctx, 'cs-clouds');
+          const out = ctx.createGain();
+          out.gain.value = 0.5;
+          cn.connect(out);
+          // Load a default tone buffer
+          const bufLen = ctx.sampleRate * 2;
+          const buf = new Float32Array(bufLen);
+          for (let i = 0; i < bufLen; i++) {
+            buf[i] = Math.sin(2 * Math.PI * i * (200 + (i / bufLen) * 800) / ctx.sampleRate) * 0.4;
+          }
+          const transfer = buf.slice(0);
+          cn.port.postMessage(
+            { type: 'load', buffer: buf, sampleRate: ctx.sampleRate, ctxRate: ctx.sampleRate },
+            [transfer.buffer],
+          );
+          cn.port.postMessage({
+            type: 'trigger',
+            position: params.position ?? 0,
+            size: params.size ?? 0.4,
+            density: params.density ?? 0.5,
+            texture: params.texture ?? 0.3,
+            pitch: params.pitch ?? 1,
+            duration: 60,
+          });
+          return { inputNode: out, outputNode: out, allNodes: [cn, out], workletNode: cn };
+        }
+
+        case 'sampler': {
+          if (typeof AudioWorkletNode !== 'function') return null;
+          const sn = new AudioWorkletNode(ctx, 'cs-resampler', {
+            outputChannelCount: [2],
+          });
+          const out = ctx.createGain();
+          out.gain.value = params.volume ?? 0.72;
+          sn.connect(out);
+          // Default loop tone
+          const toneLen = ctx.sampleRate * 1;
+          const l = new Float32Array(toneLen);
+          const r = new Float32Array(toneLen);
+          for (let i = 0; i < toneLen; i++) {
+            const s = Math.sin(2 * Math.PI * i * this._midiToHz(params.pitch ?? 60) / ctx.sampleRate) * 0.3;
+            l[i] = s;
+            r[i] = s;
+          }
+          sn.port.postMessage(
+            {
+              type: 'load',
+              channels: [l.buffer, r.buffer],
+              playbackRate: params.playbackRate ?? 1,
+              sampleRate: ctx.sampleRate,
+              ctxRate: ctx.sampleRate,
+              loopEnabled: true,
+              loopStart: 0,
+              loopEnd: toneLen,
+              position: 0,
+            },
+            [l.buffer, r.buffer],
+          );
+          return { inputNode: out, outputNode: out, allNodes: [sn, out], workletNode: sn };
+        }
 
         default:
           console.warn(`[ModularEngine] No instantiation for plugin: ${plugin.id}`);

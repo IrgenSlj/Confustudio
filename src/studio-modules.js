@@ -20,6 +20,9 @@ const MODULE_LABELS = {
   djmixer: 'DJ Mixer',
 };
 
+// DSP module labels are dynamic — populated from plugin registry
+// Prefix "dsp-" is stripped to get the plugin id
+
 function _parsePx(value) {
   return Number.parseFloat(value || '0') || 0;
 }
@@ -129,8 +132,11 @@ export function getModuleLabel(modEl) {
   if (!modEl) return 'No module selected';
   if (modEl.id === 'module-0') return 'CONFUsynth Instrument';
   const type = modEl.dataset.moduleType || 'module';
-  const label = MODULE_LABELS[type] || type.replace(/_/g, ' ');
-  return label;
+  let label = MODULE_LABELS[type];
+  if (!label && type.startsWith('dsp-')) {
+    label = type.slice(4).replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  return label || type.replace(/_/g, ' ');
 }
 
 export function applySavedLayoutItem(mod, item) {
@@ -775,6 +781,8 @@ export function showModulePicker(S) {
     <div class="mp-grid">
       <button data-module="djmixer">DJ Mixer</button>
     </div>
+    <div class="mp-section-label">DSP MODULES</div>
+    <div id="mp-dsp-grid" class="mp-grid">Loading…</div>
     <div class="mp-section-label">UTILITIES</div>
     <div class="mp-grid">
       <button data-module="figure-cat">Cat Figure</button>
@@ -782,6 +790,20 @@ export function showModulePicker(S) {
       <button data-module="figure-cactus">Cactus Figure</button>
     </div>
   `;
+
+  // Populate DSP modules from plugin registry
+  import('./modules/dsp-module.js').then(({ getDSPPluginSections }) => {
+    const dspGrid = document.getElementById('mp-dsp-grid');
+    if (!dspGrid) return;
+    const sections = getDSPPluginSections();
+    let html = '';
+    for (const [cat, plugins] of Object.entries(sections)) {
+      html += plugins
+        .map((p) => `<button data-module="dsp-${escapeHtml(p.id)}">${escapeHtml(p.label)}</button>`)
+        .join('');
+    }
+    dspGrid.innerHTML = html || '<span style="color:#666;font-size:10px">No DSP modules available</span>';
+  });
   picker.addEventListener('click', (e) => {
     e.stopPropagation();
     const focusTarget = e.target.closest('button[data-focus-module]');
@@ -890,6 +912,33 @@ export function addModule(S, type, options = {}) {
       mod.innerHTML = '';
       mod.appendChild(m.createMonosynth(window._confustudioEngine?.context ?? null));
       finishModuleLoad();
+    });
+  } else if (type.startsWith('dsp-')) {
+    const pluginId = type.slice(4);
+    mod.style.width = '240px';
+    mod.style.minHeight = '80px';
+    mod.innerHTML = `<div class="module-loading-shell" style="width:240px;height:80px;display:flex;align-items:center;justify-content:center;color:#666">Loading ${escapeHtml(pluginId)}…</div>`;
+    import('./modules/dsp-module.js').then(async ({ createDSPModule }) => {
+      const nodeParams = {};
+      const dspEl = createDSPModule(pluginId, nodeParams);
+      mod.innerHTML = '';
+      mod.appendChild(dspEl);
+      finishModuleLoad();
+
+      // Create signal graph node
+      const me = window.__CONFUSTUDIO__?.modularEngine;
+      const appState = window.__CONFUSTUDIO__?.state;
+      if (me && appState) {
+        const { commandAddGraphNode } = await import('../command-bus.js');
+        commandAddGraphNode(appState, pluginId, nodeParams, { label: pluginId });
+      }
+
+      // Listen for param changes
+      dspEl.addEventListener('dsp:paramchange', (e) => {
+        const { key, value } = e.detail;
+        const me2 = window.__CONFUSTUDIO__?.modularEngine;
+        if (me2) me2.setNodeParam(mod.id, key, value);
+      });
     });
   } else if (type.startsWith('figure-')) {
     const emoji =

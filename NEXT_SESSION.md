@@ -83,16 +83,36 @@ See `docs/ARCHITECTURE.md` for the full specification.
 - `state.modularActive` flag persisted
 - Graph manipulation commands in `command-bus.js`: `commandAddGraphNode`, `commandRemoveGraphNode`, `commandAddGraphConnection`, `commandRemoveGraphConnection`, `commandClearGraph`
 
-### Session 7
+### Session 7: Worklets + DSP Modules + Cables ✓
+
+- AudioWorklet support in `ModularEngine`:
+  - `initWorklets()` — loads all 5 worklet modules on AudioContext
+  - `removeNode()` sends stop message to worklet nodes before disconnect
+  - `setNodeParam()` — updates AudioParams and worklet params at runtime
+  - Plaits: continuous re-trigger via `setInterval` every 2s
+  - Rings: continuous bow exciter (exciter=2)
+  - Clouds: default sine-sweep buffer, 60s cloud duration
+  - Sampler: default looping test tone via `cs-resampler`
+  - Bitcrusher: inline `cs-bitcrusher` worklet node
+- DSP Module type (`src/modules/dsp-module.js`):
+  - `createDSPModule(pluginId, params)` — generic UI with title bar, port dots, param sliders
+  - `getDSPPluginSections()` — categorized plugin list for module picker
+  - Added "DSP MODULES" section to module picker in `studio-modules.js`
+  - Adding a DSP module creates a signal graph node via `commandAddGraphNode`
+  - Param sliders trigger `dsp:paramchange` events → `setNodeParam()`
+- Cables → signal graph integration:
+  - `addCable()` creates signal graph connection via `addConnection()`
+  - `removeCable()` removes signal graph connection via `removeConnection()`
+  - `module:removed` event → `removeNode()` on signal graph
+  - Listener in `app.js` `boot()` handles signal graph cleanup
+
+### Session 8
 
 Options:
-- **Cables become graph-aware** — SVG cables read/write `state.signalGraph.connections`, module ports from plugin definitions.
 - **Claude Design integration** — implement the design deliverables from `docs/CLAUDE_DESIGN_BRIEF.md`
-- **AudioWorklet plugins** — implement sampler, plaits, clouds, rings worklet loading in ModularEngine
-
-### Sessions 8-9
-
-To be determined based on priority after Session 6.
+- **Cable port routing** — route signal graph connections through specific module ports (not just module-to-module)
+- **MIDI learn for DSP params** — assign MIDI CCs to signal graph node parameters
+- **Graph presets** — save/load signal graph configurations
 
 ## Decision Log
 

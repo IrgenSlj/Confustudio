@@ -399,6 +399,16 @@ export function initCables() {
       }
     }
 
+    // Signal graph connection
+    const me = window.__CONFUSTUDIO__?.modularEngine;
+    if (me?.enabled) {
+      const fromModId = fromEl.closest('.studio-module')?.id;
+      const toModId = toEl.closest('.studio-module')?.id;
+      if (fromModId && toModId) {
+        me.addConnection({ id: cable.id, fromNode: fromModId, fromPort: fromEl.dataset.port, toNode: toModId, toPort: toEl.dataset.port });
+      }
+    }
+
     // Notify listeners that a cable was connected
     document.dispatchEvent(
       new CustomEvent('cable:connected', {
@@ -432,6 +442,10 @@ export function initCables() {
       }
     }
     cable.group?.remove();
+    // Remove signal graph connection
+    const me = window.__CONFUSTUDIO__?.modularEngine;
+    if (me?.enabled) me.removeConnection(cable.id);
+
     const idx = cables.indexOf(cable);
     if (idx >= 0) cables.splice(idx, 1);
     if (persist) saveCables();

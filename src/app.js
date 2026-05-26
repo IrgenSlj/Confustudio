@@ -4274,6 +4274,16 @@ function boot() {
   initStudio();
   initBackground();
   initCables();
+
+  // Cleanup signal graph node when a studio module is removed
+  document.addEventListener('module:removed', (e) => {
+    const moduleId = e.detail?.moduleId;
+    const modEngine = window.__CONFUSTUDIO__?.modularEngine;
+    if (modEngine?.enabled && moduleId) {
+      modEngine.removeNode(moduleId);
+    }
+  });
+
   setupSwipe();
   setupDoubleTap();
 }
