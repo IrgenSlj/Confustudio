@@ -534,6 +534,12 @@ export function attachModuleChrome(S, modEl) {
   }
 }
 
+const SNAP_GRID = 24;
+
+function snapToGrid(val) {
+  return Math.round(val / SNAP_GRID) * SNAP_GRID;
+}
+
 export function enableModuleDrag(S, modEl) {
   let dragging = false;
   let offsetX = 0;
@@ -578,12 +584,76 @@ export function enableModuleDrag(S, modEl) {
     dragging = false;
     dragPointerId = null;
     modEl.classList.remove('module-dragging');
+    // Snap to grid
+    modEl.style.left = `${snapToGrid(_parsePx(modEl.style.left))}px`;
+    modEl.style.top = `${snapToGrid(_parsePx(modEl.style.top))}px`;
+    // Persist position in signal graph meta
+    const s = window.__CONFUSTUDIO__?.state;
+    const node = s?.signalGraph?.nodes?.[modEl.id];
+    if (node) {
+      node.meta.x = _parsePx(modEl.style.left);
+      node.meta.y = _parsePx(modEl.style.top);
+    }
     saveLayout(S);
     clampViewport(S);
   }
 
   modEl.addEventListener('pointerup', (e) => stopDrag(e.pointerId));
   modEl.addEventListener('pointercancel', (e) => stopDrag(e.pointerId));
+}
+
+/**
+ * Rebuild the visible DSP modules and cables from state.signalGraph.
+ * Used after loading a graph preset, which swaps the audio graph but leaves
+ * the canvas showing stale modules. Each node is recreated at its saved
+ * meta.x/y position; connections are redrawn via the cable layer. Legacy
+ * modules (synth, mixers, drum machines) are left untouched.
+ */
+export async function rebuildModulesFromGraph(S) {
+  const state = window.__CONFUSTUDIO__?.state;
+  const graph = state?.signalGraph;
+  if (!graph?.nodes) return;
+
+  const nodes = graph.nodes;
+  const connections = (graph.connections || []).slice();
+
+  // Remove DOM modules backed by graph nodes (and any stray dsp modules).
+  // Their module:removed handlers also tear down attached cables/connections.
+  [...S.canvas.querySelectorAll('.studio-module')]
+    .filter((m) => nodes[m.id] || m.dataset.moduleType?.startsWith('dsp-'))
+    .forEach((m) => removeModule(S, m, { force: true }));
+
+  // Cable cleanup above mutated graph.connections; rebuild from the preset's set.
+  graph.connections = [];
+
+  // Recreate each node at its saved position. addModule's dsp branch is async,
+  // so collect the readiness promises before wiring cables.
+  const ready = [];
+  for (const [nodeId, node] of Object.entries(nodes)) {
+    const mod = addModule(S, `dsp-${node.plugin}`, {
+      id: nodeId,
+      left: `${node.meta?.x ?? 0}px`,
+      top: `${node.meta?.y ?? 0}px`,
+      select: false,
+      fit: false,
+      persist: false,
+      createGraphNode: false,
+      graphParams: node.params,
+    });
+    if (mod?._ready) ready.push(mod._ready);
+  }
+  await Promise.all(ready);
+
+  // Redraw cables. cable:autoconnect → addCable repopulates graph.connections.
+  for (const c of connections) {
+    const fromEl = document.getElementById(c.fromNode)?.querySelector(`.port[data-port="${c.fromPort}"]`);
+    const toEl = document.getElementById(c.toNode)?.querySelector(`.port[data-port="${c.toPort}"]`);
+    if (fromEl && toEl) {
+      document.dispatchEvent(new CustomEvent('cable:autoconnect', { detail: { fromEl, toEl } }));
+    }
+  }
+
+  saveLayout(S);
 }
 
 export function enableModuleResize(S, modEl) {
@@ -797,7 +867,7 @@ export function showModulePicker(S) {
     if (!dspGrid) return;
     const sections = getDSPPluginSections();
     let html = '';
-    for (const [cat, plugins] of Object.entries(sections)) {
+    for (const plugins of Object.values(sections)) {
       html += plugins
         .map((p) => `<button data-module="dsp-${escapeHtml(p.id)}">${escapeHtml(p.label)}</button>`)
         .join('');
@@ -832,6 +902,8 @@ export function addModule(S, type, options = {}) {
     fit = true,
     persist = true,
     moduleState = null,
+    createGraphNode = true,
+    graphParams = null,
   } = options;
   const mod = document.createElement('div');
   mod.className = 'studio-module';
@@ -918,24 +990,25 @@ export function addModule(S, type, options = {}) {
     mod.style.width = '240px';
     mod.style.minHeight = '80px';
     mod.innerHTML = `<div class="module-loading-shell" style="width:240px;height:80px;display:flex;align-items:center;justify-content:center;color:#666">Loading ${escapeHtml(pluginId)}…</div>`;
-    import('./modules/dsp-module.js').then(async ({ createDSPModule }) => {
-      const nodeParams = {};
+    mod._ready = import('./modules/dsp-module.js').then(async ({ createDSPModule }) => {
+      const nodeParams = graphParams ? { ...graphParams } : {};
       const dspEl = createDSPModule(pluginId, nodeParams);
       mod.innerHTML = '';
       mod.appendChild(dspEl);
       finishModuleLoad();
 
-      // Create signal graph node
+      // Create signal graph node (skipped when rebuilding from an existing graph)
       const me = window.__CONFUSTUDIO__?.modularEngine;
       const appState = window.__CONFUSTUDIO__?.state;
-      if (me && appState) {
-        const { commandAddGraphNode } = await import('../command-bus.js');
-        commandAddGraphNode(appState, pluginId, nodeParams, { label: pluginId }, mod.id);
+      if (me && appState && createGraphNode) {
+        const { commandAddGraphNode } = await import('./command-bus.js');
+        const meta = { label: pluginId, x: _parsePx(mod.style.left), y: _parsePx(mod.style.top) };
+        commandAddGraphNode(appState, pluginId, nodeParams, meta, mod.id);
       }
 
-      // Auto-patch source modules to master-out
-      if (appState?.signalGraph) {
-        const { getPlugin } = await import('../plugins/index.js');
+      // Auto-patch source modules to master-out (only for freshly added modules)
+      if (createGraphNode && appState?.signalGraph) {
+        const { getPlugin } = await import('./plugins/index.js');
         const plugin = getPlugin(pluginId);
         if (plugin?.type === 'source') {
           const masterId = Object.keys(appState.signalGraph.nodes || {})

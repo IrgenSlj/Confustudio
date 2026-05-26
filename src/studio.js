@@ -12,6 +12,7 @@ import {
   getWrapSize,
   isModuleInteractiveTarget,
   moduleById,
+  rebuildModulesFromGraph,
   removeModule,
   saveLayout,
   saveView,
@@ -61,6 +62,7 @@ export function initStudio() {
       }
     },
     getView: () => ({ scale: S.scale, panX: S.panX, panY: S.panY, autoZoom: S._autoZoom }),
+    rebuildFromGraph: () => rebuildModulesFromGraph(S),
   };
 
   const ZOOM_LENS_KEY = 'confustudio-zoom-lens-v2';

@@ -84,6 +84,8 @@ function showToast(msg, duration = 1200) {
     toast.style.opacity = '0';
   }, duration);
 }
+// Exposed for modules (e.g. dsp-module.js) that run outside this scope.
+window.showToast = showToast;
 
 // ─────────────────────────────────────────────
 // MIDI CC LEARN FRAMEWORK
@@ -3383,8 +3385,11 @@ function bindUI() {
         const row = document.createElement('div');
         row.textContent = p.name;
         row.style.cssText = 'padding:4px 8px;cursor:pointer;color:#ccc;border-bottom:1px solid #222;';
-        row.addEventListener('click', () => {
+        row.addEventListener('click', async () => {
           state.signalGraph = JSON.parse(JSON.stringify(p.graph));
+          // Rebuild visible modules/cables from the loaded graph before compiling,
+          // so the canvas matches the preset and the engine compiles the wired graph.
+          await window.__CONFUSTUDIO__?.workspace?.rebuildFromGraph?.();
           if (state.modularActive) {
             state.modularEngine.compile(state.signalGraph);
           }

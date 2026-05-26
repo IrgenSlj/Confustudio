@@ -159,10 +159,10 @@ export function createDSPModule(pluginId, params) {
           window.startMidiNoteLearn(`note:${nodeId}:${key}`, (velocity) => {
             setter(velocity);
           }, meta);
-          showToast(`Note Learn: ${paramLabel} — play a note`, 4000);
+          window.showToast?.(`Note Learn: ${paramLabel} — play a note`, 4000);
         } else {
           window.startMidiLearn(`dsp:${nodeId}:${key}`, setter, meta);
-          showToast(`MIDI Learn: ${paramLabel} — wiggle a knob`, 4000);
+          window.showToast?.(`MIDI Learn: ${paramLabel} — wiggle a knob`, 4000);
         }
       });
 
