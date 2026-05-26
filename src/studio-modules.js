@@ -933,6 +933,31 @@ export function addModule(S, type, options = {}) {
         commandAddGraphNode(appState, pluginId, nodeParams, { label: pluginId }, mod.id);
       }
 
+      // Auto-patch source modules to master-out
+      if (appState?.signalGraph) {
+        const { getPlugin } = await import('../plugins/index.js');
+        const plugin = getPlugin(pluginId);
+        if (plugin?.type === 'source') {
+          const masterId = Object.keys(appState.signalGraph.nodes || {})
+            .find((id) => appState.signalGraph.nodes[id].plugin === 'master-out');
+          if (masterId) {
+            const alreadyConnected = appState.signalGraph.connections.some(
+              (c) => c.fromNode === mod.id && c.toNode === masterId,
+            );
+            if (!alreadyConnected) {
+              const fromPort = plugin.ports.find((p) => p.direction === 'out');
+              const fromEl = fromPort && mod.querySelector(`.port[data-port="${fromPort.id}"]`);
+              const toEl = document.getElementById(masterId)?.querySelector('.port[data-port="in"]');
+              if (fromEl && toEl) {
+                document.dispatchEvent(new CustomEvent('cable:autoconnect', {
+                  detail: { fromEl, toEl },
+                }));
+              }
+            }
+          }
+        }
+      }
+
       // Listen for param changes — update engine + state
       dspEl.addEventListener('dsp:paramchange', (e) => {
         const { key, value } = e.detail;
