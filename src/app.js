@@ -14,6 +14,7 @@ import {
   RECORDER_SLOT_COUNT,
 } from './state.js';
 import { AudioEngine, drawOscilloscope, initMidi, midiOutputs, getMidiOutputById } from './engine.js';
+import { ModularEngine } from './engine-graph.js';
 import { initKeyboard, renderKbdContext, renderPiano, lightPianoKey, pressKey, updateHelpStrip } from './keyboard.js';
 import { renderKnobs, KNOB_MAPS } from './knobs.js';
 import { initStudio } from './studio.js';
@@ -391,6 +392,7 @@ const el = {
   btnStop: $('btn-stop'),
   btnRecord: $('btn-record'),
   btnTap: $('btn-tap'),
+  btnModular: $('btn-modular'),
   bpmInput: $('bpm-input'),
   bpmDec: $('bpm-dec'),
   bpmInc: $('bpm-inc'),
@@ -1571,6 +1573,8 @@ async function ensureAudio() {
   const ctx = new AudioContext();
   state.audioContext = ctx;
   state.engine = new AudioEngine(ctx);
+  state.modularEngine = new ModularEngine(ctx, state.engine.master);
+  if (state.modularActive) state.modularEngine.compile(state.signalGraph);
   if (state._assetHydrationPending) {
     const hydrationWatch = setInterval(() => {
       if (!state._assetHydrationComplete) return;
@@ -1738,6 +1742,7 @@ async function ensureAudio() {
     },
   });
   window.__CONFUSTUDIO__.engine = state.engine;
+  window.__CONFUSTUDIO__.modularEngine = state.modularEngine;
   window.__CONFUSTUDIO__.synthEngine = state.engine;
   state.engine.setBpm(state.bpm ?? 120);
   state.engine.initWorklets(); // async — loads cs-resampler worklet in background
@@ -2483,6 +2488,21 @@ function evalTrigCondition(step, loopCount) {
       }
       return true;
     }
+  }
+}
+
+function toggleModular() {
+  if (!state.modularEngine) return;
+  if (!state.audioContext) return;
+  state.modularActive = !state.modularActive;
+  if (state.modularActive) {
+    state.modularEngine.compile(state.signalGraph);
+    el.btnModular?.classList.add('active');
+    showToast('Modular ON');
+  } else {
+    state.modularEngine.teardown();
+    el.btnModular?.classList.remove('active');
+    showToast('Modular OFF');
   }
 }
 
@@ -3241,6 +3261,13 @@ function bindUI() {
       { passive: false },
     );
   if (el.btnFill) el.btnFill.addEventListener('click', toggleFill);
+
+  // Modular engine toggle
+  if (el.btnModular) {
+    el.btnModular.addEventListener('click', () => {
+      toggleModular();
+    });
+  }
 
   // BPM edit
   if (el.bpmInput) {

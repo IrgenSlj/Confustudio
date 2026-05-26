@@ -581,6 +581,9 @@ export function createAppState() {
     // Runtime command-history graph (optional, stripped on serialization)
     _signalGraph: null,
 
+    // Modular engine state
+    modularActive: false,
+
     // Audio routing graph (serializable)
     signalGraph: createAudioGraph(),
 

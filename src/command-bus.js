@@ -979,3 +979,73 @@ export function applyGraphToTracks(graph, state) {
     }
   });
 }
+
+// ─── Signal Graph Commands ──────────────────────────────────────────────────
+
+/**
+ * Add a node to state.signalGraph and sync the modular engine.
+ */
+export function commandAddGraphNode(state, pluginId, params = {}, meta = {}) {
+  const id = `node-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const node = createAudioNode(id, pluginId, params, meta);
+  state.signalGraph.nodes[id] = node;
+  if (state.modularEngine?.enabled) {
+    state.modularEngine.sync(state.signalGraph);
+  }
+  saveState(state);
+  return id;
+}
+
+/**
+ * Remove a node and its connections from state.signalGraph.
+ */
+export function commandRemoveGraphNode(state, nodeId) {
+  if (!state.signalGraph.nodes[nodeId]) return false;
+  delete state.signalGraph.nodes[nodeId];
+  state.signalGraph.connections = state.signalGraph.connections.filter(
+    (c) => c.fromNode !== nodeId && c.toNode !== nodeId,
+  );
+  if (state.modularEngine?.enabled) {
+    state.modularEngine.sync(state.signalGraph);
+  }
+  saveState(state);
+  return true;
+}
+
+/**
+ * Add a connection to state.signalGraph.
+ */
+export function commandAddGraphConnection(state, fromNode, fromPort, toNode, toPort) {
+  const conn = createAudioConnection(fromNode, fromPort, toNode, toPort);
+  state.signalGraph.connections.push(conn);
+  if (state.modularEngine?.enabled) {
+    state.modularEngine.sync(state.signalGraph);
+  }
+  saveState(state);
+  return conn.id;
+}
+
+/**
+ * Remove a connection from state.signalGraph.
+ */
+export function commandRemoveGraphConnection(state, connId) {
+  const idx = state.signalGraph.connections.findIndex((c) => c.id === connId);
+  if (idx === -1) return false;
+  state.signalGraph.connections.splice(idx, 1);
+  if (state.modularEngine?.enabled) {
+    state.modularEngine.sync(state.signalGraph);
+  }
+  saveState(state);
+  return true;
+}
+
+/**
+ * Clear all nodes and connections from the signal graph.
+ */
+export function commandClearGraph(state) {
+  state.signalGraph = createAudioGraph();
+  if (state.modularEngine?.enabled) {
+    state.modularEngine.sync(state.signalGraph);
+  }
+  saveState(state);
+}

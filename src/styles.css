@@ -1107,6 +1107,10 @@ button {
 .t-btn--audio.active {
   color: var(--accent);
 }
+.t-btn--modular.active {
+  color: var(--accent);
+  border-color: rgba(103, 215, 255, 0.5);
+}
 .t-btn--panic {
   color: #ff4444;
   font-weight: bold;

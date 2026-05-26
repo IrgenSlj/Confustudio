@@ -68,16 +68,31 @@ See `docs/ARCHITECTURE.md` for the full specification.
 - Each plugin has: type, label, ports (typed), params (with defaults/ranges)
 - `src/plugins/index.js` — barrel import
 
-### Session 6
+### Session 6: Modular Engine ✓
+
+- `ModularEngine` class in `src/engine-graph.js`
+  - `compile(graph)` — full compile from signalGraph to Web Audio nodes
+  - `sync(graph)` — incremental diff-based sync (add/remove/update)
+  - `teardown()` — full cleanup
+  - ModularEngine compiles: oscillator, tone, noise, biquad, gain, panner, eq-3band, compressor, delay, reverb, saturator, chorus, master-out
+  - Worklet plugins (sampler, plaits, clouds, rings) stubbed with console warning
+  - Compound nodes (reverb/chorus) use input/output split nodes for dry/wet
+  - Chain nodes (eq-3band, delay) expose inputNode/outputNode for serial connection
+- Wired into `app.js` `ensureAudio()` — created after AudioEngine, compiles signalGraph into master chain
+- MOD toggle button in transport bar — `toggleModular()` with active state
+- `state.modularActive` flag persisted
+- Graph manipulation commands in `command-bus.js`: `commandAddGraphNode`, `commandRemoveGraphNode`, `commandAddGraphConnection`, `commandRemoveGraphConnection`, `commandClearGraph`
+
+### Session 7
 
 Options:
-- **Engine reads graph** — `engine-graph.js` compiles graph to Web Audio nodes.
-- **Cables become graph-aware** — SVG cables read/write `state.signalGraph.connections`
+- **Cables become graph-aware** — SVG cables read/write `state.signalGraph.connections`, module ports from plugin definitions.
 - **Claude Design integration** — implement the design deliverables from `docs/CLAUDE_DESIGN_BRIEF.md`
+- **AudioWorklet plugins** — implement sampler, plaits, clouds, rings worklet loading in ModularEngine
 
-### Sessions 7-9
+### Sessions 8-9
 
-To be determined based on priority after Session 4.
+To be determined based on priority after Session 6.
 
 ## Decision Log
 
