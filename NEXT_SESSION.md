@@ -18,12 +18,15 @@ See `docs/ARCHITECTURE.md` for the full specification.
 
 **Core idea:** State mutations go through the command bus. Every command is optionally recorded as a node in a lightweight DAG (`_signalGraph`). This graph enables deterministic undo/redo via command replay instead of full-state snapshots.
 
-**Completed (Sessions 1-2):**
+**Completed (Sessions 1-3):**
 - `createSignalGraph()`, `recordSignal()`, `computePathToRoot()`, `computeCriticalPath()` in state.js
 - `signalUndo()`, `signalRedo()`, `replaySignalSubgraph()`, `executeAndRecord()` in command-bus.js
 - `history-ui.js` rewritten to use signal-graph replay instead of snapshot-based history controller
 - `_signalGraph` runtime compartment in `createAppState()`
 - Full command stored in graph nodes for replay fidelity
+- `signalListBranches()`, `signalSwitchBranch()` for graph branching
+- Branch indicator in history UI with click-to-cycle through branches
+- `cursorId` used as initial parent for branching from undo point
 
 ## Session Plan
 
@@ -41,17 +44,24 @@ See `docs/ARCHITECTURE.md` for the full specification.
 - `history-ui.js` — rewrite to use graph replay instead of snapshots
 - `cursorId` tracking for undo/redo position
 
-### Session 3: Planned
+### Session 3: Branching ✓
+
+- `signalRedo` picks most recent child (highest id) for default forward path
+- `signalListBranches(graph, nodeId?)` — enumerate children of any node
+- `signalSwitchBranch(graph, childNodeId)` — explicit branch navigation
+- Branch indicator (`⍂N`) in undo indicator with click-to-cycle
+- `cursorId` used as initial `parentSignalId` for branching from undo point
+
+### Session 4
 
 Options:
-- **Branching support** — allow undo followed by new edit to create a branch instead of linear pruning. Visualize branches in the history UI.
 - **Audio routing graph** — add `signalGraph` (public, serializable) for audio routing: nodes (oscillators, filters, etc.) and connections (cables). Add graph commands to `executeStudioCommand`.
 - **Plugin registry** — `src/plugins/registry.js`, register existing DSP types.
 - **Engine reads graph** — `engine-graph.js` compiles graph to Web Audio nodes.
 
-### Session 4-9
+### Sessions 5-9
 
-To be determined based on priority after Session 3.
+To be determined based on priority after Session 4.
 
 ## Decision Log
 
