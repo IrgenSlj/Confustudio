@@ -136,6 +136,27 @@ export function createDSPModule(pluginId, params) {
         }));
       });
 
+      // Right-click → MIDI learn
+      row.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const nodeId = container.closest('.studio-module')?.id;
+        if (!nodeId) return;
+        const min = Number(slider.min);
+        const max = Number(slider.max);
+        const paramLabel = `${knobInfo.label} (${nodeId.slice(0, 8)}…)`;
+        window.startMidiLearn(`dsp:${nodeId}:${key}`, (normalized) => {
+          const v = min + normalized * (max - min);
+          slider.value = v;
+          valueLabel.textContent = typeof v === 'number' ? v.toFixed(2) : v;
+          container.dispatchEvent(new CustomEvent('dsp:paramchange', {
+            detail: { key, value: v },
+            bubbles: true,
+          }));
+        }, { nodeId, paramKey: key, min, max });
+        showToast(`MIDI Learn: ${paramLabel} — wiggle a knob`, 4000);
+      });
+
       row.appendChild(label);
       row.appendChild(slider);
       row.appendChild(valueLabel);

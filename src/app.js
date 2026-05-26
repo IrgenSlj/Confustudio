@@ -90,8 +90,8 @@ function showToast(msg, duration = 1200) {
 // ─────────────────────────────────────────────
 window.__CONFUSTUDIO__.midiLearnTarget = null;
 
-window.startMidiLearn = function startMidiLearn(param, setter) {
-  window.__CONFUSTUDIO__.midiLearnTarget = { param, setter };
+window.startMidiLearn = function startMidiLearn(param, setter, meta) {
+  window.__CONFUSTUDIO__.midiLearnTarget = { param, setter, meta };
   showToast('Wiggle a knob…', 4000);
 };
 
@@ -1751,7 +1751,8 @@ async function ensureAudio() {
   window.__CONFUSTUDIO__.synthEngine = state.engine;
   window.__CONFUSTUDIO__.saveState = () => saveState(state);
   state.engine.setBpm(state.bpm ?? 120);
-  state.engine.initWorklets(); // async — loads cs-resampler worklet in background
+  state.engine.initWorklets(); // async — loads worklets for sequencer
+  state.modularEngine.initWorklets(); // async — ensures worklets for modular graph too
   state.engine.setMasterLevel(state.masterLevel);
   const reverbPreset = state.convReverbPreset || state.reverbType || 'room';
   if (state.engine?.setReverbConvPreset) {
@@ -1840,9 +1841,9 @@ async function ensureAudio() {
 
         // New window.__CONFUSTUDIO__.midiLearnTarget learn system
         if (window.__CONFUSTUDIO__.midiLearnTarget) {
-          const { param, setter } = window.__CONFUSTUDIO__.midiLearnTarget;
+          const { param, setter, meta } = window.__CONFUSTUDIO__.midiLearnTarget;
           state.midiLearnMap = state.midiLearnMap ?? {};
-          state.midiLearnMap[cc] = { param, setter: null }; // functions not serializable
+          state.midiLearnMap[cc] = { param, setter: null, meta }; // functions not serializable
           const normalized = value / 127;
           if (typeof setter === 'function') setter(normalized);
           window.__CONFUSTUDIO__.midiLearnTarget = null;
@@ -1858,6 +1859,30 @@ async function ensureAudio() {
           state.midiLearnMode = false;
           saveState(state);
           renderPage();
+          return;
+        }
+
+        // DSP param mapping (entries with meta.nodeId)
+        const ccEntry = state.midiLearnMap?.[cc];
+        if (ccEntry?.meta?.nodeId) {
+          const normalized = value / 127;
+          const { nodeId, paramKey, min, max } = ccEntry.meta;
+          const scaled = Number(min) + normalized * (Number(max) - Number(min));
+          const me = window.__CONFUSTUDIO__?.modularEngine;
+          if (me?.enabled) me.setNodeParam(nodeId, paramKey, scaled);
+          const s = window.__CONFUSTUDIO__?.state;
+          if (s?.signalGraph?.nodes?.[nodeId]) {
+            s.signalGraph.nodes[nodeId].params[paramKey] = scaled;
+          }
+          const modEl = document.getElementById(nodeId);
+          if (modEl) {
+            const slider = modEl.querySelector(`input[data-param="${CSS.escape(paramKey)}"]`);
+            if (slider) {
+              slider.value = scaled;
+              const label = slider.nextElementSibling;
+              if (label) label.textContent = typeof scaled === 'number' ? scaled.toFixed(2) : scaled;
+            }
+          }
           return;
         }
 
