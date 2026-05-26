@@ -51,6 +51,65 @@
   /* Fonts */
   --font-mono: 'IBM Plex Mono', 'SFMono-Regular', monospace;
   --font-ui: 'Space Grotesk', 'Avenir Next', sans-serif;
+
+  /* ── Design-system scale tokens (additive; safe for existing CSS) ── */
+
+  /* Semantic colour aliases — prefer these in new CSS */
+  --success: var(--live);
+  --info: var(--electric);
+  --focus-ring: var(--electric);
+
+  /* Type scale */
+  --fs-display: 1.5rem; /* 24px */
+  --fs-xl: 1.125rem; /* 18px */
+  --fs-lg: 1rem; /* 16px */
+  --fs-md: 0.875rem; /* 14px */
+  --fs-sm: 0.75rem; /* 12px */
+  --fs-xs: 0.625rem; /* 10px */
+  --lh-tight: 1.2;
+  --lh-normal: 1.5;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+
+  /* Spacing — 4px grid */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Radius */
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-full: 999px;
+
+  /* Elevation / shadow */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+  --glow-accent: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent);
+
+  /* Motion — keep off the layout-thrashing path (transform/opacity only) */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+
+  /* Interaction */
+  --touch-min: 44px;
+
+  /* Z-index scale */
+  --z-canvas: 1;
+  --z-overlay: 1000;
+  --z-toast: 2000;
+  --z-modal: 3000;
 }
 
 /* ============================================================
@@ -79,6 +138,61 @@
   --live: #aaaaaa;
   --screen-text: #cccccc;
   --muted: #666666;
+}
+
+/* Theme: Light — keeps the green chassis brand, flips the screen/surfaces.
+   Overrides the surface/text token families so the dark-built CSS reads
+   correctly on a light ground. */
+[data-theme='light'] {
+  color-scheme: light;
+
+  /* Chassis stays green but lighter, for brand continuity */
+  --chassis-bg: #8a9a6e;
+  --chassis-dark: #6f7f54;
+  --chassis-light: #a3b187;
+  --chassis-text: #2c3520;
+  --chassis-metal: #c4cdb0;
+
+  /* Screen → paper */
+  --screen-bg: #eef2e6;
+  --screen-text: #1c2417;
+  --muted: #5c6b4c;
+  --fg: #1c2417;
+  --border: rgba(0, 0, 0, 0.12);
+
+  /* Accents tuned for contrast on light surfaces (text ≥ 4.5:1) */
+  --accent: #9a7b00;
+  --live: #2f8f44;
+  --record: #c43a31;
+  --electric: #1f7fb0;
+
+  /* Surfaces */
+  --bg: #dfe4d4;
+  --bg2: #e7ecdd;
+  --surface: #f2f5ec;
+  --surface2: #e3e8d8;
+  --text: rgba(20, 28, 14, 0.9);
+  --text-dim: rgba(20, 28, 14, 0.55);
+  --text-muted: rgba(20, 28, 14, 0.4);
+  --danger: #c43a31;
+  --warn: #c2691f;
+
+  /* Step grid */
+  --step-off: #d4dac6;
+  --step-on: #9fd3a6;
+  --step-accent: #e8d488;
+  --step-plock: #b9c0ef;
+
+  /* Keyboard */
+  --key-white: #f4f1e8;
+  --key-black: #2a2a2e;
+  --key-white-edge: #cfc9b8;
+  --key-black-edge: #1a1a1c;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.12);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.18);
+  --shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
 /* ============================================================

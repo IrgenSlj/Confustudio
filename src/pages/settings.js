@@ -1319,8 +1319,8 @@ export default {
     if (_savedAccent) document.documentElement.style.setProperty('--live', _savedAccent);
 
     // ── Theme selector ───────────────────────────────────────────────────────
-    const themeAccentColors = { default: '#8fba4e', blue: '#4e8fbf', red: '#bf4e4e', mono: '#aaa' };
-    const themes = ['default', 'blue', 'red', 'mono'];
+    const themeAccentColors = { default: '#8fba4e', blue: '#4e8fbf', red: '#bf4e4e', mono: '#aaa', light: '#eef2e6' };
+    const themes = ['default', 'blue', 'red', 'mono', 'light'];
     const themeSection = document.createElement('div');
     themeSection.className = 'settings-section';
     themeSection.dataset.settingsTab = 'SYSTEM';
