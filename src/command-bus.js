@@ -674,7 +674,8 @@ function executeAndRecord(state, command, parentSignalId) {
 export function executeStudioCommands(state, commands = []) {
   const results = [];
   let changed = false;
-  let parentSignalId = null;
+  // Start from cursor position so new commands branch from undo point
+  let parentSignalId = state._signalGraph?.cursorId ?? null;
   for (const command of commands) {
     const result = executeAndRecord(state, command, parentSignalId);
     results.push({ command, ...result });
@@ -698,11 +699,44 @@ export function signalUndo(graph) {
 
 /**
  * Move the signal-graph cursor one step forward (redo).
+ * Picks the most recent child (highest id) — the default forward path.
  * @returns {number|null} new cursorId, or null if at head
  */
 export function signalRedo(graph) {
   if (!graph || graph.cursorId == null) return null;
-  const child = graph.nodes.find((n) => n.parentId === graph.cursorId);
+  const children = graph.nodes.filter((n) => n.parentId === graph.cursorId);
+  if (children.length === 0) return null;
+  // Pick the most recent child (highest id)
+  children.sort((a, b) => b.id - a.id);
+  graph.cursorId = children[0].id;
+  return graph.cursorId;
+}
+
+/**
+ * List all child nodes of the current cursor (branch targets).
+ * @param {object} graph
+ * @param {number} [nodeId] — defaults to cursorId
+ * @returns {Array<{id: number, type: string, summary: string|null}>}
+ */
+export function signalListBranches(graph, nodeId) {
+  if (!graph) return [];
+  const parentId = nodeId ?? graph.cursorId;
+  if (parentId == null) return [];
+  return graph.nodes
+    .filter((n) => n.parentId === parentId)
+    .map((n) => ({ id: n.id, type: n.command?.type ?? '?', summary: n.summary }))
+    .sort((a, b) => a.id - b.id);
+}
+
+/**
+ * Explicitly switch to a specific child node (branch navigation).
+ * @param {object} graph
+ * @param {number} childNodeId
+ * @returns {number|null} new cursorId, or null if childNodeId is not a valid child
+ */
+export function signalSwitchBranch(graph, childNodeId) {
+  if (!graph || childNodeId == null) return null;
+  const child = graph.nodes.find((n) => n.id === childNodeId);
   if (!child) return null;
   graph.cursorId = child.id;
   return graph.cursorId;
