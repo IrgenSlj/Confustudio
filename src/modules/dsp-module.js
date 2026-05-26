@@ -74,7 +74,8 @@ export function createDSPModule(pluginId, params) {
     const color = port.direction === 'in' ? 'var(--live)' : 'var(--warn)';
     dot.className = 'port';
     dot.dataset.port = port.id;
-    dot.title = `${port.label} (${port.direction})`;
+    dot.dataset.signal = port.signal || 'audio';
+    dot.title = `${port.label} (${port.direction}, ${port.signal || 'audio'})`;
     dot.style.cssText = `
       display: inline-flex;
       align-items: center;
