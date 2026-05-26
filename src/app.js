@@ -89,10 +89,16 @@ function showToast(msg, duration = 1200) {
 // MIDI CC LEARN FRAMEWORK
 // ─────────────────────────────────────────────
 window.__CONFUSTUDIO__.midiLearnTarget = null;
+window.__CONFUSTUDIO__.midiNoteLearnTarget = null;
 
 window.startMidiLearn = function startMidiLearn(param, setter, meta) {
   window.__CONFUSTUDIO__.midiLearnTarget = { param, setter, meta };
   showToast('Wiggle a knob…', 4000);
+};
+
+window.startMidiNoteLearn = function startMidiNoteLearn(param, setter, meta) {
+  window.__CONFUSTUDIO__.midiNoteLearnTarget = { param, setter, meta };
+  showToast('Play a MIDI note…', 4000);
 };
 
 // ─────────────────────────────────────────────
@@ -1915,6 +1921,45 @@ async function ensureAudio() {
         console.warn('MIDI CC input setup failed:', err);
       });
   }
+
+  // MIDI note → DSP param routing
+  window.__CONFUSTUDIO__._noteHandler = (e) => {
+    const { note, velocity } = e.detail;
+    // Note learn mode
+    const noteTarget = window.__CONFUSTUDIO__.midiNoteLearnTarget;
+    if (noteTarget) {
+      const { param, setter, meta } = noteTarget;
+      state.midiNoteMap = state.midiNoteMap || {};
+      state.midiNoteMap[note] = meta || { param };
+      if (typeof setter === 'function') setter(velocity);
+      window.__CONFUSTUDIO__.midiNoteLearnTarget = null;
+      saveState(state);
+      showToast(`Note ${note} → ${param}`);
+      return;
+    }
+    // Route mapped notes
+    const noteEntry = state.midiNoteMap?.[note];
+    if (noteEntry?.nodeId) {
+      const { nodeId, paramKey, min, max } = noteEntry;
+      const scaled = Number(min) + velocity * (Number(max) - Number(min));
+      const me = window.__CONFUSTUDIO__?.modularEngine;
+      if (me?.enabled) me.setNodeParam(nodeId, paramKey, scaled);
+      const s = window.__CONFUSTUDIO__?.state;
+      if (s?.signalGraph?.nodes?.[nodeId]) {
+        s.signalGraph.nodes[nodeId].params[paramKey] = scaled;
+      }
+      const modEl = document.getElementById(nodeId);
+      if (modEl) {
+        const slider = modEl.querySelector(`input[data-param="${CSS.escape(paramKey)}"]`);
+        if (slider) {
+          slider.value = scaled;
+          const label = slider.nextElementSibling;
+          if (label) label.textContent = typeof scaled === 'number' ? scaled.toFixed(2) : scaled;
+        }
+      }
+    }
+  };
+  document.addEventListener('confustudio:note:on', window.__CONFUSTUDIO__._noteHandler);
 
   // MIDI clock input sync
   // Rolling buffer of the last 24 pulse intervals (1 bar at 24ppqn) for jitter smoothing

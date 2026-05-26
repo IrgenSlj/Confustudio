@@ -136,7 +136,7 @@ export function createDSPModule(pluginId, params) {
         }));
       });
 
-      // Right-click → MIDI learn
+      // Right-click → MIDI CC learn; Ctrl+right-click → MIDI note learn
       row.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -145,16 +145,25 @@ export function createDSPModule(pluginId, params) {
         const min = Number(slider.min);
         const max = Number(slider.max);
         const paramLabel = `${knobInfo.label} (${nodeId.slice(0, 8)}…)`;
-        window.startMidiLearn(`dsp:${nodeId}:${key}`, (normalized) => {
-          const v = min + normalized * (max - min);
+        const setter = (raw) => {
+          const v = min + raw * (max - min);
           slider.value = v;
           valueLabel.textContent = typeof v === 'number' ? v.toFixed(2) : v;
           container.dispatchEvent(new CustomEvent('dsp:paramchange', {
             detail: { key, value: v },
             bubbles: true,
           }));
-        }, { nodeId, paramKey: key, min, max });
-        showToast(`MIDI Learn: ${paramLabel} — wiggle a knob`, 4000);
+        };
+        const meta = { nodeId, paramKey: key, min, max };
+        if (e.ctrlKey || e.metaKey) {
+          window.startMidiNoteLearn(`note:${nodeId}:${key}`, (velocity) => {
+            setter(velocity);
+          }, meta);
+          showToast(`Note Learn: ${paramLabel} — play a note`, 4000);
+        } else {
+          window.startMidiLearn(`dsp:${nodeId}:${key}`, setter, meta);
+          showToast(`MIDI Learn: ${paramLabel} — wiggle a knob`, 4000);
+        }
       });
 
       row.appendChild(label);
