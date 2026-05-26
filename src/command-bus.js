@@ -985,10 +985,14 @@ export function applyGraphToTracks(graph, state) {
 /**
  * Add a node to state.signalGraph and sync the modular engine.
  */
-export function commandAddGraphNode(state, pluginId, params = {}, meta = {}) {
-  const id = `node-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const node = createAudioNode(id, pluginId, params, meta);
-  state.signalGraph.nodes[id] = node;
+export function commandAddGraphNode(state, pluginId, params = {}, meta = {}, nodeId = null) {
+  const id = nodeId || `node-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  if (state.signalGraph.nodes[id]) {
+    // Update existing node instead
+    Object.assign(state.signalGraph.nodes[id], { plugin: pluginId, params, meta });
+  } else {
+    state.signalGraph.nodes[id] = createAudioNode(id, pluginId, params, meta);
+  }
   if (state.modularEngine?.enabled) {
     state.modularEngine.sync(state.signalGraph);
   }

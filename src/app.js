@@ -2495,9 +2495,9 @@ function evalTrigCondition(step, loopCount) {
   }
 }
 
-function toggleModular() {
+async function toggleModular() {
+  if (!state.audioContext) await ensureAudio();
   if (!state.modularEngine) return;
-  if (!state.audioContext) return;
   state.modularActive = !state.modularActive;
   if (state.modularActive) {
     state.modularEngine.compile(state.signalGraph);
@@ -2508,6 +2508,7 @@ function toggleModular() {
     el.btnModular?.classList.remove('active');
     showToast('Modular OFF');
   }
+  saveState(state);
 }
 
 async function togglePlay() {

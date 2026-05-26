@@ -930,14 +930,19 @@ export function addModule(S, type, options = {}) {
       const appState = window.__CONFUSTUDIO__?.state;
       if (me && appState) {
         const { commandAddGraphNode } = await import('../command-bus.js');
-        commandAddGraphNode(appState, pluginId, nodeParams, { label: pluginId });
+        commandAddGraphNode(appState, pluginId, nodeParams, { label: pluginId }, mod.id);
       }
 
-      // Listen for param changes
+      // Listen for param changes — update engine + state
       dspEl.addEventListener('dsp:paramchange', (e) => {
         const { key, value } = e.detail;
         const me2 = window.__CONFUSTUDIO__?.modularEngine;
         if (me2) me2.setNodeParam(mod.id, key, value);
+        // Persist in signal graph
+        const s = window.__CONFUSTUDIO__?.state;
+        if (s?.signalGraph?.nodes?.[mod.id]) {
+          s.signalGraph.nodes[mod.id].params[key] = value;
+        }
       });
     });
   } else if (type.startsWith('figure-')) {
