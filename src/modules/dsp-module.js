@@ -34,43 +34,44 @@ export function createDSPModule(pluginId, params) {
   container.className = 'dsp-module';
   container.style.cssText = `
     width: 220px;
-    background: #1a1a2e;
-    border: 1px solid #333;
-    border-radius: 6px;
-    font-family: monospace;
-    font-size: 11px;
-    color: #ccc;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    color: var(--text);
     overflow: hidden;
+    box-shadow: var(--shadow-md);
   `;
 
   // Title bar
   const title = document.createElement('div');
   title.style.cssText = `
-    background: #16213e;
-    padding: 6px 10px;
-    font-weight: bold;
-    font-size: 12px;
-    color: #67d7ff;
-    border-bottom: 1px solid #333;
+    background: var(--surface2);
+    padding: var(--space-2) var(--space-3);
+    font-weight: var(--fw-semibold);
+    font-size: var(--fs-sm);
+    color: var(--electric);
+    border-bottom: 1px solid var(--border);
     display: flex;
     justify-content: space-between;
     align-items: center;
   `;
-  title.innerHTML = `<span>${plugin.label}</span><span style="font-size:9px;color:#666">${plugin.type}</span>`;
+  title.innerHTML = `<span>${plugin.label}</span><span style="font-size:9px;color:var(--text-muted)">${plugin.type}</span>`;
   container.appendChild(title);
 
   // Port indicators
   const portBar = document.createElement('div');
   portBar.style.cssText = `
     display: flex;
-    gap: 8px;
-    padding: 4px 10px;
-    background: #0f0f23;
-    border-bottom: 1px solid #222;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
   `;
   for (const port of plugin.ports) {
     const dot = document.createElement('span');
-    const color = port.direction === 'in' ? '#5add71' : '#ff8c52';
+    const color = port.direction === 'in' ? 'var(--live)' : 'var(--warn)';
     dot.className = 'port';
     dot.dataset.port = port.id;
     dot.title = `${port.label} (${port.direction})`;
@@ -82,7 +83,7 @@ export function createDSPModule(pluginId, params) {
       color: ${color};
       cursor: crosshair;
     `;
-    dot.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};border:1px solid rgba(255,255,255,0.2)"></span> ${port.label}`;
+    dot.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:var(--radius-full);background:${color};border:1px solid rgba(255,255,255,0.2)"></span> ${port.label}`;
     portBar.appendChild(dot);
   }
   container.appendChild(portBar);
@@ -107,7 +108,7 @@ export function createDSPModule(pluginId, params) {
 
       const label = document.createElement('label');
       label.textContent = knobInfo.label;
-      label.style.cssText = `width: 70px; flex-shrink: 0; color: #888;`;
+      label.style.cssText = `width: 70px; flex-shrink: 0; color: var(--text-dim);`;
 
       const slider = document.createElement('input');
       slider.type = 'range';
@@ -119,13 +120,13 @@ export function createDSPModule(pluginId, params) {
       slider.style.cssText = `
         flex: 1;
         height: 4px;
-        accent-color: #67d7ff;
+        accent-color: var(--electric);
         cursor: pointer;
       `;
 
       const valueLabel = document.createElement('span');
       valueLabel.textContent = typeof val === 'number' ? val.toFixed(2) : val;
-      valueLabel.style.cssText = `width: 40px; text-align: right; color: #aaa; font-size: 10px;`;
+      valueLabel.style.cssText = `width: 40px; text-align: right; color: var(--text-dim); font-size: var(--fs-xs);`;
 
       slider.addEventListener('input', () => {
         const v = Number(slider.value);
