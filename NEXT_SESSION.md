@@ -2,15 +2,62 @@
 
 ## Current Baseline
 
-All tests green:
-
-- `npm run test:syntax` — 137 files, ok
-- `npm run test:state` — command bus + state round-trip, ok
-- `npm run test:server` — all API routes, ok
-- `npm run test:ui-smoke` — pre-existing zoom-lens issue (unrelated)
-
-`npm run lint` — clean (0 errors, 0 warnings).
+`npm test` exits 0 — now runs **`lint` first**, then `syntax · state · server · ui-smoke`.
 Server starts clean on `http://127.0.0.1:4173`.
+
+Work is on branch **`fix/signal-graph-runtime-bugs`** → **PR #1**
+(https://github.com/IrgenSlj/Confustudio/pull/1). Not yet merged to `main`.
+`main` does NOT have these fixes/features yet.
+
+## Session 9 — runtime fixes, design system, robustness (2026-05-26)
+
+Shipped on the branch above (each commit verified in a real browser, 0 console errors):
+
+1. **Fixed 3 signal-graph runtime crashes** that passed the test suite but broke the
+   modular feature in-browser: `saveState` not imported in `command-bus.js`; `showToast`
+   undefined in `dsp-module.js` (now `window.showToast`); `../` dynamic-import paths in
+   `studio-modules.js` resolving to the site root (404) — DSP graph-node creation had been
+   failing silently.
+2. **Finished module position persistence** — `meta.x/y` is seeded at creation and read
+   back; `rebuildModulesFromGraph()` (studio-modules.js) recreates modules/cables from
+   `state.signalGraph`; preset load now rebuilds the canvas instead of going stale.
+3. **Design system adopted from the Claude Design handoff** — `src/css/tokens.css` (the
+   canonical 68-token chassis system), `@import`ed first in `styles.css`, purely additive
+   with compat aliases (`--radius-*`, `--space-*`, `--fs-*`, `--shadow-*`, etc.). New
+   `light` theme. `docs/design-guide.md`.
+4. **Mixer** — VU meters use design tokens (theme-aware); **real per-group metering** via
+   AnalyserNode taps on the 8 persistent group buses (`engine.getGroupLevel(i)`).
+5. **Studio** — DSP modules adopt tokens (on-brand, theme-aware); cables colour by signal
+   type (audio=white, control=cyan, event=amber) from `port.signal`.
+6. **Robustness** (this wind-down): SW cache version → `confustudio-v4` (static name was
+   the stale-shell cause; bump per release); per-item try/catch in `restoreLayout` so one
+   bad saved module can't blank the canvas; recovery hatches
+   `window.__CONFUSTUDIO__.resetWorkspace()` / `hardReset()` + **Reset workspace / Hard
+   reset buttons in SET → WORKSPACE**.
+
+## ⚠ OPEN — diagnose before building more
+
+User reported the running app looked like an "unusable mess": blank PATTERN page at 100%,
+blank green modules in the studio canvas at 25% zoom. **Could not reproduce from a clean
+profile** (clean load + returning-user session both render fully, 0 errors). Strongly
+points to **stale service-worker cache and/or corrupt persisted `localStorage`** specific
+to that browser, not the code.
+
+**Next session, first thing:** confirm with the user — does it work in an **Incognito
+window**? If yes → it was stale cache/state (the v4 SW bump + Reset workspace should fix
+it; have them Hard reset once). If it's still broken in Incognito → it's a code path the
+repros missed; get the **DevTools Console error** and trace from there.
+
+Manual browser regression checks (run with `node`, not in `npm test`):
+`tests/verify-graph.mjs`, `tests/verify-theme.mjs`.
+
+## Highest-value next work (from the design handoff `confusynth-ui-ux` bundle)
+
+Integration-guide order, after the open issue is cleared:
+Step 2 chassis chrome (`chassis.css`/`chassis.js`) → Step 3 pattern page → Step 4 mixer
+page → Step 5 component CSS → Step 6 studio-canvas refactor. Also still pending from the
+"good test" punch list: verify the full **make-a-track loop** end-to-end, and decide on
+the **stubbed worklet voices** (plaits/clouds/rings/sampler) + one real **AI action**.
 
 ## Architecture
 

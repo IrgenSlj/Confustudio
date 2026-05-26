@@ -88,6 +88,39 @@ function showToast(msg, duration = 1200) {
 window.showToast = showToast;
 
 // ─────────────────────────────────────────────
+// RECOVERY ESCAPE HATCHES
+// A corrupt saved studio layout or a stale service-worker cache can leave the
+// canvas showing blank modules. These give a no-DevTools way out.
+// ─────────────────────────────────────────────
+const WORKSPACE_KEYS = [
+  'confustudio-studio-layout-v4',
+  'confustudio-studio-view-v3',
+  'confustudio-studio-cables-v1',
+  'confustudio-zoom-lens-v2',
+];
+// Clear the modular workspace (layout/view/cables) but keep the song/project.
+window.__CONFUSTUDIO__.resetWorkspace = function resetWorkspace() {
+  try {
+    WORKSPACE_KEYS.forEach((k) => localStorage.removeItem(k));
+  } catch (_) {}
+  location.reload();
+};
+// Nuclear: clear all app storage, unregister the service worker, drop caches.
+window.__CONFUSTUDIO__.hardReset = async function hardReset() {
+  try {
+    localStorage.clear();
+    sessionStorage.clear();
+    const regs = (await navigator.serviceWorker?.getRegistrations?.()) || [];
+    await Promise.all(regs.map((r) => r.unregister()));
+    if (window.caches?.keys) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+  } catch (_) {}
+  location.reload();
+};
+
+// ─────────────────────────────────────────────
 // MIDI CC LEARN FRAMEWORK
 // ─────────────────────────────────────────────
 window.__CONFUSTUDIO__.midiLearnTarget = null;

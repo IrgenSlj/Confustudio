@@ -1406,6 +1406,43 @@ export default {
     themeSection.append(accentRow);
     container.append(themeSection);
 
+    // ── Workspace recovery ──────────────────────────────────────────────────
+    const recoverySection = document.createElement('div');
+    recoverySection.className = 'settings-section';
+    recoverySection.dataset.settingsTab = 'SYSTEM';
+    recoverySection.innerHTML = '<div class="settings-label">WORKSPACE</div>';
+    const recoveryHint = document.createElement('div');
+    recoveryHint.style.cssText = 'font-size:0.56rem;color:var(--muted);line-height:1.6;margin-bottom:8px';
+    recoveryHint.textContent =
+      'If the canvas shows blank modules or looks broken, reset the workspace (keeps your song). Hard reset also clears the cache and project.';
+    const recoveryRow = document.createElement('div');
+    recoveryRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;';
+
+    const resetWsBtn = document.createElement('button');
+    resetWsBtn.className = 'seq-btn';
+    resetWsBtn.textContent = 'Reset workspace';
+    resetWsBtn.title = 'Clear the studio layout/view/cables. Keeps your song.';
+    resetWsBtn.addEventListener('click', () => {
+      if (confirm('Reset the studio workspace? Your song is kept; module layout and cables are cleared.')) {
+        window.__CONFUSTUDIO__?.resetWorkspace?.();
+      }
+    });
+
+    const hardResetBtn = document.createElement('button');
+    hardResetBtn.className = 'seq-btn';
+    hardResetBtn.style.cssText = 'color:var(--record);border-color:var(--record)';
+    hardResetBtn.textContent = 'Hard reset';
+    hardResetBtn.title = 'Clear all storage, cache, and service worker, then reload.';
+    hardResetBtn.addEventListener('click', () => {
+      if (confirm('Hard reset? This clears ALL saved data (song, layout, cache) and reloads.')) {
+        window.__CONFUSTUDIO__?.hardReset?.();
+      }
+    });
+
+    recoveryRow.append(resetWsBtn, hardResetBtn);
+    recoverySection.append(recoveryHint, recoveryRow);
+    container.append(recoverySection);
+
     // ── Assistant panel ─────────────────────────────────────────────────────
     const assistantSection = document.createElement('div');
     assistantSection.className = 'settings-section';
