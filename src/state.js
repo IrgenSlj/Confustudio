@@ -578,8 +578,11 @@ export function createAppState() {
     // MIDI output routing (per-track channel, 0 = off/internal, 1–16 = MIDI channel)
     midiOutputChannels: new Array(8).fill(0),
 
-    // Runtime signal graph (optional, stripped on serialization)
+    // Runtime command-history graph (optional, stripped on serialization)
     _signalGraph: null,
+
+    // Audio routing graph (serializable)
+    signalGraph: createAudioGraph(),
 
     // Project
     project: createProject(),
@@ -843,6 +846,13 @@ function repairState(state) {
     return bank;
   });
 
+  // Ensure audio routing graph exists (may be empty for legacy projects)
+  if (!state.signalGraph || typeof state.signalGraph !== 'object') {
+    state.signalGraph = { nodes: {}, connections: [] };
+  }
+  if (typeof state.signalGraph.nodes !== 'object') state.signalGraph.nodes = {};
+  if (!Array.isArray(state.signalGraph.connections)) state.signalGraph.connections = [];
+
   // Clamp navigation indices so they never point outside valid ranges
   const banks = state.project.banks;
   const patterns = banks[0]?.patterns;
@@ -1036,4 +1046,27 @@ export function computeCriticalPath(graph, fromId, toId) {
   }
   if (current) path.unshift(current.id);
   return path;
+}
+
+// ─── Audio Routing Graph ──────────────────────────────────────────────────────
+// Serializable graph modelling audio DSP routing (nodes + connections).
+// Coexists with legacy state — graphFromTracks() derives from tracks,
+// applyGraphToTracks() writes back.
+
+export function createAudioGraph() {
+  return { nodes: {}, connections: [] };
+}
+
+export function createAudioNode(id, plugin, params = {}, meta = {}) {
+  return {
+    id,
+    plugin,
+    params: { ...params },
+    meta: { x: 0, y: 0, label: '', color: '', collapsed: false, ...meta },
+  };
+}
+
+export function createAudioConnection(fromNode, fromPort, toNode, toPort) {
+  const id = `conn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return { id, fromNode, fromPort, toNode, toPort };
 }
