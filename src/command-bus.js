@@ -685,11 +685,37 @@ export function executeStudioCommands(state, commands = []) {
 }
 
 /**
- * Replay a signal subgraph by cloning state, re-executing every command
- * on the critical path from root to targetNodeId, and returning the new state.
+ * Move the signal-graph cursor one step backward (undo).
+ * @returns {number|null} new cursorId, or null if at root
+ */
+export function signalUndo(graph) {
+  if (!graph || graph.cursorId == null) return null;
+  const node = graph.nodes.find((n) => n.id === graph.cursorId);
+  if (!node || node.parentId == null) return null;
+  graph.cursorId = node.parentId;
+  return graph.cursorId;
+}
+
+/**
+ * Move the signal-graph cursor one step forward (redo).
+ * @returns {number|null} new cursorId, or null if at head
+ */
+export function signalRedo(graph) {
+  if (!graph || graph.cursorId == null) return null;
+  const child = graph.nodes.find((n) => n.parentId === graph.cursorId);
+  if (!child) return null;
+  graph.cursorId = child.id;
+  return graph.cursorId;
+}
+
+/**
+ * Replay a signal subgraph by re-executing every command
+ * on the critical path from root to targetNodeId.
  *
- * @param {object} state — live state (not mutated)
- * @param {object} graph — signal graph
+ * During replay, signal recording is suppressed so the graph isn't duplicated.
+ *
+ * @param {object} state — live state (mutated if inPlace, cloned otherwise)
+ * @param {object} graph — signal graph (read-only during replay)
  * @param {number} targetNodeId — node in the graph to replay up to
  * @param {object} [opts]
  * @param {boolean} [opts.inPlace] — if true, mutate state in-place instead of cloning
@@ -698,15 +724,18 @@ export function executeStudioCommands(state, commands = []) {
 export function replaySignalSubgraph(state, graph, targetNodeId, opts = {}) {
   const path = computePathToRoot(graph, targetNodeId);
   const working = opts.inPlace ? state : JSON.parse(JSON.stringify(state));
+  const savedGraph = working._signalGraph;
+  working._signalGraph = null; // suppress recording during replay
   const results = [];
   const nodeMap = new Map(graph.nodes.map((n) => [n.id, n]));
 
   for (const nodeId of path) {
     const node = nodeMap.get(nodeId);
-    if (!node) continue;
-    const result = executeStudioCommand(working, { type: node.type });
-    results.push({ nodeId: node.id, type: node.type, ...result });
+    if (!node || !node.command) continue;
+    const result = executeStudioCommand(working, node.command);
+    results.push({ nodeId: node.id, type: node.command.type, ...result });
   }
 
+  working._signalGraph = savedGraph; // restore
   return { state: working, results };
 }

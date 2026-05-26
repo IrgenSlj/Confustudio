@@ -983,6 +983,7 @@ export function createSignalGraph() {
     edges: [],
     nextId: 1,
     headId: null,
+    cursorId: null,
   };
 }
 
@@ -990,7 +991,7 @@ export function recordSignal(graph, command, parentId = null, result = null) {
   const id = graph.nextId++;
   graph.nodes.push({
     id,
-    type: command.type,
+    command: JSON.parse(JSON.stringify(command)),
     timestamp: Date.now(),
     parentId,
     changed: result ? Boolean(result.changed) : false,
@@ -1000,6 +1001,7 @@ export function recordSignal(graph, command, parentId = null, result = null) {
     graph.edges.push({ from: parentId, to: id });
   }
   graph.headId = id;
+  graph.cursorId = id;
   return id;
 }
 

@@ -1,41 +1,62 @@
-// CONFUstudio — undo/redo history UI
-import { createHistoryController } from './command-bus.js';
+// CONFUstudio — undo/redo history via signal-graph replay
+import { createSignalGraph } from './state.js';
+import { replaySignalSubgraph, signalUndo, signalRedo } from './command-bus.js';
 
 export function initHistoryUI(state, showToast) {
-  const historyController = createHistoryController(100);
-  let _historyIdx = -1;
-  let _historyTotal = 0;
-  let _checkpoints = [];
+  if (!state._signalGraph) {
+    state._signalGraph = createSignalGraph();
+  }
 
-  function syncHistoryMeta() {
-    const meta = historyController.getMeta();
-    _historyIdx = meta.index;
-    _historyTotal = meta.total;
-    _checkpoints = meta.checkpoints;
+  let _historyIdx = 0;
+  let _historyTotal = 0;
+  const _checkpoints = [];
+  const _checkpointIdCounter = 1;
+
+  function updateMeta() {
+    const graph = state._signalGraph;
+    if (!graph) {
+      _historyIdx = 0;
+      _historyTotal = 0;
+      return;
+    }
+    const cursorPos = graph.cursorId != null
+      ? graph.nodes.findIndex((n) => n.id === graph.cursorId) + 1
+      : 0;
+    _historyIdx = Math.max(0, cursorPos);
+    _historyTotal = graph.nodes.length;
   }
 
   function pushHistory(state) {
-    historyController.push(state);
-    syncHistoryMeta();
+    updateMeta();
     updateUndoIndicator();
   }
 
   function undoHistory(state) {
-    if (!historyController.undo(state)) return;
-    syncHistoryMeta();
+    const graph = state._signalGraph;
+    if (!graph) return;
+    const newId = signalUndo(graph);
+    if (newId == null) return;
+    replaySignalSubgraph(state, graph, newId, { inPlace: true });
+    updateMeta();
     updateUndoIndicator();
   }
 
   function redoHistory(state) {
-    if (!historyController.redo(state)) return;
-    syncHistoryMeta();
+    const graph = state._signalGraph;
+    if (!graph) return;
+    const newId = signalRedo(graph);
+    if (newId == null) return;
+    replaySignalSubgraph(state, graph, newId, { inPlace: true });
+    updateMeta();
     updateUndoIndicator();
   }
 
   function markCheckpoint(label) {
-    const entry = historyController.markCheckpoint(label);
-    if (!entry) return;
-    syncHistoryMeta();
+    if (_historyTotal === 0) return;
+    const entry = { historyIdx: _historyIdx, label: label || 'Checkpoint', timestamp: Date.now() };
+    const existing = _checkpoints.findIndex((item) => item.historyIdx === _historyIdx);
+    if (existing >= 0) _checkpoints[existing] = entry;
+    else _checkpoints.push(entry);
     updateUndoIndicator();
     showToast(`Checkpoint: ${entry.label}`);
   }
@@ -78,23 +99,31 @@ export function initHistoryUI(state, showToast) {
     history: {
       undo() {
         undoHistory(state);
-        return historyController.getMeta();
+        return getMeta();
       },
       redo() {
         redoHistory(state);
-        return historyController.getMeta();
+        return getMeta();
       },
     },
   };
 
+  function getMeta() {
+    return {
+      index: _historyIdx,
+      total: _historyTotal,
+      checkpoints: _checkpoints.slice(),
+    };
+  }
+
   return {
-    historyController,
+    historyController: { getMeta, push: () => {}, undo: () => {}, redo: () => {}, markCheckpoint },
     pushHistory,
     undoHistory,
     redoHistory,
     markCheckpoint,
     updateUndoIndicator,
-    syncHistoryMeta,
+    syncHistoryMeta: updateMeta,
     get historyIdx() {
       return _historyIdx;
     },
