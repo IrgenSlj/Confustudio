@@ -98,8 +98,39 @@ export class ModularEngine {
     const params = nodeDef.params || {};
     const compiled = this._instantiate(plugin, params);
     if (compiled) {
-      this.nodeMap.set(id, { ...compiled, id, plugin: nodeDef.plugin, _params: { ...params } });
+      const entry = { ...compiled, id, plugin: nodeDef.plugin, _params: { ...params } };
+      this._preparePorts(plugin, entry);
+      this.nodeMap.set(id, entry);
     }
+  }
+
+  _preparePorts(plugin, entry) {
+    const ctx = this.ctx;
+    const ports = {};
+    const newNodes = [];
+
+    for (const port of plugin.ports || []) {
+      if (port.direction === 'out') {
+        const g = ctx.createGain();
+        g.gain.value = 1;
+        entry.outputNode.connect(g);
+        ports[port.id] = g;
+        newNodes.push(g);
+      } else if (port.direction === 'in') {
+        const g = ctx.createGain();
+        g.gain.value = 1;
+        g.connect(entry.inputNode);
+        ports[port.id] = g;
+        newNodes.push(g);
+      }
+    }
+
+    entry.ports = ports;
+    entry.allNodes = [...(entry.allNodes || []), ...newNodes];
+  }
+
+  _getPortOrNode(entry, portId, fallback) {
+    return (entry.ports && portId && entry.ports[portId]) || fallback;
   }
 
   _compileConnection(conn) {
@@ -107,8 +138,11 @@ export class ModularEngine {
     const toEntry = this.nodeMap.get(conn.toNode);
     if (!fromEntry || !toEntry) return;
 
+    const fromNode = this._getPortOrNode(fromEntry, conn.fromPort, fromEntry.outputNode);
+    const toNode = this._getPortOrNode(toEntry, conn.toPort, toEntry.inputNode);
+
     try {
-      fromEntry.outputNode.connect(toEntry.inputNode);
+      fromNode.connect(toNode);
       this.connectionMap.set(conn.id, conn);
     } catch (e) {
       console.warn(`[ModularEngine] connect ${conn.fromNode} -> ${conn.toNode} failed:`, e);
@@ -202,14 +236,19 @@ export class ModularEngine {
       const fromEntry = this.nodeMap.get(conn.fromNode);
       const toEntry = this.nodeMap.get(conn.toNode);
       if (fromEntry && toEntry) {
-        try { fromEntry.outputNode.disconnect(toEntry.inputNode); } catch (_) {}
+        const fromNode = this._getPortOrNode(fromEntry, conn.fromPort, fromEntry.outputNode);
+        const toNode = this._getPortOrNode(toEntry, conn.toPort, toEntry.inputNode);
+        try { fromNode.disconnect(toNode); } catch (_) {}
       }
       this.connectionMap.delete(id);
     }
   }
 
-  getAudioNode(nodeId) {
-    return this.nodeMap.get(nodeId)?.inputNode || null;
+  getAudioNode(nodeId, portId) {
+    const entry = this.nodeMap.get(nodeId);
+    if (!entry) return null;
+    if (portId && entry.ports?.[portId]) return entry.ports[portId];
+    return entry.inputNode || null;
   }
 
   teardown() {
