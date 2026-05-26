@@ -302,6 +302,7 @@ const PAGES = {
 let state = loadState() || createAppState();
 state._playingNotes = new Set(); // live note feedback for piano
 state._pressedKeys = new Set(); // live key feedback for graphical keyboard
+window.__CONFUSTUDIO__.state = state;
 
 let _activeKnobIndex = null; // which knob is currently being dragged
 let _activeKnobTimer = null;
@@ -1748,6 +1749,7 @@ async function ensureAudio() {
   window.__CONFUSTUDIO__.engine = state.engine;
   window.__CONFUSTUDIO__.modularEngine = state.modularEngine;
   window.__CONFUSTUDIO__.synthEngine = state.engine;
+  window.__CONFUSTUDIO__.saveState = () => saveState(state);
   state.engine.setBpm(state.bpm ?? 120);
   state.engine.initWorklets(); // async — loads cs-resampler worklet in background
   state.engine.setMasterLevel(state.masterLevel);

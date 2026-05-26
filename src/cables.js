@@ -400,13 +400,17 @@ export function initCables() {
     }
 
     // Signal graph connection
-    const me = window.__CONFUSTUDIO__?.modularEngine;
-    if (me?.enabled) {
-      const fromModId = fromEl.closest('.studio-module')?.id;
-      const toModId = toEl.closest('.studio-module')?.id;
-      if (fromModId && toModId) {
-        me.addConnection({ id: cable.id, fromNode: fromModId, fromPort: fromEl.dataset.port, toNode: toModId, toPort: toEl.dataset.port });
+    const fromModId = fromEl.closest('.studio-module')?.id;
+    const toModId = toEl.closest('.studio-module')?.id;
+    if (fromModId && toModId) {
+      const state = window.__CONFUSTUDIO__?.state;
+      const sgraph = state?.signalGraph;
+      if (sgraph) {
+        sgraph.connections.push({ id: cable.id, fromNode: fromModId, fromPort: fromEl.dataset.port, toNode: toModId, toPort: toEl.dataset.port });
       }
+      const me = window.__CONFUSTUDIO__?.modularEngine;
+      if (me?.enabled) me.sync(sgraph || state?.signalGraph);
+      window.__CONFUSTUDIO__?.saveState?.();
     }
 
     // Notify listeners that a cable was connected
@@ -443,8 +447,14 @@ export function initCables() {
     }
     cable.group?.remove();
     // Remove signal graph connection
+    const state = window.__CONFUSTUDIO__?.state;
+    const sgraph = state?.signalGraph;
+    if (sgraph) {
+      sgraph.connections = sgraph.connections.filter((c) => c.id !== cable.id);
+    }
     const me = window.__CONFUSTUDIO__?.modularEngine;
-    if (me?.enabled) me.removeConnection(cable.id);
+    if (me?.enabled) me.sync(sgraph || state?.signalGraph);
+    window.__CONFUSTUDIO__?.saveState?.();
 
     const idx = cables.indexOf(cable);
     if (idx >= 0) cables.splice(idx, 1);
