@@ -222,7 +222,7 @@ function buildTrackStrip(track, ti, state, emit, stripEls, meterEls) {
 }
 
 // ── Group row builder ─────────────────────────────────────────────────────────
-function buildGroupRow(group, gi, state, emit) {
+function buildGroupRow(group, gi, state, emit, groupMeterEls) {
   const color = GROUP_COLORS[gi] ?? '#888';
 
   const row = document.createElement('div');
@@ -293,6 +293,15 @@ function buildGroupRow(group, gi, state, emit) {
     emit(EVENTS.STATE_CHANGE, { path: `groups.${gi}.muted`, value: group.muted });
   });
   row.append(muteBtn);
+
+  // Real-audio level meter (driven from the engine's group analyser tap)
+  const meter = document.createElement('div');
+  meter.className = 'mx-group-meter';
+  const meterFill = document.createElement('div');
+  meterFill.className = 'mx-group-meter-fill';
+  meter.append(meterFill);
+  row.append(meter);
+  if (groupMeterEls) groupMeterEls.push({ fill: meterFill, gi, group });
 
   return row;
 }
@@ -368,6 +377,7 @@ export default {
 
     const stripEls = [];
     const meterEls = [];
+    const groupMeterEls = [];
 
     // Meter colours from design tokens so VU/peak honour the active theme
     // (incl. light). Read once per render; theme switches re-render the page.
@@ -403,7 +413,7 @@ export default {
       groupsGrid.className = 'mx-groups-grid';
 
       state.groups.forEach((group, gi) => {
-        groupsGrid.append(buildGroupRow(group, gi, state, emit));
+        groupsGrid.append(buildGroupRow(group, gi, state, emit, groupMeterEls));
       });
 
       groupsSection.append(groupsGrid);
@@ -639,6 +649,18 @@ export default {
         const pct = Math.min(100, Math.round(rms * 800));
         masterVuFill.style.height = pct + '%';
         masterVuFill.style.background = levelColor(pct, 85, 60);
+      }
+
+      // Per-group VU from real engine analyser taps
+      const eng = state.engine ?? window._confustudioEngine;
+      if (eng?.getGroupLevel) {
+        for (let gi = 0; gi < groupMeterEls.length; gi++) {
+          const { fill, gi: idx, group } = groupMeterEls[gi];
+          if (!fill) continue;
+          const level = group.muted ? 0 : eng.getGroupLevel(idx);
+          fill.style.width = Math.round(level * 100) + '%';
+          fill.style.background = levelColor(level, 0.85, 0.6);
+        }
       }
 
       _vuRaf = requestAnimationFrame(_animateVU);

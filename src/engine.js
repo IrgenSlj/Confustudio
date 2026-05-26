@@ -46,6 +46,16 @@ export class AudioEngine {
       gain.connect(this.sidechainGain);
       return gain;
     });
+    // Passive metering taps on each group bus (sink branch — does not affect
+    // audio). Small FFT keeps per-frame RMS reads cheap. Read via getGroupLevel.
+    this.groupAnalysers = this.groupBuses.map((bus) => {
+      const an = context.createAnalyser();
+      an.fftSize = 256;
+      an.smoothingTimeConstant = 0.5;
+      bus.connect(an);
+      return an;
+    });
+    this._groupMeterBuf = new Uint8Array(256);
     this.groupPans = Array.from({ length: 8 }, (_, i) => {
       const pan = context.createStereoPanner();
       pan.pan.value = 0;
@@ -288,6 +298,23 @@ export class AudioEngine {
     // Track the currently connected mod-matrix AudioParam connections so we can
     // disconnect them before reconnecting on each applyModMatrix call.
     this._modConnections = []; // [{lfoGain, param}]
+  }
+
+  /**
+   * Real RMS level (0..1, lightly boosted for visibility) for a group bus,
+   * read from its metering tap. Returns 0 if the group is out of range.
+   */
+  getGroupLevel(groupIndex) {
+    const an = this.groupAnalysers?.[groupIndex];
+    if (!an) return 0;
+    an.getByteTimeDomainData(this._groupMeterBuf);
+    let sum = 0;
+    for (let i = 0; i < this._groupMeterBuf.length; i++) {
+      const s = (this._groupMeterBuf[i] - 128) / 128;
+      sum += s * s;
+    }
+    const rms = Math.sqrt(sum / this._groupMeterBuf.length);
+    return Math.min(1, rms * 4);
   }
 
   // ——————————————————————————————————————————————
