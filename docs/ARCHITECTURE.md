@@ -2,204 +2,137 @@
 
 ## Design Principles
 
-1. **Graph is the source of truth.** Audio routing, processing, and modulation are modeled as a directed signal graph. The UI is a view of the graph, not the other way around.
+1. **Every state mutation goes through the command bus.** The AI assistant uses the same commands the UI does. There is no private path.
 
-2. **Every state mutation goes through the command bus.** The AI assistant uses the same commands the UI does. There is no private path.
+2. **Commands produce signals; the signal graph records the edit trace.** This enables undo/redo, branching, and critical-path analysis — without snapshotting the entire state.
 
-3. **Plugins are just nodes in the graph.** Nothing is hardcoded. A `machine: 'plaits'` is a node of `plugin: 'plaits'`. A filter is a node. An LFO is a node. Adding a new DSP unit means adding a new plugin type, not editing a switch statement.
+3. **The graph coexists with legacy state.** Migration is incremental. Graph features are optional compartments that don't affect existing code paths.
 
-4. **AI is a real-time collaborator, not a bolted-on chat.** The assistant reads and writes graph state at the same level as the human. It can add nodes, connect ports, set parameters, and generate patterns — all through the command bus.
+4. **AI is a real-time collaborator, not a bolted-on chat.** AI reads and writes state through the same command bus as the human.
 
-5. **Free inference first, API keys later.** Default assistant runs on free/limited inference (opencode, local Ollama). Users can bring their own Claude/OpenAI keys for production use.
+5. **Free inference first, API keys later.** Default assistant runs on free/limited inference (opencode, local Ollama). Users can bring their own keys.
 
-## The Signal Graph
+## The Command Graph (Edit History DAG)
 
-### Core Types
+The command graph records every `executeStudioCommand` call as a node in a lightweight DAG. This replaces the old snapshot-based undo/redo with a deterministic replay-based system.
 
-```js
-// A node in the signal graph
-SignalNode = {
-  id: string,
-  type: 'source' | 'processor' | 'control' | 'sink' | 'group',
-  plugin: string,     // identifies the DSP implementation
-  params: { [paramId]: ParamValue },
-  ports: Port[],
-  meta: { x, y, label?, color?, collapsed? },
-}
-
-// A typed port on a node
-Port = {
-  id: string,
-  direction: 'in' | 'out',
-  signal: 'audio' | 'control' | 'event',
-  label: string,
-}
-
-// A connection between two ports
-Connection = {
-  id: string,
-  fromNode: string,
-  fromPort: string,
-  toNode: string,
-  toPort: string,
-}
-
-// The graph lives in state alongside the legacy model
-state.signalGraph: {
-  nodes: { [nodeId]: SignalNode },
-  connections: Connection[],
-}
-```
-
-### Signal Types
-
-| Signal  | Description | Data Rate |
-|---------|-------------|-----------|
-| `audio` | Sample buffers | 128-1024 frames per block |
-| `control` | Per-block values (0-1, Hz, dB) | Same rate as audio blocks |
-| `event` | Note on/off, trigger, clock tick | Aperiodic |
-
-### Node Types
-
-| Type | Description | Examples |
-|------|-------------|----------|
-| `source` | Produces audio | oscillator, sample-player, noise, synth-worklet, microphone |
-| `processor` | Transforms audio | filter, eq, delay, reverb, compressor, saturator, panner, bitcrusher |
-| `control` | Produces modulation signals | lfo, envelope, step-seq, midi-in, clock-divider, random |
-| `sink` | Consumes audio | master-out, bus, recorder, cue-out |
-| `group` | Subgraph that acts as a single node | instrument-macro, fx-chain, drum-rack |
-
-## Mapping to Existing State
-
-The legacy state is not replaced — it is **derived from** the graph until full migration is complete.
-
-| Legacy concept | Graph equivalent |
-|---|---|
-| `track.machine = 'plaits'` | `{ plugin: 'plaits', params: { engine, timbre, harmonics, morph } }` |
-| `track.cutoff`, `track.resonance` | Filter node params: `{ plugin: 'biquad', params: { type, freq, Q } }` |
-| `track.volume`, `track.pan` | Gain + Panner node params |
-| `track.delaySend`, `track.reverbSend` | Send-level control connection → delay/reverb nodes |
-| `track.eqLow/Mid/High` | 3-band EQ processor node |
-| `track.bitDepth`, `track.srDiv` | Bitcrusher processor node |
-| `track.groupIndex` | Connection to group bus sink |
-| `state.master*` | Master output subgraph |
-| `state.modMatrix` | Control signal connections |
-| `state.scenes` | Scene snapshot of node params (morph targets) |
-| Studio module + cables | Visual frontend for graph nodes + connections |
-
-Migration strategy: a helper function `graphFromTracks(state) -> signalGraph` auto-generates the graph from legacy track state. A reverse helper `applyGraphToTracks(graph, state)` writes graph changes back to legacy state. This lets the graph and legacy views coexist during migration.
-
-## Plugin System
-
-A plugin is a registered DSP implementation identified by a string. Registration is a single call:
+### Graph Structure
 
 ```js
-registerPlugin('biquad', {
-  ports: [
-    { id: 'in', direction: 'in', signal: 'audio' },
-    { id: 'out', direction: 'out', signal: 'audio' },
-    { id: 'freq-mod', direction: 'in', signal: 'control' },
+_signalGraph = {
+  nodes: [
+    {
+      id: 1,
+      command: { type: 'set-transport', bpm: 128 }, // full command for replay
+      timestamp: 1718000000000,
+      parentId: null,           // causal parent (previous command)
+      changed: true,
+      summary: 'Updated transport',
+    },
   ],
-  params: {
-    type: { default: 'lowpass', values: ['lowpass','highpass','bandpass','notch'] },
-    freq: { default: 1000, min: 20, max: 20000, unit: 'Hz' },
-    Q: { default: 0.707, min: 0.1, max: 20 },
-  },
-  create: (context) => new BiquadNode(context),
-})
+  edges: [{ from: 1, to: 2 }], // causality edges
+  nextId: 3,                    // auto-incrementing ID counter
+  headId: 2,                    // latest node (tip of the graph)
+  cursorId: 2,                  // undo/redo cursor position
+}
 ```
 
-### Plugin Categories
+### Key Properties
 
-| Category | Plugins |
-|----------|---------|
-| Oscillators | sine, saw, square, triangle, noise, wavetable, fm-pair |
-| Synths | plaits, clouds, rings, poly-synth, acid |
-| Filters | biquad, svf, moog-ladder, formant |
-| EQ | 3-band-peak, parametric, graphic |
-| Dynamics | compressor, limiter, gate, expander |
-| Effects | delay, reverb (convolution), chorus, flanger, phaser, bitcrusher, distortion, waveshaper |
-| Spatial | panner, stereo-width, crossfader |
-| Modulation | lfo, adsr, ahdsr, random-step, clock-div, euclidean |
-| Analysis | oscilloscope, spectrum-analyzer, peak-meter |
-| I/O | master-out, bus, cue-out, recorder, mic-in, midi-in, midi-out |
-| Container | group, drum-rack, fx-chain |
+| Property | Description |
+|---|---|
+| Append-only | Nodes are never deleted. Undo moves the cursor backward |
+| Full command stored | Each node stores the complete command object for deterministic replay |
+| Cursor-based undo | `signalUndo(graph)` walks cursor to parent; `signalRedo(graph)` walks to child |
+| Replay-based restore | `replaySignalSubgraph(state, graph, targetId)` replays the critical path from root to cursor |
+| Runtime-only | Prefixed with `_`, automatically stripped by `stripRuntime` on serialization |
+
+### How Undo/Redo Works
+
+1. **Every command** executed through `executeStudioCommands()` is recorded as a graph node via `executeAndRecord()`.
+2. **Undo**: `signalUndo()` moves cursor to parent → `replaySignalSubgraph()` clones state (or works in-place) and replays all commands from root to the new cursor position.
+3. **Redo**: `signalRedo()` moves cursor to the child node → same replay mechanism.
+4. **Branching** (future): When undo is followed by a new command, the new command's parent is the current cursor, creating a branch. Both paths remain accessible.
+
+### API Surface
+
+| Function | Location | Purpose |
+|---|---|---|
+| `createSignalGraph()` | state.js | Factory returning empty graph |
+| `recordSignal(graph, cmd, parentId, result)` | state.js | Append a node to the graph |
+| `computePathToRoot(graph, nodeId)` | state.js | Walk ancestry to root |
+| `computeCriticalPath(graph, fromId, toId)` | state.js | Walk range between two nodes |
+| `signalUndo(graph)` | command-bus.js | Move cursor backward |
+| `signalRedo(graph)` | command-bus.js | Move cursor forward |
+| `replaySignalSubgraph(state, graph, id, opts)` | command-bus.js | Replay commands from root to node |
+| `executeAndRecord(state, cmd, parentSignalId)` | command-bus.js | Execute + optionally record signal |
+
+### Migration from Snapshot History
+
+- Old: `createHistoryController(limit)` stores full state snapshots in an array. Undo/redo restores snapshots.
+- New: `replaySignalSubgraph()` re-executes commands from the graph. No snapshots needed.
+- Backward compat: `createHistoryController()` still exists for direct use in tests.
+
+## Future: Audio Routing Graph
+
+Signal graph v2 will extend the concept to model audio routing, parallel to the command DAG.
+
+```js
+signalGraph = {
+  nodes: { [nodeId]: { plugin, params, ports, meta } },
+  connections: [{ fromNode, fromPort, toNode, toPort }],
+}
+```
+
+This is planned for Sessions 3+.
+
+## Audio Engine
+
+### Phase 1 (current)
+Web Audio API graph with AudioWorklet nodes (MIRANDA, plaits, clouds, rings). Hardcoded track→DSP routing in `engine.js`.
+
+### Phase 2 (future)
+Signal graph (audio routing variant) drives AudioEngine. Each graph node creates the corresponding Web Audio node. Graph connections become Web Audio connections.
+
+### Phase 3 (future)
+Select graph subgraphs compile to WGSL compute shaders for WebGPU execution. Rust/WASM core for critical paths (voice allocation, scheduling, offline render).
 
 ## AI Integration
 
 ### Architecture
 
 ```
-Browser (UI + Graph State)
-  │  reads/writes state via command bus
-  │
+Browser (UI + Command Bus)
+  │  reads/writes state via commands
   ▼
 Local Proxy (server.mjs)
   │  /api/assistant/* routes
-  │
   ├──► Free inference (opencode, Ollama)
   └──► Optional: OpenAI / Anthropic / MCP bridge
 ```
 
 ### AI Tool Surface
 
-The AI assistant exposes tools that operate on the signal graph and sequencer state. Every tool maps to command-bus actions the UI also uses.
-
-| Tool | Description | Affects |
-|------|-------------|---------|
-| `add_node` | Add a signal graph node by plugin type | graph.nodes |
-| `remove_node` | Remove a node and its connections | graph.nodes, graph.connections |
-| `connect_ports` | Connect two node ports | graph.connections |
-| `disconnect_ports` | Remove a connection | graph.connections |
-| `set_param` | Set a node parameter | node.params |
-| `replace_graph` | Replace entire signal graph | graph |
-| `get_graph` | Read current graph state | (read-only) |
-| `get_audio_analysis` | Get spectral/level analysis | (read-only) |
-| `generate_pattern` | Generate step sequence on a track | pattern steps |
-| `arrange_song` | Generate arranger from description | arranger sections |
-| `mix_track` | Suggest/set track mix parameters | track params |
-
-### Free Inference Default
-
-- **Default provider**: opencode or local Ollama (no API key needed)
-- **Rate limited**: reasonable per-session limit, upgrade prompt to add key
-- **Model agnostic**: same tool surface regardless of backend
-- **Key upgrade path**: users add `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` to env
-
-## Audio Engine Evolution
-
-### Phase 1 (current)
-Web Audio API graph with AudioWorklet nodes (MIRANDA, plaits, clouds, rings). Hardcoded track→DSP routing in `engine.js`.
-
-### Phase 2 (next)
-Signal graph drives AudioEngine. Each graph node creates the corresponding Web Audio node. Graph connections become Web Audio connections. New plugin types register DSP implementations.
-
-### Phase 3 (future)
-Select graph subgraphs compile to WGSL compute shaders for WebGPU execution. Rust/WASM core for critical paths (voice allocation, scheduling, offline render).
+AI tools map to command-bus actions the UI also uses. Same path, same graph recording.
 
 ## File Layout
 
 ```
 src/
-  state.js             ← app state + command bus + graph model
-  command-bus.js       ← all commands (including graph commands)
-  plugins/             ← all plugin type registrations
-    biquad.js
-    delay.js
-    reverb.js
-    plaits-worklet.js
-    ...
-  engine.js            ← AudioEngine (reads graph, creates AudioNodes)
-  engine-graph.js      ← graph → Web Audio compiler
-  cables.js            ← SVG cable UI (reads graph, draws connections)
-  studio-modules.js    ← module UI (reads graph, renders nodes)
-  assistant-client.js  ← AI tool surface (writes graph via command bus)
+  state.js             ← app state, signal graph types, serialization
+  command-bus.js       ← executeStudioCommand, signal undo/redo/replay
+  history-ui.js        ← undo/redo UI widget (driven by signal graph)
+  app.js               ← main app, wires history to UI
+  plugins/             ← (future) plugin registry
+  engine.js            ← AudioEngine
+  cables.js            ← SVG cable UI
+  studio-modules.js    ← module UI
+  assistant-client.js  ← AI tool surface
 ```
 
 ## Key Decisions
 
 - **No TypeScript yet.** Plain JS until the API surface stabilizes.
-- **No build step.** Static server, no bundler. Vite/Webpack added only when necessary.
-- **Graph coexists with legacy state.** Migration is incremental, not a big bang.
+- **No build step.** Static server, no bundler.
+- **Two graph concepts, one name.** The command-history DAG (`_signalGraph`) tracks edit causality. The audio routing graph (future `signalGraph`) models DSP routing. Both use similar DAG patterns.
 - **AI operates at the command level.** No direct state manipulation. Same path as the UI.
-- **Plugins are runtime-registered.** New DSP types don't require engine.js changes.
