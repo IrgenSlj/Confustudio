@@ -52,14 +52,23 @@ See `docs/ARCHITECTURE.md` for the full specification.
 - Branch indicator (`⍂N`) in undo indicator with click-to-cycle
 - `cursorId` used as initial `parentSignalId` for branching from undo point
 
-### Session 4
+### Session 4: Audio Routing Graph ✓
+
+- `createAudioGraph()`, `createAudioNode()`, `createAudioConnection()` in state.js
+- `signalGraph` (public, serializable) in `createAppState()`
+- Graph commands: `add-graph-node`, `remove-graph-node`, `connect-graph-nodes`, `disconnect-graph-nodes`, `set-node-param`, `replace-graph`, `get-graph`
+- `graphFromTracks()` — derives audio graph from legacy track state
+- `applyGraphToTracks()` — writes graph node params back to legacy state
+- `repairState` ensures `signalGraph` shape for legacy project loads
+
+### Session 5
 
 Options:
-- **Audio routing graph** — add `signalGraph` (public, serializable) for audio routing: nodes (oscillators, filters, etc.) and connections (cables). Add graph commands to `executeStudioCommand`.
 - **Plugin registry** — `src/plugins/registry.js`, register existing DSP types.
 - **Engine reads graph** — `engine-graph.js` compiles graph to Web Audio nodes.
+- **Cables become graph-aware** — SVG cables read/write `state.signalGraph.connections`
 
-### Sessions 5-9
+### Sessions 6-9
 
 To be determined based on priority after Session 4.
 
