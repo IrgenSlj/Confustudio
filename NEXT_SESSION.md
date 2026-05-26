@@ -13,128 +13,174 @@ All tests green:
 `npm run format` — clean (Prettier matches across the tree).
 Server starts clean on `http://127.0.0.1:4173`.
 
-## Current Sprint Todo
-
-- [x] Fix the clean-start studio layout regression.
-- [x] Add command-bus selection actions for bank, pattern, and track navigation.
-- [x] Route bank and mixer selection UI through the command bus when available.
-- [x] Route common pattern edit actions and step toggles through the command bus.
-- [x] Route pattern metadata, step inspector, and batch edit tools through the command bus.
-- [x] Add portable project package assets for sample tracks and recorder slots.
-- [x] Add workspace package data for studio layout, view, cables, and v1 module-state payloads.
-- [x] Add DJ Mixer module serialize/restore hooks for knobs, faders, crossfader, and cue state.
-- [ ] Extract shared state and event strings into constants for the remaining page modules.
-- [ ] Sweep the remaining direct state edits in `pattern.js`, `settings.js`, and transport handlers into command helpers.
-- [ ] Extend module serialize/restore hooks to polysynth, monosynth, FM synth, drum machine, and Acid Machine.
-- [ ] Add project-package compression/deduplication for large sample exports.
-- [x] Add tests for selection-driven navigation and history coverage.
-
 ## Codebase Metrics
 
 | Metric                | Value                                                          |
 | --------------------- | -------------------------------------------------------------- |
-| Total JS/ESM lines    | ~36,168 (post-Prettier; many long lines were wrapped)          |
-| Files over 1000 lines | 14 (Prettier wrap expanded several files past the 1000 mark)   |
+| Total JS/ESM lines    | ~36,168                                                        |
+| Files over 1000 lines | 14                                                             |
 | Largest file          | `app.js` (3999)                                                |
 | `window._*` globals   | 84 across 15 files                                             |
-| Dead code             | removed (incl. `buildChordNotes`, `detectPitch`, dead helpers) |
-| Dual reverb impls     | collapsed — convolution only                                   |
-| Legacy delay routing  | still present                                                  |
 | Test suites           | 4 (syntax, state, server, ui-smoke)                            |
 | ESLint/Prettier       | configured, both clean                                         |
-| License               | Apache-2.0 (LICENSE + NOTICE present)                          |
-| OSS hygiene           | CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, issue/PR templates    |
+| License               | Apache-2.0                                                     |
 
-## Architecture Assessment
+## Architecture — Signal Graph Model
 
-**Strengths:**
+See `docs/ARCHITECTURE.md` for the full specification.
 
-- Working audio engine with voice stealing, sidechain, per-track FX, MIDI I/O
-- Command bus with undo/redo history (100-deep)
-- Modular studio canvas with cable routing, persistence, module picker
-- Portable project packages with embedded sample/recorder assets and workspace state
-- Server-side assistant bridge (OpenAI, Anthropic, Ollama, local)
-- Project package import/export with schema versioning
-- State forward-fill on load (handles schema drift)
-- AudioWorklet support (resampler, bitcrusher, plaits, clouds, rings)
-- ESLint + Prettier tooling for consistent code
+**Core idea:** Audio routing, processing, and modulation are modeled as a typed directed graph. This replaces hardcoded track→DSP chains with explicit nodes, ports, and connections.
 
-**Frictions (ranked by time wasted per change):**
+**Key properties:**
+- Graph lives in `state.signalGraph` alongside legacy state (coexistence during migration)
+- Every state mutation goes through the command bus — AI uses same path as UI
+- Plugins are runtime-registered by string ID — no more switch statements
+- AI assistant operates on the graph via MCP-style tools
 
-1. 8 files over 1000 lines — improved from 12, but largest files still unwieldy
-2. CSS injected via JS strings in every page module — can't inspect in DevTools, no autocomplete
-3. 84 `window._*` globals — implicit coupling, no import graph
-4. Ad-hoc state mutation bypasses the command/history layer in most page modules
-5. Legacy delay routing — two delay paths (send/return + legacy); every delay change may need dual edits
-6. Magic strings everywhere (`state.crossfader`, `emit('step:toggle')`...) — rename breaks silently
+## Multi-Session Makeover Plan
 
-## Development Roadmap
-
-### Phase 0: Tooling & Housekeeping (completed)
+### Session 1: Graph Model Foundation
 
 ```
-Goal: Reduce friction per edit. Zero behavior changes.
+Goal: Establish the signal graph data model in state. No UI changes.
+Estimate: 2-3 hours
 ```
 
-- ESLint + Prettier configured with `eslint.config.js` and `.prettierrc`
-- Dead code `readBody()` removed from `server.mjs`
-- `.gitignore` tightened — added `.env*`, `*.log`, `.vscode/`
-- ESLint autofix run; fixed `root` is not defined error in `settings.js`
+- `docs/ARCHITECTURE.md` — written ✓
+- Add `state.signalGraph` to `createAppState()` in `state.js`
+- Add graph commands to `command-bus.js`:
+  - `add-graph-node`, `remove-graph-node`
+  - `connect-graph-nodes`, `disconnect-graph-nodes`
+  - `set-node-param`, `replace-graph`
+- Write `graphFromTracks()` — auto-derives graph from legacy track state
+- Write `applyGraphToTracks()` — writes graph changes back to legacy state
+- Add graph state round-trip tests to `test:state`
+- Verify: legacy patterns still work, graph is derived but not yet consumed
 
-### Phase 1: Mechanical Splits (completed)
-
-```
-Goal: Reduce cognitive load. Every file under 1200 lines. Pure extraction.
-```
-
-- 6 largest files split — extracted 11 new modules
-- Total JS lines reduced from ~34,258 to ~29,178
-- Files over 1000 lines reduced from 12 to 8
-- No logic changes. Pure extraction.
-
-### Phase 2: Unify Mutation & Clean State (in progress)
+### Session 2: Plugin Registry
 
 ```
-Goal: Single authoritative path for all state mutations.
-Estimate: 2–4 hours remaining
+Goal: Define the plugin registration API and register all existing DSP types as plugins.
+Estimate: 2-3 hours
 ```
 
-1. ~~Collapse to single reverb path (keep convolution, remove Freeverb graph)~~ ✓
-2. Extract magic strings to constants (`STATE_PATHS.js`, `EVENTS.js`)
-3. Consolidate `window._*` globals into a single `__CONFUSTUDIO__` namespace object
-4. Fix legacy delay routing (two delay paths; keep send/return, remove legacy)
-5. Add command types for step/selection operations (migration prep)
+- Create `src/plugins/registry.js` — `registerPlugin(id, descriptor)` + `getPlugin(id)`
+- Create plugin files for every existing machine/DSP type:
+  - `src/plugins/biquad.js` — filter
+  - `src/plugins/oscillator.js` — tone machine
+  - `src/plugins/noise.js` — noise machine
+  - `src/plugins/sampler.js` — sample machine
+  - `src/plugins/plaits.js`, `clouds.js`, `rings.js` — worklet synths
+  - `src/plugins/bitcrusher.js`, `delay.js`, `reverb.js`
+  - `src/plugins/gain.js`, `panner.js`, `compressor.js`
+  - `src/plugins/lfo.js`, `envelope.js`
+- Create `src/plugins/index.js` — imports and registers all plugins
+- Verify: `getPlugin('biquad')` returns port/param descriptors
 
-### Phase 3: Persistence (next sprint)
-
-```
-Goal: Save/restore everything — not just layout.
-Estimate: 6-8 hours
-```
-
-1. Define module state serialization contract for dynamic modules (djmixer, polysynth, etc.)
-2. ~~Add save/restore hooks → include module param state in project package~~ ✓ for workspace layout and DJ Mixer v1
-3. Extend module restore APIs to polysynth, monosynth, FM synth, drum machine, and Acid Machine
-4. Deep migration of `pattern.js` step editor, selection tools, random fill, morph to command bus
-5. Normalize remaining direct mutation in settings page to command/history layer
-
-### Phase 4: Feature Delivery (next)
+### Session 3: AudioEngine Reads the Graph
 
 ```
-Goal: Visible user-facing capabilities.
-Estimate: ongoing
+Goal: Engine creates Web Audio nodes from the signal graph instead of hardcoded chains.
+Estimate: 3-4 hours
 ```
 
-1. In-app assistant action preview/apply flow on top of `/api/assistant/actions/plan`
-2. Integrate `node-abletonlink` for real Ableton Link tempo sync
-3. Asset packaging hardening — compression, dedupe, and progress UI for large sample-backed projects
-4. Mobile/responsive pass for compact picker, transport keyboard, overlays
-5. Rust/WASM DSP core for sequencing and voice allocation (long-term)
+- Create `src/engine-graph.js`:
+  - `compileGraph(graph, audioContext) -> { nodes, connections }`
+  - Iterates `graph.nodes`, calls `plugin.create()` for each
+  - Iterates `graph.connections`, wires Web Audio nodes
+  - Handles graph changes at runtime (add/remove/reconnect)
+- Modify `engine.js` to optionally read from graph instead of hardcoded paths
+- Keep legacy path as fallback for unchanged tracks
+- Verify: existing patterns sound identical via both paths
+
+### Session 4: Cables Become Graph-Aware
+
+```
+Goal: SVG cables read/write the signal graph instead of ad-hoc audio routing.
+Estimate: 2-3 hours
+```
+
+- Modify `cables.js` to read connections from `state.signalGraph.connections`
+- Cable creation calls `connect-graph-nodes` command
+- Cable deletion calls `disconnect-graph-nodes` command
+- Module ports are derived from plugin port definitions
+- Verify: cable creation/removal updates graph state correctly
+
+### Session 5: AI Tool Surface
+
+```
+Goal: AI assistant can read and edit the signal graph through the command bus.
+Estimate: 2-3 hours
+```
+
+- Define AI tools as MCP-style command wrappers in `assistant-client.js`
+  - `get_graph` → reads `state.signalGraph`
+  - `add_node` → executes `add-graph-node`
+  - `set_param` → executes `set-node-param`
+  - `connect_ports` → executes `connect-graph-nodes`
+  - `generate_pattern` → executes `generate-drum-pattern`
+- Update `confustudio.manual.json` with graph tool descriptions
+- Wire free inference provider (opencode/Ollama) as default
+- Test end-to-end: AI proposes graph edit → command applies it → audio changes
+
+### Session 6: Studio Modules Become Graph Nodes
+
+```
+Goal: Studio canvas modules are rendered views of signal graph nodes.
+Estimate: 3-4 hours
+```
+
+- Each module type gets a `plugin` binding (e.g., `djmixer` → `plugin: 'djmixer'`)
+- Module chrome reads node params from graph instead of DOM state
+- Module serialization writes/reads from `signalGraph.nodes[id].params`
+- Layout persistence becomes graph metadata: `node.meta.x/y/zoom`
+- Verify: module state restores correctly from graph, not localStorage
+
+### Session 7: Plugin Power-Ups
+
+```
+Goal: Add new plugin types that unlock graph-only capabilities.
+Estimate: 3-4 hours
+```
+
+- `src/plugins/group.js` — subgraph container (instrument macro, FX chain)
+- `src/plugins/drum-rack.js` — multi-voice drum module
+- `src/plugins/euclidean.js` — Euclidean rhythm generator as control node
+- `src/plugins/random.js` — random voltage source (S&H, smooth)
+- Verify: new plugins work in the graph without touching engine.js
+
+### Session 8: Cleanup & Hardening
+
+```
+Goal: Remove legacy paths, reduce technical debt.
+Estimate: 2-3 hours
+```
+
+- Remove legacy delay routing (dual path → single graph path)
+- Collapse remaining `window._*` globals into `__CONFUSTUDIO__` namespace
+- Extract magic strings to `STATE_PATHS.js` / `EVENTS.js`
+- Verify all tests pass, no regressions
+
+### Session 9: Latent Primitive Prep (Optional / Future)
+
+```
+Goal: Design how neural codec tokens integrate as a new signal type.
+Estimate: workshop, not implementation
+```
+
+- Research: MimiCodec ONNX-in-browser latency profile
+- Design: `latent` signal type for the graph (latent token frames at 12.5 Hz)
+- Design: encode/decode nodes as graph plugins
+- Design: project file as hybrid (latent tokens + DSP graph)
+- Prototype: simple latent pass-through (encode → store → decode)
 
 ## Decision Log
 
 - **No TypeScript**: Would touch every file, break the build, minimal value before API surface stabilizes
 - **No Vite**: Current static file server is zero-config, zero-build. Adding a build step now is premature optimization
 - **No state management library**: Command bus exists and works. Replace it when proven insufficient, not before
-- **No comprehensive test coverage**: Test critical paths + regression anchors. 100% coverage on a rapidly changing prototype wastes velocity
-- **Skip full undo migration**: Defer perfect undo to v2. Formalize direct mutation patterns for simple operations instead of blocking on architecture purity
+- **Graph coexists with legacy state**: Migration is incremental, not a big bang
+- **AI operates at the command level**: No direct state manipulation. Same path as the UI
+- **Free inference by default**: opencode/Ollama for dev, API key upgrade for production
+- **Plugins are runtime-registered**: New DSP types don't require engine.js changes
+- **Skip latent tokens for now**: Design the graph with future `latent` signal type but ship audio/control/event first
