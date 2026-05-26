@@ -399,6 +399,8 @@ const el = {
   btnRecord: $('btn-record'),
   btnTap: $('btn-tap'),
   btnModular: $('btn-modular'),
+  btnPresetSave: $('btn-preset-save'),
+  btnPresetLoad: $('btn-preset-load'),
   bpmInput: $('bpm-input'),
   bpmDec: $('bpm-dec'),
   bpmInc: $('bpm-inc'),
@@ -3298,6 +3300,63 @@ function bindUI() {
   if (el.btnModular) {
     el.btnModular.addEventListener('click', () => {
       toggleModular();
+    });
+  }
+
+  // Graph presets
+  if (el.btnPresetSave) {
+    el.btnPresetSave.addEventListener('click', () => {
+      if (!state.signalGraph || !Object.keys(state.signalGraph.nodes || {}).length) {
+        showToast('No modules to save');
+        return;
+      }
+      const name = prompt('Preset name:');
+      if (!name) return;
+      state.signalPresets = state.signalPresets || [];
+      state.signalPresets.push({
+        name,
+        graph: JSON.parse(JSON.stringify(state.signalGraph)),
+      });
+      saveState(state);
+      showToast(`Saved preset: ${name}`);
+    });
+  }
+  if (el.btnPresetLoad) {
+    el.btnPresetLoad.addEventListener('click', () => {
+      state.signalPresets = state.signalPresets || [];
+      if (!state.signalPresets.length) {
+        showToast('No presets saved');
+        return;
+      }
+      // Simple inline preset picker
+      const existing = document.getElementById('preset-picker');
+      if (existing) existing.remove();
+      const overlay = document.createElement('div');
+      overlay.id = 'preset-picker';
+      overlay.style.cssText = 'position:fixed;top:40px;right:10px;background:#1a1a2e;border:1px solid #444;border-radius:6px;padding:8px;z-index:9999;max-height:300px;overflow-y:auto;font-family:monospace;font-size:12px;';
+      state.signalPresets.forEach((p, i) => {
+        const row = document.createElement('div');
+        row.textContent = p.name;
+        row.style.cssText = 'padding:4px 8px;cursor:pointer;color:#ccc;border-bottom:1px solid #222;';
+        row.addEventListener('click', () => {
+          state.signalGraph = JSON.parse(JSON.stringify(p.graph));
+          if (state.modularActive) {
+            state.modularEngine.compile(state.signalGraph);
+          }
+          saveState(state);
+          overlay.remove();
+          showToast(`Loaded preset: ${p.name}`);
+        });
+        overlay.appendChild(row);
+      });
+      // Close on click outside
+      setTimeout(() => document.addEventListener('click', function closePicker(e) {
+        if (!overlay.contains(e.target) && e.target !== el.btnPresetLoad) {
+          overlay.remove();
+          document.removeEventListener('click', closePicker);
+        }
+      }), 0);
+      document.body.appendChild(overlay);
     });
   }
 
