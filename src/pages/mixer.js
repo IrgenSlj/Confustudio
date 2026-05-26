@@ -369,6 +369,17 @@ export default {
     const stripEls = [];
     const meterEls = [];
 
+    // Meter colours from design tokens so VU/peak honour the active theme
+    // (incl. light). Read once per render; theme switches re-render the page.
+    const _rootStyle = getComputedStyle(document.documentElement);
+    const meterColor = {
+      hot: _rootStyle.getPropertyValue('--record').trim() || '#f05b52',
+      warm: _rootStyle.getPropertyValue('--accent').trim() || '#f0c640',
+      ok: _rootStyle.getPropertyValue('--live').trim() || '#5add71',
+    };
+    const levelColor = (level, hotAt, warmAt) =>
+      level > hotAt ? meterColor.hot : level > warmAt ? meterColor.warm : meterColor.ok;
+
     tracks.forEach((track, ti) => {
       const strip = buildTrackStrip(track, ti, state, emit, stripEls, meterEls);
       stripEls.push(strip);
@@ -601,9 +612,8 @@ export default {
         const vol = t.mute ? 0 : (t.volume ?? 0.8);
         const level = (window.__CONFUSTUDIO__.trackPeaks[trackIdx] ?? 0) * decay * vol;
 
-        const color = level > 0.85 ? '#f05b52' : level > 0.6 ? '#f0c640' : '#5add71';
         fill.style.width = level * 100 + '%';
-        fill.style.background = color;
+        fill.style.background = levelColor(level, 0.85, 0.6);
 
         // Peak hold: stays for 1.2s then fades
         if (peak) {
@@ -628,7 +638,7 @@ export default {
         const rms = Math.sqrt(sum / _masterData.length);
         const pct = Math.min(100, Math.round(rms * 800));
         masterVuFill.style.height = pct + '%';
-        masterVuFill.style.background = pct > 85 ? '#f05b52' : pct > 60 ? '#f0c640' : '#5add71';
+        masterVuFill.style.background = levelColor(pct, 85, 60);
       }
 
       _vuRaf = requestAnimationFrame(_animateVU);
