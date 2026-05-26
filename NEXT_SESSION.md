@@ -61,14 +61,21 @@ See `docs/ARCHITECTURE.md` for the full specification.
 - `applyGraphToTracks()` — writes graph node params back to legacy state
 - `repairState` ensures `signalGraph` shape for legacy project loads
 
-### Session 5
+### Session 5: Plugin Registry ✓
+
+- `src/plugins/registry.js` — `registerPlugin()`, `getPlugin()`, `listPlugins()`, `hasPlugin()`, `getPluginDefaultParams()`
+- 21 plugin descriptors registered: oscillator, tone, noise, sampler, plaits, clouds, rings, biquad, gain, panner, eq-3band, compressor, bitcrusher, delay, reverb, saturator, chorus, lfo, envelope, master-out, midi
+- Each plugin has: type, label, ports (typed), params (with defaults/ranges)
+- `src/plugins/index.js` — barrel import
+
+### Session 6
 
 Options:
-- **Plugin registry** — `src/plugins/registry.js`, register existing DSP types.
 - **Engine reads graph** — `engine-graph.js` compiles graph to Web Audio nodes.
 - **Cables become graph-aware** — SVG cables read/write `state.signalGraph.connections`
+- **Claude Design integration** — implement the design deliverables from `docs/CLAUDE_DESIGN_BRIEF.md`
 
-### Sessions 6-9
+### Sessions 7-9
 
 To be determined based on priority after Session 4.
 

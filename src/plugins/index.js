@@ -1,0 +1,23 @@
+export { registerPlugin, getPlugin, listPlugins, hasPlugin, getPluginDefaultParams } from './registry.js';
+
+import './oscillator.js';
+import './tone.js';
+import './noise.js';
+import './sampler.js';
+import './plaits.js';
+import './clouds.js';
+import './rings.js';
+import './biquad.js';
+import './gain.js';
+import './panner.js';
+import './eq-3band.js';
+import './compressor.js';
+import './bitcrusher.js';
+import './delay.js';
+import './reverb.js';
+import './saturator.js';
+import './chorus.js';
+import './lfo.js';
+import './envelope.js';
+import './master-out.js';
+import './midi.js';
