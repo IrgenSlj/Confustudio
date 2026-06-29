@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 
 import { applyProjectPackageToState, createAppState, createProjectPackage } from '../src/state.js';
-import { captureCommandState, executeStudioCommands } from '../src/command-bus.js';
+import { executeStudioCommands } from '../src/command-bus.js';
 
 function createFakeBuffer(channelData, sampleRate = 44100) {
   const channels = channelData.map((data) => Float32Array.from(data));
