@@ -1,5 +1,5 @@
 // CONFUstudio — recorder / audio capture functions
-import { cloneJson, getActivePattern } from './state.js';
+import { getActivePattern } from './state.js';
 
 export function resetRecorderSlotMeta(slotIndex) {
   return {

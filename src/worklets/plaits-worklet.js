@@ -270,7 +270,6 @@ class PlaitsProcessor extends AudioWorkletProcessor {
     const { frequency, timbre, harmonics, morph, sampleRate: sr } = this.params;
 
     // Select chord type by timbre
-    let intervals;
     if (timbre < 0.2)
       this._e4Ints.set([0, 4, 7, 12]); // Major
     else if (timbre < 0.4)
@@ -280,7 +279,7 @@ class PlaitsProcessor extends AudioWorkletProcessor {
     else if (timbre < 0.8)
       this._e4Ints.set([0, 4, 7, 10]); // Dom7
     else this._e4Ints.set([0, 4, 7, 11]); // Maj7
-    intervals = this._e4Ints;
+    const intervals = this._e4Ints;
 
     // Compute per-voice frequencies
     const voiceFreqs = this._e4VoiceFreqs;

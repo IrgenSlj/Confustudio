@@ -60,7 +60,6 @@ assert.equal(imported.project.banks.length, 8);
 assert.equal(imported.project.banks[0].patterns[0].kit.tracks[0].sampleBuffer.getChannelData(0)[3], 1);
 assert.ok(Math.abs(imported.recorderBuffers[0].getChannelData(1)[2] - 0.2) < 0.00001);
 
-const before = captureCommandState(imported);
 const result = executeStudioCommands(imported, [
   { type: 'select-bank', bankIndex: 2 },
   { type: 'select-pattern', bankIndex: 1, patternIndex: 7, trackIndex: 5 },
