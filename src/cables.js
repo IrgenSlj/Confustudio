@@ -17,6 +17,21 @@ function nextColor() {
   return CABLE_COLORS[_colorIdx++ % CABLE_COLORS.length];
 }
 
+// Cable colour by signal type (brief: audio=white, control=blue, event=yellow).
+const SIGNAL_COLORS = {
+  audio: '#e8f4e0',
+  control: '#67d7ff',
+  event: '#f0c640',
+};
+
+// Resolve a cable colour from the signal type stamped on its endpoints' ports
+// (set by dsp-module.js). Falls back to the rotating palette for legacy module
+// ports that carry no signal metadata.
+function colorForPorts(fromEl, toEl) {
+  const sig = fromEl?.dataset?.signal || toEl?.dataset?.signal;
+  return SIGNAL_COLORS[sig] || nextColor();
+}
+
 export function initCables() {
   const studioWrap = document.getElementById('studio-wrap');
   if (!studioWrap) return;
@@ -336,7 +351,7 @@ export function initCables() {
   function addCable(fromEl, toEl, options = {}) {
     const {
       id = `cable-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      color = nextColor(),
+      color = colorForPorts(fromEl, toEl),
       persist = true,
     } = options;
     const savedRef = { from: portRef(fromEl), to: portRef(toEl) };

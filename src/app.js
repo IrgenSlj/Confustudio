@@ -86,6 +86,41 @@ function showToast(msg, duration = 1200) {
     toast.style.opacity = '0';
   }, duration);
 }
+// Exposed for modules (e.g. dsp-module.js) that run outside this scope.
+window.showToast = showToast;
+
+// ─────────────────────────────────────────────
+// RECOVERY ESCAPE HATCHES
+// A corrupt saved studio layout or a stale service-worker cache can leave the
+// canvas showing blank modules. These give a no-DevTools way out.
+// ─────────────────────────────────────────────
+const WORKSPACE_KEYS = [
+  'confustudio-studio-layout-v4',
+  'confustudio-studio-view-v3',
+  'confustudio-studio-cables-v1',
+  'confustudio-zoom-lens-v2',
+];
+// Clear the modular workspace (layout/view/cables) but keep the song/project.
+window.__CONFUSTUDIO__.resetWorkspace = function resetWorkspace() {
+  try {
+    WORKSPACE_KEYS.forEach((k) => localStorage.removeItem(k));
+  } catch (_) {}
+  location.reload();
+};
+// Nuclear: clear all app storage, unregister the service worker, drop caches.
+window.__CONFUSTUDIO__.hardReset = async function hardReset() {
+  try {
+    localStorage.clear();
+    sessionStorage.clear();
+    const regs = (await navigator.serviceWorker?.getRegistrations?.()) || [];
+    await Promise.all(regs.map((r) => r.unregister()));
+    if (window.caches?.keys) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+  } catch (_) {}
+  location.reload();
+};
 
 window.__CONFUSTUDIO__.showToast = showToast;
 
@@ -3356,8 +3391,11 @@ function bindUI() {
         const row = document.createElement('div');
         row.textContent = p.name;
         row.style.cssText = 'padding:4px 8px;cursor:pointer;color:#ccc;border-bottom:1px solid #222;';
-        row.addEventListener('click', () => {
+        row.addEventListener('click', async () => {
           state.signalGraph = JSON.parse(JSON.stringify(p.graph));
+          // Rebuild visible modules/cables from the loaded graph before compiling,
+          // so the canvas matches the preset and the engine compiles the wired graph.
+          await window.__CONFUSTUDIO__?.workspace?.rebuildFromGraph?.();
           if (state.modularActive) {
             state.modularEngine.compile(state.signalGraph);
           }

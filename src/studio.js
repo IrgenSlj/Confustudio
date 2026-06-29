@@ -12,6 +12,7 @@ import {
   getWrapSize,
   isModuleInteractiveTarget,
   moduleById,
+  rebuildModulesFromGraph,
   removeModule,
   saveLayout,
   saveView,
@@ -61,6 +62,7 @@ export function initStudio() {
       }
     },
     getView: () => ({ scale: S.scale, panX: S.panX, panY: S.panY, autoZoom: S._autoZoom }),
+    rebuildFromGraph: () => rebuildModulesFromGraph(S),
   };
 
   const ZOOM_LENS_KEY = 'confustudio-zoom-lens-v2';
@@ -318,24 +320,30 @@ export function initStudio() {
       const layout = JSON.parse(raw);
       if (!Array.isArray(layout)) return false;
       layout.forEach((item) => {
-        if (!item?.id) return;
-        const type = item.type || 'synth';
-        let mod = moduleById(S, item.id);
-        if (!mod && item.id !== 'module-0') {
-          mod = addModule(S, type, {
-            id: item.id,
-            left: item.left,
-            top: item.top,
-            zoom: item.zoom,
-            select: false,
-            fit: false,
-            persist: false,
-            moduleState: item.moduleState,
-          });
+        // Guard each item so one corrupt saved module can't abort the whole
+        // restore (and leave the workspace half-built).
+        try {
+          if (!item?.id) return;
+          const type = item.type || 'synth';
+          let mod = moduleById(S, item.id);
+          if (!mod && item.id !== 'module-0') {
+            mod = addModule(S, type, {
+              id: item.id,
+              left: item.left,
+              top: item.top,
+              zoom: item.zoom,
+              select: false,
+              fit: false,
+              persist: false,
+              moduleState: item.moduleState,
+            });
+          }
+          if (!mod) return;
+          applySavedLayoutItem(mod, item);
+          if (item.selected) S._restoredSelectedModuleId = item.id;
+        } catch (err) {
+          console.warn('[restoreLayout] skipped bad module', item?.id, err);
         }
-        if (!mod) return;
-        applySavedLayoutItem(mod, item);
-        if (item.selected) S._restoredSelectedModuleId = item.id;
       });
       S.hasRestoredLayout = true;
       return true;

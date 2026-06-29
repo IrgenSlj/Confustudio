@@ -1,0 +1,217 @@
+/* CONFUstudio — Design Tokens (canonical)
+ * Adopted from the Claude Design handoff bundle (confusynth-ui-ux). The
+ * authoritative chassis token system. Imported first by src/styles.css so all
+ * 68 tokens are available app-wide. Purely additive: every legacy --chassis-*
+ * / --screen-* name is preserved.
+ */
+
+:root {
+  /* ─── CHASSIS (outer enclosure / bezel) ──────────────────────────────── */
+  --chassis-bg:        #4e5f3c;  /* army green base */
+  --chassis-dark:      #3d4d2e;  /* shadow side of bezel */
+  --chassis-light:     #5e7048;  /* highlight side of bezel */
+  --chassis-darker:    #2d3a22;  /* recessed wells, screen rim */
+  --chassis-text:      #b8c8a0;  /* labels silk-screened on chassis */
+  --chassis-metal:     #8a9a72;  /* hardware screws, brackets */
+  --chassis-rubber:    #1c2415;  /* rubberized button wells */
+
+  /* ─── SCREEN (the dark inner display area) ───────────────────────────── */
+  --screen-bg:         #111810;
+  --screen-bg-2:       #0a0f08;  /* deeper screen wells */
+  --screen-bg-raise:   #161e14;  /* slightly raised screen panels */
+  --screen-text:       #e8f4e0;
+  --screen-text-dim:   rgba(232, 244, 224, 0.55);
+  --screen-text-mute:  rgba(232, 244, 224, 0.30);
+  --screen-glow:       rgba(135, 188, 110, 0.08); /* CRT haze */
+
+  /* ─── SEMANTIC SURFACES (under the screen) ───────────────────────────── */
+  --bg:                #0d150a;
+  --bg-2:              #111c0e;
+  --surface:           #1a2615;
+  --surface-2:         #243318;
+  --surface-3:         #2e4022;
+  --surface-hover:     #2a3a1f;
+  --surface-active:    #344a26;
+
+  /* ─── BORDERS & DIVIDERS ─────────────────────────────────────────────── */
+  --border:            rgba(255, 255, 255, 0.07);
+  --border-strong:     rgba(255, 255, 255, 0.14);
+  --border-screen:     rgba(232, 244, 224, 0.10);
+  --border-inset:      rgba(0, 0, 0, 0.50);
+
+  /* ─── FOREGROUND TEXT ────────────────────────────────────────────────── */
+  --fg:                #e8f4e0;
+  --fg-2:              rgba(232, 244, 224, 0.78);
+  --fg-3:              rgba(232, 244, 224, 0.55);
+  --fg-mute:           rgba(232, 244, 224, 0.32);
+  --fg-disabled:       rgba(232, 244, 224, 0.18);
+
+  /* ─── ACCENTS (LED-like, used SPARINGLY) ─────────────────────────────── */
+  --accent:            #f0c640;  /* amber — primary action, selection */
+  --accent-dim:        #c9a128;
+  --accent-glow:       rgba(240, 198, 64, 0.42);
+  --live:              #5add71;  /* green — play, on, signal-good */
+  --live-glow:         rgba(90, 221, 113, 0.38);
+  --record:            #f05b52;  /* red — record, danger */
+  --record-glow:       rgba(240, 91, 82, 0.42);
+  --electric:          #67d7ff;  /* cyan — modulation, AI, signal-info */
+  --electric-glow:     rgba(103, 215, 255, 0.36);
+  --magenta:           #ff6eb4;  /* hot pink — scenes, performance */
+
+  /* ─── TRACK COLORS (8 tracks) ────────────────────────────────────────── */
+  --track-0: #f0c640;  /* amber   — kick   */
+  --track-1: #5add71;  /* green   — snare  */
+  --track-2: #67d7ff;  /* sky     — hat    */
+  --track-3: #ff8c52;  /* orange  — perc   */
+  --track-4: #c67dff;  /* violet  — bass   */
+  --track-5: #ff6eb4;  /* pink    — lead   */
+  --track-6: #40e0d0;  /* teal    — pad    */
+  --track-7: #f05b52;  /* red     — fx     */
+
+  /* ─── SEMANTIC FEEDBACK ──────────────────────────────────────────────── */
+  --success:           #5add71;
+  --warning:           #f0c640;
+  --danger:            #f05b52;
+  --info:              #67d7ff;
+
+  /* ─── TYPOGRAPHY ─────────────────────────────────────────────────────── */
+  --font-ui:    'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono:  'IBM Plex Mono', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-display: 'Space Grotesk', 'Inter', sans-serif;
+
+  --fs-10: 10px;
+  --fs-11: 11px;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-14: 14px;
+  --fs-15: 15px;
+  --fs-16: 16px;
+  --fs-18: 18px;
+  --fs-20: 20px;
+  --fs-24: 24px;
+  --fs-32: 32px;
+  --fs-44: 44px;
+
+  --lh-tight:  1.15;
+  --lh-snug:   1.30;
+  --lh-normal: 1.50;
+  --lh-loose:  1.65;
+
+  --tracking-tight:  -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide:   0.04em;
+  --tracking-mono:   0.08em;  /* uppercase labels */
+
+  /* ─── SPACING (4px grid) ─────────────────────────────────────────────── */
+  --s-0:   0;
+  --s-1:   4px;
+  --s-2:   8px;
+  --s-3:   12px;
+  --s-4:   16px;
+  --s-5:   24px;
+  --s-6:   32px;
+  --s-7:   48px;
+  --s-8:   64px;
+  --s-9:   96px;
+  --s-10:  128px;
+
+  /* ─── RADII ──────────────────────────────────────────────────────────── */
+  --r-xs:  2px;
+  --r-sm:  4px;   /* inputs, small buttons, step pads */
+  --r-md:  6px;
+  --r-lg:  8px;   /* cards, panels */
+  --r-xl:  12px;  /* modals, screens */
+  --r-2xl: 16px;  /* chassis interior */
+  --r-3xl: 22px;  /* chassis outer bezel */
+  --r-pill: 999px;
+
+  /* ─── ELEVATION (mostly inset/inner-shadow on this chassis) ──────────── */
+  --shadow-1: 0 1px 0 rgba(0, 0, 0, 0.30);
+  --shadow-2: 0 8px 24px -12px rgba(0, 0, 0, 0.55);
+  --shadow-3: 0 24px 48px -16px rgba(0, 0, 0, 0.70);
+  --inset-screen: inset 0 2px 6px rgba(0, 0, 0, 0.70), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  --inset-well:   inset 0 2px 4px rgba(0, 0, 0, 0.55);
+  --bevel-up:     inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 0 rgba(0, 0, 0, 0.35);
+  --bevel-down:   inset 0 1px 2px rgba(0, 0, 0, 0.60);
+
+  /* ─── MOTION ─────────────────────────────────────────────────────────── */
+  --dur-1: 80ms;     /* press feedback */
+  --dur-2: 140ms;    /* hover, focus */
+  --dur-3: 220ms;    /* layout shift */
+  --dur-4: 320ms;    /* panel slide */
+  --ease:    cubic-bezier(0.2, 0, 0, 1);       /* standard out */
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.34, 1.20, 0.64, 1);
+
+  /* ─── LAYOUT ─────────────────────────────────────────────────────────── */
+  --header-h:        56px;
+  --tab-h:           44px;
+  --transport-w:     72px;   /* left transport rail */
+  --channel-w:       112px;  /* right channel strip */
+  --footer-h:        56px;
+  --max-app-w:       1440px;
+  --grid-gutter:     24px;
+  --touch-target:    44px;
+
+  /* ─── COMPONENT METRICS ──────────────────────────────────────────────── */
+  --step-size:       56px;   /* default step pad */
+  --step-gap:        6px;
+  --pad-size:        96px;   /* finger pad */
+  --knob-size:       56px;
+  --knob-sm:         32px;
+  --knob-lg:         80px;
+  --fader-h:         260px;
+  --fader-w:         44px;
+  --meter-w:         8px;
+}
+
+/* ─── BACKWARDS-COMPATIBILITY ALIASES ──────────────────────────────────────
+ * Names used by code that predates this token system. styles.css still defines
+ * the legacy colour names (--text, --bg2, --surface2, --muted, --warn) with its
+ * own values and is imported after this file, so those win unchanged. The
+ * aliases below cover the scale tokens that were previously hand-defined inline,
+ * mapping them onto the canonical system so there is a single source of truth.
+ */
+:root {
+  /* Radii (was 3/6/10/999 → canonical 4/6/8/pill) */
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-full: var(--r-pill);
+
+  /* Spacing — indices 1–3 match the canonical 4px grid */
+  --space-0: var(--s-0);
+  --space-1: var(--s-1);
+  --space-2: var(--s-2);
+  --space-3: var(--s-3);
+  --space-4: var(--s-4);
+
+  /* Type scale aliases */
+  --fs-sm: var(--fs-12);
+  --fs-xs: var(--fs-10);
+  --fs-md: var(--fs-14);
+  --fs-lg: var(--fs-16);
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+
+  /* Elevation aliases */
+  --shadow-sm: var(--shadow-1);
+  --shadow-md: var(--shadow-2);
+  --shadow-lg: var(--shadow-3);
+  --shadow-inset: var(--inset-well);
+  --glow-accent: 0 0 8px var(--accent-glow);
+
+  /* Motion + interaction aliases */
+  --dur-fast: var(--dur-2);
+  --dur-base: var(--dur-3);
+  --ease-out: var(--ease);
+  --focus-ring: var(--accent);
+  --touch-min: var(--touch-target);
+
+  /* Z-index scale (no canonical equivalent) */
+  --z-canvas: 1;
+  --z-overlay: 1000;
+  --z-toast: 2000;
+  --z-modal: 3000;
+}

@@ -1,10 +1,14 @@
-const CACHE_NAME = 'confustudio-v3';
+// Bump this on every release so returning users purge stale precached assets
+// on the next activate. A static cache name was the root cause of stale-shell
+// "blank page" reports — keep it moving.
+const CACHE_NAME = 'confustudio-v4';
 const APP_SHELL = [
   '/',
   '/index.html',
   '/src/app.js',
   '/src/assistant-client.js',
   '/src/styles.css',
+  '/src/css/tokens.css',
   '/public/manifest.webmanifest',
 ];
 

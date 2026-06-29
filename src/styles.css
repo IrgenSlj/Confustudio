@@ -4,6 +4,10 @@
 
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap');
 
+/* Canonical design tokens (Claude Design handoff). Imported first so all 68
+   tokens resolve; the legacy :root below keeps its own names additively. */
+@import url('./css/tokens.css');
+
 :root {
   /* Army green chassis */
   --chassis-bg: #4e5f3c;
@@ -51,6 +55,9 @@
   /* Fonts */
   --font-mono: 'IBM Plex Mono', 'SFMono-Regular', monospace;
   --font-ui: 'Space Grotesk', 'Avenir Next', sans-serif;
+
+  /* Scale tokens (spacing/radius/shadow/type/motion/z) now live in the
+     canonical token system — see src/css/tokens.css, imported above. */
 }
 
 /* ============================================================
@@ -79,6 +86,61 @@
   --live: #aaaaaa;
   --screen-text: #cccccc;
   --muted: #666666;
+}
+
+/* Theme: Light — keeps the green chassis brand, flips the screen/surfaces.
+   Overrides the surface/text token families so the dark-built CSS reads
+   correctly on a light ground. */
+[data-theme='light'] {
+  color-scheme: light;
+
+  /* Chassis stays green but lighter, for brand continuity */
+  --chassis-bg: #8a9a6e;
+  --chassis-dark: #6f7f54;
+  --chassis-light: #a3b187;
+  --chassis-text: #2c3520;
+  --chassis-metal: #c4cdb0;
+
+  /* Screen → paper */
+  --screen-bg: #eef2e6;
+  --screen-text: #1c2417;
+  --muted: #5c6b4c;
+  --fg: #1c2417;
+  --border: rgba(0, 0, 0, 0.12);
+
+  /* Accents tuned for contrast on light surfaces (text ≥ 4.5:1) */
+  --accent: #9a7b00;
+  --live: #2f8f44;
+  --record: #c43a31;
+  --electric: #1f7fb0;
+
+  /* Surfaces */
+  --bg: #dfe4d4;
+  --bg2: #e7ecdd;
+  --surface: #f2f5ec;
+  --surface2: #e3e8d8;
+  --text: rgba(20, 28, 14, 0.9);
+  --text-dim: rgba(20, 28, 14, 0.55);
+  --text-muted: rgba(20, 28, 14, 0.4);
+  --danger: #c43a31;
+  --warn: #c2691f;
+
+  /* Step grid */
+  --step-off: #d4dac6;
+  --step-on: #9fd3a6;
+  --step-accent: #e8d488;
+  --step-plock: #b9c0ef;
+
+  /* Keyboard */
+  --key-white: #f4f1e8;
+  --key-black: #2a2a2e;
+  --key-white-edge: #cfc9b8;
+  --key-black-edge: #1a1a1c;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.12);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.18);
+  --shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.12);
 }
 
 /* ============================================================
