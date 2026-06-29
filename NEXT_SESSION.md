@@ -66,6 +66,7 @@ See `docs/ARCHITECTURE.md` for the full specification.
 **Core idea:** State mutations go through the command bus. Every command is optionally recorded as a node in a lightweight DAG (`_signalGraph`). This graph enables deterministic undo/redo via command replay instead of full-state snapshots.
 
 **Completed (Sessions 1-3):**
+
 - `createSignalGraph()`, `recordSignal()`, `computePathToRoot()`, `computeCriticalPath()` in state.js
 - `signalUndo()`, `signalRedo()`, `replaySignalSubgraph()`, `executeAndRecord()` in command-bus.js
 - `history-ui.js` rewritten to use signal-graph replay instead of snapshot-based history controller
@@ -153,13 +154,21 @@ See `docs/ARCHITECTURE.md` for the full specification.
   - `module:removed` event → `removeNode()` on signal graph
   - Listener in `app.js` `boot()` handles signal graph cleanup
 
-### Session 8
+### Session 8: Music Kernel Grounding
 
-Options:
-- **Claude Design integration** — implement the design deliverables from `docs/CLAUDE_DESIGN_BRIEF.md`
-- **Cable port routing** — route signal graph connections through specific module ports (not just module-to-module)
-- **MIDI learn for DSP params** — assign MIDI CCs to signal graph node parameters
-- **Graph presets** — save/load signal graph configurations
+Primary direction:
+
+- Extract pure timing and trig-condition helpers from `app.js` into `src/kernel/`.
+- Add direct tests for transport math, trig conditions, and deterministic event compilation.
+- Keep runtime behavior unchanged while creating the seam for a real event compiler.
+- Use `docs/MUSIC_KERNEL_RESEARCH.md` as the guiding architecture memo.
+
+Follow-on options:
+
+- **Event compiler integration** — make `scheduleLoop()` consume compiled event batches before calling `triggerTrack()`.
+- **Cable port routing** — route signal graph connections through specific module ports.
+- **Module clock migration** — make Drum Machine and Acid Machine consume kernel transport events instead of standalone timers.
+- **Graph presets** — save/load signal graph configurations.
 
 ## Decision Log
 
@@ -167,4 +176,5 @@ Options:
 - **No state management library**: Command bus exists and works
 - **Graph coexists with legacy state**: Migration is incremental
 - **AI operates at the command level**: No direct state manipulation
-- **Two graph concepts**: Command-history DAG (`_signalGraph`, runtime-only) for edit tracking; Audio routing graph (future `signalGraph`, serializable) for DSP routing
+- **Two graph concepts**: Command-history DAG (`_signalGraph`, runtime-only) for edit tracking; audio routing graph (`signalGraph`, serializable) for DSP routing
+- **Music kernel boundary**: UI edits state, the kernel compiles musical time into timestamped events, and the graph/DSP runtime renders those events.

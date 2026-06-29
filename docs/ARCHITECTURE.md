@@ -12,6 +12,19 @@
 
 5. **Free inference first, API keys later.** Default assistant runs on free/limited inference (opencode, local Ollama). Users can bring their own keys.
 
+6. **The music kernel is separate from the UI.** UI code may edit state and request transport actions, but musical timing, event compilation, graph routing, and DSP rendering should move behind a stable kernel boundary.
+
+## Music Kernel
+
+The music kernel is the bridge between project data and rendered sound. It should evolve in layers:
+
+1. **Musical model** — patterns, clips, tracks, scenes, arranger sections, automation lanes, sample assets, and patch data in musical time.
+2. **Event compiler** — pure logic that turns a transport window into timestamped note, sample, MIDI, automation, scene, and recorder events.
+3. **Audio graph and voice engine** — persistent track strips, instruments, effects, sends, returns, sidechains, meters, and plugin nodes.
+4. **DSP runtime** — AudioWorklet in browser mode, with Rust/WASM or native DSP for shared rendering later.
+
+The immediate migration rule is conservative: extract pure timing and event logic first, then make the modular graph authoritative, then replace per-trigger Web Audio node chains with persistent instruments.
+
 ## The Command Graph (Edit History DAG)
 
 The command graph records every `executeStudioCommand` call as a node in a lightweight DAG. This replaces the old snapshot-based undo/redo with a deterministic replay-based system.
@@ -25,27 +38,27 @@ _signalGraph = {
       id: 1,
       command: { type: 'set-transport', bpm: 128 }, // full command for replay
       timestamp: 1718000000000,
-      parentId: null,           // causal parent (previous command)
+      parentId: null, // causal parent (previous command)
       changed: true,
       summary: 'Updated transport',
     },
   ],
   edges: [{ from: 1, to: 2 }], // causality edges
-  nextId: 3,                    // auto-incrementing ID counter
-  headId: 2,                    // latest node (tip of the graph)
-  cursorId: 2,                  // undo/redo cursor position
-}
+  nextId: 3, // auto-incrementing ID counter
+  headId: 2, // latest node (tip of the graph)
+  cursorId: 2, // undo/redo cursor position
+};
 ```
 
 ### Key Properties
 
-| Property | Description |
-|---|---|
-| Append-only | Nodes are never deleted. Undo moves the cursor backward |
-| Full command stored | Each node stores the complete command object for deterministic replay |
-| Cursor-based undo | `signalUndo(graph)` walks cursor to parent; `signalRedo(graph)` walks to child |
+| Property             | Description                                                                                  |
+| -------------------- | -------------------------------------------------------------------------------------------- |
+| Append-only          | Nodes are never deleted. Undo moves the cursor backward                                      |
+| Full command stored  | Each node stores the complete command object for deterministic replay                        |
+| Cursor-based undo    | `signalUndo(graph)` walks cursor to parent; `signalRedo(graph)` walks to child               |
 | Replay-based restore | `replaySignalSubgraph(state, graph, targetId)` replays the critical path from root to cursor |
-| Runtime-only | Prefixed with `_`, automatically stripped by `stripRuntime` on serialization |
+| Runtime-only         | Prefixed with `_`, automatically stripped by `stripRuntime` on serialization                 |
 
 ### How Undo/Redo Works
 
@@ -56,15 +69,15 @@ _signalGraph = {
 
 ### API Surface
 
-| Function | Location | Purpose |
-|---|---|---|
-| `createSignalGraph()` | state.js | Factory returning empty graph |
-| `recordSignal(graph, cmd, parentId, result)` | state.js | Append a node to the graph |
-| `computePathToRoot(graph, nodeId)` | state.js | Walk ancestry to root |
-| `computeCriticalPath(graph, fromId, toId)` | state.js | Walk range between two nodes |
-| `signalUndo(graph)` | command-bus.js | Move cursor backward |
-| `signalRedo(graph)` | command-bus.js | Move cursor forward |
-| `replaySignalSubgraph(state, graph, id, opts)` | command-bus.js | Replay commands from root to node |
+| Function                                       | Location       | Purpose                            |
+| ---------------------------------------------- | -------------- | ---------------------------------- |
+| `createSignalGraph()`                          | state.js       | Factory returning empty graph      |
+| `recordSignal(graph, cmd, parentId, result)`   | state.js       | Append a node to the graph         |
+| `computePathToRoot(graph, nodeId)`             | state.js       | Walk ancestry to root              |
+| `computeCriticalPath(graph, fromId, toId)`     | state.js       | Walk range between two nodes       |
+| `signalUndo(graph)`                            | command-bus.js | Move cursor backward               |
+| `signalRedo(graph)`                            | command-bus.js | Move cursor forward                |
+| `replaySignalSubgraph(state, graph, id, opts)` | command-bus.js | Replay commands from root to node  |
 | `executeAndRecord(state, cmd, parentSignalId)` | command-bus.js | Execute + optionally record signal |
 
 ### Migration from Snapshot History
@@ -81,7 +94,7 @@ Signal graph v2 will extend the concept to model audio routing, parallel to the 
 signalGraph = {
   nodes: { [nodeId]: { plugin, params, ports, meta } },
   connections: [{ fromNode, fromPort, toNode, toPort }],
-}
+};
 ```
 
 This is planned for Sessions 3+.
@@ -89,12 +102,15 @@ This is planned for Sessions 3+.
 ## Audio Engine
 
 ### Phase 1 (current)
-Web Audio API graph with AudioWorklet nodes (MIRANDA, plaits, clouds, rings). Hardcoded track→DSP routing in `engine.js`.
+
+Web Audio API graph with AudioWorklet nodes (plaits, clouds, rings, resampler, bitcrusher). Hardcoded track→DSP routing still lives in `engine.js`, while `engine-graph.js` compiles modular graph nodes separately.
 
 ### Phase 2 (future)
-Signal graph (audio routing variant) drives AudioEngine. Each graph node creates the corresponding Web Audio node. Graph connections become Web Audio connections.
+
+The music kernel event compiler feeds persistent instruments and the audio routing graph. Each graph node creates the corresponding Web Audio node. Graph connections become Web Audio connections, and track strips compile into graph subgraphs.
 
 ### Phase 3 (future)
+
 Select graph subgraphs compile to WGSL compute shaders for WebGPU execution. Rust/WASM core for critical paths (voice allocation, scheduling, offline render).
 
 ## AI Integration

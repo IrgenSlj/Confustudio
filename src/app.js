@@ -23,14 +23,16 @@ import { initBackground } from './background.js';
 import { captureCommandState, executeStudioCommands } from './command-bus.js';
 import { EVENTS, STATE_PATHS } from './constants.js';
 import { STUDIO_LAYOUT_KEY, STUDIO_VIEW_KEY } from './studio-modules.js';
+import { cloneJson } from './state.js';
 import {
   resetRecorderSlotMeta,
-  cloneJson,
   captureRecorderSlot,
   loadRecorderSlotToTrack,
   exportRecorderSlot,
 } from './recorder.js';
 import { initHistoryUI } from './history-ui.js';
+import { shouldTriggerStep } from './kernel/event-compiler.js';
+import { getStepDurationSeconds } from './kernel/transport.js';
 
 // Page modules
 import patternPage from './pages/pattern.js';
@@ -119,6 +121,8 @@ window.__CONFUSTUDIO__.hardReset = async function hardReset() {
   } catch (_) {}
   location.reload();
 };
+
+window.__CONFUSTUDIO__.showToast = showToast;
 
 // ─────────────────────────────────────────────
 // MIDI CC LEARN FRAMEWORK
@@ -2146,7 +2150,7 @@ function scheduleLoop() {
   const tick = () => {
     if (!state.isPlaying) return;
     const ctx = state.audioContext;
-    const secsPerStep = 60 / state.bpm / 4;
+    const secsPerStep = getStepDurationSeconds(state.bpm);
     const pattern = getActivePattern(state);
     const isSoloing = pattern.kit.tracks.some((t) => t.solo);
 
@@ -2193,8 +2197,15 @@ function scheduleLoop() {
         if (step.mute) return;
 
         // Trig condition check
-        if (!evalTrigCondition(step, state._patternLoopCount ?? 0)) return;
-        if (Math.random() >= step.probability) return;
+        if (
+          !shouldTriggerStep(step, {
+            loopCount: state._patternLoopCount ?? 0,
+            fillActive: state._fillActive ?? false,
+          })
+        ) {
+          return;
+        }
+        if (Math.random() >= (step.probability ?? 1)) return;
 
         const sceneOverride = sceneParams[ti] || {};
 
@@ -2563,45 +2574,6 @@ function scheduleLoop() {
     _schedRafId = requestAnimationFrame(tick);
   };
   _schedRafId = requestAnimationFrame(tick);
-}
-
-function evalTrigCondition(step, loopCount) {
-  const cond = step.trigCondition ?? 'always';
-  switch (cond) {
-    case 'always':
-      return true;
-    case '1st':
-      return loopCount === 0;
-    case 'not1st':
-      return loopCount > 0;
-    case 'every2':
-      return loopCount % 2 === 0;
-    case 'every3':
-      return loopCount % 3 === 0;
-    case 'every4':
-      return loopCount % 4 === 0;
-    case 'random':
-      return Math.random() < (step.prob ?? step.probability ?? 1);
-    case 'fill':
-      return state._fillActive ?? false;
-    case 'not_fill':
-      return !(state._fillActive ?? false);
-    // Legacy conditions kept for backward compat
-    case 'first':
-      return loopCount === 0;
-    case 'not_first':
-    case 'not:first':
-      return loopCount > 0;
-    default: {
-      // Legacy ratio format: "1:2", "1:4", "3:4" — evaluated against loopCount
-      const m = cond.match(/^(\d+):(\d+)$/);
-      if (m) {
-        const [, num, den] = m.map(Number);
-        return loopCount % den < num;
-      }
-      return true;
-    }
-  }
 }
 
 async function toggleModular() {
@@ -3413,7 +3385,8 @@ function bindUI() {
       if (existing) existing.remove();
       const overlay = document.createElement('div');
       overlay.id = 'preset-picker';
-      overlay.style.cssText = 'position:fixed;top:40px;right:10px;background:#1a1a2e;border:1px solid #444;border-radius:6px;padding:8px;z-index:9999;max-height:300px;overflow-y:auto;font-family:monospace;font-size:12px;';
+      overlay.style.cssText =
+        'position:fixed;top:40px;right:10px;background:#1a1a2e;border:1px solid #444;border-radius:6px;padding:8px;z-index:9999;max-height:300px;overflow-y:auto;font-family:monospace;font-size:12px;';
       state.signalPresets.forEach((p, i) => {
         const row = document.createElement('div');
         row.textContent = p.name;
@@ -3433,12 +3406,16 @@ function bindUI() {
         overlay.appendChild(row);
       });
       // Close on click outside
-      setTimeout(() => document.addEventListener('click', function closePicker(e) {
-        if (!overlay.contains(e.target) && e.target !== el.btnPresetLoad) {
-          overlay.remove();
-          document.removeEventListener('click', closePicker);
-        }
-      }), 0);
+      setTimeout(
+        () =>
+          document.addEventListener('click', function closePicker(e) {
+            if (!overlay.contains(e.target) && e.target !== el.btnPresetLoad) {
+              overlay.remove();
+              document.removeEventListener('click', closePicker);
+            }
+          }),
+        0,
+      );
       document.body.appendChild(overlay);
     });
   }

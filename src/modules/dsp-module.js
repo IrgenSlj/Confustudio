@@ -11,6 +11,10 @@ const PARAM_KNOB_MAP = {
   pan: { min: -1, max: 1, step: 0.01, label: 'Pan' },
 };
 
+function showDSPToast(message, duration = 1200) {
+  window.__CONFUSTUDIO__?.showToast?.(message, duration);
+}
+
 function getParamKnobInfo(key, paramDef) {
   const mapped = PARAM_KNOB_MAP[key];
   if (mapped) return mapped;
@@ -132,10 +136,12 @@ export function createDSPModule(pluginId, params) {
       slider.addEventListener('input', () => {
         const v = Number(slider.value);
         valueLabel.textContent = typeof v === 'number' ? v.toFixed(2) : v;
-        container.dispatchEvent(new CustomEvent('dsp:paramchange', {
-          detail: { key, value: v },
-          bubbles: true,
-        }));
+        container.dispatchEvent(
+          new CustomEvent('dsp:paramchange', {
+            detail: { key, value: v },
+            bubbles: true,
+          }),
+        );
       });
 
       // Right-click → MIDI CC learn; Ctrl+right-click → MIDI note learn
@@ -151,20 +157,22 @@ export function createDSPModule(pluginId, params) {
           const v = min + raw * (max - min);
           slider.value = v;
           valueLabel.textContent = typeof v === 'number' ? v.toFixed(2) : v;
-          container.dispatchEvent(new CustomEvent('dsp:paramchange', {
-            detail: { key, value: v },
-            bubbles: true,
-          }));
+          container.dispatchEvent(
+            new CustomEvent('dsp:paramchange', {
+              detail: { key, value: v },
+              bubbles: true,
+            }),
+          );
         };
         const meta = { nodeId, paramKey: key, min, max };
         if (e.ctrlKey || e.metaKey) {
           window.startMidiNoteLearn(`note:${nodeId}:${key}`, (velocity) => {
             setter(velocity);
           }, meta);
-          window.showToast?.(`Note Learn: ${paramLabel} — play a note`, 4000);
+          showDSPToast(`Note Learn: ${paramLabel} — play a note`, 4000);
         } else {
           window.startMidiLearn(`dsp:${nodeId}:${key}`, setter, meta);
-          window.showToast?.(`MIDI Learn: ${paramLabel} — wiggle a knob`, 4000);
+          showDSPToast(`MIDI Learn: ${paramLabel} — wiggle a knob`, 4000);
         }
       });
 
@@ -207,9 +215,7 @@ export function getDSPPluginSections() {
   const plugins = listPlugins();
   const sections = {};
   for (const p of plugins) {
-    const cat = p.type === 'source' ? 'SOURCES' :
-      p.type === 'effect' || p.type === 'processor' ? 'EFFECTS' :
-      'CONTROL';
+    const cat = p.type === 'source' ? 'SOURCES' : p.type === 'effect' || p.type === 'processor' ? 'EFFECTS' : 'CONTROL';
     if (!sections[cat]) sections[cat] = [];
     sections[cat].push(p);
   }

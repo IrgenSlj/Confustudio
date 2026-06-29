@@ -572,12 +572,24 @@ export function initCables() {
   }
   window.__CONFUSTUDIO__.redrawCables = redrawAllCables;
 
-  // Redraw cables when modules move (on animation frame)
+  let _cablesDirty = false;
+  function markCablesDirty() { _cablesDirty = true; }
+
+  // Redraw cables only when dirty
   function tick() {
-    redrawAllCables();
+    if (_cablesDirty) {
+      redrawAllCables();
+      _cablesDirty = false;
+    }
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
+
+  // Mark dirty when cables change
+  document.addEventListener('cable:added', markCablesDirty);
+  document.addEventListener('cable:removed', markCablesDirty);
+  document.addEventListener('module:moved', markCablesDirty);
+  document.addEventListener('module:zoom', markCablesDirty);
 
   // Attach to all current and future ports
   function attachPort(port) {

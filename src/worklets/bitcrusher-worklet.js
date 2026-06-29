@@ -15,6 +15,7 @@ class BitcrusherProcessor extends AudioWorkletProcessor {
       this.srDiv = Math.max(1, Math.round(Number.isFinite(srDiv) ? srDiv : 1));
       this.held = [];
       this.sampleCount = 0;
+      this._steps = Math.pow(2, Math.max(1, this.bitDepth));
     };
   }
 
@@ -25,12 +26,19 @@ class BitcrusherProcessor extends AudioWorkletProcessor {
 
     const source = input?.[0] || null;
     const passthrough = !source || (this.bitDepth >= 32 && this.srDiv <= 1);
-    const steps = Math.pow(2, Math.max(1, this.bitDepth));
+    const steps = this._steps;
     const frames = output[0]?.length || 0;
 
+    const chCount = output.length;
+    const inChCount = input?.length || 1;
+    const chMap = [];
+    for (let ch = 0; ch < chCount; ch++) {
+      chMap[ch] = Math.min(ch, Math.max(0, inChCount - 1));
+    }
+
     if (passthrough) {
-      for (let ch = 0; ch < output.length; ch++) {
-        const inCh = input?.[Math.min(ch, Math.max(0, (input?.length || 1) - 1))] || source;
+      for (let ch = 0; ch < chCount; ch++) {
+        const inCh = input?.[chMap[ch]] || source;
         const outCh = output[ch];
         if (!inCh) outCh.fill(0);
         else outCh.set(inCh);
@@ -40,14 +48,12 @@ class BitcrusherProcessor extends AudioWorkletProcessor {
 
     for (let i = 0; i < frames; i++) {
       if (this.sampleCount % this.srDiv === 0) {
-        for (let ch = 0; ch < output.length; ch++) {
-          const inCh = input?.[Math.min(ch, Math.max(0, (input?.length || 1) - 1))] || source;
-          this.held[ch] = Math.round((inCh?.[i] ?? 0) * steps) / steps;
+        for (let ch = 0; ch < chCount; ch++) {
+          this.held[ch] = Math.round(((input?.[chMap[ch]]?.[i] ?? 0) * steps)) / steps;
         }
       }
-      for (let ch = 0; ch < output.length; ch++) {
-        const outCh = output[ch];
-        outCh[i] = this.held[ch] ?? 0;
+      for (let ch = 0; ch < chCount; ch++) {
+        output[ch][i] = this.held[ch] ?? 0;
       }
       this.sampleCount += 1;
     }

@@ -33,6 +33,19 @@ CONFUstudio should be developed as an original studio environment, with CONFUsyn
 - Keep the UI, terminology, presets, and interaction model original to the project.
 - Treat this repository as the product architecture and prototype basis for CONFUstudio, with CONFUsynth as the lead instrument.
 
+## Music Kernel Direction
+
+The next engine direction is to make the music kernel explicit. CONFUstudio should generate sound by compiling musical intent into timestamped events, routing those events through a persistent audio graph, and rendering DSP in AudioWorklet/WASM instead of letting UI loops and per-trigger Web Audio node construction define the core behavior.
+
+The kernel has four layers:
+
+1. Musical model: patterns, clips, tracks, scenes, arranger sections, automation, sample assets, and patches.
+2. Event compiler: converts a transport window into note, sample, MIDI, automation, scene, and recorder events.
+3. Audio graph and voice engine: owns persistent track strips, instruments, effects, sends, returns, buses, sidechains, and meters.
+4. DSP runtime: renders audio buffers in AudioWorklet now, with Rust/WASM as the long-term shared core.
+
+See [`docs/MUSIC_KERNEL_RESEARCH.md`](./docs/MUSIC_KERNEL_RESEARCH.md) for the research and migration plan.
+
 ## Architecture
 
 ### Product Shape

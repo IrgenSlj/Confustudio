@@ -100,6 +100,8 @@ class PlaitsProcessor extends AudioWorkletProcessor {
 
     // Engine 4 — Chord (4 VA oscillators)
     this._e4Phases = new Float32Array(4);
+    this._e4VoiceFreqs = new Float32Array(4);
+    this._e4Ints = new Float32Array(4);
   }
 
   _resetEngineState() {
@@ -141,12 +143,14 @@ class PlaitsProcessor extends AudioWorkletProcessor {
     let phase = this._e0Phase;
 
     for (let i = 0; i < 128; i++) {
+      const blep = polyblep(phase, dt);
+
       // Sawtooth
-      const saw = 2.0 * phase - 1.0 - polyblep(phase, dt);
+      const saw = 2.0 * phase - 1.0 - blep;
 
       // Pulse
       const shifted = (phase + 1.0 - pw) % 1.0;
-      const pulse = (phase < pw ? 1.0 : -1.0) + polyblep(phase, dt) - polyblep(shifted, dt);
+      const pulse = (phase < pw ? 1.0 : -1.0) + blep - polyblep(shifted, dt);
 
       output[i] = (1.0 - morph) * saw + morph * pulse;
 
@@ -268,26 +272,25 @@ class PlaitsProcessor extends AudioWorkletProcessor {
     // Select chord type by timbre
     let intervals;
     if (timbre < 0.2)
-      intervals = [0, 4, 7, 12]; // Major
+      this._e4Ints.set([0, 4, 7, 12]); // Major
     else if (timbre < 0.4)
-      intervals = [0, 3, 7, 12]; // Minor
+      this._e4Ints.set([0, 3, 7, 12]); // Minor
     else if (timbre < 0.6)
-      intervals = [0, 5, 7, 12]; // Sus4
+      this._e4Ints.set([0, 5, 7, 12]); // Sus4
     else if (timbre < 0.8)
-      intervals = [0, 4, 7, 10]; // Dom7
-    else intervals = [0, 4, 7, 11]; // Maj7
-
-    // Detune multipliers per voice
-    const detuneMultipliers = [0.0, 0.3, -0.2, 0.1];
+      this._e4Ints.set([0, 4, 7, 10]); // Dom7
+    else this._e4Ints.set([0, 4, 7, 11]); // Maj7
+    intervals = this._e4Ints;
 
     // Compute per-voice frequencies
-    const voiceFreqs = new Float32Array(4);
+    const voiceFreqs = this._e4VoiceFreqs;
+    const detune = morph * 0.3;
     for (let v = 0; v < 4; v++) {
       let semitones = intervals[v];
       // Top voice octave transposition
       if (v === 3 && harmonics > 0.5) semitones += 12;
-      // Detune
-      semitones += morph * 0.3 * detuneMultipliers[v];
+      // Detune (pre-computed multiplier per voice: 0.0, 0.3, -0.2, 0.1)
+      semitones += detune * [0, 0.3, -0.2, 0.1][v];
       voiceFreqs[v] = frequency * Math.pow(2.0, semitones / 12.0);
     }
 
