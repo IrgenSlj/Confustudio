@@ -134,7 +134,10 @@ export function getModuleLabel(modEl) {
   const type = modEl.dataset.moduleType || 'module';
   let label = MODULE_LABELS[type];
   if (!label && type.startsWith('dsp-')) {
-    label = type.slice(4).replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    label = type
+      .slice(4)
+      .replace(/-/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   }
   return label || type.replace(/_/g, ' ');
 }
@@ -797,7 +800,7 @@ export function showModulePicker(S) {
     if (!dspGrid) return;
     const sections = getDSPPluginSections();
     let html = '';
-    for (const [cat, plugins] of Object.entries(sections)) {
+    for (const [, plugins] of Object.entries(sections)) {
       html += plugins
         .map((p) => `<button data-module="dsp-${escapeHtml(p.id)}">${escapeHtml(p.label)}</button>`)
         .join('');
@@ -938,8 +941,9 @@ export function addModule(S, type, options = {}) {
         const { getPlugin } = await import('../plugins/index.js');
         const plugin = getPlugin(pluginId);
         if (plugin?.type === 'source') {
-          const masterId = Object.keys(appState.signalGraph.nodes || {})
-            .find((id) => appState.signalGraph.nodes[id].plugin === 'master-out');
+          const masterId = Object.keys(appState.signalGraph.nodes || {}).find(
+            (id) => appState.signalGraph.nodes[id].plugin === 'master-out',
+          );
           if (masterId) {
             const alreadyConnected = appState.signalGraph.connections.some(
               (c) => c.fromNode === mod.id && c.toNode === masterId,
@@ -949,9 +953,11 @@ export function addModule(S, type, options = {}) {
               const fromEl = fromPort && mod.querySelector(`.port[data-port="${fromPort.id}"]`);
               const toEl = document.getElementById(masterId)?.querySelector('.port[data-port="in"]');
               if (fromEl && toEl) {
-                document.dispatchEvent(new CustomEvent('cable:autoconnect', {
-                  detail: { fromEl, toEl },
-                }));
+                document.dispatchEvent(
+                  new CustomEvent('cable:autoconnect', {
+                    detail: { fromEl, toEl },
+                  }),
+                );
               }
             }
           }
