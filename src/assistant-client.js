@@ -136,11 +136,4 @@ if (typeof window !== 'undefined') {
   installAssistantBridge(window);
 }
 
-export default {
-  fetchAssistantContext,
-  fetchAssistantProviders,
-  chatAssistant,
-  planAssistantActions,
-  buildAssistantPrompt,
-  installAssistantBridge,
-};
+

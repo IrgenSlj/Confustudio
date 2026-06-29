@@ -23,9 +23,9 @@ import { initBackground } from './background.js';
 import { captureCommandState, executeStudioCommands } from './command-bus.js';
 import { EVENTS, STATE_PATHS } from './constants.js';
 import { STUDIO_LAYOUT_KEY, STUDIO_VIEW_KEY } from './studio-modules.js';
+import { cloneJson } from './state.js';
 import {
   resetRecorderSlotMeta,
-  cloneJson,
   captureRecorderSlot,
   loadRecorderSlotToTrack,
   exportRecorderSlot,

@@ -296,7 +296,7 @@ export function createProject() {
   };
 }
 
-function cloneJson(value) {
+export function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
@@ -1029,25 +1029,6 @@ export function computePathToRoot(graph, nodeId) {
     path.unshift(current.id);
     current = current.parentId ? map.get(current.parentId) : null;
   }
-  return path;
-}
-
-/**
- * Walk forward from root to nodeId, collecting the critical path.
- * For a linear history (single parent each), this is the same as computePathToRoot.
- * For a branching graph, this picks the canonical path.
- */
-export function computeCriticalPath(graph, fromId, toId) {
-  if (fromId === toId) return [fromId];
-  const path = [];
-  const map = new Map(graph.nodes.map((n) => [n.id, n]));
-  // Walk backwards from toId until we hit fromId
-  let current = map.get(toId);
-  while (current && current.id !== fromId) {
-    path.unshift(current.id);
-    current = current.parentId ? map.get(current.parentId) : null;
-  }
-  if (current) path.unshift(current.id);
   return path;
 }
 

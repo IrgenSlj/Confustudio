@@ -78,6 +78,13 @@ export class AudioEngine {
     // Default: linear passthrough (no drive)
     this.masterSaturator.curve = null;
 
+    // Makeup gain after master compression — compensates for gain reduction
+    this.masterMakeup = context.createGain();
+    this.masterMakeup.gain.value = 1;
+
+    // Per-track chain pool — avoids zombie node leak by reusing/disconnecting chains
+    this._trackChains = new Map();
+
     // Analyser for oscilloscope (public)
     this.analyser = context.createAnalyser();
     this.analyser.fftSize = 1024;
@@ -233,11 +240,12 @@ export class AudioEngine {
     this.masterEQHigh.connect(this.masterPan);
     this.masterPan.connect(this.analyser);
 
-    // Master chain: masterGain → masterCompressor → masterSaturator → masterLimiter
+    // Master chain: masterGain → masterCompressor → masterMakeup → masterSaturator → masterLimiter
     //   → reverbDry → masterEQLow → … → masterPan → analyser → destination (dry path)
     //   → reverbConvWet → masterEQLow (wet tap from convolution reverb)
     this.master.connect(this.masterCompressor);
-    this.masterCompressor.connect(this.masterSaturator);
+    this.masterCompressor.connect(this.masterMakeup);
+    this.masterMakeup.connect(this.masterSaturator);
     this.masterSaturator.connect(this.masterLimiter);
     // Parallel dry/wet after limiter
     this.masterLimiter.connect(this.reverbDry);
@@ -500,6 +508,7 @@ export class AudioEngine {
   // ——————————————————————————————————————————————
 
   getDriveCurve(amount) {
+    if (amount <= 0) return null;
     const key = Math.round(amount * 100); // quantize to avoid infinite unique values
     if (!this._driveCurveCache.has(key)) {
       const samples = 256;
@@ -563,6 +572,52 @@ export class AudioEngine {
 
     osc.start(time);
     osc.stop(time + duration + 0.005);
+  }
+
+  // ——————————————————————————————————————————————
+  // Per-track chain pool — prevents zombie node leak
+  // ——————————————————————————————————————————————
+
+  // Disconnect and dereference all nodes in a track's signal chain.
+  // Call before creating a new chain for the same trackKey.
+  _disconnectTrackChain(trackKey) {
+    const chain = this._trackChains.get(trackKey);
+    if (!chain) return;
+    const { nodes, disconnects } = chain;
+    for (let i = nodes.length - 1; i >= 0; i--) {
+      const node = nodes[i];
+      if (node && typeof node.disconnect === 'function') {
+        try { node.disconnect(); } catch (_) {}
+      }
+    }
+    // Run explicit disconnect callbacks (for worklet nodes with cleanup)
+    for (const fn of disconnects) {
+      try { fn(); } catch (_) {}
+    }
+    this._trackChains.delete(trackKey);
+  }
+
+  // Register a chain of nodes for a trackKey so they can be disconnected on retrigger.
+  // Callback is invoked during cleanup (for worklet port messages etc).
+  _registerTrackChain(trackKey, nodes, disconnectCb) {
+    // Disconnect previous chain for this track first
+    this._disconnectTrackChain(trackKey);
+    this._trackChains.set(trackKey, {
+      nodes: Array.isArray(nodes) ? nodes : [nodes],
+      disconnects: disconnectCb ? [disconnectCb] : [],
+    });
+  }
+
+  // Add additional nodes to an existing chain entry (for worklet/oscillator nodes)
+  _addChainNodes(trackKey, nodes) {
+    const chain = this._trackChains.get(trackKey);
+    if (chain) chain.nodes.push(...(Array.isArray(nodes) ? nodes : [nodes]));
+  }
+
+  // Add an additional disconnect callback to an existing chain entry
+  _addChainDisconnect(trackKey, fn) {
+    const chain = this._trackChains.get(trackKey);
+    if (chain) chain.disconnects.push(fn);
   }
 
   // ——————————————————————————————————————————————
@@ -701,15 +756,23 @@ export class AudioEngine {
       }, delayMs);
     }
 
+    // Disconnect any previous chain for this track to prevent zombie nodes
+    this._disconnectTrackChain(trackKey);
+
+    // Collect all nodes created for this trigger so they can be disconnected on retrigger
+    const chainNodes = [];
+
     // Signal chain: source → [bitCrusher?] → output (ADSR env gain) → panner → filter → saturator → master
     //   saturator → delaySend → delay ↺ feedback
     //   saturator → reverbSend → reverbInput → reverb graph → reverbWet → master
 
     const output = this.context.createGain();
     output.gain.value = 0.0001;
+    chainNodes.push(output);
 
     const panner = this.context.createStereoPanner();
     panner.pan.value = params.pan;
+    chainNodes.push(panner);
 
     const VALID_FILTER_TYPES = ['lowpass', 'highpass', 'bandpass', 'notch', 'peaking', 'lowshelf', 'highshelf'];
     const filter = this.context.createBiquadFilter();
@@ -717,10 +780,12 @@ export class AudioEngine {
     filter.frequency.value = cutoff;
     // filterQ is the dedicated Q/resonance param; fall back to legacy resonance field
     filter.Q.value = params.filterQ ?? params.resonance ?? 1.0;
+    chainNodes.push(filter);
 
     const saturator = this.context.createWaveShaper();
     saturator.curve = this.getDriveCurve(params.drive);
     saturator.oversample = '2x';
+    chainNodes.push(saturator);
 
     // Bit-crusher — inserted between output and panner when bitDepth < 32 or srDiv > 1
     // bitDepth 32 = off (full resolution), lower values quantize to 2^bitDepth levels.
@@ -746,6 +811,7 @@ export class AudioEngine {
             numberOfInputs: 1,
             numberOfOutputs: 1,
           });
+          chainNodes.push(crusher);
           crusher.port.postMessage({ type: 'config', bitDepth, srDiv });
           output.connect(crusher);
           eqTail = crusher;
@@ -756,6 +822,7 @@ export class AudioEngine {
 
       if (eqTail === output) {
         const crusher = this.context.createScriptProcessor(256, 2, 2);
+        chainNodes.push(crusher);
         const step = Math.pow(2, bitDepth);
         const held = [0, 0];
         let sampleCount = 0;
@@ -786,17 +853,20 @@ export class AudioEngine {
       lowShelf.type = 'lowshelf';
       lowShelf.frequency.value = 200;
       lowShelf.gain.value = eqLow;
+      chainNodes.push(lowShelf);
 
       const midPeak = this.context.createBiquadFilter();
       midPeak.type = 'peaking';
       midPeak.frequency.value = params.eqMidFreq ?? 1000;
       midPeak.Q.value = 1.0;
       midPeak.gain.value = eqMid;
+      chainNodes.push(midPeak);
 
       const highShelf = this.context.createBiquadFilter();
       highShelf.type = 'highshelf';
       highShelf.frequency.value = 6000;
       highShelf.gain.value = eqHigh;
+      chainNodes.push(highShelf);
 
       eqTail.connect(lowShelf);
       lowShelf.connect(midPeak);
@@ -815,6 +885,7 @@ export class AudioEngine {
       const w = Math.max(0, Math.min(2, stereoWidth));
       const splitter = this.context.createChannelSplitter(2);
       const merger = this.context.createChannelMerger(2);
+      chainNodes.push(splitter, merger);
       panner.connect(splitter);
 
       if (w < 0.02) {
@@ -827,12 +898,16 @@ export class AudioEngine {
         // M-S: L' = L*(1+w)/2 + R*(1-w)/2,  R' = L*(1-w)/2 + R*(1+w)/2
         const llGain = this.context.createGain();
         llGain.gain.value = (1 + w) / 2;
+        chainNodes.push(llGain);
         const lrGain = this.context.createGain();
         lrGain.gain.value = (1 - w) / 2;
+        chainNodes.push(lrGain);
         const rlGain = this.context.createGain();
         rlGain.gain.value = (1 - w) / 2;
+        chainNodes.push(rlGain);
         const rrGain = this.context.createGain();
         rrGain.gain.value = (1 + w) / 2;
+        chainNodes.push(rrGain);
         // L source (splitter output 0) feeds both L and R output channels
         splitter.connect(llGain, 0, 0);
         llGain.connect(merger, 0, 0); // L->L main
@@ -863,10 +938,15 @@ export class AudioEngine {
     filter.connect(saturator);
     saturator.connect(busTarget);
 
+    // Register the chain so it can be disconnected on retrigger.
+    // Worklet early-return paths below add their own nodes to this chain.
+    this._registerTrackChain(trackKey, chainNodes);
+
     // CUE pre-fader listen — tap after insert processing but before the master bus.
     if (params.cue) {
       const cueSend = this.context.createGain();
       cueSend.gain.value = 1;
+      chainNodes.push(cueSend);
       saturator.connect(cueSend);
       cueSend.connect(this.cueOutput);
     }
@@ -874,11 +954,13 @@ export class AudioEngine {
     const delaySendGain = this.interpolateScene(sceneA.delaySend, sceneB.delaySend, crossfader);
     const delaySend = this.context.createGain();
     delaySend.gain.value = delaySendGain;
+    chainNodes.push(delaySend);
     saturator.connect(delaySend);
     delaySend.connect(this.delaySendBus);
 
     const reverbSend = this.context.createGain();
     reverbSend.gain.value = params.reverbSend;
+    chainNodes.push(reverbSend);
     saturator.connect(reverbSend);
     reverbSend.connect(this.reverb); // this.reverb === this.reverbInput
 
@@ -894,6 +976,7 @@ export class AudioEngine {
     }
 
     // ADSR-lite: attack → hold → decay
+    output.gain.cancelScheduledValues(when);
     output.gain.setValueAtTime(0.0001, when);
     output.gain.linearRampToValueAtTime(loudness, when + params.attack);
     if (gate > params.attack + 0.005) {
@@ -909,10 +992,12 @@ export class AudioEngine {
       trigLFO = this.context.createOscillator();
       trigLFO.type = 'sine';
       trigLFO.frequency.value = params.lfoRate ?? 2;
+      this._addChainNodes(trackKey, trigLFO);
 
       // Legacy single-target routing via lfoTarget
       if (lfoActive) {
         const lfoGain = this.context.createGain();
+        chainNodes.push(lfoGain);
         trigLFO.connect(lfoGain);
         if (params.lfoTarget === 'cutoff') {
           lfoGain.gain.value = this._resolveLfoDepthAmount('cutoff', params.lfoDepth, {
@@ -942,12 +1027,14 @@ export class AudioEngine {
       // Multi-destination routing flags
       if (params.lfoToCutoff) {
         const g = this.context.createGain();
+        chainNodes.push(g);
         g.gain.value = this._resolveLfoDepthAmount('cutoff', params.lfoDepth, { cutoff: params.cutoff, loudness });
         trigLFO.connect(g);
         g.connect(filter.frequency);
       }
       if (params.lfoToVolume) {
         const g = this.context.createGain();
+        chainNodes.push(g);
         g.gain.value = this._resolveLfoDepthAmount('volume', params.lfoDepth, { cutoff: params.cutoff, loudness });
         trigLFO.connect(g);
         g.connect(output.gain);
@@ -972,6 +1059,7 @@ export class AudioEngine {
           sampleRate: this.context.sampleRate,
         });
         node.connect(output);
+        this._addChainNodes(trackKey, node);
         // Worklet voice: wrap stop in a plain object so _registerVoice can steal it
         const voiceHandle = {
           stop: (t) => {
@@ -1024,6 +1112,7 @@ export class AudioEngine {
           duration: totalTime,
         });
         node.connect(output);
+        this._addChainNodes(trackKey, node);
         const voiceHandle = {
           stop: () => {
             node.port.postMessage({ type: 'stop' });
@@ -1062,6 +1151,7 @@ export class AudioEngine {
           sampleRate: this.context.sampleRate,
         });
         node.connect(output);
+        this._addChainNodes(trackKey, node);
         const voiceHandle = {
           stop: () => {
             node.port.postMessage({ type: 'stop' });
@@ -1145,6 +1235,7 @@ export class AudioEngine {
           rightSlice ? [leftSlice, rightSlice] : [leftSlice],
         );
         node.connect(output);
+        this._addChainNodes(trackKey, node);
         const voiceHandle = {
           stop: () => {
             try {
@@ -1179,6 +1270,7 @@ export class AudioEngine {
         }
 
         source.connect(output);
+        this._addChainNodes(trackKey, source);
         source.start(when, offsetSec, params.loopEnabled ? undefined : Math.min(totalTime, clipDur));
         if (!params.loopEnabled) {
           source.stop(when + totalTime + 0.02);
@@ -1194,6 +1286,7 @@ export class AudioEngine {
       source.buffer = this._noiseBuffer;
       source.loop = true;
       source.connect(output);
+      this._addChainNodes(trackKey, source);
       source.start(when);
       source.stop(when + totalTime + 0.02);
       this._registerVoice(trackKey, source, params.maxVoices ?? 8);
@@ -1230,6 +1323,7 @@ export class AudioEngine {
       osc.type = accent ? 'sawtooth' : wf;
       osc.frequency.value = targetFreq;
       osc.connect(output);
+      this._addChainNodes(trackKey, osc);
       osc.start(when);
       osc.stop(when + totalTime + 0.02);
       this._registerVoice(trackKey, osc, params.maxVoices ?? 8);
@@ -1345,14 +1439,14 @@ export class AudioEngine {
     this._midiStopCallback = onStop;
   }
 
-  // Insert or remove the master limiter between masterSaturator and masterEQLow.
+  // Insert or remove the master limiter between masterMakeup and masterEQLow.
   setLimiter(enabled) {
-    this.masterSaturator.disconnect();
+    this.masterMakeup.disconnect();
     if (enabled) {
-      this.masterSaturator.connect(this.masterLimiter);
+      this.masterMakeup.connect(this.masterLimiter);
       this.masterLimiter.connect(this.masterEQLow);
     } else {
-      this.masterSaturator.connect(this.masterEQLow);
+      this.masterMakeup.connect(this.masterEQLow);
     }
   }
 

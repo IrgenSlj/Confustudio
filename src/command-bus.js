@@ -9,13 +9,10 @@ import {
   createAudioGraph,
   createAudioNode,
   createAudioConnection,
+  cloneJson,
   saveState,
 } from './state.js';
 import { getGenreStepWeights } from './pages/pattern-tools.js';
-
-function cloneJson(value) {
-  return JSON.parse(JSON.stringify(value));
-}
 
 function clamp(value, min, max, fallback = min) {
   const num = Number(value);
@@ -189,79 +186,7 @@ export function captureCommandState(state) {
   });
 }
 
-export function restoreCommandState(state, snapshot) {
-  if (!snapshot || typeof snapshot !== 'object') return state;
-  state.project = normalizeProject(snapshot.project);
-  state.scenes = state.project.scenes;
-  state.bpm = clamp(snapshot.bpm ?? state.bpm, 40, 240, state.bpm ?? 122);
-  state.swing = Number.isFinite(Number(snapshot.swing)) ? Number(snapshot.swing) : (state.swing ?? 0);
-  state.patternLength = clamp(snapshot.patternLength ?? state.patternLength, 1, 64, state.patternLength ?? 16);
-  state.arranger = cloneJson(snapshot.arranger ?? []);
-  state.arrangementCursor = clamp(snapshot.arrangementCursor ?? 0, 0, Math.max(0, state.arranger.length - 1), 0);
-  state.activeBank = clamp(snapshot.activeBank ?? state.activeBank, 0, BANK_COUNT - 1, 0);
-  state.activePattern = clamp(snapshot.activePattern ?? state.activePattern, 0, PATTERN_COUNT - 1, 0);
-  state.selectedTrackIndex = clamp(snapshot.selectedTrackIndex ?? state.selectedTrackIndex, 0, TRACK_COUNT - 1, 0);
-  state.sceneA = clamp(snapshot.sceneA ?? state.sceneA, 0, 7, 0);
-  state.sceneB = clamp(snapshot.sceneB ?? state.sceneB, 0, 7, 1);
-  state.crossfader = clamp(snapshot.crossfader ?? state.crossfader, 0, 1, 0);
-  return state;
-}
 
-export function createHistoryController(limit = 100) {
-  const history = [];
-  const checkpoints = [];
-  let index = -1;
-
-  function pruneRedo() {
-    history.splice(index + 1);
-    for (let i = checkpoints.length - 1; i >= 0; i--) {
-      if (checkpoints[i].historyIdx >= index + 1) checkpoints.splice(i, 1);
-    }
-  }
-
-  return {
-    push(state) {
-      pruneRedo();
-      history.push(captureCommandState(state));
-      if (history.length > limit) {
-        history.shift();
-        for (let i = checkpoints.length - 1; i >= 0; i--) {
-          checkpoints[i].historyIdx--;
-          if (checkpoints[i].historyIdx < 0) checkpoints.splice(i, 1);
-        }
-      }
-      index = history.length - 1;
-      return this.getMeta();
-    },
-    undo(state) {
-      if (index <= 0) return false;
-      index--;
-      restoreCommandState(state, history[index]);
-      return true;
-    },
-    redo(state) {
-      if (index >= history.length - 1) return false;
-      index++;
-      restoreCommandState(state, history[index]);
-      return true;
-    },
-    markCheckpoint(label) {
-      if (index < 0) return null;
-      const entry = { historyIdx: index, label: label || 'Checkpoint', timestamp: Date.now() };
-      const existing = checkpoints.findIndex((item) => item.historyIdx === index);
-      if (existing >= 0) checkpoints[existing] = entry;
-      else checkpoints.push(entry);
-      return entry;
-    },
-    getMeta() {
-      return {
-        index,
-        total: history.length,
-        checkpoints: checkpoints.slice(),
-      };
-    },
-  };
-}
 
 /**
  * @param {object} state
@@ -867,119 +792,7 @@ export function replaySignalSubgraph(state, graph, targetNodeId, opts = {}) {
 
 // ─── Audio Graph ↔ Legacy Track Bridge ─────────────────────────────────────────
 
-/**
- * Derive an audio routing graph from legacy track state.
- * Each track becomes a chain: src → filter → gain → pan → eq → master.
- */
-export function graphFromTracks(state) {
-  const { project, activeBank, activePattern } = state;
-  const pattern = project?.banks?.[activeBank]?.patterns?.[activePattern];
-  if (!pattern) return createAudioGraph();
 
-  const graph = createAudioGraph();
-
-  graph.nodes.master = createAudioNode('master', 'master-out', {
-    level: state.masterLevel ?? 0.82,
-  });
-
-  pattern.kit.tracks.forEach((track, i) => {
-    const tid = `track-${i}`;
-    const srcId = `${tid}-src`;
-    const filterId = `${tid}-filter`;
-    const gainId = `${tid}-gain`;
-    const panId = `${tid}-pan`;
-    const eqId = `${tid}-eq`;
-
-    graph.nodes[srcId] = createAudioNode(srcId, track.machine, {
-      waveform: track.waveform,
-      pitch: track.pitch,
-      volume: track.volume,
-      keyTracking: track.keyTracking,
-    });
-
-    graph.nodes[filterId] = createAudioNode(filterId, 'biquad', {
-      type: track.filterType || 'lowpass',
-      freq: track.cutoff,
-      Q: track.resonance,
-    });
-
-    graph.nodes[gainId] = createAudioNode(gainId, 'gain', {
-      level: track.volume,
-      mute: track.mute,
-    });
-
-    graph.nodes[panId] = createAudioNode(panId, 'panner', {
-      pan: track.pan,
-    });
-
-    graph.nodes[eqId] = createAudioNode(eqId, 'eq-3band', {
-      low: track.eqLow,
-      mid: track.eqMid,
-      high: track.eqHigh,
-      midFreq: track.eqMidFreq,
-    });
-
-    graph.connections.push(createAudioConnection(srcId, 'out', filterId, 'in'));
-    graph.connections.push(createAudioConnection(filterId, 'out', gainId, 'in'));
-    graph.connections.push(createAudioConnection(gainId, 'out', panId, 'in'));
-    graph.connections.push(createAudioConnection(panId, 'out', eqId, 'in'));
-    graph.connections.push(createAudioConnection(eqId, 'out', 'master', 'in'));
-  });
-
-  return graph;
-}
-
-/**
- * Write audio graph node params back to legacy track state.
- */
-export function applyGraphToTracks(graph, state) {
-  if (!graph || !graph.nodes) return;
-  const { project, activeBank, activePattern } = state;
-  const pattern = project?.banks?.[activeBank]?.patterns?.[activePattern];
-  if (!pattern) return;
-
-  const master = graph.nodes.master;
-  if (master && master.params.level !== undefined) {
-    state.masterLevel = master.params.level;
-  }
-
-  pattern.kit.tracks.forEach((track, i) => {
-    const tid = `track-${i}`;
-
-    const src = graph.nodes[`${tid}-src`];
-    if (src) {
-      track.machine = src.plugin;
-      if (src.params.waveform !== undefined) track.waveform = src.params.waveform;
-      if (src.params.pitch !== undefined) track.pitch = src.params.pitch;
-      if (src.params.volume !== undefined) track.volume = src.params.volume;
-      if (src.params.keyTracking !== undefined) track.keyTracking = src.params.keyTracking;
-    }
-
-    const filter = graph.nodes[`${tid}-filter`];
-    if (filter) {
-      if (filter.params.type !== undefined) track.filterType = filter.params.type;
-      if (filter.params.freq !== undefined) track.cutoff = filter.params.freq;
-      if (filter.params.Q !== undefined) track.resonance = filter.params.Q;
-    }
-
-    const gain = graph.nodes[`${tid}-gain`];
-    if (gain) {
-      if (gain.params.level !== undefined) track.volume = gain.params.level;
-      if (gain.params.mute !== undefined) track.mute = gain.params.mute;
-    }
-
-    const pan = graph.nodes[`${tid}-pan`];
-    if (pan && pan.params.pan !== undefined) track.pan = pan.params.pan;
-
-    const eq = graph.nodes[`${tid}-eq`];
-    if (eq) {
-      if (eq.params.low !== undefined) track.eqLow = eq.params.low;
-      if (eq.params.mid !== undefined) track.eqMid = eq.params.mid;
-      if (eq.params.high !== undefined) track.eqHigh = eq.params.high;
-      if (eq.params.midFreq !== undefined) track.eqMidFreq = eq.params.midFreq;
-    }
-  });
-}
 
 // ─── Signal Graph Commands ──────────────────────────────────────────────────
 

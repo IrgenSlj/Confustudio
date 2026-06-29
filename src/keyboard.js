@@ -707,8 +707,10 @@ export function renderKbdContext(containerEl, page, activeKeys = new Set(), stat
         clearInterval(_chordPollId);
         return;
       }
+      const notes = state._playingNotes;
+      if (!notes || notes.size === 0) return;
       _updateChordBadge();
-    }, 150);
+    }, 300);
     bottomRow.append(chordBadge);
 
     // ── Arp pattern visualizer (only when arp is on) ─────────────────────────

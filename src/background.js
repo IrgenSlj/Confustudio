@@ -23,16 +23,23 @@ export function initBackground() {
   let _timeBuf = null;
   let phase = 0;
   let beatPulse = 0;
+  let _lastT = 0;
 
-  function draw() {
-    requestAnimationFrame(draw);
-
+  function draw(now) {
     const engine = window._confustudioEngine;
     const analyser = engine?.analyser;
+    let hasAudio = false;
+
+    // Throttle idle frames to ~10fps to reduce CPU when no audio is playing
+    if (!analyser && now - _lastT < 100) {
+      requestAnimationFrame(draw);
+      return;
+    }
+    _lastT = now;
+
     let bass = 0,
       mid = 0,
-      high = 0,
-      hasAudio = false;
+      high = 0;
     let waveData = null;
 
     if (analyser) {
@@ -123,5 +130,5 @@ export function initBackground() {
     ctx.fillRect(0, 0, W, H);
   }
 
-  draw();
+  requestAnimationFrame(draw);
 }

@@ -465,6 +465,7 @@ export class ModularEngine {
           return {
             inputNode: out, outputNode: out, allNodes: [pn, out], workletNode: pn,
             _plaitsReTrigger, _params: entryRef._params,
+            cleanup() { clearInterval(_plaitsReTrigger); },
           };
         }
 
