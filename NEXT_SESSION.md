@@ -61,6 +61,12 @@ Each increment verified in a real browser (0 console errors) and pushed.
    rich preview); added image MIME types to the server; `.github/FUNDING.yml`
    adds a GitHub Sponsors button.
 7. **Repo hygiene.** Pruned 3 stale `worktree-agent-*` branches/worktrees.
+8. **Static-audit fixes.** (a) The Pad page ASSIGN flow was dead — it listened for
+   a DOM `confustudio:track:select` event nothing dispatched; the `track:select`
+   handler now emits it, so pad→track assignment works (verified end-to-end).
+   (b) Pad-assignment toast always said "Pad 1" (index nulled before read) —
+   fixed. (c) The FX "RevSize" knob was a silent no-op (Freeverb legacy) →
+   replaced with a live "RevSend" (per-track reverb send).
 
 ## ⚠ Recommended next work (highest value first)
 
@@ -86,6 +92,10 @@ Each increment verified in a real browser (0 console errors) and pushed.
    `requestAnimationFrame`, so playback pauses when the tab is backgrounded
    (Chrome throttles rAF). A Web Worker timer (or `setTimeout` fallback) driving
    the lookahead would keep timing alive in the background. Secondary.
+6. **Minor cleanups** (from the audit): each page module exports a dead `knobMap`
+   (zero callers; `KNOB_MAPS` in `knobs.js` is the live one) — remove to kill the
+   confusing duplicate. And completing a pad assignment fires two toasts ("Pad N →
+   …" then "Selected track") that clobber each other in `#toast-msg`. Both cosmetic.
 
 ## Verification notes
 
