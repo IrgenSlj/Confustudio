@@ -306,9 +306,10 @@ export default {
       if (!_assignMode || _assignPadIdx === null) return;
       const trackIndex = e.detail?.trackIndex;
       if (typeof trackIndex !== 'number') return;
-      _padAssignments[_assignPadIdx] = trackIndex % 8;
+      const assignedPad = _assignPadIdx; // capture before clearing (used in the toast)
+      _padAssignments[assignedPad] = trackIndex % 8;
       _assignPadIdx = null;
-      emit('toast', { msg: `Pad ${_assignPadIdx + 1} → ${tracks[trackIndex]?.name ?? 'Track ' + (trackIndex + 1)}` });
+      emit('toast', { msg: `Pad ${assignedPad + 1} → ${tracks[trackIndex]?.name ?? 'Track ' + (trackIndex + 1)}` });
       _rerenderGrid();
     }
     document.addEventListener('confustudio:track:select', onTrackClick);

@@ -1267,6 +1267,12 @@ function emit(type, payload = {}) {
     }
 
     case 'track:select':
+      // Mirror onto a DOM CustomEvent so page modules that live outside the
+      // internal bus can react (e.g. the Pad page's ASSIGN flow listens for
+      // this to complete "pad → track" assignment).
+      document.dispatchEvent(
+        new CustomEvent('confustudio:track:select', { detail: { trackIndex: payload.trackIndex } }),
+      );
       if (executeStudioCommand({ type: 'select-track', trackIndex: payload.trackIndex }, 'Selected track')) break;
       emit(EVENTS.STATE_CHANGE, { path: STATE_PATHS.SELECTED_TRACK_INDEX, value: payload.trackIndex });
       break;
