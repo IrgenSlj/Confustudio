@@ -1,0 +1,28 @@
+# Render Blueprint for CONFUstudio.
+#
+# Uses Render's native Node runtime (not static hosting) so the app's Node
+# server runs and its COOP/COEP cross-origin-isolation headers are preserved
+# (required for SharedArrayBuffer + AudioWorklet). Render injects $PORT and the
+# server honours it via process.env.PORT; NODE_ENV=production makes it bind 0.0.0.0.
+services:
+  - type: web
+    name: confustudio
+    runtime: node
+    plan: free
+    region: oregon
+    # No runtime dependencies — the server uses only Node built-ins.
+    # `--omit=dev` avoids pulling the heavy devDependencies (electron, playwright).
+    buildCommand: "npm install --omit=dev"
+    startCommand: "node server.mjs"
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # AI features are OPTIONAL — the app works fully without any keys.
+      # To enable the assistant proxy, set one of these in the Render dashboard
+      # (kept out of source; sync:false = prompt/secret, not stored in blueprint):
+      # - key: OPENAI_API_KEY
+      #   sync: false
+      # - key: ANTHROPIC_API_KEY
+      #   sync: false
