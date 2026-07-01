@@ -5,8 +5,8 @@
   "scope": "/",
   "display": "standalone",
   "orientation": "landscape",
-  "background_color": "#1a1a1a",
-  "theme_color": "#4e5f3c",
+  "background_color": "#0d150a",
+  "theme_color": "#0d150a",
   "icons": [{ "src": "/public/icon.svg", "sizes": "any", "type": "image/svg+xml" }],
   "shortcuts": [{ "name": "Open CONFUstudio", "url": "/" }],
   "categories": ["music", "entertainment"]
