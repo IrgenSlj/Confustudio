@@ -320,24 +320,9 @@ export function initStudio() {
       const layout = JSON.parse(raw);
       if (!Array.isArray(layout)) return false;
       layout.forEach((item) => {
-        // Guard each item so one corrupt saved module can't abort the whole
-        // restore (and leave the workspace half-built).
         try {
-          if (!item?.id) return;
-          const type = item.type || 'synth';
-          let mod = moduleById(S, item.id);
-          if (!mod && item.id !== 'module-0') {
-            mod = addModule(S, type, {
-              id: item.id,
-              left: item.left,
-              top: item.top,
-              zoom: item.zoom,
-              select: false,
-              fit: false,
-              persist: false,
-              moduleState: item.moduleState,
-            });
-          }
+          if (item?.id !== 'module-0') return;
+          const mod = moduleById(S, item.id);
           if (!mod) return;
           applySavedLayoutItem(mod, item);
           if (item.selected) S._restoredSelectedModuleId = item.id;
@@ -346,6 +331,7 @@ export function initStudio() {
         }
       });
       S.hasRestoredLayout = true;
+      saveLayout(S);
       return true;
     } catch (_) {
       return false;

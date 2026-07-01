@@ -438,7 +438,7 @@ export function createAppState() {
     engine: null,
 
     // Navigation
-    currentPage: 'pattern',
+    currentPage: 'sound',
     activeBank: 0,
     activePattern: 0,
     selectedTrackIndex: 0,
@@ -667,11 +667,17 @@ export function interpolateScenes(state) {
 
 function stripRuntime(state) {
   // Deep-clone the serializable parts; exclude AudioBuffers and runtime refs.
-  const { _assetHydrationPending, _assetHydrationComplete, _pendingPortableAssets, ...runtimeSafeState } = state;
+  const { _assetHydrationPending, _assetHydrationComplete, _pendingPortableAssets, _signalGraph: __sig, ...runtimeSafeState } = state;
   const plain = {
     ...runtimeSafeState,
     audioContext: null,
     engine: null,
+    // Transport runtime flags must never persist: a tab closed mid-playback
+    // would otherwise reload into a phantom "playing" state with no audio
+    // context and no running scheduler (the UI shows playing, nothing runs).
+    isPlaying: false,
+    isRecording: false,
+    currentStep: -1,
     recorderBuffers: Array.isArray(state.recorderBuffers)
       ? state.recorderBuffers.map(() => null)
       : Array.from({ length: RECORDER_SLOT_COUNT }, () => null),
@@ -863,6 +869,13 @@ function repairState(state) {
   state.activeBank = Math.max(0, Math.min((banks?.length ?? 1) - 1, state.activeBank ?? 0));
   state.activePattern = Math.max(0, Math.min((patterns?.length ?? 1) - 1, state.activePattern ?? 0));
   state.selectedTrackIndex = Math.max(0, Math.min((tracks?.length ?? 1) - 1, state.selectedTrackIndex ?? 0));
+
+  // Heal phantom transport state: a session persisted mid-playback (older
+  // builds saved these) must never reload as "playing"/"recording" — there is
+  // no audio context or scheduler yet, so the UI would lie about being live.
+  state.isPlaying = false;
+  state.isRecording = false;
+  state.currentStep = -1;
 
   return state;
 }
