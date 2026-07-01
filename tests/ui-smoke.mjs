@@ -92,6 +92,17 @@ const consoleErrors = [];
 try {
   browser = await chromium.launch({ headless: true });
   page = await browser.newPage({ viewport: { width: 1365, height: 768 } });
+  // Suppress the first-run onboarding overlay for the smoke test. It runs before
+  // the page's own scripts on every navigation, so onboarding.js sees the flag
+  // and no-ops (real users still get the overlay). Keeps the studio unobscured
+  // for the interaction assertions below.
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('confustudio-onboarded-v1', '1');
+    } catch {
+      /* ignore */
+    }
+  });
   page.on('pageerror', (e) => consoleErrors.push(`pageerror:${e.message}`));
   page.on('console', (m) => {
     if (m.type() === 'error') consoleErrors.push(`console:${m.text()}`);
