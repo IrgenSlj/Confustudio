@@ -198,6 +198,18 @@ docker build -t confustudio .
 docker run --rm -p 4173:4173 confustudio
 ```
 
+### Deploy a public demo
+
+CONFUstudio ships with production configs for a one-command deploy that preserves
+the COOP/COEP headers AudioWorklet needs. Fly.io is the primary target:
+
+```bash
+fly launch --copy-config --now      # → https://<app>.fly.dev
+```
+
+See [`DEPLOY.md`](./DEPLOY.md) for Fly, Render, Docker, and the marketing landing
+page in [`site/`](./site).
+
 ### Optional AI Env Vars
 
 ```bash
