@@ -250,7 +250,9 @@ body {
 .studio-module.module-dragging {
   filter: drop-shadow(0 16px 40px rgba(0, 0, 0, 0.75)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.9));
   z-index: 100;
-  transition: transform 0.05s, filter 0.1s;
+  transition:
+    transform 0.05s,
+    filter 0.1s;
 }
 
 #studio-controls {
@@ -1172,13 +1174,17 @@ button {
   background: rgba(90, 221, 113, 0.25);
   color: var(--live);
   border-color: var(--live);
-  box-shadow: 0 0 12px rgba(90, 221, 113, 0.2), inset 0 0 8px rgba(90, 221, 113, 0.05);
+  box-shadow:
+    0 0 12px rgba(90, 221, 113, 0.2),
+    inset 0 0 8px rgba(90, 221, 113, 0.05);
 }
 .t-btn--record.active {
   background: rgba(240, 91, 82, 0.25);
   color: var(--record);
   border-color: var(--record);
-  box-shadow: 0 0 12px rgba(240, 91, 82, 0.2), inset 0 0 8px rgba(240, 91, 82, 0.05);
+  box-shadow:
+    0 0 12px rgba(240, 91, 82, 0.2),
+    inset 0 0 8px rgba(240, 91, 82, 0.05);
 }
 .t-btn--record.step-record-mode {
   background: rgba(240, 198, 64, 0.2);

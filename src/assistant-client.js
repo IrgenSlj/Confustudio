@@ -135,5 +135,3 @@ export function installAssistantBridge(target = typeof window !== 'undefined' ? 
 if (typeof window !== 'undefined') {
   installAssistantBridge(window);
 }
-
-

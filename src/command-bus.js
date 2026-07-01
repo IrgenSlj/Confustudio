@@ -186,8 +186,6 @@ export function captureCommandState(state) {
   });
 }
 
-
-
 /**
  * @param {object} state
  * @param {object} command
@@ -794,8 +792,6 @@ export function replaySignalSubgraph(state, graph, targetNodeId, opts = {}) {
 }
 
 // ─── Audio Graph ↔ Legacy Track Bridge ─────────────────────────────────────────
-
-
 
 // ─── Signal Graph Commands ──────────────────────────────────────────────────
 

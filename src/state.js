@@ -667,7 +667,13 @@ export function interpolateScenes(state) {
 
 function stripRuntime(state) {
   // Deep-clone the serializable parts; exclude AudioBuffers and runtime refs.
-  const { _assetHydrationPending, _assetHydrationComplete, _pendingPortableAssets, _signalGraph: __sig, ...runtimeSafeState } = state;
+  const {
+    _assetHydrationPending,
+    _assetHydrationComplete,
+    _pendingPortableAssets,
+    _signalGraph: __sig,
+    ...runtimeSafeState
+  } = state;
   const plain = {
     ...runtimeSafeState,
     audioContext: null,

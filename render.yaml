@@ -12,8 +12,8 @@ services:
     region: oregon
     # No runtime dependencies — the server uses only Node built-ins.
     # `--omit=dev` avoids pulling the heavy devDependencies (electron, playwright).
-    buildCommand: "npm install --omit=dev"
-    startCommand: "node server.mjs"
+    buildCommand: 'npm install --omit=dev'
+    startCommand: 'node server.mjs'
     healthCheckPath: /
     autoDeploy: true
     envVars:

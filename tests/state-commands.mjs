@@ -130,6 +130,4 @@ assert.ok(
 );
 assert.equal(imported.project.banks[0].patterns[0].kit.tracks[2].steps[0].note, 67);
 
-
-
 console.log(JSON.stringify({ ok: true }, null, 2));

@@ -24,13 +24,13 @@ fly launch --copy-config --now
 
 ## Which hosts work?
 
-| Host | Works? | Why |
-|------|--------|-----|
-| **Fly.io** (primary) | ✅ | Runs the Node server directly → COOP/COEP + AI proxy both work. |
-| **Render** (alt) | ✅ | Native Node runtime → same as above. |
-| Docker anywhere | ✅ | Same server, in a container. |
-| Netlify / Vercel | ⚠️ | Can serve the static app *with* headers via config, but the AI proxy API routes need a Node runtime (functions). Fly/Render are the real targets. |
-| GitHub Pages | ❌ | Cannot set COOP/COEP headers, no server for the API — audio worklets break. |
+| Host                 | Works? | Why                                                                                                                                               |
+| -------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Fly.io** (primary) | ✅     | Runs the Node server directly → COOP/COEP + AI proxy both work.                                                                                   |
+| **Render** (alt)     | ✅     | Native Node runtime → same as above.                                                                                                              |
+| Docker anywhere      | ✅     | Same server, in a container.                                                                                                                      |
+| Netlify / Vercel     | ⚠️     | Can serve the static app _with_ headers via config, but the AI proxy API routes need a Node runtime (functions). Fly/Render are the real targets. |
+| GitHub Pages         | ❌     | Cannot set COOP/COEP headers, no server for the API — audio worklets break.                                                                       |
 
 The server binds `0.0.0.0` when `NODE_ENV=production` (and honours `$PORT`); locally
 (`npm start`) it stays on `127.0.0.1:4173`. Cloud configs below set `NODE_ENV=production`.
@@ -141,18 +141,18 @@ Node server, so for the full app use Fly or Render.
 Set them only to enable the in-app assistant proxy. Keep keys out of source (use the
 host's secrets UI, e.g. `fly secrets set …` or the Render dashboard).
 
-| Var | Purpose | Default |
-|-----|---------|---------|
-| `PORT` | Port to listen on | `4173` (cloud hosts inject their own) |
-| `HOST` | Bind address | `0.0.0.0` when `NODE_ENV=production`, else `127.0.0.1` |
-| `NODE_ENV` | Set to `production` on hosts | unset (local) |
-| `OPENAI_API_KEY` | Enable OpenAI assistant | — (optional) |
-| `OPENAI_MODEL` | OpenAI model | `gpt-4.1-mini` |
-| `ANTHROPIC_API_KEY` | Enable Anthropic assistant | — (optional) |
-| `ANTHROPIC_MODEL` | Anthropic model | `claude-3-5-sonnet-latest` |
-| `LOCAL_AI_BASE_URL` / `ASSISTANT_BASE_URL` | Local OpenAI-compatible endpoint | — (optional) |
-| `OLLAMA_HOST` | Ollama endpoint | — (optional) |
-| `ASSISTANT_PROVIDER` | Force a default provider | first configured, else `auto` |
+| Var                                        | Purpose                          | Default                                                |
+| ------------------------------------------ | -------------------------------- | ------------------------------------------------------ |
+| `PORT`                                     | Port to listen on                | `4173` (cloud hosts inject their own)                  |
+| `HOST`                                     | Bind address                     | `0.0.0.0` when `NODE_ENV=production`, else `127.0.0.1` |
+| `NODE_ENV`                                 | Set to `production` on hosts     | unset (local)                                          |
+| `OPENAI_API_KEY`                           | Enable OpenAI assistant          | — (optional)                                           |
+| `OPENAI_MODEL`                             | OpenAI model                     | `gpt-4.1-mini`                                         |
+| `ANTHROPIC_API_KEY`                        | Enable Anthropic assistant       | — (optional)                                           |
+| `ANTHROPIC_MODEL`                          | Anthropic model                  | `claude-3-5-sonnet-latest`                             |
+| `LOCAL_AI_BASE_URL` / `ASSISTANT_BASE_URL` | Local OpenAI-compatible endpoint | — (optional)                                           |
+| `OLLAMA_HOST`                              | Ollama endpoint                  | — (optional)                                           |
+| `ASSISTANT_PROVIDER`                       | Force a default provider         | first configured, else `auto`                          |
 
 Example (Fly, to enable AI):
 

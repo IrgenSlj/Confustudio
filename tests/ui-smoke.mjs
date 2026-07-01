@@ -239,7 +239,9 @@ try {
   assert(mixerSelectedFromNavigator, 'Module picker navigator did not select the requested module', { mixerModuleId });
 
   const moduleCountBeforeReload = await page.locator('.studio-module').count();
-  assert(moduleCountBeforeReload >= 3, 'Expected at least 3 modules before reload persistence check', { moduleCountBeforeReload });
+  assert(moduleCountBeforeReload >= 3, 'Expected at least 3 modules before reload persistence check', {
+    moduleCountBeforeReload,
+  });
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForSelector('#module-0', { timeout: 5000 });
   const restoredModuleCount = await page.locator('.studio-module').count();

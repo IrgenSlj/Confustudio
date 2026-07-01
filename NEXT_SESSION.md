@@ -21,7 +21,7 @@ to that point is done and verified.
 ## Current baseline
 
 - `npm test` exits 0 — runs `lint → syntax → kernel → state → **transport** →
-  server → ui-smoke`. (Added `test:transport` this session.)
+server → ui-smoke`. (Added `test:transport` this session.)
 - `main` **has** the Session-9 fixes (PR #1 was merged — the old note that it was
   unmerged is obsolete).
 - This session's work is on branch **`autonomous/cto-session-2026-07-01`** →

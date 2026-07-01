@@ -20,25 +20,25 @@ radius, shadow and motion tokens are theme-independent** — define those once.
 
 ### Default (dark-green) — base `:root`
 
-| Token | Value | Use |
-|---|---|---|
+| Token                                                 | Value                             | Use                                             |
+| ----------------------------------------------------- | --------------------------------- | ----------------------------------------------- |
 | `--chassis-bg` / `--chassis-dark` / `--chassis-light` | `#4e5f3c` / `#3d4d2e` / `#5e7048` | Hardware enclosure (brand identifier — keep it) |
-| `--chassis-text` / `--chassis-metal` | `#b8c8a0` / `#8a9a72` | Chassis labels / metal trim |
-| `--screen-bg` / `--screen-text` | `#111810` / `#e8f4e0` | The "display" area |
-| `--bg` / `--bg2` | `#0d150a` / `#111c0e` | App backdrop layers |
-| `--surface` / `--surface2` | `#1a2615` / `#243318` | Panels, cards, raised elements |
-| `--text` / `--text-dim` / `--text-muted` | 85% / 45% / 25% white | Primary / secondary / disabled text |
-| `--border` | `rgba(255,255,255,.07)` | Hairline dividers |
+| `--chassis-text` / `--chassis-metal`                  | `#b8c8a0` / `#8a9a72`             | Chassis labels / metal trim                     |
+| `--screen-bg` / `--screen-text`                       | `#111810` / `#e8f4e0`             | The "display" area                              |
+| `--bg` / `--bg2`                                      | `#0d150a` / `#111c0e`             | App backdrop layers                             |
+| `--surface` / `--surface2`                            | `#1a2615` / `#243318`             | Panels, cards, raised elements                  |
+| `--text` / `--text-dim` / `--text-muted`              | 85% / 45% / 25% white             | Primary / secondary / disabled text             |
+| `--border`                                            | `rgba(255,255,255,.07)`           | Hairline dividers                               |
 
 ### Accents (semantic)
 
-| Token | Default | Meaning |
-|---|---|---|
-| `--accent` | `#f0c640` | Primary action / selection (amber) |
-| `--live` → `--success` | `#5add71` | Playing / confirmed / success |
-| `--record` → `--danger` | `#f05b52` | Recording / destructive |
+| Token                                    | Default   | Meaning                             |
+| ---------------------------------------- | --------- | ----------------------------------- |
+| `--accent`                               | `#f0c640` | Primary action / selection (amber)  |
+| `--live` → `--success`                   | `#5add71` | Playing / confirmed / success       |
+| `--record` → `--danger`                  | `#f05b52` | Recording / destructive             |
 | `--electric` → `--info` / `--focus-ring` | `#67d7ff` | Info / focus rings / control signal |
-| `--warn` | `#ff8c52` | Caution |
+| `--warn`                                 | `#ff8c52` | Caution                             |
 
 > Prefer the semantic aliases (`--success`, `--info`, `--danger`, `--focus-ring`)
 > in new CSS so meaning survives a theme swap.

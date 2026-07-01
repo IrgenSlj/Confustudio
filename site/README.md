@@ -10,7 +10,7 @@ two files.
 Open the `<script>` block at the bottom of `index.html` and edit one constant:
 
 ```js
-const STUDIO_URL = "/";
+const STUDIO_URL = '/';
 ```
 
 ## Two hosting shapes

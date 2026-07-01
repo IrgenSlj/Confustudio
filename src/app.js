@@ -24,12 +24,7 @@ import { captureCommandState, executeStudioCommands } from './command-bus.js';
 import { EVENTS, STATE_PATHS } from './constants.js';
 import { STUDIO_LAYOUT_KEY, STUDIO_VIEW_KEY } from './studio-modules.js';
 import { cloneJson } from './state.js';
-import {
-  resetRecorderSlotMeta,
-  captureRecorderSlot,
-  loadRecorderSlotToTrack,
-  exportRecorderSlot,
-} from './recorder.js';
+import { resetRecorderSlotMeta, captureRecorderSlot, loadRecorderSlotToTrack, exportRecorderSlot } from './recorder.js';
 import { initHistoryUI } from './history-ui.js';
 import { shouldTriggerStep } from './kernel/event-compiler.js';
 import { getStepDurationSeconds } from './kernel/transport.js';
