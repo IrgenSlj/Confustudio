@@ -79,6 +79,12 @@ Each increment verified in a real browser (0 console errors) and pushed.
     yours" (starts transport, nudges 🔗 re-share) — completing the viral loop's
     receiving end, which is the surface every launch/demo link hits. Verified
     end-to-end.
+12. **PWA "Install app" nudge** (`src/pwa-install.js`). Catches `beforeinstallprompt`
+    and shows a subtle, dismissible chip so eligible visitors can install the app
+    (the manifest made it installable, but the action was buried) — installed
+    users retain far better. Dismiss remembers the choice; `appinstalled` confirms.
+    Handling verified via a synthetic event (Chromium controls the real trigger on
+    the deployed HTTPS site).
 
 ## ⚠ THE decision fork (I hit diminishing returns on safe autonomous work)
 
@@ -91,8 +97,10 @@ top move is yours to pick — I teed these up but you were away:
 - **A. Structural demo swing** (I take it): replace the atonal generative default
   with a recognizable four-on-the-floor (kick/snare/hat/bass on a real scale) as a
   _starting point_. Strict structural upgrade; you audition/tune the timbre.
-- **B. Retention hooks** (I take it): "welcome back / your work is saved", a real
-  New-Project flow, PWA install nudge. Safe, verifiable, second-order.
+- **B. Retention hooks** (partly done — PWA install nudge shipped): remaining is
+  a "welcome back / your work is saved" cue and a real New-Project flow. Safe,
+  verifiable. (New-Project needs care: it must reset project + arranger + scenes;
+  a custom two-step confirm, not `window.confirm`, which blocks automation.)
 - **C. Starter-beat library**: pre-baked patterns as `#s=` links + an in-app
   picker + landing "try these"; you keep the ones that sound good.
 - **D. You curate the demo** (recommended): 20 min with headphones on the
