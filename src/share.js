@@ -219,6 +219,129 @@ function injectShareButton() {
   group.appendChild(btn);
 }
 
+// ─── Shared-arrival overlay ───────────────────────────────────────────────────
+// When someone opens a share link, greet them with the beat's payoff (play it)
+// and the loop's next step (make it yours, re-share) — not the generic first-run
+// tour. This is the surface every launch/demo link lands on.
+
+const ARRIVAL_STYLE_ID = 'cs-share-arrival-style';
+
+function injectArrivalStyles() {
+  if (document.getElementById(ARRIVAL_STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = ARRIVAL_STYLE_ID;
+  style.textContent = `
+    .cs-share-backdrop {
+      position: fixed; inset: 0; z-index: 9998;
+      display: flex; align-items: center; justify-content: center; padding: 24px;
+      background: radial-gradient(120% 120% at 50% 0%, rgba(13,21,10,0.72), rgba(5,9,4,0.9));
+      backdrop-filter: blur(6px) saturate(1.1); -webkit-backdrop-filter: blur(6px) saturate(1.1);
+      opacity: 0; transition: opacity 0.28s ease;
+    }
+    .cs-share-backdrop.cs-in { opacity: 1; }
+    .cs-share-card {
+      position: relative; width: min(460px, 100%);
+      background: linear-gradient(180deg, #1a2615 0%, #111c0e 100%);
+      border: 1px solid rgba(255,255,255,0.14); border-radius: 16px;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(90,221,113,0.1),
+                  inset 0 1px 0 rgba(255,255,255,0.05);
+      padding: 30px; color: #e8f4e0; text-align: center;
+      transform: translateY(10px) scale(0.985); transition: transform 0.32s cubic-bezier(0.2,0.8,0.2,1);
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    .cs-share-backdrop.cs-in .cs-share-card { transform: translateY(0) scale(1); }
+    .cs-share-eyebrow {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 0.62rem; letter-spacing: 0.22em; text-transform: uppercase;
+      color: #5add71; margin: 0 0 10px;
+    }
+    .cs-share-title { margin: 0 0 8px; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; }
+    .cs-share-title b { color: #f0c640; }
+    .cs-share-sub { margin: 0 0 22px; font-size: 0.9rem; line-height: 1.5; color: rgba(232,244,224,0.72); }
+    .cs-share-sub b { color: #e8f4e0; font-weight: 600; }
+    .cs-share-actions { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .cs-share-primary {
+      appearance: none; cursor: pointer; width: 100%;
+      font-family: inherit; font-size: 0.95rem; font-weight: 700;
+      padding: 13px 22px; border-radius: 10px;
+      color: #16210d; background: #f0c640; border: 1px solid #f0c640;
+      box-shadow: 0 6px 20px rgba(240,198,64,0.28);
+      transition: transform 0.12s ease, box-shadow 0.15s ease, background 0.15s ease;
+    }
+    .cs-share-primary:hover { background: #f4d160; transform: translateY(-1px); box-shadow: 0 8px 26px rgba(240,198,64,0.36); }
+    .cs-share-primary:active { transform: translateY(0); }
+    .cs-share-ghost {
+      appearance: none; cursor: pointer; background: transparent; border: none;
+      font-family: inherit; font-size: 0.84rem; color: rgba(232,244,224,0.55);
+      padding: 4px; text-decoration: underline; text-underline-offset: 3px; transition: color 0.15s ease;
+    }
+    .cs-share-ghost:hover { color: rgba(232,244,224,0.9); }
+    .cs-share-primary:focus-visible, .cs-share-ghost:focus-visible { outline: 2px solid #5add71; outline-offset: 2px; }
+    @media (prefers-reduced-motion: reduce) { .cs-share-backdrop, .cs-share-card { transition: none; } }
+  `;
+  document.head.appendChild(style);
+}
+
+function showSharedArrival() {
+  injectArrivalStyles();
+  const backdrop = document.createElement('div');
+  backdrop.className = 'cs-share-backdrop';
+  backdrop.setAttribute('role', 'dialog');
+  backdrop.setAttribute('aria-modal', 'true');
+  backdrop.setAttribute('aria-labelledby', 'cs-share-title');
+  backdrop.innerHTML = `
+    <div class="cs-share-card">
+      <p class="cs-share-eyebrow">Someone shared a beat</p>
+      <h1 class="cs-share-title" id="cs-share-title">Play it. Then <b>make it yours</b>.</h1>
+      <p class="cs-share-sub">
+        This pattern was made in CONFUstudio and loaded into your studio. Hit play, tweak
+        anything, then share your version with the <b>🔗</b> button.
+      </p>
+      <div class="cs-share-actions">
+        <button class="cs-share-primary" type="button" data-cs-play>▶ Play the beat</button>
+        <button class="cs-share-ghost" type="button" data-cs-skip>Explore on my own</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  void backdrop.offsetWidth;
+  backdrop.classList.add('cs-in');
+
+  const primary = backdrop.querySelector('[data-cs-play]');
+  primary?.focus();
+
+  let closed = false;
+  const close = (andPlay) => {
+    if (closed) return;
+    closed = true;
+    document.removeEventListener('keydown', onKey);
+    backdrop.classList.remove('cs-in');
+    const remove = () => backdrop.remove();
+    backdrop.addEventListener('transitionend', remove, { once: true });
+    setTimeout(remove, 400);
+    if (andPlay) {
+      try {
+        const btn = document.getElementById('btn-play');
+        if (btn && !btn.classList.contains('active')) btn.click();
+      } catch {
+        /* never let a play failure keep the overlay up */
+      }
+    }
+  };
+  const onKey = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      close(false);
+    }
+  };
+  document.addEventListener('keydown', onKey);
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) close(false);
+  });
+  primary?.addEventListener('click', () => close(true));
+  backdrop.querySelector('[data-cs-skip]')?.addEventListener('click', () => close(false));
+}
+
 function whenCommandsReady(cb, tries = 40) {
   if (window.confustudioCommands?.execute && window.__CONFUSTUDIO__?.state) {
     cb();
@@ -244,7 +367,8 @@ function maybeLoadFromHash() {
   whenCommandsReady(() => {
     try {
       window.confustudioCommands.execute(buildApplyCommands(data), 'Load shared pattern');
-      toast('Loaded a shared pattern — press Ctrl/Cmd+Z to undo');
+      // Give the beat a moment to render behind the overlay.
+      setTimeout(showSharedArrival, 250);
     } catch {
       toast('Could not load the shared pattern');
     }

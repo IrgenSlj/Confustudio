@@ -222,6 +222,10 @@ function defaultStartPlayback() {
 
 function init() {
   if (alreadyOnboarded()) return;
+  // A shared-pattern arrival (`#s=…`) gets a tailored overlay from share.js
+  // instead of this generic first-run tour — don't double up. (This runs before
+  // share.js cleans the hash, since onboarding.js is loaded first.)
+  if (/[#&]s=/.test(location.hash || '')) return;
   const run = () => showOnboarding({ startPlayback: defaultStartPlayback });
   // Let the app paint first so the overlay sits over a rendered studio.
   if (document.readyState === 'loading') {
