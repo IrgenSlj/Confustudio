@@ -74,32 +74,47 @@ Each increment verified in a real browser (0 console errors) and pushed.
    This is the organic-acquisition engine — every beat a user makes can spread.
 10. **Green CI.** The `format` step had been failing repo-wide (pre-existing
     prettier drift); a `prettier --write` pass fixed it. PR #2 now passes CI.
+11. **Tailored shared-link arrival.** Opening a `#s=` link now suppresses the
+    generic onboarding and shows "Someone shared a beat → ▶ Play it, then make it
+    yours" (starts transport, nudges 🔗 re-share) — completing the viral loop's
+    receiving end, which is the surface every launch/demo link hits. Verified
+    end-to-end.
 
-## ⚠ Recommended next work (highest value first)
+## ⚠ THE decision fork (I hit diminishing returns on safe autonomous work)
 
-1. **Curate the demo pattern (needs your ears).** New users hear the default
-   pattern on first Play. The default is a generative whole-tone texture
-   (`createStep`: `(step+track) % 5`, track pitches `48 + i*2`). I deliberately
-   did NOT retune it blind — audio is muted in automation and timbre/mix is
-   exactly what makes a demo "good". Spend 20 min crafting a genuinely good
-   4-8 bar groove (a proper kick/snare/hat + bassline + hook) and set it as the
-   fresh-project default. This is the single biggest first-impression lever.
-2. **Wire `STUDIO_URL`** in `site/index.html` once the app is deployed, and host
+The full funnel + viral loop are shipped and CI is green. The single biggest
+remaining lever is **whether the app sounds good on first play** — and that's the
+one thing I can't do: browser automation mutes audio, and timbre/mix is exactly
+what makes a beat "good". I won't ship audio I can't hear (your own rule). So the
+top move is yours to pick — I teed these up but you were away:
+
+- **A. Structural demo swing** (I take it): replace the atonal generative default
+  with a recognizable four-on-the-floor (kick/snare/hat/bass on a real scale) as a
+  _starting point_. Strict structural upgrade; you audition/tune the timbre.
+- **B. Retention hooks** (I take it): "welcome back / your work is saved", a real
+  New-Project flow, PWA install nudge. Safe, verifiable, second-order.
+- **C. Starter-beat library**: pre-baked patterns as `#s=` links + an in-app
+  picker + landing "try these"; you keep the ones that sound good.
+- **D. You curate the demo** (recommended): 20 min with headphones on the
+  fresh-project default beats anything I'd guess blind.
+
+## Other recommended work (lower priority)
+
+1. **Wire `STUDIO_URL`** in `site/index.html` once the app is deployed, and host
    `site/`. (Shareable links already use the app's own origin, so they work the
    moment the app is live.)
-3. **Polish shareable links** (shipped this session): a shared link could open a
-   subtle "someone shared this beat — remix it" banner; and the encoder could
-   sparse-skip default/empty tracks to shrink long URLs. Both optional.
-4. **Full multi-module restore on reload.** Current `restoreLayout()` re-anchors
+2. **Polish shareable links** (shipped): the encoder could sparse-skip
+   default/empty tracks to shrink long URLs. Optional.
+3. **Full multi-module restore on reload.** Current `restoreLayout()` re-anchors
    only `module-0` (a stability fix for the old "blank green modules" regression).
    Dynamically-added modules are not restored across reload. Fix the module
    re-creation + state hydration path properly, verify each module type renders,
    then re-enable — and restore the ui-smoke persistence assertions.
-5. **Background-tab playback.** The scheduler is a 120 ms-lookahead loop driven by
+4. **Background-tab playback.** The scheduler is a 120 ms-lookahead loop driven by
    `requestAnimationFrame`, so playback pauses when the tab is backgrounded
    (Chrome throttles rAF). A Web Worker timer (or `setTimeout` fallback) driving
    the lookahead would keep timing alive in the background. Secondary.
-6. **Minor cleanups** (from the audit): each page module exports a dead `knobMap`
+5. **Minor cleanups** (from the audit): each page module exports a dead `knobMap`
    (zero callers; `KNOB_MAPS` in `knobs.js` is the live one) — remove to kill the
    confusing duplicate. And completing a pad assignment fires two toasts ("Pad N →
    …" then "Selected track") that clobber each other in `#toast-msg`. Both cosmetic.
