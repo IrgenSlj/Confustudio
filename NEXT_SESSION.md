@@ -67,6 +67,13 @@ Each increment verified in a real browser (0 console errors) and pushed.
    (b) Pad-assignment toast always said "Pad 1" (index nulled before read) —
    fixed. (c) The FX "RevSize" knob was a silent no-op (Freeverb legacy) →
    replaced with a live "RevSend" (per-track reverb send).
+9. **Shareable pattern links (the growth loop).** `src/share.js` encodes the
+   current pattern (rhythm + sound) into a `#s=…` URL; a 🔗 Share button copies a
+   link; opening one loads the pattern via the command bus (undoable) and cleans
+   the hash. No backend. Round-trip unit test + verified end-to-end in-browser.
+   This is the organic-acquisition engine — every beat a user makes can spread.
+10. **Green CI.** The `format` step had been failing repo-wide (pre-existing
+    prettier drift); a `prettier --write` pass fixed it. PR #2 now passes CI.
 
 ## ⚠ Recommended next work (highest value first)
 
@@ -78,11 +85,11 @@ Each increment verified in a real browser (0 console errors) and pushed.
    4-8 bar groove (a proper kick/snare/hat + bassline + hook) and set it as the
    fresh-project default. This is the single biggest first-impression lever.
 2. **Wire `STUDIO_URL`** in `site/index.html` once the app is deployed, and host
-   `site/`.
-3. **Shareable pattern links (growth).** Encode a pattern/project (no audio
-   assets → stays small) into a URL hash; load it on open; add a "Share" button.
-   Leverage `createProjectPackage`/`applyProjectPackageToState`. Fully verifiable
-   without audio (state round-trip). Real organic-acquisition mechanism.
+   `site/`. (Shareable links already use the app's own origin, so they work the
+   moment the app is live.)
+3. **Polish shareable links** (shipped this session): a shared link could open a
+   subtle "someone shared this beat — remix it" banner; and the encoder could
+   sparse-skip default/empty tracks to shrink long URLs. Both optional.
 4. **Full multi-module restore on reload.** Current `restoreLayout()` re-anchors
    only `module-0` (a stability fix for the old "blank green modules" regression).
    Dynamically-added modules are not restored across reload. Fix the module
