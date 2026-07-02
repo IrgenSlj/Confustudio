@@ -3,8 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
-    <meta name="theme-color" content="#4e5f3c" />
-    <title>CONFUstudio</title>
+    <meta name="theme-color" content="#0d150a" />
+    <title>CONFUstudio — a full music studio in your browser</title>
+    <meta
+      name="description"
+      content="CONFUstudio is a browser-native music studio: an 8-track step sequencer, a deep synth with sampling and AudioWorklet DSP, per-track FX, scenes, and song mode. No install — runs entirely in your browser."
+    />
+
+    <!-- Social / link previews. og:image uses a relative path so it resolves on
+         whatever host serves the app; for full Twitter-card support set an
+         absolute URL once the deploy domain is known. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CONFUstudio" />
+    <meta property="og:title" content="CONFUstudio — a full music studio in your browser" />
+    <meta
+      property="og:description"
+      content="8-track sequencer, deep synth, sampling, per-track FX, scenes, and song mode — no install, runs entirely in your browser."
+    />
+    <meta property="og:image" content="/public/og-cover.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="CONFUstudio — a full music studio in your browser" />
+    <meta
+      name="twitter:description"
+      content="8-track sequencer, deep synth, sampling, per-track FX, scenes, and song mode — no install, runs in your browser."
+    />
+    <meta name="twitter:image" content="/public/og-cover.png" />
+
     <link rel="icon" href="/public/icon.svg" type="image/svg+xml" />
     <link rel="manifest" href="/public/manifest.webmanifest" />
     <link rel="stylesheet" href="/src/styles.css" />
@@ -83,8 +107,12 @@
                   <button id="btn-fill" class="t-btn t-btn--fill" title="Fill mode: play all steps">Fill</button>
                   <button id="btn-tap" class="t-btn" title="Tap tempo">Tap</button>
                   <button id="btn-modular" class="t-btn t-btn--modular" title="Toggle modular engine">MOD</button>
-                  <button id="btn-preset-save" class="t-btn" title="Save signal graph preset" style="font-size:10px">Sv</button>
-                  <button id="btn-preset-load" class="t-btn" title="Load signal graph preset" style="font-size:10px">Ld</button>
+                  <button id="btn-preset-save" class="t-btn" title="Save signal graph preset" style="font-size: 10px">
+                    Sv
+                  </button>
+                  <button id="btn-preset-load" class="t-btn" title="Load signal graph preset" style="font-size: 10px">
+                    Ld
+                  </button>
                 </div>
 
                 <!-- BPM edit (moved here from screen-below) -->
@@ -205,6 +233,9 @@
     </div>
     <script type="module" src="/src/app.js"></script>
     <script type="module" src="/src/assistant-client.js"></script>
+    <script type="module" src="/src/onboarding.js"></script>
+    <script type="module" src="/src/share.js"></script>
+    <script type="module" src="/src/pwa-install.js"></script>
     <script>
       const isLoopbackHost = ['127.0.0.1', 'localhost', '::1'].includes(window.location.hostname);
       const DEV_SHELL_VERSION = 'confustudio-shell-v7';

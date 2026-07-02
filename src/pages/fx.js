@@ -16,12 +16,12 @@ const CONV_REVERB_LABELS = {
   studio: 'Studio',
 };
 const CONV_REVERB_PRESETS = {
-  room: { mix: 0.25, preDelay: 0 },
-  hall: { mix: 0.3, preDelay: 20 },
-  plate: { mix: 0.28, preDelay: 5 },
-  spring: { mix: 0.32, preDelay: 0 },
-  cave: { mix: 0.35, preDelay: 30 },
-  studio: { mix: 0.18, preDelay: 0 },
+  room: { mix: 0.25, preDelay: 0, description: 'Room', roomSizeLabel: 'small', dampingLabel: 'tight' },
+  hall: { mix: 0.3, preDelay: 20, description: 'Hall', roomSizeLabel: 'large', dampingLabel: 'lush' },
+  plate: { mix: 0.28, preDelay: 5, description: 'Plate', roomSizeLabel: 'medium', dampingLabel: 'bright' },
+  spring: { mix: 0.32, preDelay: 0, description: 'Spring', roomSizeLabel: 'vintage', dampingLabel: 'resonant' },
+  cave: { mix: 0.35, preDelay: 30, description: 'Cave', roomSizeLabel: 'huge', dampingLabel: 'dark' },
+  studio: { mix: 0.18, preDelay: 0, description: 'Studio', roomSizeLabel: 'medium', dampingLabel: 'neutral' },
 };
 
 function _reverbPresetInfo(type) {

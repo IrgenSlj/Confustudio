@@ -9,7 +9,7 @@ const rootDir = __dirname;
 const publicDir = path.join(rootDir, 'public');
 const docsDir = path.join(rootDir, 'docs');
 const port = Number(process.env.PORT || 4173);
-const host = process.env.HOST || '127.0.0.1';
+const host = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
 const assistantManualPath = path.join(docsDir, 'confustudio.manual.json');
 const assistantSystemFallback =
   "You are the CONFUstudio assistant and production co-pilot. Translate the studio's real sequencing, sampling, synth, routing, scene, arrangement, and mix capabilities into concrete next actions the user can execute immediately.";
@@ -30,6 +30,12 @@ const mimeTypes = {
   '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.svg': 'image/svg+xml; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.ico': 'image/x-icon',
   '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.wasm': 'application/wasm',
   '.wav': 'audio/wav',

@@ -186,8 +186,6 @@ export function captureCommandState(state) {
   });
 }
 
-
-
 /**
  * @param {object} state
  * @param {object} command
@@ -682,6 +680,9 @@ export function executeStudioCommand(state, command, parentSignalId = null) {
 function executeAndRecord(state, command, parentSignalId) {
   const result = executeStudioCommand(state, command, parentSignalId);
   if (state._signalGraph && result.changed) {
+    if (!Array.isArray(state._signalGraph.edges)) {
+      state._signalGraph.edges = [];
+    }
     result.signalId = recordSignal(state._signalGraph, command, parentSignalId, result);
   }
   return result;
@@ -791,8 +792,6 @@ export function replaySignalSubgraph(state, graph, targetNodeId, opts = {}) {
 }
 
 // ─── Audio Graph ↔ Legacy Track Bridge ─────────────────────────────────────────
-
-
 
 // ─── Signal Graph Commands ──────────────────────────────────────────────────
 

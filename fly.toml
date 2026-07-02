@@ -1,0 +1,40 @@
+# Fly.io deployment for CONFUstudio.
+#
+# Fly runs the Node server directly from the Dockerfile, so the COOP/COEP
+# cross-origin-isolation headers the app sets are preserved end to end
+# (required for SharedArrayBuffer + AudioWorklet).
+#
+# `fly launch` may rename this app / pick a region interactively — that's fine.
+app = "confustudio"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  HOST = "0.0.0.0"
+  PORT = "4173"
+
+[http_service]
+  # Must match the port the server listens on (PORT above / Dockerfile default).
+  internal_port = 4173
+  force_https = true
+  # Scale to zero when idle, wake on request — cheapest possible demo.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    method = "get"
+    path = "/"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

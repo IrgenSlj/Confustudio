@@ -8,8 +8,19 @@ const WAVEFORMS = ['sine', 'triangle', 'sawtooth', 'square'];
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 function midiToNoteName(midi) {
-  const oct = Math.floor(midi / 12) - 1;
-  return NOTE_NAMES[midi % 12] + oct;
+  // Robust to fractional/NaN input (scene morph + LFO-to-pitch can produce
+  // non-integer MIDI values; a bare `midi % 12` array index then yields
+  // undefined -> "NaN" in the display). Round, validate, and wrap the index.
+  const m = Math.round(Number(midi));
+  if (!Number.isFinite(m)) return '--';
+  const clamped = Math.max(0, Math.min(127, m));
+  const oct = Math.floor(clamped / 12) - 1;
+  return NOTE_NAMES[((clamped % 12) + 12) % 12] + oct;
+}
+// MIDI number for the readout: clean integer, never a fractional artifact.
+function midiDisplayValue(midi) {
+  const m = Math.round(Number(midi));
+  return Number.isFinite(m) ? Math.max(0, Math.min(127, m)) : '--';
 }
 
 const WAVEFORM_SVGS = {
@@ -325,13 +336,13 @@ function buildOscColumn(track, ti, emit, color, rerender) {
 
   const pitchMidi = document.createElement('div');
   pitchMidi.className = 'snd-pitch-midi';
-  pitchMidi.textContent = `MIDI ${track.pitch ?? 60}`;
+  pitchMidi.textContent = `MIDI ${midiDisplayValue(track.pitch ?? 60)}`;
 
   col.append(pitchDisplay, pitchMidi);
 
   const pitchRow = makeSndParamRow('Pitch', 'pitch', 0, 127, 1, track.pitch ?? 60, emit, ti, (v) => {
     pitchDisplay.textContent = midiToNoteName(v);
-    pitchMidi.textContent = `MIDI ${v}`;
+    pitchMidi.textContent = `MIDI ${midiDisplayValue(v)}`;
   });
   // Override val display to show note name
   pitchRow.querySelector('.snd-param-val').textContent = midiToNoteName(track.pitch ?? 60);

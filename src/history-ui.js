@@ -1,12 +1,6 @@
 // CONFUstudio — undo/redo history via signal-graph replay
 import { createSignalGraph } from './state.js';
-import {
-  replaySignalSubgraph,
-  signalUndo,
-  signalRedo,
-  signalListBranches,
-  signalSwitchBranch,
-} from './command-bus.js';
+import { replaySignalSubgraph, signalUndo, signalRedo, signalListBranches, signalSwitchBranch } from './command-bus.js';
 
 export function initHistoryUI(state, showToast) {
   if (!state._signalGraph) {
@@ -26,9 +20,7 @@ export function initHistoryUI(state, showToast) {
       _branchCount = 0;
       return;
     }
-    const cursorPos = graph.cursorId != null
-      ? graph.nodes.findIndex((n) => n.id === graph.cursorId) + 1
-      : 0;
+    const cursorPos = graph.cursorId != null ? graph.nodes.findIndex((n) => n.id === graph.cursorId) + 1 : 0;
     _historyIdx = Math.max(0, cursorPos);
     _historyTotal = graph.nodes.length;
     _branchCount = signalListBranches(graph).length;

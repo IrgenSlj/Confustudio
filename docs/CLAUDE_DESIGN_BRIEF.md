@@ -13,19 +13,19 @@ The app currently works but looks dated and has UX friction. We need a coherent 
 
 ### Key Pages (each rendered in `#page-content` div)
 
-| # | Tab | Purpose |
-|---|-----|---------|
-| 1 | PATTERN | 16×64 step grid with track selector, per-step controls (probability, accent, param locks, micro-timing) |
-| 2 | PADS | 4×4 velocity-sensitive pad grid for finger drumming / MIDI input |
-| 3 | ROLL | Piano-roll MIDI editor with note bars, velocity lanes, zoom |
-| 4 | SOUND | Per-track sound engine params (envelope, filter, LFO, engine type: plaits/clouds/rings/tone/sample/midi) |
-| 5 | MIXER | 8 channel strips + 2 bus + master with faders, pan, mute/solo, sends |
-| 6 | FX | Global FX: delay (syncable), reverb (convolution), master drive, chorus |
-| 7 | MOD | Modulation matrix: 8× modulation routes, 2 LFOs, 2 envelopes |
-| 8 | SCENES | 8 scene slots for snapshot morphing between track param presets |
-| 9 | BANKS | 8 banks × 16 patterns, copy/paste/swap patterns, naming |
-| 10 | ARR | Linear arrangement of scene sections, drag-to-reorder, loop regions |
-| 11 | SET | Audio settings, MIDI config, theme picker, project import/export |
+| #   | Tab     | Purpose                                                                                                  |
+| --- | ------- | -------------------------------------------------------------------------------------------------------- |
+| 1   | PATTERN | 16×64 step grid with track selector, per-step controls (probability, accent, param locks, micro-timing)  |
+| 2   | PADS    | 4×4 velocity-sensitive pad grid for finger drumming / MIDI input                                         |
+| 3   | ROLL    | Piano-roll MIDI editor with note bars, velocity lanes, zoom                                              |
+| 4   | SOUND   | Per-track sound engine params (envelope, filter, LFO, engine type: plaits/clouds/rings/tone/sample/midi) |
+| 5   | MIXER   | 8 channel strips + 2 bus + master with faders, pan, mute/solo, sends                                     |
+| 6   | FX      | Global FX: delay (syncable), reverb (convolution), master drive, chorus                                  |
+| 7   | MOD     | Modulation matrix: 8× modulation routes, 2 LFOs, 2 envelopes                                             |
+| 8   | SCENES  | 8 scene slots for snapshot morphing between track param presets                                          |
+| 9   | BANKS   | 8 banks × 16 patterns, copy/paste/swap patterns, naming                                                  |
+| 10  | ARR     | Linear arrangement of scene sections, drag-to-reorder, loop regions                                      |
+| 11  | SET     | Audio settings, MIDI config, theme picker, project import/export                                         |
 
 ### Top-level chrome (always visible)
 
@@ -69,11 +69,13 @@ A separate "studio" mode (zoomable/pannable canvas) with rack modules connected 
 ### 2. `pattern-page.html` — Pattern Sequencer Redesign
 
 The most important page. Current pain points:
+
 - 8 tracks × 64 steps creates a huge scrollable grid
 - Probability, accent, micro-timing controls are hard to discover
 - Param locks editing is buried in sub-menus
 
 Deliver as a standalone HTML file with embedded CSS. Include:
+
 - Step grid with clear on/off/accent/probability states
 - Track selector with mute/solo/sends visible without navigation
 - Per-step detail panel (shows when a step is selected): probability, accent, velocity, micro-time, param locks, trig condition
@@ -84,11 +86,13 @@ Deliver as a standalone HTML file with embedded CSS. Include:
 ### 3. `mixer-page.html` — Mixer Redesign
 
 Current pain points:
+
 - 8 tracks squeezed into fixed space
 - No visual feedback for levels (no meters)
 - Bus routing is invisible
 
 Deliver as standalone HTML with embedded CSS:
+
 - 8 channel strips in horizontal scroll, each with: fader, pan knob, mute/solo buttons, signal meter (animated CSS), send knobs
 - Master strip with larger fader and limiter indicator
 - Bus 1 / Bus 2 strips
@@ -131,13 +135,13 @@ No code needed — just description, diagrams (ASCII or links to sketches), inte
 
 Brief explanation of how each deliverable maps to existing files:
 
-| Deliverable | Maps to | How to integrate |
-|---|---|---|
-| Pattern page | `src/pages/pattern.js`, `src/css/drum-machine.css` | Replace rendered HTML in `renderPage()` |
-| Mixer page | `src/pages/mixer.js`, `src/css/mixer.css` | Replace `renderMixerPage()` HTML and CSS |
-| Components | `index.html` chassis, `src/styles.css` | Adopt CSS custom properties, replace inline styles |
-| Studio canvas | `src/studio-modules.js`, `src/cables.js`, `src/modules.css` | Adopt port conventions, cable colors |
-| Step component | Reusable in pattern page and piano roll | New `src/components/step.js` if needed |
+| Deliverable    | Maps to                                                     | How to integrate                                   |
+| -------------- | ----------------------------------------------------------- | -------------------------------------------------- |
+| Pattern page   | `src/pages/pattern.js`, `src/css/drum-machine.css`          | Replace rendered HTML in `renderPage()`            |
+| Mixer page     | `src/pages/mixer.js`, `src/css/mixer.css`                   | Replace `renderMixerPage()` HTML and CSS           |
+| Components     | `index.html` chassis, `src/styles.css`                      | Adopt CSS custom properties, replace inline styles |
+| Studio canvas  | `src/studio-modules.js`, `src/cables.js`, `src/modules.css` | Adopt port conventions, cable colors               |
+| Step component | Reusable in pattern page and piano roll                     | New `src/components/step.js` if needed             |
 
 ## Constraints & Non-Negotiables
 
@@ -191,19 +195,20 @@ Brief explanation of how each deliverable maps to existing files:
 }
 
 /* Track colors */
---track-0: #f0c640;  /* amber */
---track-1: #5add71;  /* green */
---track-2: #67d7ff;  /* sky */
---track-3: #ff8c52;  /* orange */
---track-4: #c67dff;  /* violet */
---track-5: #ff6eb4;  /* pink */
---track-6: #40e0d0;  /* teal */
---track-7: #f05b52;  /* red */
+--track-0: #f0c640; /* amber */
+--track-1: #5add71; /* green */
+--track-2: #67d7ff; /* sky */
+--track-3: #ff8c52; /* orange */
+--track-4: #c67dff; /* violet */
+--track-5: #ff6eb4; /* pink */
+--track-6: #40e0d0; /* teal */
+--track-7: #f05b52; /* red */
 ```
 
 ## Success Criteria
 
 I can take each deliverable and:
+
 1. Copy the CSS custom properties into `src/styles.css`
 2. Copy the component HTML patterns into each page's `renderPage()` function
 3. Wire up the JS interactions following the notes in each deliverable

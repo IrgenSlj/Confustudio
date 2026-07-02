@@ -83,16 +83,9 @@ try {
   await page.evaluate(() => (document.documentElement.dataset.theme = 'light'));
   await page.waitForTimeout(100);
   results.lightTokens = await readTokens();
-  results.lightContrast = contrast(
-    results.lightTokens.textResolved,
-    results.lightTokens.surfaceResolved,
-  );
-  results.darkContrast = contrast(
-    results.darkTokens.textResolved,
-    results.darkTokens.surfaceResolved,
-  );
-  results.lightDiffersFromDark =
-    results.lightTokens.surfaceResolved !== results.darkTokens.surfaceResolved;
+  results.lightContrast = contrast(results.lightTokens.textResolved, results.lightTokens.surfaceResolved);
+  results.darkContrast = contrast(results.darkTokens.textResolved, results.darkTokens.surfaceResolved);
+  results.lightDiffersFromDark = results.lightTokens.surfaceResolved !== results.darkTokens.surfaceResolved;
 
   results.consoleErrors = errors;
   console.log(JSON.stringify(results, null, 2));

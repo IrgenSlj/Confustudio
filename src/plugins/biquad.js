@@ -9,7 +9,10 @@ registerPlugin('biquad', {
     { id: 'freq-mod', direction: 'in', signal: 'control', label: 'Freq Mod' },
   ],
   params: {
-    type: { default: 'lowpass', values: ['lowpass', 'highpass', 'bandpass', 'notch', 'peaking', 'lowshelf', 'highshelf'] },
+    type: {
+      default: 'lowpass',
+      values: ['lowpass', 'highpass', 'bandpass', 'notch', 'peaking', 'lowshelf', 'highshelf'],
+    },
     freq: { default: 1000, min: 20, max: 20000, unit: 'Hz' },
     Q: { default: 0.707, min: 0.1, max: 20 },
   },

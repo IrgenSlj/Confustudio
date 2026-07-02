@@ -421,7 +421,13 @@ export function initCables() {
       const state = window.__CONFUSTUDIO__?.state;
       const sgraph = state?.signalGraph;
       if (sgraph) {
-        sgraph.connections.push({ id: cable.id, fromNode: fromModId, fromPort: fromEl.dataset.port, toNode: toModId, toPort: toEl.dataset.port });
+        sgraph.connections.push({
+          id: cable.id,
+          fromNode: fromModId,
+          fromPort: fromEl.dataset.port,
+          toNode: toModId,
+          toPort: toEl.dataset.port,
+        });
       }
       const me = window.__CONFUSTUDIO__?.modularEngine;
       if (me?.enabled) me.sync(sgraph || state?.signalGraph);
@@ -573,7 +579,9 @@ export function initCables() {
   window.__CONFUSTUDIO__.redrawCables = redrawAllCables;
 
   let _cablesDirty = false;
-  function markCablesDirty() { _cablesDirty = true; }
+  function markCablesDirty() {
+    _cablesDirty = true;
+  }
 
   // Redraw cables only when dirty
   function tick() {
