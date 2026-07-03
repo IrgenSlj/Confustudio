@@ -1,5 +1,13 @@
 # CONFUstudio Architecture
 
+> These principles predate the v1.2 briefs but remain in force. For the
+> authoritative target architecture, phasing, and harness contracts see
+> [`CONFUSTUDIO_CODE_BRIEF.md`](./CONFUSTUDIO_CODE_BRIEF.md),
+> [`CONFUSTUDIO_AI_BRIEF.md`](./CONFUSTUDIO_AI_BRIEF.md), and the live
+> [`ROADMAP.md`](./ROADMAP.md). Note: per the briefs, no Rust/WASM DSP is in
+> scope now (worklets suffice; the kernel boundary keeps the door open) and
+> there is no full TypeScript migration (checked-JSDoc at the boundary only).
+
 ## Design Principles
 
 1. **Every state mutation goes through the command bus.** The AI assistant uses the same commands the UI does. There is no private path.

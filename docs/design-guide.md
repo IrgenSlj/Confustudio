@@ -1,4 +1,11 @@
-# CONFUstudio — Design System
+# CONFUstudio — Design System (v1 token guide)
+
+> The Claude Design **v2.0** handoff supersedes and extends this. See
+> [`design-system/module-chassis-spec.md`](./design-system/module-chassis-spec.md)
+> (the SDK visual contract), [`design-system/integration-guide.md`](./design-system/integration-guide.md),
+> and [`CONFUSTUDIO_DESIGN_BRIEF.md`](./CONFUSTUDIO_DESIGN_BRIEF.md). A consolidated
+> design-guide v2 is a pending deliverable. This page remains accurate for the
+> token system and theming.
 
 The single source of truth for visual tokens. Everything here is implemented as
 CSS custom properties in `src/styles.css` `:root`, so new CSS should reference
