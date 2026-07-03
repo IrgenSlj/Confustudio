@@ -2,6 +2,7 @@
 
 import { TRACK_COLORS } from '../state.js';
 import { EVENTS, STATE_PATHS } from '../constants.js';
+import { kWeight, meanSquare, meanSquareToLufs, LUFS_SILENCE } from '../kernel/loudness.js';
 
 const GROUP_COLORS = ['#f0c640', '#5add71', '#67d7ff', '#ff8c52', '#c67dff', '#ff6eb4', '#40e0d0', '#f05b52'];
 
@@ -557,8 +558,27 @@ export default {
     specCanvas.className = 'mx-spectrum-canvas';
     specCanvas.width = 200;
     specCanvas.height = 40;
-    specWrap.append(specLbl, specCanvas);
+
+    // ── Master loudness (real momentary/short-term LUFS, BS.1770 K-weighted) ──
+    // Computed from the master analyser through src/kernel/loudness.js — the same
+    // path the offline PerceptionReport will use. Momentary = 400ms, short = 3s.
+    const lufsWrap = document.createElement('div');
+    lufsWrap.className = 'mx-lufs';
+    lufsWrap.innerHTML = `
+      <div class="mx-lufs-cell">
+        <div class="mx-lufs-val" id="mx-lufs-m">-∞</div>
+        <div class="mx-lufs-lbl">LUFS <b>M</b> <span class="mx-lufs-u">400ms</span></div>
+      </div>
+      <div class="mx-lufs-cell">
+        <div class="mx-lufs-val cyan" id="mx-lufs-s">-∞</div>
+        <div class="mx-lufs-lbl">LUFS <b>S</b> <span class="mx-lufs-u">3s</span></div>
+      </div>
+      <div class="mx-lufs-note" title="Per-track masking + integrated loudness arrive with offline perception (Phase C).">masking · stems → perception</div>`;
+
+    specWrap.append(specLbl, lufsWrap, specCanvas);
     page.append(specWrap);
+    const lufsMEl = lufsWrap.querySelector('#mx-lufs-m');
+    const lufsSEl = lufsWrap.querySelector('#mx-lufs-s');
 
     const specCtx = specCanvas.getContext('2d');
     const FFT_BINS = 256; // we'll read 256 bins (fftSize 512)
@@ -604,6 +624,12 @@ export default {
     // ── rAF VU animation loop ─────────────────────────────────────────────────
     let _vuRaf = null;
     const _masterData = new Uint8Array(256);
+    // LUFS metering state: rings of K-weighted mean-squares (~24 frames ≈ 400ms
+    // momentary, ~180 frames ≈ 3s short-term at 60fps).
+    let _lufsTD = new Float32Array(512);
+    const _msRingM = [];
+    const _msRingS = [];
+    let _lufsLast = 0;
 
     function _animateVU() {
       if (!page.isConnected) {
@@ -649,6 +675,28 @@ export default {
         const pct = Math.min(100, Math.round(rms * 800));
         masterVuFill.style.height = pct + '%';
         masterVuFill.style.background = levelColor(pct, 85, 60);
+      }
+
+      // Master loudness (real momentary/short-term LUFS, BS.1770 K-weighted).
+      // One code path with the offline PerceptionReport (src/kernel/loudness.js).
+      const anL = state.engine?.analyser ?? window._confustudioEngine?.analyser ?? null;
+      if (anL && lufsMEl && typeof anL.getFloatTimeDomainData === 'function') {
+        if (_lufsTD.length !== anL.fftSize) _lufsTD = new Float32Array(anL.fftSize);
+        anL.getFloatTimeDomainData(_lufsTD);
+        const sr = state.engine?.context?.sampleRate ?? 48000;
+        const ms = meanSquare(kWeight(_lufsTD, sr));
+        _msRingM.push(ms);
+        if (_msRingM.length > 24) _msRingM.shift();
+        _msRingS.push(ms);
+        if (_msRingS.length > 180) _msRingS.shift();
+        if (now - _lufsLast > 100) {
+          _lufsLast = now;
+          const avg = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
+          const lM = Math.max(LUFS_SILENCE, meanSquareToLufs(avg(_msRingM)));
+          const lS = Math.max(LUFS_SILENCE, meanSquareToLufs(avg(_msRingS)));
+          lufsMEl.textContent = lM <= LUFS_SILENCE ? '-∞' : lM.toFixed(1);
+          if (lufsSEl) lufsSEl.textContent = lS <= LUFS_SILENCE ? '-∞' : lS.toFixed(1);
+        }
       }
 
       // Per-group VU from real engine analyser taps
