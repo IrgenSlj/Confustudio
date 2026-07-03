@@ -1,180 +1,66 @@
-# Next Session
+# NEXT SESSION — Confustudio (new-brief direction)
 
-## Current Baseline
+**Branch:** `feat/phase0-type-boundary` (off `main`). Open a PR when ready; `main` is the merge target.
+**North-star specs (in-repo):** `docs/CONFUSTUDIO_CODE_BRIEF.md` (phasing/engine/SDK), `docs/CONFUSTUDIO_AI_BRIEF.md` (harness — authoritative), `docs/CONFUSTUDIO_DESIGN_BRIEF.md`, `docs/STUDIO_MANUAL.md` (human + agent knowledge, M-13 keep-true contract).
+**Thesis (locked):** a modular techno/house studio + one agent harness that works in **parameters & performances, never rendered audio**. Branches, not mutations. Perception-gated. Hierarchy: **engine quality > ease of use > advanced features**.
 
-`npm test` exits 0 — now runs **`lint` first**, then `syntax · state · server · ui-smoke`.
-Server starts clean on `http://127.0.0.1:4173`.
+---
 
-Work is on branch **`fix/signal-graph-runtime-bugs`** → **PR #1**
-(https://github.com/IrgenSlj/Confustudio/pull/1). Not yet merged to `main`.
-`main` does NOT have these fixes/features yet.
+## Phase status board
 
-## Session 9 — runtime fixes, design system, robustness (2026-05-26)
+| Phase | State |
+|---|---|
+| **0 Stabilize** | 0.1 done (PR #1 merged long ago). 0.2 done (`docs/POSTMORTEM_STALE_CACHE.md` — not-reproducible-mitigated; SW `confustudio-v4`, network-first shell, reset hatches). 0.3 done (checked-JSDoc boundary + `test:types`). 0.5 already done (constants.js). **0.4 (window._* → `__CONFUSTUDIO__` consolidation) still open.** |
+| **A Engine floor** | Not started except recon. A1 sampler recon done (below). A2 audio-quality harness = the gate for A1 — build it first. |
+| **B Harness** | B6 CS-Score parser landed (pure kernel). Loop/tools/branches/traces not started. |
+| **C Perception** | Not started (needs offline render via OfflineAudioContext — Playwright path). |
+| **D/E/F** | Not started. |
 
-Shipped on the branch above (each commit verified in a real browser, 0 console errors):
+**Design integration (Claude Design v2.0):** tokens (already canonical) ✔ · component layer `src/css/components.css` (.btn/.chip/.t-*) ✔ · specs mirrored in `docs/design-system/` ✔ · **chassis, PATTERN, MIXER pages, Director rail, perception meters = NOT done** (the visible work).
 
-1. **Fixed 3 signal-graph runtime crashes** that passed the test suite but broke the
-   modular feature in-browser: `saveState` not imported in `command-bus.js`; `showToast`
-   undefined in `dsp-module.js` (now `window.showToast`); `../` dynamic-import paths in
-   `studio-modules.js` resolving to the site root (404) — DSP graph-node creation had been
-   failing silently.
-2. **Finished module position persistence** — `meta.x/y` is seeded at creation and read
-   back; `rebuildModulesFromGraph()` (studio-modules.js) recreates modules/cables from
-   `state.signalGraph`; preset load now rebuilds the canvas instead of going stale.
-3. **Design system adopted from the Claude Design handoff** — `src/css/tokens.css` (the
-   canonical 68-token chassis system), `@import`ed first in `styles.css`, purely additive
-   with compat aliases (`--radius-*`, `--space-*`, `--fs-*`, `--shadow-*`, etc.). New
-   `light` theme. `docs/design-guide.md`.
-4. **Mixer** — VU meters use design tokens (theme-aware); **real per-group metering** via
-   AnalyserNode taps on the 8 persistent group buses (`engine.getGroupLevel(i)`).
-5. **Studio** — DSP modules adopt tokens (on-brand, theme-aware); cables colour by signal
-   type (audio=white, control=cyan, event=amber) from `port.signal`.
-6. **Robustness** (this wind-down): SW cache version → `confustudio-v4` (static name was
-   the stale-shell cause; bump per release); per-item try/catch in `restoreLayout` so one
-   bad saved module can't blank the canvas; recovery hatches
-   `window.__CONFUSTUDIO__.resetWorkspace()` / `hardReset()` + **Reset workspace / Hard
-   reset buttons in SET → WORKSPACE**.
+---
 
-## ⚠ OPEN — diagnose before building more
+## What shipped this session
 
-User reported the running app looked like an "unusable mess": blank PATTERN page at 100%,
-blank green modules in the studio canvas at 25% zoom. **Could not reproduce from a clean
-profile** (clean load + returning-user session both render fully, 0 errors). Strongly
-points to **stale service-worker cache and/or corrupt persisted `localStorage`** specific
-to that browser, not the code.
+1. Landed all four north-star briefs + STUDIO_MANUAL in `docs/` (source files had vanished from disk — these are now the only copies).
+2. **Phase 0.2** — stale-cache postmortem.
+3. **Phase 0.3** — type boundary: `jsconfig.json` (checkJs) over `src/kernel`, `command-bus.js`, `state.js`, `plugins/*`; `src/kernel/types.js` typedefs; `src/globals.d.ts`; `test:types` (tsc) wired into `npm test`. Fixed 3 latent gotchas (em-dashes after bracketed JSDoc `@param` tripped TS1127).
+4. **Design** — `src/css/components.css` (.btn/.chip/.t-* — additive, zero collision) + `docs/design-system/{module-chassis-spec,integration-guide}.md`.
+5. **B6 CS-Score** — `src/kernel/score.js` + `tests/score-roundtrip.mjs` (delegated; **verify before committing — see Open items**).
 
-**Next session, first thing:** confirm with the user — does it work in an **Incognito
-window**? If yes → it was stale cache/state (the v4 SW bump + Reset workspace should fix
-it; have them Hard reset once). If it's still broken in Incognito → it's a code path the
-repros missed; get the **DevTools Console error** and trace from there.
+## OPEN ITEMS — reconcile FIRST next session
 
-Manual browser regression checks (run with `node`, not in `npm test`):
-`tests/verify-graph.mjs`, `tests/verify-theme.mjs`.
+- **CS-Score:** `src/kernel/score.js` + `tests/score-roundtrip.mjs` are on the working tree, **uncommitted**, and currently fail `test:types` (`score.js:837` — `ScoreParseOk | ScoreParseErr` not assignable). `docs/CS_SCORE.md` was NOT written. Fix the type error, add the grammar doc, confirm `npm test` green, then commit. (Don't re-run the subagent — just finish it.)
 
-## Highest-value next work (from the design handoff `confusynth-ui-ux` bundle)
+---
 
-Integration-guide order, after the open issue is cleared:
-Step 2 chassis chrome (`chassis.css`/`chassis.js`) → Step 3 pattern page → Step 4 mixer
-page → Step 5 component CSS → Step 6 studio-canvas refactor. Also still pending from the
-"good test" punch list: verify the full **make-a-track loop** end-to-end, and decide on
-the **stubbed worklet voices** (plaits/clouds/rings/sampler) + one real **AI action**.
+## A1 sampler recon (the brief's assumption is partly wrong)
 
-## Architecture
+- The kernel `createStepTriggerEvent` (`src/kernel/event-compiler.js`) is **NOT wired into the live scheduler**. Live path: `src/app.js:2150 tick()` → `src/engine.js:716 triggerTrack()`. (Wiring the scheduler onto kernel events is its own task — needed for Phase C offline-render fidelity + Phase E quantized launch.)
+- The **track-engine `'sample'` machine already works** (`engine.js:1206-1308`): real AudioBuffer playback via `cs-resampler`, with start/end, loop, pitch. The **actual stub** is the ModularEngine sampler node (`engine-graph.js:519`, plays a default sine).
+- A1 missing pieces + insertion points: reverse-on-trigger (`resampler-worklet.js` negative increment; `engine.js:1250`), choke groups (`engine.js:716` + `_registerVoice` 672, model after `drum_machine.js:527`), gate/one-shot (send worklet `stop` at when+gate, `engine.js:1266`), slice-by-plock (`sampleStart` already read at `engine.js:1208`; add to `pattern-tools.js:116` PLOCK_PARAMS + resolve `sampleSlices`), decouple pitch p-lock from `keyTracking` (`engine.js:1217`), `sampleId→buffer` resolver (none) if un-stubbing `engine-graph.js:519`.
+- **D-N16:** Phase B may proceed once sampler + one synth voice pass the audio-quality harness. Build `tests/audio-quality.mjs` (A2) FIRST so sampler changes are measured. Audio regressions are invisible to `npm test` — do NOT delegate audio edits blind.
 
-See `docs/ARCHITECTURE.md` for the full specification.
+## Design integration — next visible wins (ordered)
 
-**Core idea:** State mutations go through the command bus. Every command is optionally recorded as a node in a lightweight DAG (`_signalGraph`). This graph enables deterministic undo/redo via command replay instead of full-state snapshots.
+Use `system-canvas.css` + `system-canvas.js` (the **production** component library; fetch via DesignSync) for NEW surfaces; adapt for existing pages carefully (`.knob`/`.step`/`.fader` collide — scope them). Order from `docs/design-system/integration-guide.md`:
+1. **MIXER page** (biggest, cleanest upgrade): vertical faders + VU meters (peak colours) + master LUFS 7-seg + spectrum + masking heat + lint tags. `src/pages/mixer.js` + `src/css/mixer.css`. Wire meters to the real AnalyserNode levels (design JS uses fake data). Current mixer has an empty "MASTER SPECTRUM".
+2. **PATTERN page** refinements: STEP DETAIL in-place editor (hold step), trig-condition glyph rack.
+3. Chassis chrome polish, then Director rail + proposal cards + ghost/diff (Phase B), perception meters (Phase C), live skin (Phase E).
 
-**Completed (Sessions 1-3):**
+## Working with the design project (DesignSync)
 
-- `createSignalGraph()`, `recordSignal()`, `computePathToRoot()`, `computeCriticalPath()` in state.js
-- `signalUndo()`, `signalRedo()`, `replaySignalSubgraph()`, `executeAndRecord()` in command-bus.js
-- `history-ui.js` rewritten to use signal-graph replay instead of snapshot-based history controller
-- `_signalGraph` runtime compartment in `createAppState()`
-- Full command stored in graph nodes for replay fidelity
-- `signalListBranches()`, `signalSwitchBranch()` for graph branching
-- Branch indicator in history UI with click-to-cycle through branches
-- `cursorId` used as initial parent for branching from undo point
+- **MAIN-CONTEXT ONLY** — subagents can't call it. Fetch each file yourself: `DesignSync {method:'get_file', projectId:'0a865dfd-ed0d-407e-9c59-a80f2b4a781e', path}`. `list_files` for the manifest.
+- Not yet mirrored in-repo: `system-canvas.css/js`, `chassis.css/js`, `pattern.css/js`, `mixer.css/js`, page HTMLs, `Confustudio System.html`, `design-guide.md` (v2), `studio-canvas-redesign.md`.
 
-## Session Plan
+## Verification (tests can't see rendering — this has bitten before)
 
-### Session 1: Command Graph Foundation ✓
+`npm test` green ≠ working app. Screenshot-verify every visual change in a real browser. Reusable script in scratch (`shoot.mjs`, modelled on `tests/ui-smoke.mjs`): boots `server.mjs`, clears SW/localStorage, navigates `.page-tabs button[data-page="…"]`, screenshots, collects `pageerror`/console errors. Playwright resolves from repo `node_modules` → run from inside the repo (copy in, run, `rm`). Baselines captured this session.
 
-- `createSignalGraph()`, `recordSignal()` with full command storage
-- `computePathToRoot()`, `computeCriticalPath()`
-- `_signalGraph` in `createAppState()`
-- `executeAndRecord()` helper in command-bus.js
+## Test suite
 
-### Session 2: Undo/Redo via Signal Replay ✓
+`npm test` = lint · **types (tsc)** · syntax · kernel · **score** · state · server · ui-smoke. Add per brief §7: `test:audio-quality` (A2), `test:harness` (B), `test:perception` (C). TypeScript is a dev dep now.
 
-- `signalUndo()`, `signalRedo()` cursor-based traversal
-- `replaySignalSubgraph()` with recording suppression during replay
-- `history-ui.js` — rewrite to use graph replay instead of snapshots
-- `cursorId` tracking for undo/redo position
+## Discipline
 
-### Session 3: Branching ✓
-
-- `signalRedo` picks most recent child (highest id) for default forward path
-- `signalListBranches(graph, nodeId?)` — enumerate children of any node
-- `signalSwitchBranch(graph, childNodeId)` — explicit branch navigation
-- Branch indicator (`⍂N`) in undo indicator with click-to-cycle
-- `cursorId` used as initial `parentSignalId` for branching from undo point
-
-### Session 4: Audio Routing Graph ✓
-
-- `createAudioGraph()`, `createAudioNode()`, `createAudioConnection()` in state.js
-- `signalGraph` (public, serializable) in `createAppState()`
-- Graph commands: `add-graph-node`, `remove-graph-node`, `connect-graph-nodes`, `disconnect-graph-nodes`, `set-node-param`, `replace-graph`, `get-graph`
-- `graphFromTracks()` — derives audio graph from legacy track state
-- `applyGraphToTracks()` — writes graph node params back to legacy state
-- `repairState` ensures `signalGraph` shape for legacy project loads
-
-### Session 5: Plugin Registry ✓
-
-- `src/plugins/registry.js` — `registerPlugin()`, `getPlugin()`, `listPlugins()`, `hasPlugin()`, `getPluginDefaultParams()`
-- 21 plugin descriptors registered: oscillator, tone, noise, sampler, plaits, clouds, rings, biquad, gain, panner, eq-3band, compressor, bitcrusher, delay, reverb, saturator, chorus, lfo, envelope, master-out, midi
-- Each plugin has: type, label, ports (typed), params (with defaults/ranges)
-- `src/plugins/index.js` — barrel import
-
-### Session 6: Modular Engine ✓
-
-- `ModularEngine` class in `src/engine-graph.js`
-  - `compile(graph)` — full compile from signalGraph to Web Audio nodes
-  - `sync(graph)` — incremental diff-based sync (add/remove/update)
-  - `teardown()` — full cleanup
-  - ModularEngine compiles: oscillator, tone, noise, biquad, gain, panner, eq-3band, compressor, delay, reverb, saturator, chorus, master-out
-  - Worklet plugins (sampler, plaits, clouds, rings) stubbed with console warning
-  - Compound nodes (reverb/chorus) use input/output split nodes for dry/wet
-  - Chain nodes (eq-3band, delay) expose inputNode/outputNode for serial connection
-- Wired into `app.js` `ensureAudio()` — created after AudioEngine, compiles signalGraph into master chain
-- MOD toggle button in transport bar — `toggleModular()` with active state
-- `state.modularActive` flag persisted
-- Graph manipulation commands in `command-bus.js`: `commandAddGraphNode`, `commandRemoveGraphNode`, `commandAddGraphConnection`, `commandRemoveGraphConnection`, `commandClearGraph`
-
-### Session 7: Worklets + DSP Modules + Cables ✓
-
-- AudioWorklet support in `ModularEngine`:
-  - `initWorklets()` — loads all 5 worklet modules on AudioContext
-  - `removeNode()` sends stop message to worklet nodes before disconnect
-  - `setNodeParam()` — updates AudioParams and worklet params at runtime
-  - Plaits: continuous re-trigger via `setInterval` every 2s
-  - Rings: continuous bow exciter (exciter=2)
-  - Clouds: default sine-sweep buffer, 60s cloud duration
-  - Sampler: default looping test tone via `cs-resampler`
-  - Bitcrusher: inline `cs-bitcrusher` worklet node
-- DSP Module type (`src/modules/dsp-module.js`):
-  - `createDSPModule(pluginId, params)` — generic UI with title bar, port dots, param sliders
-  - `getDSPPluginSections()` — categorized plugin list for module picker
-  - Added "DSP MODULES" section to module picker in `studio-modules.js`
-  - Adding a DSP module creates a signal graph node via `commandAddGraphNode`
-  - Param sliders trigger `dsp:paramchange` events → `setNodeParam()`
-- Cables → signal graph integration:
-  - `addCable()` creates signal graph connection via `addConnection()`
-  - `removeCable()` removes signal graph connection via `removeConnection()`
-  - `module:removed` event → `removeNode()` on signal graph
-  - Listener in `app.js` `boot()` handles signal graph cleanup
-
-### Session 8: Music Kernel Grounding
-
-Primary direction:
-
-- Extract pure timing and trig-condition helpers from `app.js` into `src/kernel/`.
-- Add direct tests for transport math, trig conditions, and deterministic event compilation.
-- Keep runtime behavior unchanged while creating the seam for a real event compiler.
-- Use `docs/MUSIC_KERNEL_RESEARCH.md` as the guiding architecture memo.
-
-Follow-on options:
-
-- **Event compiler integration** — make `scheduleLoop()` consume compiled event batches before calling `triggerTrack()`.
-- **Cable port routing** — route signal graph connections through specific module ports.
-- **Module clock migration** — make Drum Machine and Acid Machine consume kernel transport events instead of standalone timers.
-- **Graph presets** — save/load signal graph configurations.
-
-## Decision Log
-
-- **No TypeScript**: Would touch every file, break the build, minimal value before API surface stabilizes
-- **No state management library**: Command bus exists and works
-- **Graph coexists with legacy state**: Migration is incremental
-- **AI operates at the command level**: No direct state manipulation
-- **Two graph concepts**: Command-history DAG (`_signalGraph`, runtime-only) for edit tracking; audio routing graph (`signalGraph`, serializable) for DSP routing
-- **Music kernel boundary**: UI edits state, the kernel compiles musical time into timestamped events, and the graph/DSP runtime renders those events.
+Small verified increments, commit + push each. Update this file every session. Phase acceptance gates are blocking.
