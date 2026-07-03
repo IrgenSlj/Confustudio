@@ -2,7 +2,7 @@
 
 import { TRACK_COLORS } from '../state.js';
 import { EVENTS, STATE_PATHS } from '../constants.js';
-import { kWeight, meanSquare, meanSquareToLufs, LUFS_SILENCE } from '../kernel/loudness.js';
+import { kWeight, meanSquare, meanSquareToLufs, integratedLufs, LUFS_SILENCE } from '../kernel/loudness.js';
 
 const GROUP_COLORS = ['#f0c640', '#5add71', '#67d7ff', '#ff8c52', '#c67dff', '#ff6eb4', '#40e0d0', '#f05b52'];
 
@@ -573,12 +573,22 @@ export default {
         <div class="mx-lufs-val cyan" id="mx-lufs-s">-∞</div>
         <div class="mx-lufs-lbl">LUFS <b>S</b> <span class="mx-lufs-u">3s</span></div>
       </div>
-      <div class="mx-lufs-note" title="Per-track masking + integrated loudness arrive with offline perception (Phase C).">masking · stems → perception</div>`;
+      <div class="mx-lufs-cell">
+        <div class="mx-lufs-val" id="mx-lufs-i">-∞</div>
+        <div class="mx-lufs-lbl">LUFS <b>I</b> <span class="mx-lufs-u">→ -14</span></div>
+      </div>
+      <div class="mx-lufs-cell">
+        <div class="mx-lufs-val" id="mx-lufs-pk">-∞</div>
+        <div class="mx-lufs-lbl">PEAK <span class="mx-lufs-u">dBFS</span></div>
+      </div>
+      <div class="mx-lufs-note" title="Per-track masking heat + offline integrated loudness arrive with the offline render (Phase C).">masking · stems → perception</div>`;
 
     specWrap.append(specLbl, lufsWrap, specCanvas);
     page.append(specWrap);
     const lufsMEl = lufsWrap.querySelector('#mx-lufs-m');
     const lufsSEl = lufsWrap.querySelector('#mx-lufs-s');
+    const lufsIEl = lufsWrap.querySelector('#mx-lufs-i');
+    const lufsPkEl = lufsWrap.querySelector('#mx-lufs-pk');
 
     const specCtx = specCanvas.getContext('2d');
     const FFT_BINS = 256; // we'll read 256 bins (fftSize 512)
@@ -630,6 +640,11 @@ export default {
     const _msRingM = [];
     const _msRingS = [];
     let _lufsLast = 0;
+    const _integBlocks = []; // finalized 400ms-block mean-squares (BS.1770 integrated)
+    let _integSum = 0; // running ms sum for the current 400ms bucket
+    let _integN = 0;
+    let _integBucketStart = 0;
+    let _peakHold = 0; // linear sample peak, decays for a readable hold
 
     function _animateVU() {
       if (!page.isConnected) {
@@ -689,13 +704,41 @@ export default {
         if (_msRingM.length > 24) _msRingM.shift();
         _msRingS.push(ms);
         if (_msRingS.length > 180) _msRingS.shift();
+
+        // Integrated: accumulate non-overlapping ~400ms buckets, gated in the kernel.
+        _integSum += ms;
+        _integN++;
+        if (!_integBucketStart) _integBucketStart = now;
+        if (now - _integBucketStart >= 400 && _integN) {
+          _integBlocks.push(_integSum / _integN);
+          if (_integBlocks.length > 4500) _integBlocks.shift(); // ~30 min cap
+          _integSum = 0;
+          _integN = 0;
+          _integBucketStart = now;
+        }
+
+        // Sample peak (linear) with a slow decay hold.
+        let framePeak = 0;
+        for (let i = 0; i < _lufsTD.length; i++) {
+          const a = Math.abs(_lufsTD[i]);
+          if (a > framePeak) framePeak = a;
+        }
+        _peakHold = Math.max(framePeak, _peakHold * 0.92);
+
         if (now - _lufsLast > 100) {
           _lufsLast = now;
           const avg = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
           const lM = Math.max(LUFS_SILENCE, meanSquareToLufs(avg(_msRingM)));
           const lS = Math.max(LUFS_SILENCE, meanSquareToLufs(avg(_msRingS)));
+          const lI = _integBlocks.length ? integratedLufs(_integBlocks) : LUFS_SILENCE;
+          const pkDb = _peakHold > 0 ? 20 * Math.log10(_peakHold) : -Infinity;
           lufsMEl.textContent = lM <= LUFS_SILENCE ? '-∞' : lM.toFixed(1);
           if (lufsSEl) lufsSEl.textContent = lS <= LUFS_SILENCE ? '-∞' : lS.toFixed(1);
+          if (lufsIEl) lufsIEl.textContent = lI <= LUFS_SILENCE ? '-∞' : lI.toFixed(1);
+          if (lufsPkEl) {
+            lufsPkEl.textContent = Number.isFinite(pkDb) ? pkDb.toFixed(1) : '-∞';
+            lufsPkEl.style.color = pkDb >= -1 ? 'var(--danger)' : '';
+          }
         }
       }
 
