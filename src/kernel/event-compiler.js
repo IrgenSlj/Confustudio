@@ -54,6 +54,20 @@ export function shouldTriggerRatioCondition(condition, loopCount = 0) {
   return loopCount % denominator < numerator;
 }
 
+/**
+ * Compile one active step into a timestamped trigger event.
+ * @param {object} [options]
+ * @param {number} [options.bpm]
+ * @param {import('./types.js').Track} [options.track]
+ * @param {import('./types.js').Step} [options.step]
+ * @param {number} [options.trackIndex]
+ * @param {number} [options.stepIndex]
+ * @param {number} [options.scheduledTime]
+ * @param {number} [options.stepsPerBeat]
+ * @param {Object.<string, number>} [options.sceneOverride]
+ * @param {number} [options.noteOverride]
+ * @param {number} [options.velocityOverride]
+ */
 export function createStepTriggerEvent({
   bpm,
   track,
@@ -68,6 +82,7 @@ export function createStepTriggerEvent({
 } = {}) {
   if (!track || !step) return null;
 
+  /** @type {Object.<string, number>} */
   const paramLocks = { gate: step.gate ?? 0.5, ...sceneOverride, ...(step.paramLocks || {}) };
   const note = noteOverride ?? paramLocks.note ?? step.note ?? track.pitch ?? track.note ?? 60;
   const velocity = velocityOverride ?? step.velocity ?? 1;

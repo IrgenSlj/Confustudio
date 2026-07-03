@@ -26,6 +26,15 @@ export function secondsToFrames(seconds, sampleRate) {
   return Math.max(0, Math.round(frameCount));
 }
 
+/**
+ * Convert a beat position to an absolute sample-frame index.
+ * @param {number} beat
+ * @param {object} [opts]
+ * @param {number} [opts.bpm]
+ * @param {number} [opts.sampleRate]
+ * @param {number} [opts.originBeat]
+ * @param {number} [opts.originFrame]
+ */
 export function beatToFrame(beat, { bpm, sampleRate, originBeat = 0, originFrame = 0 } = {}) {
   const seconds = beatsToSeconds((Number(beat) || 0) - originBeat, bpm);
   return originFrame + secondsToFrames(seconds, sampleRate);

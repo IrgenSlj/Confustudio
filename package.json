@@ -33,7 +33,8 @@
   "scripts": {
     "start": "node server.mjs",
     "dev": "node --watch server.mjs",
-    "test": "npm run lint && npm run test:syntax && npm run test:kernel && npm run test:state && npm run test:server && npm run test:ui-smoke",
+    "test": "npm run lint && npm run test:types && npm run test:syntax && npm run test:kernel && npm run test:state && npm run test:server && npm run test:ui-smoke",
+    "test:types": "tsc -p jsconfig.json",
     "test:syntax": "node tests/syntax-check.mjs",
     "test:kernel": "node tests/kernel-event-compiler.mjs",
     "test:state": "node tests/state-commands.mjs",
@@ -53,6 +54,7 @@
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.6.0",
     "playwright": "^1.59.1",
-    "prettier": "^3.8.3"
+    "prettier": "^3.8.3",
+    "typescript": "^6.0.3"
   }
 }
