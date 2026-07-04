@@ -26,11 +26,16 @@
 2. **Phase 0.2** — stale-cache postmortem.
 3. **Phase 0.3** — type boundary: `jsconfig.json` (checkJs) over `src/kernel`, `command-bus.js`, `state.js`, `plugins/*`; `src/kernel/types.js` typedefs; `src/globals.d.ts`; `test:types` (tsc) wired into `npm test`. Fixed 3 latent gotchas (em-dashes after bracketed JSDoc `@param` tripped TS1127).
 4. **Design** — `src/css/components.css` (.btn/.chip/.t-* — additive, zero collision) + `docs/design-system/{module-chassis-spec,integration-guide}.md`.
-5. **B6 CS-Score** — `src/kernel/score.js` + `tests/score-roundtrip.mjs` (delegated; **verify before committing — see Open items**).
+5. **B6 CS-Score** — `src/kernel/score.js` + `tests/score-roundtrip.mjs` + `docs/CS_SCORE.md` (committed, green).
+6. **Phase C seeds** — `src/kernel/loudness.js` (BS.1770 LUFS, `test:perception`) + `src/kernel/spectrum.js` (6-band energies, `test:spectrum`), both pure + unit-tested.
+7. **Mixer master loudness panel** — real momentary/short-term/integrated LUFS + peak dBFS in the design 7-seg style (contained to `mixer.js`, augment-not-replace). Masking honestly deferred to Phase C.
+8. **Repo hygiene** — `docs/ROADMAP.md` (the live plan), README rewrite for the new direction, pruned obsolete docs/artifacts.
 
-## OPEN ITEMS — reconcile FIRST next session
+## OPEN ITEMS
 
-- **CS-Score:** `src/kernel/score.js` + `tests/score-roundtrip.mjs` are on the working tree, **uncommitted**, and currently fail `test:types` (`score.js:837` — `ScoreParseOk | ScoreParseErr` not assignable). `docs/CS_SCORE.md` was NOT written. Fix the type error, add the grammar doc, confirm `npm test` green, then commit. (Don't re-run the subagent — just finish it.)
+- No open blockers. Branch is green (lint · types · syntax · kernel · score · perception · spectrum · state · server · ui-smoke) and pushed (PR #3).
+- Next work + full status: see **`docs/ROADMAP.md`** → "Immediate next actions". Top item: wire `src/kernel/spectrum.js` into the mixer as the labeled 6-band spectrum (UI-only, contained).
+- A running dev server may be up at http://localhost:4173 (hard-reload past the service worker).
 
 ---
 

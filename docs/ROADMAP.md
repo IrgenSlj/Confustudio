@@ -50,9 +50,10 @@ Legend: `[x]` done · `[~]` in progress / partial · `[ ]` not started.
 
 > Spec: `CONFUSTUDIO_AI_BRIEF.md` §5.
 
-- [~] Loudness math — `src/kernel/loudness.js` (BS.1770 K-weighting → momentary/short-term/integrated LUFS) + `test:perception`. Wired to the **mixer master meter** (realtime). 
+- [x] Loudness math — `src/kernel/loudness.js` (BS.1770 K-weighting → momentary/short-term/**integrated** LUFS) + `test:perception`. Wired to the **mixer master meter** (M/S/I + peak dBFS, realtime).
+- [x] Band energies (C2 seed) — `src/kernel/spectrum.js` (6-band aggregation, shared vocabulary) + `test:spectrum`. Pure. *Not yet wired into the mixer spectrum UI.*
 - [ ] C1 Offline render tool — `render({bars,tracks?,fromBar?})` via OfflineAudioContext through the **same `compile()` path** as realtime (D-N15); per-track stem rendering.
-- [ ] C2 Feature extraction (`src/harness/perception/`) — integrated+short-term LUFS (reuse loudness.js), true-peak, crest, spectral centroid/rolloff, 6 band energies, onset density, per-track pairwise band-overlap (masking).
+- [ ] C2 Feature extraction (`src/harness/perception/`) — reuse loudness.js + spectrum.js; add true-peak, crest, spectral centroid/rolloff, onset density, per-track pairwise band-overlap (masking).
 - [ ] C3 Musical lint — rules over model+features: `sub-collision`, `mud-250-500`, `clipping`, `over-limited`, `key-violation`, `level-staging`, `silent-track-routed` → `PerceptionReport`.
 - [ ] C4 Close the loop — VERIFY stage: after mutating, `render`+`measure`+`lint` before presenting; one self-correction on `warn+`; `compare(a,b)` verdicts; honesty rule (claims cite measurements).
 - [ ] C.acceptance: agent fixes its own seeded lint violation (visible in trace); perception runs off the audio thread, glitch-free.
@@ -86,7 +87,7 @@ Source: `docs/design-system/{module-chassis-spec,integration-guide}.md`. DesignS
 
 - [x] Tokens (already canonical in `src/css/tokens.css`) + `.btn`/`.chip`/`.t-*` component layer (`src/css/components.css`).
 - [x] Specs mirrored in-repo (`docs/design-system/`).
-- [~] **MIXER page** — master LUFS 7-seg shipped (real). Remaining: vertical-fader channel restyle, per-track VU taps, spectrum band labels, per-track **masking heat** (needs Phase C stems).
+- [~] **MIXER page** — master loudness panel shipped (real momentary/short-term/integrated LUFS + peak dBFS, design 7-seg). Remaining: wire `spectrum.js` into the mixer as the labeled 6-band display; vertical-fader channel restyle; per-track VU taps (engine); per-track **masking heat** (needs Phase C stems).
 - [ ] **PATTERN page** — in-place STEP DETAIL editor (hold step), trig-condition glyph rack.
 - [ ] **Chassis chrome** — `chassis.css` on transport/tabs/channel-rail/dock/osc (meter fills = real `.fill` children).
 - [ ] **SOUND page** as focused single-module editor; patch + sample browsers (hover-audition through the real engine).
@@ -105,7 +106,8 @@ Source: `docs/design-system/{module-chassis-spec,integration-guide}.md`. DesignS
 
 ## Immediate next actions (pick up here)
 
-1. Finish the **MIXER** design upgrade — vertical faders + per-track VU (add per-track analyser taps in `engine.js`), keep it verified.
-2. Or **Phase C offline render** (C1) — unblocks the rest of the mixer (masking) + the agent's ears.
-3. Or **Phase 0.4** globals consolidation (mechanical, unblocks a clean harness).
-4. Then **Phase B** harness loop + tool registry (the signature).
+1. Wire `src/kernel/spectrum.js` into the mixer as the labeled **6-band spectrum** (kernel + test already done — this is UI-only, contained to `mixer.js`/`mixer.css`, screenshot-verify).
+2. Finish the **MIXER** design upgrade — vertical faders + per-track VU (add per-track analyser taps in `engine.js`), keep it verified.
+3. **Phase C offline render** (C1) — unblocks masking + the agent's ears; reuse `loudness.js` + `spectrum.js`.
+4. Or **Phase 0.4** globals consolidation (mechanical, unblocks a clean harness).
+5. Then **Phase B** harness loop + tool registry (the signature).
