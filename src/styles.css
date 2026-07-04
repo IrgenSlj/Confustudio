@@ -7,6 +7,9 @@
 /* Canonical design tokens (Claude Design handoff). Imported first so all 68
    tokens resolve; the legacy :root below keeps its own names additively. */
 @import url('./css/tokens.css');
+/* Reusable component layer (buttons, chips, type utilities) — the SDK visual
+   contract from the Claude Design v2.0 handoff. Additive; see docs/design-system. */
+@import url('./css/components.css');
 
 :root {
   /* Army green chassis */

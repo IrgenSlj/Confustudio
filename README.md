@@ -4,308 +4,90 @@
 [![Node](https://img.shields.io/badge/Node-%3E%3D20-brightgreen)](./package.json)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 
-CONFUstudio is the broader project and studio shell. CONFUsynth is its default and flagship instrument, focused on sequencing, sampling, live sound transformation, and performable modulation. The project explores a hybrid workflow that blends rhythmic composition, scene-based control, resampling, and flexible routing in a modern open-source stack.
+> **A digital, modular, open-source reproduction of a hybrid techno/house home studio — a sequencer brain, a sampler, and monumental synth voices — driven by one agent harness that works in parameters and performances, never in rendered black-box audio.**
 
-The current prototype runs in the browser, is installable as a PWA for desktop-like use, and includes a small local API bridge for optional OpenAI or Anthropic assistance. It is intentionally compact: plain HTML, CSS, and modern JavaScript on the frontend, plus a dependency-light Node server for static hosting and API proxying.
+CONFUstudio runs in the browser (installable as a PWA), with a dependency-light Node server for static hosting and an optional local AI bridge. Frontend is plain HTML, CSS, and modern JavaScript — no build step, no framework. The moat is **owning the engine**: every sound is an inspectable, re-editable patch; the agent designs patches, writes patterns, routes signals, rides mixes, and performs — it never generates waveforms.
 
-The studio shell now includes a modular canvas where instruments, utilities, and mixer modules can be added, focused, resized, patched, and restored across reloads. The primary CONFUsynth module remains the anchor, while added modules such as Acid Machine, polysynth, drum machine, FM synth, monosynth, DJ mixer, and utility figures can live alongside it in the same workspace.
+## The thesis (locked)
 
-The repo now also includes an early structured command layer for undoable state mutations, normalized project package import/export, and assistant action planning. That foundation is being used to migrate the UI away from direct ad hoc mutation, starting with scenes, arranger, banks, and top-level pattern tools.
+1. **Parameters, not renders.** Every sound is state. The agent edits state through the same command bus the UI uses — no private path.
+2. **Branches, not mutations.** Agent proposals materialize as branches of the edit-history DAG; you audition against head, then merge or discard. Merge is always a human click.
+3. **Perception is mandatory.** The agent can *hear*: offline render → feature extraction → musical lint → self-correct. No perception, no "agentic" label.
+4. **One harness, three stations.** Session Artist (compose/sound-design), Studio Master (mix + project memory), Co-Performer (quantized-launch live actions).
+5. **Community-extensible.** Instruments are built against a public Module SDK; third parties ship voices without touching core.
+6. **Original identity.** Behavioral homage to classic hardware; every name, glyph, preset, and panel is original — no trademarked names anywhere.
 
-## Instrument Direction
+**Product hierarchy (breaks every tie, top wins):** sound-engine quality → ease of use → advanced music-making.
 
-The core themes of CONFUsynth, the default instrument inside CONFUstudio, are:
+## Status & roadmap
 
-- Step sequencing with fast per-step editing.
-- Sample-first sound design.
-- Live capture and resampling.
-- Performance morphing and mixer control.
-- Strong MIDI and external routing concepts.
-- Compact sequencing and sound sculpting.
-- Scene morphing, crossfader macros, recorder buffers, and routing depth.
-- An original interface and DSP engine designed for desktop, browser, and eventual plugin delivery.
+The work is organized into blocking phases: **0** stabilize · **A** engine to professional quality + Module SDK · **B** harness + branch auditioning · **C** perception · **D** studio-master memory/skills · **E** co-performer live mode · **F** external devices.
 
-## Product Position
-
-CONFUstudio should be developed as an original studio environment, with CONFUsynth as its primary instrument and interface anchor.
-
-- Build the identity around experimental sequencing, live capture, and morphable performance control.
-- Keep the UI, terminology, presets, and interaction model original to the project.
-- Treat this repository as the product architecture and prototype basis for CONFUstudio, with CONFUsynth as the lead instrument.
-
-## Music Kernel Direction
-
-The next engine direction is to make the music kernel explicit. CONFUstudio should generate sound by compiling musical intent into timestamped events, routing those events through a persistent audio graph, and rendering DSP in AudioWorklet/WASM instead of letting UI loops and per-trigger Web Audio node construction define the core behavior.
-
-The kernel has four layers:
-
-1. Musical model: patterns, clips, tracks, scenes, arranger sections, automation, sample assets, and patches.
-2. Event compiler: converts a transport window into note, sample, MIDI, automation, scene, and recorder events.
-3. Audio graph and voice engine: owns persistent track strips, instruments, effects, sends, returns, buses, sidechains, and meters.
-4. DSP runtime: renders audio buffers in AudioWorklet now, with Rust/WASM as the long-term shared core.
-
-See [`docs/MUSIC_KERNEL_RESEARCH.md`](./docs/MUSIC_KERNEL_RESEARCH.md) for the research and migration plan.
+- **Live status:** [`docs/ROADMAP.md`](./docs/ROADMAP.md) — the checklist across all phases.
+- **Session handoff:** [`NEXT_SESSION.md`](./NEXT_SESSION.md).
+- **Authoritative specs:** [`docs/CONFUSTUDIO_CODE_BRIEF.md`](./docs/CONFUSTUDIO_CODE_BRIEF.md) (phasing/engine/SDK), [`docs/CONFUSTUDIO_AI_BRIEF.md`](./docs/CONFUSTUDIO_AI_BRIEF.md) (harness — authoritative), [`docs/CONFUSTUDIO_DESIGN_BRIEF.md`](./docs/CONFUSTUDIO_DESIGN_BRIEF.md) (UI/UX), and [`docs/STUDIO_MANUAL.md`](./docs/STUDIO_MANUAL.md) (human + agent knowledge base).
 
 ## Architecture
 
-### Product Shape
-
-CONFUstudio should evolve into a modular hybrid studio with four major subsystems:
-
-1. DSP Core
-2. Sequencer Core
-3. Routing and Mixer Core
-4. Host and UI Shell
-
-### Recommended Stack
-
-For a fully open-source, compact, efficient foundation:
-
-- DSP and timing core: Rust compiled to native and WebAssembly in phase 2.
-- Browser audio host: Web Audio API plus AudioWorklet for low-latency DSP execution.
-- Desktop shell: Tauri for lightweight native packaging once the Rust core exists.
-- Plugin target: CLAP first, then optional VST3 bridge only if the licensing and distribution plan justify it.
-- Frontend UI: TypeScript with a minimal component layer or Web Components. The current prototype uses plain JavaScript to stay dependency-light.
-- Local automation and AI bridge: Node runtime with a minimal HTTP service and optional MCP transport adapter.
-- Build and CI: Cargo plus pnpm or npm. Docker is optional; Tauri plus PWA is the lighter “better solution” for desktop delivery.
-
-### Why Not Start With VST3
-
-If “fully open-source” is a hard requirement, VST3 is a poor first target because the SDK licensing is more restrictive than CLAP and browser delivery is impossible. The practical sequence is:
-
-1. Browser and PWA prototype.
-2. Shared DSP/sequencer core in Rust.
-3. Tauri standalone desktop app.
-4. CLAP plugin.
-5. Optional VST3/AU wrappers later if commercial distribution requires broader host compatibility.
-
-This avoids locking the core architecture to one host SDK too early.
-
-### Internal Modules
-
-#### 1. Engine Core
-
-- Voice manager.
-- Sample player with time, pitch, loop, slice, and reverse support.
-- Synth layer for tone/noise/resampler machines.
-- Filters, drive, delay, reverb, and modulation.
-- Recorder buffers and offline bounce/resample graph.
-
-#### 2. Sequencer Core
-
-- Pattern, bank, and song data model.
-- Step trigs, micro-timing, retrigs, conditional logic, probability, and parameter locks.
-- Performance scenes and crossfader morph targets.
-- MIDI track sequencing and automation lanes.
-
-#### 3. Mixer and Routing
-
-- Per-track volume, pan, cue/send routing, inserts, master bus, and record buses.
-- Main out, cue out, input monitoring, internal resampling, sidechain-ready buses.
-- Flexible browser-safe audio graph now; multibus native graph later.
-
-#### 4. Host Integration
-
-- Browser shell with PWA install.
-- Tauri desktop shell for filesystem, MIDI, and low-latency device access.
-- Optional local API bridge for OpenAI, Anthropic, or MCP-driven workflow helpers.
-
-## Feature Map
-
-### Phase 1
-
-- 8 hybrid tracks in the prototype.
-- 16-step sequencer with accents.
-- Scene A/B morphing through a crossfader.
-- Tone, noise, and sample machines.
-- Delay and reverb sends.
-- File sample import and microphone recording.
-- Assistant bridge routes for OpenAI, Anthropic, local OpenAI-compatible endpoints, and Ollama.
-- Assistant action planning endpoint for bounded studio commands.
-
-### Phase 2
-
-- Expand to 16 audio tracks plus 8 to 16 MIDI tracks.
-- Add parameter locks per step.
-- Add recorder buffers, slice editor, retrigs, micro-timing, probability, fills, and arranger.
-- Add cue bus, input monitor matrix, and resampling chains.
-- Move timing and DSP into Rust plus AudioWorklet/WebAssembly.
-
-### Phase 3
-
-- Native Tauri desktop packaging.
-- MIDI learn and external sync.
-- CLAP plugin target.
-- Optional commercial host wrappers.
-
-## I/O Design
-
-The final product should support the following logical buses even when some are virtual in browser mode:
-
-- Main stereo out.
-- Cue stereo out.
-- Headphone monitor out.
-- Dual stereo external inputs.
-- Per-track internal sends.
-- Recorder buffers for track, master, and external capture.
-- USB or host audio channels in standalone/native mode.
-- MIDI in, out, thru, clock, transport, and learn mappings.
-
-## AI and MCP Integration
-
-AI should be optional and local-bridge based.
-
-- Browser UI sends prompts only to the local proxy, never directly to external models.
-- The local proxy can route to OpenAI, Anthropic, or an MCP bridge.
-- Use cases: pattern generation, sound design suggestions, live set notes, macro mapping proposals, and documentation search.
-- Keep AI out of the audio thread and out of hard realtime code paths.
-
-Suggested MCP tools later:
-
-- Project inspector.
-- Pattern librarian.
-- Sample tagger.
-- Performance recipe generator.
-- Host automation mapper.
-
-## Running The Prototype
-
-### Requirements
-
-- Node 20 or newer.
-- A modern browser with Web Audio and MediaRecorder support.
-
-### Start
-
-```bash
-npm start
+```
+UI shell (pages, studio canvas, module chassis) — edits state ONLY via the command bus
+        │
+Agent harness (src/harness/)  — loop · context · memory · skills · stations · branches
+        │
+Tool registry (MCP-shaped)    — device 0: engine tools · perception · branch · adapters
+        │
+Command bus + signal graph    — the edit DAG (undo/redo + branch auditioning substrate)
+        │
+Kernel (src/kernel/) — PURE   — musical model · event compiler · transport math · CS-Score
+        │
+Audio graph + ModularEngine   — persistent instruments
+        │
+DSP runtime — AudioWorklets    + offline render path (OfflineAudioContext) for perception
 ```
 
-Open `http://127.0.0.1:4173`.
+Hard rules: **no private path** (agent uses the UI's commands); **AI never touches the audio thread**; **the kernel stays pure** (no DOM, no Web Audio, no globals — fully unit-testable). Types are enforced at the agent-facing boundary via checked-JSDoc (`jsconfig.json`, `npm run test:types`) — not a full TypeScript migration.
 
-### Test
+**CS-Score** ([`docs/CS_SCORE.md`](./docs/CS_SCORE.md)) is the agent's compact, lossless text notation for patterns — the reason a music agent can be as fluent as a coding agent.
 
-```bash
-npm test
-```
+## Running
 
-The aggregate test runs syntax checks, state/command coverage, server route coverage, and a self-contained Playwright UI smoke test.
-
-### Docker
+Requirements: Node 20+ and a modern browser with Web Audio + MediaRecorder.
 
 ```bash
-docker build -t confustudio .
-docker run --rm -p 4173:4173 confustudio
+npm start          # serves http://127.0.0.1:4173 (COOP/COEP on, for AudioWorklet/SharedArrayBuffer)
+npm test           # lint · types · syntax · kernel · score · perception · state · server · ui-smoke
+docker build -t confustudio . && docker run --rm -p 4173:4173 confustudio
 ```
 
-### Optional AI Env Vars
+Optional AI bridge (keys stay server-side, never sent to the browser):
 
 ```bash
-export OPENAI_API_KEY=...
-export OPENAI_MODEL=gpt-4.1-mini
-export ANTHROPIC_API_KEY=...
-export ANTHROPIC_MODEL=claude-3-5-sonnet-latest
+export ANTHROPIC_API_KEY=...   ANTHROPIC_MODEL=claude-sonnet-5
+export OPENAI_API_KEY=...      OPENAI_MODEL=gpt-4.1-mini
+# or a local OpenAI-compatible endpoint / Ollama — see server.mjs provider catalog
 ```
 
-## Current Build State
+## What's implemented today
 
-What is implemented:
+- **Sequencer brain:** 64-step engine, p-locks per step, trig conditions (`always/1st/every-N/A:B/fill`), probability, micro-timing, 8 audio + 8 MIDI tracks, 8 banks × 16 patterns, scene A/B crossfader morph, arranger/song mode.
+- **Sound:** tone/noise/sample machines; per-track filter (LP/BP/HP), ADSR, LFO, drive, EQ, bitcrusher + sample-rate reduction; `cs-resampler` AudioWorklet (4-point Hermite) for pitched samples; convolution reverb + delay sends.
+- **Mixer/routing:** per-track + 8 group buses with **real** metering (AnalyserNode taps); master bus with soft limiting; a modular patch-cable canvas with typed ports (audio/control/event) and persisted layout.
+- **Perception (seed):** BS.1770 K-weighted **LUFS** metering (`src/kernel/loudness.js`), surfaced as a real momentary/short-term master meter on the mixer.
+- **MIDI:** WebMIDI I/O, clock out (24 ppqn) with start/stop transport.
+- **Platform:** installable PWA; COOP/COEP → SharedArrayBuffer; optional AI bridge (OpenAI/Anthropic/local/Ollama); portable project packages with embedded audio assets + workspace layout.
 
-- Modular studio canvas with pan, zoom, fit-all, per-module fit, double-click focus, compact module picker, and a live module navigator.
-- Persisted studio layout for dynamically added modules, including restored module IDs, positions, zoom levels, and selection.
-- Patch cable overlay with draggable port connections, DJ mixer routing, cable cleanup on module removal, and restored cable connections after reload.
-- Interaction hardening so knobs, sliders, faders, ports, and module buttons receive pointer input instead of accidentally dragging or selecting the whole module.
-- Transport: BPM, swing, tap tempo, 64-step scheduling with trig conditions and probability.
-- 8 audio tracks + 8 MIDI tracks, per-track mute/solo.
-- Machines: tone (4 waveforms), noise, sample playback, MIDI.
-- ADSR envelope, LFO (cutoff/volume/pan targets), per-track filter (LP/BP/HP), drive, pan.
-- Parameter locks per step, scene A/B crossfader morphing.
-- 8 banks × 16 patterns per bank, arranger / song mode.
-- Convolution reverb (room, hall, plate, spring, cave, studio) with per-track send.
-- Delay with feedback, per-track reverb and delay sends.
-- Per-track bitcrusher (BITS) and sample rate reduction (SRR) controls.
-- AudioWorklet sinc resampler (`cs-resampler`) — 4-point cubic Hermite interpolation for pitched samples.
-- MIDI Clock out (24ppqn) with drift correction, MIDI start/stop transport.
-- Ableton Link-style tempo sync bridge exposed over SSE (`/link`) and `/api/link/state`; real Ableton Link transport is still pending.
-- WebMIDI I/O, MIDI output selection.
-- File sample import, microphone capture.
-- COOP/COEP headers — SharedArrayBuffer enabled for AudioWorklet.
-- Assistant bridge: OpenAI, Anthropic, local OpenAI-compatible, and Ollama routes.
-- Assistant action planning route for bounded command generation.
-- Installable PWA shell.
-- Confu desktop shell (`npm install && npm run confu`). The shell entrypoint lives in `confu/`.
+Stubbed / not real yet (see the roadmap): Plaits/Clouds/Rings/modular-sampler worklet voices, the agent loop (currently single-shot `actions/plan`, no tool-calling/memory/perception-gating), real Ableton Link.
 
-## Recent Architecture Work
+The `confu/` directory is a parked Electron shell (unmaintained until Phase F — no desktop packaging before then).
 
-- ESLint + Prettier tooling added (`eslint.config.js`, `.prettierrc`, `npm run lint`/`format`).
-- Dead code `readBody()` removed from `server.mjs`.
-- Phase 1 mechanical splits complete — 6 largest files extracted into 11 new modules. Total JS lines reduced from ~34,258 to ~29,178.
-- Phase 2 reverb collapse complete — legacy Freeverb graph removed, convolution-only reverb with backward-compat stubs.
-- Project package helpers now normalize save/load/backup flows.
-- Project packages now include portable audio-buffer assets for imported samples and recorder slots, plus workspace layout/view/cable data.
-- Studio layout records now carry a v1 module-state payload; DJ Mixer modules restore knob, fader, crossfader, and cue state.
-- A command/history layer exists in `src/command-bus.js`.
-- The app exposes `window.confustudioCommands.execute(...)` for bounded command execution.
-- `scenes`, `arranger`, `banks`, and key `pattern` toolbar actions already use that structured mutation path.
-- Studio interaction coverage now verifies module insertion, module navigator focus, reload restoration, knob/fader dragging, double-click module fit, cable restoration, and cable cleanup.
-- Automated coverage includes `test:syntax`, `test:state`, `test:server`, and `test:ui-smoke`; `npm test` runs the full set.
+## Non-goals (locked)
 
-## Development Roadmap
-
-### Phase 0: Tooling & Housekeeping (completed)
-
-- ESLint + Prettier configured for consistent code
-- Dead code (`readBody()` in `server.mjs`) removed
-- `.gitignore` tightened with `*.log`, `.vscode/`, `dist/` patterns
-- Lint autofix run across the tree
-
-### Phase 1: Mechanical Splits (completed)
-
-All 6 largest source files split. No logic changes.
-
-| File          | Lines (before) | Lines (after) | Extracted into                            |
-| ------------- | -------------- | ------------- | ----------------------------------------- |
-| `app.js`      | 3880           | 3667          | `recorder.js`, `history-ui.js`            |
-| `engine.js`   | 1971           | 1612          | `engine-reverb.js`, `engine-midi.js`      |
-| `settings.js` | 2418           | 1643          | `settings-midi.js`, `settings-project.js` |
-| `pattern.js`  | 2226           | 1969          | `pattern-tools.js`                        |
-| `studio.js`   | 1603           | 594           | `studio-modules.js`, `studio-overlay.js`  |
-| `sound.js`    | 2016           | 1375          | `sound-sample.js`                         |
-
-### Phase 2: Unify Mutation & Clean State
-
-- ~~Collapse dual reverb paths (keep convolution, remove legacy Freeverb graph)~~
-- Extract magic strings to constants (`STATE_PATHS.js`, `EVENTS.js`)
-- Consolidate 84 `window._*` globals into single `__CONFUSTUDIO__` namespace
-- Fix legacy dual delay routing
-- Add command types for step/selection operations
-
-### Phase 3: Persistence
-
-- ~~Project asset packaging: exported projects carry sample and recorder audio buffers~~
-- ~~Workspace packaging: exported projects carry studio layout, view, cable, and v1 module-state data~~
-- Module state serialization: expand save/restore contracts beyond DJ Mixer to polysynth, monosynth, FM synth, drum machine, and Acid Machine
-- Deep migration of `pattern.js` step editor internals to command/history layer
-- Normalize remaining direct mutation in settings page
-
-### Phase 4: Feature Delivery
-
-- In-app assistant action preview/apply on top of `/api/assistant/actions/plan`
-- Real Ableton Link tempo sync via `node-ateletonlink`
-- Asset packaging hardening: compression/deduplication for large sample-backed projects
-- Mobile/responsive layout pass
-- Rust/WASM DSP core (long-term)
-
-See `NEXT_SESSION.md` for detailed status and session handoff.
+No CLAP/VST3/AU · no Tauri desktop until Phase F · no mobile/responsive pass (desktop + PWA only) · no Rust/WASM DSP in this brief (worklets suffice; the kernel boundary keeps the door open) · no full TypeScript migration · no audio-generation models of any kind.
 
 ## Contributing
 
-CONFUstudio is open source and contributions are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup, test, and pull request guidelines. All participants are expected to follow the [Code of Conduct](./CODE_OF_CONDUCT.md). For security reports, see [SECURITY.md](./SECURITY.md).
+Contributions welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md) and the [Code of Conduct](./CODE_OF_CONDUCT.md). Security reports: [SECURITY.md](./SECURITY.md). Everything ships behind a green `npm test`, verified in a real browser.
 
 ## License
 
-Licensed under the [Apache License, Version 2.0](./LICENSE). See the [NOTICE](./NOTICE) file for required attributions.
-
-## References
-
-- No external brand-specific references are required for the current prototype description.
+[Apache License 2.0](./LICENSE). See [NOTICE](./NOTICE) for attributions.

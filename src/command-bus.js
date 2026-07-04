@@ -191,8 +191,8 @@ export function captureCommandState(state) {
 /**
  * @param {object} state
  * @param {object} command
- * @param {number|null} [parentSignalId] — signal-graph parent ID for sequential chaining
- * @returns {{ changed: boolean, summary: string, signalId?: number }}
+ * @param {number|null} [parentSignalId] - signal-graph parent ID for sequential chaining
+ * @returns {import('./kernel/types.js').CommandResult}
  */
 export function executeStudioCommand(state, command, parentSignalId = null) {
   if (!state || typeof state !== 'object') throw new TypeError('state is required');
@@ -731,7 +731,7 @@ export function signalRedo(graph) {
 /**
  * List all child nodes of the current cursor (branch targets).
  * @param {object} graph
- * @param {number} [nodeId] — defaults to cursorId
+ * @param {number} [nodeId] - defaults to cursorId
  * @returns {Array<{id: number, type: string, summary: string|null}>}
  */
 export function signalListBranches(graph, nodeId) {
@@ -768,7 +768,7 @@ export function signalSwitchBranch(graph, childNodeId) {
  * @param {object} graph — signal graph (read-only during replay)
  * @param {number} targetNodeId — node in the graph to replay up to
  * @param {object} [opts]
- * @param {boolean} [opts.inPlace] — if true, mutate state in-place instead of cloning
+ * @param {boolean} [opts.inPlace] - if true, mutate state in-place instead of cloning
  * @returns {{ state: object, results: object[] }}
  */
 export function replaySignalSubgraph(state, graph, targetNodeId, opts = {}) {
