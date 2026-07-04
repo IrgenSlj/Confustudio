@@ -1,0 +1,18 @@
+# Render.com deployment (one-click via "New + → Blueprint" pointed at this repo).
+# Fly.io is the primary target (see fly.toml); this is a portable alternative.
+services:
+  - type: web
+    name: confustudio
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # AI bridge keys stay server-side. Set them in the Render dashboard
+      # (marked secret) rather than committing them here:
+      # - key: ANTHROPIC_API_KEY
+      #   sync: false
+      # - key: ANTHROPIC_MODEL
+      #   value: claude-sonnet-5
