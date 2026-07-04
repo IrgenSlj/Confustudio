@@ -971,10 +971,18 @@ function deepMerge(target, source) {
   if (!source || typeof source !== 'object' || Array.isArray(source)) {
     return source !== undefined ? source : target;
   }
-  const result = { ...target };
+  // `target` can be undefined here when a source array is LONGER than the
+  // target array (the array branch above calls deepMerge(target[index], …)
+  // with an out-of-range index). This happens whenever a returning user's
+  // saved project grew an array beyond the fresh default — an extra module,
+  // cable, branch or pattern. Fall back to an empty object so the extra
+  // entries are copied in instead of crashing on `target[key]` and wiping
+  // the whole project. See tests/state-commands.mjs (deepMerge regression).
+  const base = target && typeof target === 'object' ? target : {};
+  const result = { ...base };
   for (const key of Object.keys(source)) {
     const srcVal = source[key];
-    const tgtVal = target[key];
+    const tgtVal = base[key];
     if (srcVal !== null && typeof srcVal === 'object' && tgtVal !== null && typeof tgtVal === 'object') {
       // Recursively merge both objects AND arrays (arrays hit the array branch above)
       result[key] = deepMerge(tgtVal, srcVal);

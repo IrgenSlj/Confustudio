@@ -130,6 +130,29 @@ assert.ok(
 );
 assert.equal(imported.project.banks[0].patterns[0].kit.tracks[2].steps[0].note, 67);
 
-
+// ── Regression: deepMerge must not crash when a saved array GREW past the
+// fresh default (returning user added a module/LFO/branch). Before the fix
+// this threw "Cannot read properties of undefined (reading 'id')" from
+// loadState/applyProjectPackageToState, silently wiping the whole project. ──
+{
+  const grown = createAppState();
+  // Fresh default has 2 LFOs; simulate a project that grew a 3rd + a 4th.
+  grown.modMatrix.lfos = [
+    { rate: 2, shape: 'saw', amount: 0.3, sync: true },
+    { rate: 0.25, shape: 'square', amount: 0.1, sync: false },
+    { rate: 8, shape: 'sine', amount: 0.9, sync: true },
+    { rate: 16, shape: 'triangle', amount: 0.5, sync: false },
+  ];
+  const pkg = createProjectPackage(grown, { name: 'Grown Project' });
+  const fresh = createAppState();
+  let restored;
+  assert.doesNotThrow(() => {
+    restored = applyProjectPackageToState(fresh, pkg);
+  }, 'applyProjectPackageToState must survive an array that grew past the default');
+  assert.equal(fresh.modMatrix.lfos.length, 4, 'grown LFO array should be preserved on load');
+  assert.equal(fresh.modMatrix.lfos[2].rate, 8);
+  assert.equal(fresh.modMatrix.lfos[3].shape, 'triangle');
+  assert.ok(restored, 'project should be returned, not lost');
+}
 
 console.log(JSON.stringify({ ok: true }, null, 2));
