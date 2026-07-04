@@ -1,0 +1,35 @@
+# Fly.io deployment for CONFUstudio.
+# First deploy:  fly launch --copy-config --now   (or: fly deploy)
+# App name / region are set on first `fly launch`; edit here after.
+
+app = "confustudio"
+primary_region = "ams"   # pick the region nearest you / your users
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 4173
+  force_https = true
+  # Scale to zero when idle, wake on the next request. Keeps a bootstrapped
+  # launch near-free; cold start is a few seconds. Raise min_machines_running
+  # to 1 once there's steady traffic or you want zero cold starts.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "3s"
+    grace_period = "5s"
+    method = "GET"
+    path = "/healthz"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+# The optional AI bridge reads keys from the server environment. Set them as
+# Fly secrets so they never reach the browser:
+#   fly secrets set ANTHROPIC_API_KEY=... ANTHROPIC_MODEL=claude-sonnet-5
+#   fly secrets set OPENAI_API_KEY=...    OPENAI_MODEL=gpt-4.1-mini

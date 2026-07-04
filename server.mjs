@@ -9,7 +9,9 @@ const rootDir = __dirname;
 const publicDir = path.join(rootDir, 'public');
 const docsDir = path.join(rootDir, 'docs');
 const port = Number(process.env.PORT || 4173);
-const host = process.env.HOST || '127.0.0.1';
+// Bind loopback for local dev (safe default), but all interfaces in
+// production so container platforms can route to us. HOST wins if set.
+const host = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
 const assistantManualPath = path.join(docsDir, 'confustudio.manual.json');
 const assistantSystemFallback =
   "You are the CONFUstudio assistant and production co-pilot. Translate the studio's real sequencing, sampling, synth, routing, scene, arrangement, and mix capabilities into concrete next actions the user can execute immediately.";
@@ -726,6 +728,13 @@ async function handleAssistantActionPlan(req, res) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
+
+  // Liveness probe for container platforms (Fly/Render/Railway). Cheap and
+  // dependency-free — returns before any file or upstream work.
+  if (req.method === 'GET' && url.pathname === '/healthz') {
+    sendJson(res, 200, { ok: true, service: 'confustudio' });
+    return;
+  }
 
   if (req.method === 'POST' && url.pathname === '/api/assistant/chat') {
     await handleAssistant(req, res);
