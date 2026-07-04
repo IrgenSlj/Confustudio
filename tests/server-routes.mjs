@@ -2,6 +2,8 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 
+import { buildManualToolSurface } from '../src/harness/tools/registry.js';
+
 function assert(condition, message, details = null) {
   if (!condition) {
     const error = new Error(message);
@@ -100,6 +102,29 @@ try {
     providers,
   );
   assert(Boolean(providers.providers?.openai), 'Assistant providers payload missing OpenAI provider', providers);
+
+  // Health probe (used by container platforms — Fly/Render).
+  const healthRes = await fetch(`${server.baseUrl}/healthz`);
+  assert(healthRes.ok, 'Health route failed', { status: healthRes.status });
+  const healthJson = await readJson(healthRes);
+  assert(healthJson.ok === true, 'Health payload should report ok:true', healthJson);
+
+  // Assistant context must expose the harness tool registry (commandTools),
+  // generated at runtime → guarded against drift from the registry here.
+  const contextRes = await fetch(`${server.baseUrl}/api/assistant/context`);
+  assert(contextRes.ok, 'Assistant context route failed', { status: contextRes.status });
+  const context = await readJson(contextRes);
+  const expectedTools = buildManualToolSurface();
+  assert(
+    Array.isArray(context.commandTools) && context.commandTools.length === expectedTools.length,
+    'Assistant context commandTools out of sync with the harness registry',
+    { got: context.commandTools?.length, expected: expectedTools.length },
+  );
+  assert(
+    context.commandTools.every((t) => t.name && t.parameters && Array.isArray(t.stations)),
+    'commandTools entries must carry name, parameters, and stations',
+    context.commandTools?.[0],
+  );
 
   const chatRes = await fetch(`${server.baseUrl}/api/assistant/chat`, {
     method: 'POST',

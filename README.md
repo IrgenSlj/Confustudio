@@ -55,9 +55,11 @@ Requirements: Node 20+ and a modern browser with Web Audio + MediaRecorder.
 
 ```bash
 npm start          # serves http://127.0.0.1:4173 (COOP/COEP on, for AudioWorklet/SharedArrayBuffer)
-npm test           # lint · types · syntax · kernel · score · perception · state · server · ui-smoke
+npm test           # lint · types · syntax · kernel · score · perception · spectrum · harness · state · server · ui-smoke
 docker build -t confustudio . && docker run --rm -p 4173:4173 confustudio
 ```
+
+Deploy to a public URL (Fly.io / Render, one command): see [`docs/DEPLOY.md`](./docs/DEPLOY.md).
 
 Optional AI bridge (keys stay server-side, never sent to the browser):
 
@@ -72,11 +74,12 @@ export OPENAI_API_KEY=...      OPENAI_MODEL=gpt-4.1-mini
 - **Sequencer brain:** 64-step engine, p-locks per step, trig conditions (`always/1st/every-N/A:B/fill`), probability, micro-timing, 8 audio + 8 MIDI tracks, 8 banks × 16 patterns, scene A/B crossfader morph, arranger/song mode.
 - **Sound:** tone/noise/sample machines; per-track filter (LP/BP/HP), ADSR, LFO, drive, EQ, bitcrusher + sample-rate reduction; `cs-resampler` AudioWorklet (4-point Hermite) for pitched samples; convolution reverb + delay sends.
 - **Mixer/routing:** per-track + 8 group buses with **real** metering (AnalyserNode taps); master bus with soft limiting; a modular patch-cable canvas with typed ports (audio/control/event) and persisted layout.
-- **Perception (seed):** BS.1770 K-weighted **LUFS** metering (`src/kernel/loudness.js`), surfaced as a real momentary/short-term master meter on the mixer.
+- **Perception (seed):** BS.1770 K-weighted **LUFS** metering (`src/kernel/loudness.js`) surfaced as a real master meter on the mixer, plus a 6-band spectrum kernel (`src/kernel/spectrum.js`) — the shared vocabulary the agent will hear in.
+- **Agent harness (foundation):** a tool registry (`src/harness/tools/`) that wraps studio commands as validated, guardrailed, station-scoped tools compiling 1:1 to the same command bus the UI uses — **no private path**. Exposed to the AI at `/api/assistant/context` as the live capability surface.
 - **MIDI:** WebMIDI I/O, clock out (24 ppqn) with start/stop transport.
-- **Platform:** installable PWA; COOP/COEP → SharedArrayBuffer; optional AI bridge (OpenAI/Anthropic/local/Ollama); portable project packages with embedded audio assets + workspace layout.
+- **Platform:** installable PWA; COOP/COEP → SharedArrayBuffer; optional AI bridge (OpenAI/Anthropic/local/Ollama); one-command container deploy (Fly.io / Render — see [`docs/DEPLOY.md`](./docs/DEPLOY.md)); portable project packages with embedded audio assets + workspace layout.
 
-Stubbed / not real yet (see the roadmap): Plaits/Clouds/Rings/modular-sampler worklet voices, the agent loop (currently single-shot `actions/plan`, no tool-calling/memory/perception-gating), real Ableton Link.
+Stubbed / not real yet (see the roadmap): Plaits/Clouds/Rings/modular-sampler worklet voices, the full agent **loop** (the tool registry landed; the tool-calling state machine + branch auditioning + perception-gating are Phase B/C), real Ableton Link.
 
 The `confu/` directory is a parked Electron shell (unmaintained until Phase F — no desktop packaging before then).
 

@@ -4,6 +4,8 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { buildManualToolSurface } from './src/harness/tools/registry.js';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = __dirname;
 const publicDir = path.join(rootDir, 'public');
@@ -189,6 +191,10 @@ function buildAssistantContextEnvelope() {
     ...assistantManual,
     providers: assistantProviderCatalog,
     defaultProvider: defaultAssistantProvider,
+    // Generated at runtime from the harness tool registry (src/harness/tools),
+    // the single source of truth — the assistant's real studio capability
+    // surface, always in sync with the command bus (no hand-maintained drift).
+    commandTools: buildManualToolSurface(),
     endpoints: {
       chat: '/api/assistant/chat',
       actions: '/api/assistant/actions/plan',
