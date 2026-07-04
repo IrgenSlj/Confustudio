@@ -39,7 +39,7 @@ Legend: `[x]` done · `[~]` in progress / partial · `[ ]` not started.
 > Spec: `CONFUSTUDIO_AI_BRIEF.md` §1–4,6,8. Gate (D-N16): may start once sampler + one synth voice pass the audio-quality harness.
 
 - [x] **B6 CS-Score** parser/emitter — `src/kernel/score.js` + `tests/score-roundtrip.mjs` + `docs/CS_SCORE.md` (pure). _Remaining:_ command-compilation layer (`score.write` compiles to command-bus ops on the active branch).
-- [ ] B1 Tool registry (`src/harness/tools/`) — wrap every command type in a JSON-Schema tool generated from the registry + command bus (single source of truth); regenerate `docs/confustudio.manual.json` from it.
+- [x] **B1 Tool registry** (`src/harness/tools/`) — 17 tools compiling to real command-bus commands (no private path, 247-check `test:harness`); pure zero-dep JSON-Schema validator; station allowlists + per-param clamping guardrails; Anthropic/OpenAI adapters. _Remaining:_ regenerate `docs/confustudio.manual.json` from `buildManualToolSurface()`.
 - [ ] B2 Agent loop — extract `src/harness/loop.mjs` from `server.mjs`: provider-agnostic tool-calling state machine (IDLE→PLAN→ACT→VERIFY→PRESENT) with budgets; SSE stream to the client; single tool-call IR + per-provider adapters + mock provider.
 - [ ] B3 Branch lifecycle — formalize `branch.open/audition/merge/discard` over the existing DAG branching; persist a `branches` compartment so proposals survive reload.
 - [ ] B4 In-app **Director rail** + proposal cards (chat, station switch, activity log, audition/merge/discard) — replaces the fire-and-forget `actions/plan` path. (Design: S4.)
@@ -106,8 +106,11 @@ Source: `docs/design-system/{module-chassis-spec,integration-guide}.md`. DesignS
 
 ## Immediate next actions (pick up here)
 
-1. Wire `src/kernel/spectrum.js` into the mixer as the labeled **6-band spectrum** (kernel + test already done — this is UI-only, contained to `mixer.js`/`mixer.css`, screenshot-verify).
-2. Finish the **MIXER** design upgrade — vertical faders + per-track VU (add per-track analyser taps in `engine.js`), keep it verified.
-3. **Phase C offline render** (C1) — unblocks masking + the agent's ears; reuse `loudness.js` + `spectrum.js`.
-4. Or **Phase 0.4** globals consolidation (mechanical, unblocks a clean harness).
-5. Then **Phase B** harness loop + tool registry (the signature).
+The active lead is **deploy + monetize via the AI co-producer**. B1 (tool registry) is done — build the loop on top. Full detail + specs in `NEXT_SESSION.md`.
+
+1. **B2 — Agent loop** (`src/harness/loop.mjs`) + tool-call IR + deterministic **mock provider** → the `IDLE→PLAN→ACT→VERIFY→PRESENT` state machine executing B1 tools on a cloned branch. Fully testable, no API key. **START HERE.**
+2. **B3 — Branch lifecycle** (`branch.open/audition/merge/discard`) wrapping the existing signal-graph DAG.
+3. **B4 — Director rail** + proposal cards (the demoable, paywallable moment) → wire to `window.confustudioCommands.execute`.
+4. **Deploy** (`docs/DEPLOY.md`, one command, needs the user's account) — for a free-studio funnel, any time.
+5. **Phase C** offline render → feature extraction (reuse `loudness.js`/`spectrum.js`) → musical lint → wire into the loop's VERIFY stage (makes the agent hear).
+6. Parallel polish: wire `spectrum.js` into the mixer 6-band UI; per-track VU taps; **Phase 0.4** globals consolidation.

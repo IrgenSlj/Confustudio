@@ -2,6 +2,7 @@ import {
   BANK_COUNT,
   PATTERN_COUNT,
   TRACK_COUNT,
+  PROB_LEVELS,
   createStep,
   normalizeProject,
   recordSignal,
@@ -257,9 +258,8 @@ export function executeStudioCommand(state, command, parentSignalId = null) {
       const track = getTrack(state, bankIndex, patternIndex, trackIndex);
       const step = track?.steps?.[clamp(command.stepIndex, 0, (track?.steps?.length ?? 1) - 1, 0)];
       if (!step) return { changed: false, summary: 'Step not found' };
-      const nextLevels = [1, 0.75, 0.5, 0.25];
-      const idx = nextLevels.indexOf(step.probability);
-      step.probability = nextLevels[(idx + 1) % nextLevels.length];
+      const idx = PROB_LEVELS.indexOf(step.probability);
+      step.probability = PROB_LEVELS[(idx + 1) % PROB_LEVELS.length];
       return { changed: true, summary: 'Cycled step probability' };
     }
 

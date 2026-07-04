@@ -1,72 +1,70 @@
-# NEXT SESSION — Confustudio (new-brief direction)
+# NEXT SESSION — CONFUstudio
 
-**Branch:** `feat/phase0-type-boundary` (off `main`). Open a PR when ready; `main` is the merge target.
-**North-star specs (in-repo):** `docs/CONFUSTUDIO_CODE_BRIEF.md` (phasing/engine/SDK), `docs/CONFUSTUDIO_AI_BRIEF.md` (harness — authoritative), `docs/CONFUSTUDIO_DESIGN_BRIEF.md`, `docs/STUDIO_MANUAL.md` (human + agent knowledge, M-13 keep-true contract).
-**Thesis (locked):** a modular techno/house studio + one agent harness that works in **parameters & performances, never rendered audio**. Branches, not mutations. Perception-gated. Hierarchy: **engine quality > ease of use > advanced features**.
+**Branch:** work off `main` (now consolidated — see below). Open focused PRs; `main` is green and protected by CI again.
+**North-star specs (in-repo):** `docs/CONFUSTUDIO_CODE_BRIEF.md` (phasing/engine/SDK), `docs/CONFUSTUDIO_AI_BRIEF.md` (harness — authoritative), `docs/CONFUSTUDIO_DESIGN_BRIEF.md`, `docs/STUDIO_MANUAL.md`.
+**Thesis (locked):** a modular techno/house studio + one agent harness that works in **parameters & performances, never rendered audio**. Branches, not mutations · perception-gated · guardrails in the tool registry · hierarchy **engine quality > ease of use > advanced features**.
 
----
-
-## Phase status board
-
-| Phase              | State                                                                                                                                                                                                                                                                                                                       |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **0 Stabilize**    | 0.1 done (PR #1 merged long ago). 0.2 done (`docs/POSTMORTEM_STALE_CACHE.md` — not-reproducible-mitigated; SW `confustudio-v4`, network-first shell, reset hatches). 0.3 done (checked-JSDoc boundary + `test:types`). 0.5 already done (constants.js). **0.4 (window.\_\* → `__CONFUSTUDIO__` consolidation) still open.** |
-| **A Engine floor** | Not started except recon. A1 sampler recon done (below). A2 audio-quality harness = the gate for A1 — build it first.                                                                                                                                                                                                       |
-| **B Harness**      | B6 CS-Score parser landed (pure kernel). Loop/tools/branches/traces not started.                                                                                                                                                                                                                                            |
-| **C Perception**   | Not started (needs offline render via OfflineAudioContext — Playwright path).                                                                                                                                                                                                                                               |
-| **D/E/F**          | Not started.                                                                                                                                                                                                                                                                                                                |
-
-**Design integration (Claude Design v2.0):** tokens (already canonical) ✔ · component layer `src/css/components.css` (.btn/.chip/.t-\*) ✔ · specs mirrored in `docs/design-system/` ✔ · **chassis, PATTERN, MIXER pages, Director rail, perception meters = NOT done** (the visible work).
+**Active lead:** **deploy + monetize** via the **AI co-producer** (the moat). The studio itself is already a polished, working product; the differentiator is an AI that produces _with_ you in an editable studio — writes patterns, designs patches, rides the mix — where you keep every parameter. That layer is the paywall and is now under construction (Phase B).
 
 ---
 
-## What shipped this session
+## State of `main` (consolidated 2026-07-04)
 
-1. Landed all four north-star briefs + STUDIO_MANUAL in `docs/` (source files had vanished from disk — these are now the only copies).
-2. **Phase 0.2** — stale-cache postmortem.
-3. **Phase 0.3** — type boundary: `jsconfig.json` (checkJs) over `src/kernel`, `command-bus.js`, `state.js`, `plugins/*`; `src/kernel/types.js` typedefs; `src/globals.d.ts`; `test:types` (tsc) wired into `npm test`. Fixed 3 latent gotchas (em-dashes after bracketed JSDoc `@param` tripped TS1127).
-4. **Design** — `src/css/components.css` (.btn/.chip/.t-\* — additive, zero collision) + `docs/design-system/{module-chassis-spec,integration-guide}.md`.
-5. **B6 CS-Score** — `src/kernel/score.js` + `tests/score-roundtrip.mjs` + `docs/CS_SCORE.md` (committed, green).
-6. **Phase C seeds** — `src/kernel/loudness.js` (BS.1770 LUFS, `test:perception`) + `src/kernel/spectrum.js` (6-band energies, `test:spectrum`), both pure + unit-tested.
-7. **Mixer master loudness panel** — real momentary/short-term/integrated LUFS + peak dBFS in the design 7-seg style (contained to `mixer.js`, augment-not-replace). Masking honestly deferred to Phase C.
-8. **Repo hygiene** — `docs/ROADMAP.md` (the live plan), README rewrite for the new direction, pruned obsolete docs/artifacts.
+`main` is green and was consolidated from six branches this session. `npm test` runs
+**lint · types (tsc) · syntax · kernel · score · perception · spectrum · harness · state · server · ui-smoke** and is green; verified in a real browser (renders, zero console errors, clean returning-user boot).
 
-## OPEN ITEMS
+What landed:
 
-- No open blockers. Branch is green (lint · types · syntax · kernel · score · perception · spectrum · state · server · ui-smoke) and pushed (PR #3).
-- Next work + full status: see **`docs/ROADMAP.md`** → "Immediate next actions". Top item: wire `src/kernel/spectrum.js` into the mixer as the labeled 6-band spectrum (UI-only, contained).
-- A running dev server may be up at http://localhost:4173 (hard-reload past the service worker).
+- **CI is enforced again.** It had been RED on every commit for weeks — `prettier --check` failed before the tests ran, so `npm test` never executed in CI. Fixed; the format gate is now a real gate.
+- **Data-loss bug fixed** — `deepMerge` in `state.js` wiped any returning user's project once an array grew past defaults (extra module/LFO/cable/branch). Regression-tested.
+- **Deployable** — server binds `0.0.0.0` under `NODE_ENV=production`, `/healthz`, non-root Dockerfile, `fly.toml` (scale-to-zero), `render.yaml`, `docs/DEPLOY.md`. **One command from a public URL.**
+- **Phase 0** (type boundary + tsc gate, stale-cache postmortem), **B6 CS-Score**, **Phase C seeds** (loudness + spectrum kernels), **mixer master loudness panel**, design component layer — all from the prior feature line.
+- **Phase B1 — harness tool registry** (`src/harness/tools/`): 17 tools, a pure zero-dep JSON-Schema validator, station allowlists, per-param clamping guardrails, provider adapters. Enforces **no private path** — every tool compiles to a real command the bus accepts (247-check test, `test:harness`).
 
 ---
 
-## A1 sampler recon (the brief's assumption is partly wrong)
+## The plan — build the AI co-producer (Phase B), then deploy, then monetize
 
-- The kernel `createStepTriggerEvent` (`src/kernel/event-compiler.js`) is **NOT wired into the live scheduler**. Live path: `src/app.js:2150 tick()` → `src/engine.js:716 triggerTrack()`. (Wiring the scheduler onto kernel events is its own task — needed for Phase C offline-render fidelity + Phase E quantized launch.)
-- The **track-engine `'sample'` machine already works** (`engine.js:1206-1308`): real AudioBuffer playback via `cs-resampler`, with start/end, loop, pitch. The **actual stub** is the ModularEngine sampler node (`engine-graph.js:519`, plays a default sine).
-- A1 missing pieces + insertion points: reverse-on-trigger (`resampler-worklet.js` negative increment; `engine.js:1250`), choke groups (`engine.js:716` + `_registerVoice` 672, model after `drum_machine.js:527`), gate/one-shot (send worklet `stop` at when+gate, `engine.js:1266`), slice-by-plock (`sampleStart` already read at `engine.js:1208`; add to `pattern-tools.js:116` PLOCK_PARAMS + resolve `sampleSlices`), decouple pitch p-lock from `keyTracking` (`engine.js:1217`), `sampleId→buffer` resolver (none) if un-stubbing `engine-graph.js:519`.
-- **D-N16:** Phase B may proceed once sampler + one synth voice pass the audio-quality harness. Build `tests/audio-quality.mjs` (A2) FIRST so sampler changes are measured. Audio regressions are invisible to `npm test` — do NOT delegate audio edits blind.
+The loop spec is `docs/CONFUSTUDIO_AI_BRIEF.md` §1 (state machine + tool-call IR). B1 is the foundation. Build in order, each a focused verified PR:
 
-## Design integration — next visible wins (ordered)
+### B2 — Agent loop (`src/harness/loop.mjs`) + mock provider ← **START HERE**
 
-Use `system-canvas.css` + `system-canvas.js` (the **production** component library; fetch via DesignSync) for NEW surfaces; adapt for existing pages carefully (`.knob`/`.step`/`.fader` collide — scope them). Order from `docs/design-system/integration-guide.md`:
+- **Tool-call IR** (`src/harness/ir.js`): call `{ name, args, callId }`, result `{ callId, ok, data?, error?:{ code, message, hint } }`. `hint` = model-facing repair guidance.
+- **Provider interface** + a **deterministic mock provider** (`src/harness/providers/mock.js`) so the whole loop is testable with NO API key. Real Anthropic/OpenAI adapters translate at the edge only (server.mjs already has per-provider request builders to reuse — `requestAssistantProvider`).
+- **State machine** `IDLE→PLAN→ACT→VERIFY→PRESENT` with budgets (`maxTurns`, `maxToolCalls`) enforced at each transition. ACT executes tool calls via `compileToCommand` (B1) → `executeStudioCommand` on a **cloned branch state** (branches, not mutations). Error storm (>3 consecutive `ok:false`) → abort to PRESENT with an honest partial note.
+- **VERIFY** = a _pluggable hook_ now (default no-op returns no findings); Phase C fills it with render/measure/lint. Findings ≥ warn → one repair cycle (`maxRepairCycles=1`).
+- **PRESENT** = a proposal `{ branchState, intent, touched[], commands[], perception:null, nextSteps[] }` + a trace `{ turns, toolCalls, budgets, findings, failure }`.
+- Test (`tests/harness-loop.mjs`): scripted mock provider drives "four-on-floor on track 1" end-to-end, asserts real commands applied on the branch, a proposal + diff produced, budget + error-storm + repair-cycle paths covered. Wire `test:loop`.
 
-1. **MIXER page** (biggest, cleanest upgrade): vertical faders + VU meters (peak colours) + master LUFS 7-seg + spectrum + masking heat + lint tags. `src/pages/mixer.js` + `src/css/mixer.css`. Wire meters to the real AnalyserNode levels (design JS uses fake data). Current mixer has an empty "MASTER SPECTRUM".
-2. **PATTERN page** refinements: STEP DETAIL in-place editor (hold step), trig-condition glyph rack.
-3. Chassis chrome polish, then Director rail + proposal cards + ghost/diff (Phase B), perception meters (Phase C), live skin (Phase E).
+### B3 — Branch lifecycle
 
-## Working with the design project (DesignSync)
+- Formalize `branch.open/audition/merge/discard` over the **existing signal-graph DAG** (`command-bus.js`: `signalListBranches`, `signalSwitchBranch`, `replaySignalSubgraph`, `captureCommandState` already exist — wrap them). Merge/discard are **user-only** (a human click). Persist a `branches` compartment so proposals survive reload.
 
-- **MAIN-CONTEXT ONLY** — subagents can't call it. Fetch each file yourself: `DesignSync {method:'get_file', projectId:'0a865dfd-ed0d-407e-9c59-a80f2b4a781e', path}`. `list_files` for the manifest.
-- Not yet mirrored in-repo: `system-canvas.css/js`, `chassis.css/js`, `pattern.css/js`, `mixer.css/js`, page HTMLs, `Confustudio System.html`, `design-guide.md` (v2), `studio-canvas-redesign.md`.
+### B4 — Director rail (the visible product; browser-verified)
 
-## Verification (tests can't see rendering — this has bitten before)
+- In-app rail + proposal cards (chat, audition A/B, merge, discard, activity log). Wire to the sanctioned browser exec path: `window.confustudioCommands.execute(commands, label)` (`app.js`). Design: `docs/CONFUSTUDIO_DESIGN_BRIEF.md` S4. **This is the demoable moment for launch.**
 
-`npm test` green ≠ working app. Screenshot-verify every visual change in a real browser. Reusable script in scratch (`shoot.mjs`, modelled on `tests/ui-smoke.mjs`): boots `server.mjs`, clears SW/localStorage, navigates `.page-tabs button[data-page="…"]`, screenshots, collects `pageerror`/console errors. Playwright resolves from repo `node_modules` → run from inside the repo (copy in, run, `rm`). Baselines captured this session.
+### B5 — Traces (per-run artifact); wire the loop to the real server providers behind `/api/assistant`.
 
-## Test suite
+### Then:
 
-`npm test` = lint · **types (tsc)** · syntax · kernel · **score** · state · server · ui-smoke. Add per brief §7: `test:audio-quality` (A2), `test:harness` (B), `test:perception` (C). TypeScript is a dev dep now.
+- **Deploy** (needs the user's Fly/Render account — one command; see `docs/DEPLOY.md`). Do this once B4 gives a hook, OR earlier for a free-studio funnel — user's call.
+- **Phase C** — offline render (`OfflineAudioContext`) → feature extraction (reuse `loudness.js` + `spectrum.js`) → musical lint → wire into VERIFY. Makes the agent _hear_.
+- **Monetize** — open-core: free studio, paid AI co-producer. Start BYO-key (launch fast, zero inference risk), migrate to metered credits once demand is real. `FUNDING.yml` + landing page are salvageable from branch `autonomous/cto-session-2026-07-01` (see below).
+
+---
+
+## Plumbing / hygiene follow-ups
+
+- **Regenerate `docs/confustudio.manual.json` tool surface from B1** (`buildManualToolSurface()`), and point the server's `/api/assistant/actions/plan` allowed-types at the registry — kill the hand-maintained 10-type list that already drifts from the 38 real command types. Single source of truth.
+- **Type the harness** — add `src/harness` to the tsc `jsconfig.json` include list once B2/B3 stabilize, so it gets the same checked-JSDoc boundary as the kernel.
+- **Phase 0.4** — consolidate `window._*` globals into `__CONFUSTUDIO__` (still open).
+- **A2 audio-quality harness** (`tests/audio-quality.mjs`) is the gate for any audio-engine edits — build before touching voices. Do NOT tune audio blind (verify-in-real-browser).
+
+## Salvage from the stale branch (don't rebuild)
+
+Branch `autonomous/cto-session-2026-07-01` (was open PR #2, now closed as superseded) contains, un-merged: a polished **1284-line landing page** (`site/index.html` + `og-cover.png`), **onboarding** (`src/onboarding.js`), **share** (`src/share.js`), **pwa-install** (`src/pwa-install.js`), `FUNDING.yml`, and a **"transport fix"** worth reviewing. Cherry-pick these into focused PRs when the funnel/monetization work starts — the value is real, the bundle was just too big and stale to merge.
 
 ## Discipline
 
-Small verified increments, commit + push each. Update this file every session. Phase acceptance gates are blocking.
+Small verified increments, commit + push each, own PR. Update this file every session. `npm test` green ≠ working app — screenshot-verify every visual change. Phase acceptance gates are blocking.
