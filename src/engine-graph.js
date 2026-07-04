@@ -26,9 +26,7 @@ export class ModularEngine {
       console.warn('[ModularEngine] AudioWorkletNode not available');
       return;
     }
-    const results = await Promise.allSettled(
-      WORKLET_MODULES.map((url) => this.ctx.audioWorklet.addModule(url)),
-    );
+    const results = await Promise.allSettled(WORKLET_MODULES.map((url) => this.ctx.audioWorklet.addModule(url)));
     const ok = results.filter((r) => r.status === 'fulfilled').length;
     const fail = results.filter((r) => r.status === 'rejected').length;
     if (fail > 0) {
@@ -78,7 +76,7 @@ export class ModularEngine {
     }
 
     const currentConns = new Set(this.connectionMap.keys());
-    const graphConns = new Set((graph.connections || []).map(c => c.id));
+    const graphConns = new Set((graph.connections || []).map((c) => c.id));
     for (const id of currentConns) {
       if (!graphConns.has(id)) this.removeConnection(id);
     }
@@ -183,7 +181,7 @@ export class ModularEngine {
           entry.workletNode.port.postMessage({
             type: 'trigger',
             ...this._pluckParams(entry._params || {}, ['engine', 'timbre', 'harmonics', 'morph', 'pitch']),
-            frequency: this._midiToHz((entry._params?.pitch ?? 60)),
+            frequency: this._midiToHz(entry._params?.pitch ?? 60),
             sampleRate: this.ctx.sampleRate,
           });
           return;
@@ -192,7 +190,7 @@ export class ModularEngine {
           entry.workletNode.port.postMessage({
             type: 'trigger',
             ...this._pluckParams(entry._params || {}, ['pitch', 'structure', 'brightness', 'damping']),
-            frequency: this._midiToHz((entry._params?.pitch ?? 60)),
+            frequency: this._midiToHz(entry._params?.pitch ?? 60),
             exciter: 2,
             sampleRate: this.ctx.sampleRate,
           });
@@ -208,13 +206,19 @@ export class ModularEngine {
     const audioNode = entry.inputNode;
     if (!audioNode) return;
     switch (entry.plugin) {
-      case 'gain': audioNode.gain.value = value; break;
+      case 'gain':
+        audioNode.gain.value = value;
+        break;
       case 'biquad':
         if (key === 'freq') audioNode.frequency.value = value;
         if (key === 'Q') audioNode.Q.value = value;
         break;
-      case 'panner': audioNode.pan.value = value; break;
-      case 'master-out': audioNode.gain.value = value; break;
+      case 'panner':
+        audioNode.pan.value = value;
+        break;
+      case 'master-out':
+        audioNode.gain.value = value;
+        break;
     }
   }
 
@@ -238,7 +242,9 @@ export class ModularEngine {
       if (fromEntry && toEntry) {
         const fromNode = this._getPortOrNode(fromEntry, conn.fromPort, fromEntry.outputNode);
         const toNode = this._getPortOrNode(toEntry, conn.toPort, toEntry.inputNode);
-        try { fromNode.disconnect(toNode); } catch (_) {}
+        try {
+          fromNode.disconnect(toNode);
+        } catch (_) {}
       }
       this.connectionMap.delete(id);
     }
@@ -437,7 +443,8 @@ export class ModularEngine {
         case 'bitcrusher': {
           if (typeof AudioWorkletNode !== 'function') return null;
           const bc = new AudioWorkletNode(ctx, 'cs-bitcrusher', {
-            numberOfInputs: 1, numberOfOutputs: 1,
+            numberOfInputs: 1,
+            numberOfOutputs: 1,
           });
           bc.port.postMessage({ type: 'config', bitDepth: params.bitDepth ?? 16, srDiv: params.sampleRateDiv ?? 2 });
           const out = ctx.createGain();
@@ -452,20 +459,28 @@ export class ModularEngine {
           out.gain.value = 0.72;
           pn.connect(out);
           const entryRef = { _params: { ...params } };
-          const trig = () => pn.port.postMessage({
-            type: 'trigger', engine: entryRef._params.engine ?? 0,
-            frequency: this._midiToHz(entryRef._params.pitch ?? 60),
-            timbre: entryRef._params.timbre ?? 0.5,
-            harmonics: entryRef._params.harmonics ?? 0.5,
-            morph: entryRef._params.morph ?? 0.5,
-            sampleRate: ctx.sampleRate,
-          });
+          const trig = () =>
+            pn.port.postMessage({
+              type: 'trigger',
+              engine: entryRef._params.engine ?? 0,
+              frequency: this._midiToHz(entryRef._params.pitch ?? 60),
+              timbre: entryRef._params.timbre ?? 0.5,
+              harmonics: entryRef._params.harmonics ?? 0.5,
+              morph: entryRef._params.morph ?? 0.5,
+              sampleRate: ctx.sampleRate,
+            });
           trig();
           const _plaitsReTrigger = setInterval(trig, 2000);
           return {
-            inputNode: out, outputNode: out, allNodes: [pn, out], workletNode: pn,
-            _plaitsReTrigger, _params: entryRef._params,
-            cleanup() { clearInterval(_plaitsReTrigger); },
+            inputNode: out,
+            outputNode: out,
+            allNodes: [pn, out],
+            workletNode: pn,
+            _plaitsReTrigger,
+            _params: entryRef._params,
+            cleanup() {
+              clearInterval(_plaitsReTrigger);
+            },
           };
         }
 
@@ -497,13 +512,12 @@ export class ModularEngine {
           const bufLen = ctx.sampleRate * 2;
           const buf = new Float32Array(bufLen);
           for (let i = 0; i < bufLen; i++) {
-            buf[i] = Math.sin(2 * Math.PI * i * (200 + (i / bufLen) * 800) / ctx.sampleRate) * 0.4;
+            buf[i] = Math.sin((2 * Math.PI * i * (200 + (i / bufLen) * 800)) / ctx.sampleRate) * 0.4;
           }
           const transfer = buf.slice(0);
-          cn.port.postMessage(
-            { type: 'load', buffer: buf, sampleRate: ctx.sampleRate, ctxRate: ctx.sampleRate },
-            [transfer.buffer],
-          );
+          cn.port.postMessage({ type: 'load', buffer: buf, sampleRate: ctx.sampleRate, ctxRate: ctx.sampleRate }, [
+            transfer.buffer,
+          ]);
           cn.port.postMessage({
             type: 'trigger',
             position: params.position ?? 0,
@@ -529,7 +543,7 @@ export class ModularEngine {
           const l = new Float32Array(toneLen);
           const r = new Float32Array(toneLen);
           for (let i = 0; i < toneLen; i++) {
-            const s = Math.sin(2 * Math.PI * i * this._midiToHz(params.pitch ?? 60) / ctx.sampleRate) * 0.3;
+            const s = Math.sin((2 * Math.PI * i * this._midiToHz(params.pitch ?? 60)) / ctx.sampleRate) * 0.3;
             l[i] = s;
             r[i] = s;
           }

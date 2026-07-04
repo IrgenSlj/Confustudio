@@ -614,12 +614,16 @@ export class AudioEngine {
     for (let i = nodes.length - 1; i >= 0; i--) {
       const node = nodes[i];
       if (node && typeof node.disconnect === 'function') {
-        try { node.disconnect(); } catch (_) {}
+        try {
+          node.disconnect();
+        } catch (_) {}
       }
     }
     // Run explicit disconnect callbacks (for worklet nodes with cleanup)
     for (const fn of disconnects) {
-      try { fn(); } catch (_) {}
+      try {
+        fn();
+      } catch (_) {}
     }
     this._trackChains.delete(trackKey);
   }

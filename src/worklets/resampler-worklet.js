@@ -37,7 +37,7 @@ class ResamplerProcessor extends AudioWorkletProcessor {
   }
 
   _sampleAt(buf, i, t, len) {
-    const clamp = (idx) => idx < 0 ? 0 : idx >= len ? len - 1 : idx;
+    const clamp = (idx) => (idx < 0 ? 0 : idx >= len ? len - 1 : idx);
     const p0 = buf[clamp(i - 1)];
     const p1 = buf[clamp(i)];
     const p2 = buf[clamp(i + 1)];
@@ -89,7 +89,7 @@ class ResamplerProcessor extends AudioWorkletProcessor {
         this.position = loopStart + ((this.position - loopStart) % loopLen);
       }
 
-      const remaining = hasLoop ? Infinity : (len - 2) - this.position;
+      const remaining = hasLoop ? Infinity : len - 2 - this.position;
       const fadeGain = remaining < fadeSamples ? remaining / fadeSamples : 1;
 
       const i = this.position | 0;
