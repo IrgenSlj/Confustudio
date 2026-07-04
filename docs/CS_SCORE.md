@@ -22,11 +22,11 @@ T4 clap |....X.......X...| c:13=3:4
 ```js
 import { parseScore, emitScore, normalizeScore, noteNameToMidi, midiToNoteName } from './src/kernel/score.js';
 
-parseScore(text)      // → { ok:true, pattern } | { ok:false, errors }
-emitScore(pattern)    // → canonical CS-Score text (exact inverse of parse)
-normalizeScore(text)  // → canonical text (parse + re-emit) | { ok:false, errors }
-noteNameToMidi(name)  // → MIDI number | null
-midiToNoteName(midi)  // → note-name string
+parseScore(text); // → { ok:true, pattern } | { ok:false, errors }
+emitScore(pattern); // → canonical CS-Score text (exact inverse of parse)
+normalizeScore(text); // → canonical text (parse + re-emit) | { ok:false, errors }
+noteNameToMidi(name); // → MIDI number | null
+midiToNoteName(midi); // → note-name string
 ```
 
 The **round-trip property** holds for the representable subset:
@@ -48,11 +48,11 @@ This module itself is just the pure parse ⇄ emit boundary.
 
 A score is a sequence of lines. Blank lines are ignored. Each non-blank line is one of:
 
-| Line | Purpose |
-|---|---|
-| `# …`     | Header (metadata) or comment |
-| `T<n> …`  | A track block (identity + step grid + modifiers) |
-| `L <ref> …` | A p-lock lane (per-step parameter values) |
+| Line        | Purpose                                          |
+| ----------- | ------------------------------------------------ |
+| `# …`       | Header (metadata) or comment                     |
+| `T<n> …`    | A track block (identity + step grid + modifiers) |
+| `L <ref> …` | A p-lock lane (per-step parameter values)        |
 
 **Comments** begin at the first `#` that is at the start of a line or preceded by
 whitespace. A `#` inside a note name (e.g. `D#2`) is therefore never mistaken for a
@@ -67,13 +67,13 @@ optional and order-independent on input; the canonical (emitted) order is fixed:
 # bank <B> · pattern <N> · <bpm>bpm · len <L> · swing <S>%
 ```
 
-| Field | Grammar | Meaning |
-|---|---|---|
-| `bank <B>`   | word    | Bank name/letter |
-| `pattern <N>`| integer | Pattern number |
-| `<bpm>bpm`   | number  | Tempo |
-| `len <L>`    | integer | Pattern length = number of steps per bar |
-| `swing <S>%` | number  | Swing percentage |
+| Field         | Grammar | Meaning                                  |
+| ------------- | ------- | ---------------------------------------- |
+| `bank <B>`    | word    | Bank name/letter                         |
+| `pattern <N>` | integer | Pattern number                           |
+| `<bpm>bpm`    | number  | Tempo                                    |
+| `len <L>`     | integer | Pattern length = number of steps per bar |
+| `swing <S>%`  | number  | Swing percentage                         |
 
 `len` is the source of truth for the step count. If the header omits `len`, it is
 inferred from the first track's step count. `len` is always emitted (it is derivable);
@@ -96,12 +96,12 @@ The grid is lexed into **one token per step**. Whitespace between cells is ignor
 input (you may space cells out for readability); the canonical form packs drum/note
 cells with no spaces.
 
-| Symbol | Meaning |
-|---|---|
-| `.`    | Rest (inactive step) |
-| `X`    | Trig — active step at the track's default velocity, inheriting the track pitch |
-| `x`    | Ghost — active step at low velocity (0.35), for pocket/feel |
-| `C2`, `D#2`, `G1`, … | Note — active step with an explicit pitch (tonal tracks) |
+| Symbol               | Meaning                                                                        |
+| -------------------- | ------------------------------------------------------------------------------ |
+| `.`                  | Rest (inactive step)                                                           |
+| `X`                  | Trig — active step at the track's default velocity, inheriting the track pitch |
+| `x`                  | Ghost — active step at low velocity (0.35), for pocket/feel                    |
+| `C2`, `D#2`, `G1`, … | Note — active step with an explicit pitch (tonal tracks)                       |
 
 Note tokens lex greedily and unambiguously: a note is `letter + optional #/b + octave`,
 so `C2..D#2` reads as `C2`, `.`, `.`, `D#2`. The number of tokens **must equal `len`** —
@@ -112,12 +112,12 @@ the modifiers below (so an accented trig still shows as `X`, marked by an `a:` f
 
 ### Modifiers
 
-| Field | Example | Meaning |
-|---|---|---|
-| `p:key=val` | `p:vel=0.6` | Track-level default. Keys: `vel`, `prob`, `gate` (all numeric) |
-| `s:step[,step…]` | `s:5,13` | Mark step(s) as **slide** (per-step glide; CS-ACID). `s:5=slide` is accepted; the `=slide` tag is decorative |
-| `a:step[,step…]` | `a:9` | Mark step(s) as **accent** |
-| `c:step=cond` | `c:13=3:4` | Set a **trig condition** on a step |
+| Field            | Example     | Meaning                                                                                                      |
+| ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------ |
+| `p:key=val`      | `p:vel=0.6` | Track-level default. Keys: `vel`, `prob`, `gate` (all numeric)                                               |
+| `s:step[,step…]` | `s:5,13`    | Mark step(s) as **slide** (per-step glide; CS-ACID). `s:5=slide` is accepted; the `=slide` tag is decorative |
+| `a:step[,step…]` | `a:9`       | Mark step(s) as **accent**                                                                                   |
+| `c:step=cond`    | `c:13=3:4`  | Set a **trig condition** on a step                                                                           |
 
 Step numbers are **1-based** and must fall within the bar. Canonical emit order is
 `p:` (keys sorted) · `s:` (one comma list) · `a:` (one comma list) · `c:` (one per step).
@@ -127,16 +127,16 @@ Step numbers are **1-based** and must fall within the bar. Canonical emit order 
 The `c:` grammar matches the sequencer engine exactly (`src/kernel/event-compiler.js`,
 Studio Manual §M-3):
 
-| Condition | Fires when |
-|---|---|
-| `always` | Every pass (default; never emitted) |
-| `1st`    | First loop only |
-| `not1st` | Every loop except the first |
-| `every2` / `every3` / `every4` | Every 2nd / 3rd / 4th pass |
-| `A:B`    | On pass A of every B passes, e.g. `3:4` |
-| `random` | Uses the step probability |
-| `fill`   | Only while the fill button is held |
-| `not_fill` | Only while fill is **not** held |
+| Condition                      | Fires when                              |
+| ------------------------------ | --------------------------------------- |
+| `always`                       | Every pass (default; never emitted)     |
+| `1st`                          | First loop only                         |
+| `not1st`                       | Every loop except the first             |
+| `every2` / `every3` / `every4` | Every 2nd / 3rd / 4th pass              |
+| `A:B`                          | On pass A of every B passes, e.g. `3:4` |
+| `random`                       | Uses the step probability               |
+| `fill`                         | Only while the fill button is held      |
+| `not_fill`                     | Only while fill is **not** held         |
 
 Input aliases are canonicalized: `first` → `1st`, `not_first` / `not:first` → `not1st`.
 

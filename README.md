@@ -12,7 +12,7 @@ CONFUstudio runs in the browser (installable as a PWA), with a dependency-light 
 
 1. **Parameters, not renders.** Every sound is state. The agent edits state through the same command bus the UI uses — no private path.
 2. **Branches, not mutations.** Agent proposals materialize as branches of the edit-history DAG; you audition against head, then merge or discard. Merge is always a human click.
-3. **Perception is mandatory.** The agent can *hear*: offline render → feature extraction → musical lint → self-correct. No perception, no "agentic" label.
+3. **Perception is mandatory.** The agent can _hear_: offline render → feature extraction → musical lint → self-correct. No perception, no "agentic" label.
 4. **One harness, three stations.** Session Artist (compose/sound-design), Studio Master (mix + project memory), Co-Performer (quantized-launch live actions).
 5. **Community-extensible.** Instruments are built against a public Module SDK; third parties ship voices without touching core.
 6. **Original identity.** Behavioral homage to classic hardware; every name, glyph, preset, and panel is original — no trademarked names anywhere.

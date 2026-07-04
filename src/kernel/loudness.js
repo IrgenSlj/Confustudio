@@ -28,7 +28,13 @@ export const LUFS_SILENCE = -70;
  */
 const K_48K = {
   // Stage 1 — high-shelf (+4 dB @ ~1681 Hz)
-  stage1: { b0: 1.53512485958697, b1: -2.69169618940638, b2: 1.19839281085285, a1: -1.69065929318241, a2: 0.73248077421585 },
+  stage1: {
+    b0: 1.53512485958697,
+    b1: -2.69169618940638,
+    b2: 1.19839281085285,
+    a1: -1.69065929318241,
+    a2: 0.73248077421585,
+  },
   // Stage 2 — high-pass (RLB weighting curve, ~38 Hz)
   stage2: { b0: 1.0, b1: -2.0, b2: 1.0, a1: -1.99004745483398, a2: 0.99007225036621 },
 };
@@ -65,8 +71,8 @@ export function kWeightingCoefficients(sampleRate = 48000) {
   const Kh = Math.tan((Math.PI * fh) / sampleRate);
   const a0h = 1 + Kh / Qh + Kh * Kh;
   const stage2 = {
-    b0: 1 / a0h * (1),
-    b1: (-2) / a0h,
+    b0: (1 / a0h) * 1,
+    b1: -2 / a0h,
     b2: 1 / a0h,
     a1: (2 * (Kh * Kh - 1)) / a0h,
     a2: (1 - Kh / Qh + Kh * Kh) / a0h,

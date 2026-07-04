@@ -8,15 +8,15 @@
 
 ## Phase status board
 
-| Phase | State |
-|---|---|
-| **0 Stabilize** | 0.1 done (PR #1 merged long ago). 0.2 done (`docs/POSTMORTEM_STALE_CACHE.md` — not-reproducible-mitigated; SW `confustudio-v4`, network-first shell, reset hatches). 0.3 done (checked-JSDoc boundary + `test:types`). 0.5 already done (constants.js). **0.4 (window._* → `__CONFUSTUDIO__` consolidation) still open.** |
-| **A Engine floor** | Not started except recon. A1 sampler recon done (below). A2 audio-quality harness = the gate for A1 — build it first. |
-| **B Harness** | B6 CS-Score parser landed (pure kernel). Loop/tools/branches/traces not started. |
-| **C Perception** | Not started (needs offline render via OfflineAudioContext — Playwright path). |
-| **D/E/F** | Not started. |
+| Phase              | State                                                                                                                                                                                                                                                                                                                       |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **0 Stabilize**    | 0.1 done (PR #1 merged long ago). 0.2 done (`docs/POSTMORTEM_STALE_CACHE.md` — not-reproducible-mitigated; SW `confustudio-v4`, network-first shell, reset hatches). 0.3 done (checked-JSDoc boundary + `test:types`). 0.5 already done (constants.js). **0.4 (window.\_\* → `__CONFUSTUDIO__` consolidation) still open.** |
+| **A Engine floor** | Not started except recon. A1 sampler recon done (below). A2 audio-quality harness = the gate for A1 — build it first.                                                                                                                                                                                                       |
+| **B Harness**      | B6 CS-Score parser landed (pure kernel). Loop/tools/branches/traces not started.                                                                                                                                                                                                                                            |
+| **C Perception**   | Not started (needs offline render via OfflineAudioContext — Playwright path).                                                                                                                                                                                                                                               |
+| **D/E/F**          | Not started.                                                                                                                                                                                                                                                                                                                |
 
-**Design integration (Claude Design v2.0):** tokens (already canonical) ✔ · component layer `src/css/components.css` (.btn/.chip/.t-*) ✔ · specs mirrored in `docs/design-system/` ✔ · **chassis, PATTERN, MIXER pages, Director rail, perception meters = NOT done** (the visible work).
+**Design integration (Claude Design v2.0):** tokens (already canonical) ✔ · component layer `src/css/components.css` (.btn/.chip/.t-\*) ✔ · specs mirrored in `docs/design-system/` ✔ · **chassis, PATTERN, MIXER pages, Director rail, perception meters = NOT done** (the visible work).
 
 ---
 
@@ -25,7 +25,7 @@
 1. Landed all four north-star briefs + STUDIO_MANUAL in `docs/` (source files had vanished from disk — these are now the only copies).
 2. **Phase 0.2** — stale-cache postmortem.
 3. **Phase 0.3** — type boundary: `jsconfig.json` (checkJs) over `src/kernel`, `command-bus.js`, `state.js`, `plugins/*`; `src/kernel/types.js` typedefs; `src/globals.d.ts`; `test:types` (tsc) wired into `npm test`. Fixed 3 latent gotchas (em-dashes after bracketed JSDoc `@param` tripped TS1127).
-4. **Design** — `src/css/components.css` (.btn/.chip/.t-* — additive, zero collision) + `docs/design-system/{module-chassis-spec,integration-guide}.md`.
+4. **Design** — `src/css/components.css` (.btn/.chip/.t-\* — additive, zero collision) + `docs/design-system/{module-chassis-spec,integration-guide}.md`.
 5. **B6 CS-Score** — `src/kernel/score.js` + `tests/score-roundtrip.mjs` + `docs/CS_SCORE.md` (committed, green).
 6. **Phase C seeds** — `src/kernel/loudness.js` (BS.1770 LUFS, `test:perception`) + `src/kernel/spectrum.js` (6-band energies, `test:spectrum`), both pure + unit-tested.
 7. **Mixer master loudness panel** — real momentary/short-term/integrated LUFS + peak dBFS in the design 7-seg style (contained to `mixer.js`, augment-not-replace). Masking honestly deferred to Phase C.
@@ -49,6 +49,7 @@
 ## Design integration — next visible wins (ordered)
 
 Use `system-canvas.css` + `system-canvas.js` (the **production** component library; fetch via DesignSync) for NEW surfaces; adapt for existing pages carefully (`.knob`/`.step`/`.fader` collide — scope them). Order from `docs/design-system/integration-guide.md`:
+
 1. **MIXER page** (biggest, cleanest upgrade): vertical faders + VU meters (peak colours) + master LUFS 7-seg + spectrum + masking heat + lint tags. `src/pages/mixer.js` + `src/css/mixer.css`. Wire meters to the real AnalyserNode levels (design JS uses fake data). Current mixer has an empty "MASTER SPECTRUM".
 2. **PATTERN page** refinements: STEP DETAIL in-place editor (hold step), trig-condition glyph rack.
 3. Chassis chrome polish, then Director rail + proposal cards + ghost/diff (Phase B), perception meters (Phase C), live skin (Phase E).

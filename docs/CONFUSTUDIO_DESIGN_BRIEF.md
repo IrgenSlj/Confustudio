@@ -14,7 +14,7 @@
 Three pillars, in priority order (mirrors the product hierarchy):
 
 1. **Hardware honesty.** Controls behave like the instruments that inspired them: steps you press, knobs you sweep, faders you ride, cables you patch. Every control maps 1:1 to an engine parameter — no decorative chrome that lies about the sound.
-2. **Playful, not toy.** The chassis language (army-green enclosure, silk-screened labels, CRT-haze screens, amber accent) is warm and characterful, but metering, typography, and layout precision must read professional. Reference feeling: Teenage Engineering's playfulness executed with Elektron's density discipline — *as inspiration only; every panel, name, and glyph is original*.
+2. **Playful, not toy.** The chassis language (army-green enclosure, silk-screened labels, CRT-haze screens, amber accent) is warm and characterful, but metering, typography, and layout precision must read professional. Reference feeling: Teenage Engineering's playfulness executed with Elektron's density discipline — _as inspiration only; every panel, name, and glyph is original_.
 3. **The agent is a presence, not a chat window.** Agent activity is spatial and material: branches, ghost states, quantize countdowns. "Graceful crystallization" (from the Ludwig UX canon) is the interaction metaphor — proposals materialize translucent and crystallize on merge.
 
 Original-identity rule (hard): no trademarked hardware names, logos, or trade-dress clones (no 303 silver-box pastiche, no Elektron key layout copies, no Moog wheel-and-wood skeuomorphs). Behavioral homage yes; visual quotation no.
@@ -38,7 +38,7 @@ Original-identity rule (hard): no trademarked hardware names, logos, or trade-dr
 - Modules sit on a subtle desk surface (a chassis-family background plane, not infinite void). Optional faint grid = rack rails; modules snap to a **height-unit grid** (see §3) so any arrangement reads tidy, like racked gear.
 - **CONFUsynth (the sequencer brain) is the anchor** — largest unit, default-docked; other modules arrange around it the way a Digitakt-class brain sits central on a real desk.
 - Cabling stays, but with strain-relief curves, port-hover highlighting of legal targets (by signal type), and a cable-tidy toggle (bundle parallel runs).
-- **Two view modes**: *Desk* (spatial, playful, patching) and *Rack* (auto-aligned vertical stack, dense, for focused work). Same modules, same state — a view toggle, not a mode with different truth.
+- **Two view modes**: _Desk_ (spatial, playful, patching) and _Rack_ (auto-aligned vertical stack, dense, for focused work). Same modules, same state — a view toggle, not a mode with different truth.
 
 ## 3. MODULE DESIGN LANGUAGE (the SDK's visual contract)
 
@@ -48,19 +48,19 @@ This is the most leveraged deliverable: community modules must look native witho
 - **Anatomy** (top→bottom): title bar (module name silk-screen style, power/activity LED, collapse + remove), panel body (controls), port strip (ins left / outs right or bottom strip — pick one and lock it), brand strip (module id + version, muted).
 - **Control components** (spec + build as reusable CSS/JS on top of existing `knobs.js`): knob (with value ring, unit readout on touch, fine-drag modifier), slider/fader (with detent marks), step button (with p-lock indicator dot), toggle, segmented switch, LED, 7-seg-style numeric readout, mini-screen (for module-local displays, uses screen tokens + `--screen-glow`).
 - **Param metadata → control mapping**: `unit/curve/smooth` fields from the Module SDK manifest determine readout formatting and knob taper; document the mapping table.
-- **Color rules**: chassis stays in the chassis family; modules differentiate by *panel accent* chosen from a fixed 8-swatch palette (aligned with track colors) — never arbitrary hex. Third-party modules pick a swatch in their manifest.
+- **Color rules**: chassis stays in the chassis family; modules differentiate by _panel accent_ chosen from a fixed 8-swatch palette (aligned with track colors) — never arbitrary hex. Third-party modules pick a swatch in their manifest.
 - **Do/Don't sheet** with rendered examples (correct port placement, label case rules — silk-screen labels are uppercase, letter-spaced, `--chassis-text`).
 
 ## 4. THE FOUR FLAGSHIP VOICES (panel design + naming)
 
 Design original panels and propose original names (working codenames from the code brief):
 
-| Codename | Character | Panel design intent |
-|---|---|---|
-| `CS-DRUM` | Sequencer-brain sampler groovebox | Dense, Elektron-inspired *discipline* (not layout): step row dominant, per-step p-lock feedback, sample mini-screen with waveform + start/end/loop handles |
-| `CS-ACID` | Mono acid voice | Minimal and mischievous: big CUTOFF and RES, slide/accent as step-row modifiers, single-osc switch; the "fun in 30 seconds" module |
-| `CS-LADDER` | Fat mono lead/bass | Weighty: large filter section, osc mixer, glide; darker panel swatch, chunkier knobs |
-| `CS-POLY` | Chorus poly / pads | Calm and wide: few controls, generous spacing, prominent CHORUS switch (I/II-style dual mode as an original two-position toggle), soft panel swatch |
+| Codename    | Character                         | Panel design intent                                                                                                                                        |
+| ----------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CS-DRUM`   | Sequencer-brain sampler groovebox | Dense, Elektron-inspired _discipline_ (not layout): step row dominant, per-step p-lock feedback, sample mini-screen with waveform + start/end/loop handles |
+| `CS-ACID`   | Mono acid voice                   | Minimal and mischievous: big CUTOFF and RES, slide/accent as step-row modifiers, single-osc switch; the "fun in 30 seconds" module                         |
+| `CS-LADDER` | Fat mono lead/bass                | Weighty: large filter section, osc mixer, glide; darker panel swatch, chunkier knobs                                                                       |
+| `CS-POLY`   | Chorus poly / pads                | Calm and wide: few controls, generous spacing, prominent CHORUS switch (I/II-style dual mode as an original two-position toggle), soft panel swatch        |
 
 Each needs: panel layout, control set (from the code brief's plugin params), name + wordmark lockup in the silk-screen style, and 3–4 preset card visuals.
 
@@ -68,7 +68,7 @@ Each needs: panel layout, control set (from the code brief's plugin params), nam
 
 **5.1 The Director rail.** A right-side collapsible rail (not a floating chat bubble): conversation, current station indicator (`SESSION ARTIST / STUDIO MASTER / CO-PERFORMER` as a hardware-style 3-position switch), streaming activity log (tool calls as terse hardware-log lines: `→ set cs-acid.cutoff 62%`), and the proposal stack.
 
-**5.2 Proposal cards = branches.** Each agent proposal renders as a card: title, summary of intent, list of touched targets (chips with track colors), **perception badge** (LUFS delta, lint findings count with severity dots — or a distinct **UNVERIFIED** badge when rendering failed, per AI brief §9), and three actions — **Audition · Merge · Discard**. Merge is always a human click (AI brief D-AI1); if the agent *requests* a merge, the card shows a gentle pulse on the Merge button, never auto-confirmation.
+**5.2 Proposal cards = branches.** Each agent proposal renders as a card: title, summary of intent, list of touched targets (chips with track colors), **perception badge** (LUFS delta, lint findings count with severity dots — or a distinct **UNVERIFIED** badge when rendering failed, per AI brief §9), and three actions — **Audition · Merge · Discard**. Merge is always a human click (AI brief D-AI1); if the agent _requests_ a merge, the card shows a gentle pulse on the Merge button, never auto-confirmation.
 
 **5.3 Ghost state (graceful crystallization).** While a proposal exists: affected modules/steps render a translucent overlay variant (reduced opacity + `--info` cyan edge glow — cyan = control/agent signal, consistent with cable semantics). Auditioning A/B: a hardware-style **A/B lever** appears in the transport bar; flipping it crossfades head↔branch playback and swaps ghost/solid rendering. On Merge, ghosts crystallize (brief opacity/scale settle animation, ~200 ms, motion tokens); on Discard they dissolve.
 
@@ -80,7 +80,7 @@ Each needs: panel layout, control set (from the code brief's plugin params), nam
 
 - **Meter language**: unify per-track VU (exists), master LUFS (short-term + integrated readout in a mini-screen), spectrum strip in the mixer (6 labeled bands matching the code brief's band scheme), and a masking heat indicator between adjacent channel strips.
 - **Lint findings** surface as small `--warn`/`--danger` tags pinned to their location (a track strip, a bar in the arranger) with hover detail: rule, measurement, suggestion, and an "ask agent to fix" affordance that routes to the Director rail.
-- Perception visuals are **screen-family** elements (dark screens, glow) to separate *measurement* from *control* (chassis) visually.
+- Perception visuals are **screen-family** elements (dark screens, glow) to separate _measurement_ from _control_ (chassis) visually.
 
 ## 7. CO-PERFORMER / LIVE MODE
 
@@ -104,8 +104,8 @@ A distinct performance skin activated with the station switch:
 The empty-canvas problem kills music tools. First launch never shows a blank void:
 
 - **Starter Desk template**: CONFUsynth brain center, CS-ACID and CS-POLY flanking, mixer and reverb/delay racked below, cables pre-patched, a playable 4-bar techno loop pre-loaded at 128 BPM. The user's first act is pressing PLAY and twisting a filter knob — sound within 10 seconds, no reading.
-- Three desk templates on the new-project screen: *Starter Desk* (above), *Empty Desk*, *Sampler Kitchen* (CS-DRUM + sample browser focus). Template cards show a miniature desk render, not text lists.
-- A dismissible **guided first jam** (4 steps max, coach marks not modals): press play → toggle a step → sweep cutoff → ask the Director for a variation. That last step introduces the agent through *doing*, and its result arrives as a ghost proposal — teaching the branch model implicitly.
+- Three desk templates on the new-project screen: _Starter Desk_ (above), _Empty Desk_, _Sampler Kitchen_ (CS-DRUM + sample browser focus). Template cards show a miniature desk render, not text lists.
+- A dismissible **guided first jam** (4 steps max, coach marks not modals): press play → toggle a step → sweep cutoff → ask the Director for a variation. That last step introduces the agent through _doing_, and its result arrives as a ghost proposal — teaching the branch model implicitly.
 - Empty states everywhere carry an invitation + one-tap action ("No patterns in this bank — generate a starting groove?").
 
 ## 8.6 BROWSERS: PRESETS, PATCHES, SAMPLES
@@ -127,7 +127,7 @@ Hardware-terse, lowercase-avoidant on chassis, sentence case on screens. Labels 
 
 ## 10. GRAPHICS & ASSET DELIVERABLES
 
-1. **Module Chassis Spec** (§3) — the SDK visual contract, with do/don't sheet. *Highest priority.*
+1. **Module Chassis Spec** (§3) — the SDK visual contract, with do/don't sheet. _Highest priority._
 2. Component library (knob, fader, step, switch, LED, readout, mini-screen) — CSS + minimal JS on existing tokens.
 3. Four flagship voice panels + original names/wordmarks + preset card template (§4).
 4. Director rail + proposal card + ghost/diff system (§5).

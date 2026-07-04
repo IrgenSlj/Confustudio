@@ -56,4 +56,10 @@ const integ = integratedLufs([msLoud, msLoud, msLoud, 0]);
 near(integ, meanSquareToLufs(msLoud), 0.01, 'integrated ≈ block loudness (silence gated)');
 assert.equal(integratedLufs([]), LUFS_SILENCE, 'integrated of nothing → floor');
 
-console.log(JSON.stringify({ ok: true, cal_minus20_sine_lufs: Number(cal.toFixed(2)), linearity_delta: Number((loud - quiet).toFixed(3)) }, null, 2));
+console.log(
+  JSON.stringify(
+    { ok: true, cal_minus20_sine_lufs: Number(cal.toFixed(2)), linearity_delta: Number((loud - quiet).toFixed(3)) },
+    null,
+    2,
+  ),
+);

@@ -166,9 +166,13 @@ export function createDSPModule(pluginId, params) {
         };
         const meta = { nodeId, paramKey: key, min, max };
         if (e.ctrlKey || e.metaKey) {
-          window.startMidiNoteLearn(`note:${nodeId}:${key}`, (velocity) => {
-            setter(velocity);
-          }, meta);
+          window.startMidiNoteLearn(
+            `note:${nodeId}:${key}`,
+            (velocity) => {
+              setter(velocity);
+            },
+            meta,
+          );
           showDSPToast(`Note Learn: ${paramLabel} — play a note`, 4000);
         } else {
           window.startMidiLearn(`dsp:${nodeId}:${key}`, setter, meta);

@@ -69,28 +69,21 @@ try {
       const n = window.__CONFUSTUDIO__?.state?.signalGraph?.nodes?.[id];
       return { metaX: n?.meta?.x, metaY: n?.meta?.y };
     }, modId);
-    results.snappedToGrid =
-      results.afterDrag.metaX % 24 === 0 && results.afterDrag.metaY % 24 === 0;
+    results.snappedToGrid = results.afterDrag.metaX % 24 === 0 && results.afterDrag.metaY % 24 === 0;
   }
 
   // Save a preset (stub prompt), then load it and confirm rebuild
   await page.evaluate(() => (window.prompt = () => 'verify-preset'));
   await page.click('#btn-preset-save');
   await page.waitForTimeout(200);
-  results.presetSaved = await page.evaluate(
-    () => (window.__CONFUSTUDIO__?.state?.signalPresets || []).length,
-  );
+  results.presetSaved = await page.evaluate(() => (window.__CONFUSTUDIO__?.state?.signalPresets || []).length);
 
-  const beforeLoad = await page.evaluate(
-    () => document.querySelectorAll('.dsp-module').length,
-  );
+  const beforeLoad = await page.evaluate(() => document.querySelectorAll('.dsp-module').length);
   await page.click('#btn-preset-load');
   await page.waitForSelector('#preset-picker');
   await page.click('#preset-picker div');
   await page.waitForTimeout(800);
-  const afterLoad = await page.evaluate(
-    () => document.querySelectorAll('.dsp-module').length,
-  );
+  const afterLoad = await page.evaluate(() => document.querySelectorAll('.dsp-module').length);
   results.rebuild = { beforeLoad, afterLoad };
   results.positionRestored = await page.evaluate((id) => {
     const el = document.getElementById(id);
@@ -102,7 +95,6 @@ try {
       matches: parseFloat(el.style.left) === n.meta?.x,
     };
   }, modId);
-
 } catch (e) {
   results.error = e.message;
 } finally {

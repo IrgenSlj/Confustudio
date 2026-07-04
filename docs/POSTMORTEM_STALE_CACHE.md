@@ -16,7 +16,7 @@ load, and two user-facing reset hatches exist. No open reproduction remains.
 
 ## Root cause
 
-1. **Stale precache.** Early builds used a *static* SW cache name, so a returning
+1. **Stale precache.** Early builds used a _static_ SW cache name, so a returning
    browser kept serving the previously precached `index.html` / `app.js` forever —
    the SW never self-invalidated. After a deploy that changed the shell contract,
    an old cached `app.js` running against new HTML (or vice-versa) can throw during

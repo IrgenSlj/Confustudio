@@ -14,11 +14,5 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true
   },
-  "include": [
-    "src/globals.d.ts",
-    "src/kernel/**/*.js",
-    "src/plugins/**/*.js",
-    "src/command-bus.js",
-    "src/state.js"
-  ]
+  "include": ["src/globals.d.ts", "src/kernel/**/*.js", "src/plugins/**/*.js", "src/command-bus.js", "src/state.js"]
 }

@@ -15,11 +15,11 @@ Corollaries (all locked):
 
 1. **The agent works in parameters, not renders.** Every sound is a patch; every patch is inspectable, re-editable state. Confustudio never competes with generation-first products (Suno Studio, Veena, Udio). Its moat is owning the engine.
 2. **Branch-based auditioning is the signature interaction.** Agent proposals materialize as branches of the signal-graph DAG. The user auditions against head, then merges or discards. The agent never mutates the live session directly.
-3. **Perception is mandatory.** The agent must be able to *hear*: offline render → feature extraction → musical lint → self-correct. An agent without perception is not shipped as "agentic."
+3. **Perception is mandatory.** The agent must be able to _hear_: offline render → feature extraction → musical lint → self-correct. An agent without perception is not shipped as "agentic."
 4. **One harness, three stations.** Session Artist (compose/sound-design), Studio Master (project memory + mix intelligence), Co-Performer (quantized-launch live actions). Same loop, same memory, same skills — different tool surfaces and tempo constraints.
 5. **Community-extensible by design.** Instruments and sound modules are built against a public Module SDK. Third parties can ship voices without touching core.
-6. **MCP-shaped tool layer from day one.** The command bus is one *device* behind a transport-agnostic tool registry. External devices (MIDI hardware, later Ableton) are adapters, never rewrites.
-7. **Original identity.** Instruments are *inspired by* classic hardware behavior (Elektron-style sequencing, acid mono, ladder mono, chorus poly) but every name, term, preset, and panel is original. No trademarked names ("303", "Minimoog", "Juno", "Digitakt", "Maschine") anywhere in product, code identifiers, or presets.
+6. **MCP-shaped tool layer from day one.** The command bus is one _device_ behind a transport-agnostic tool registry. External devices (MIDI hardware, later Ableton) are adapters, never rewrites.
+7. **Original identity.** Instruments are _inspired by_ classic hardware behavior (Elektron-style sequencing, acid mono, ladder mono, chorus poly) but every name, term, preset, and panel is original. No trademarked names ("303", "Minimoog", "Juno", "Digitakt", "Maschine") anywhere in product, code identifiers, or presets.
 
 **Product hierarchy (priority order, applies to every scoping decision):**
 
@@ -33,29 +33,30 @@ When two tasks compete, the one higher in this hierarchy wins.
 
 ## 1. DEFINITIONS
 
-| Term | Definition |
-|---|---|
-| **Kernel** | Pure musical logic: model → event compiler → scheduling math. Lives in `src/kernel/`. No DOM, no Web Audio, no globals. Fully unit-testable. |
-| **Musical model** | Patterns, tracks, steps, p-locks, scenes, banks, arranger, patches, sample assets — serializable project state. |
-| **Event compiler** | Pure functions turning a transport window into timestamped events (`src/kernel/event-compiler.js` is the seed). |
-| **Command** | The only legal state mutation. Executed via `command-bus.js`. ~38 types exist today. |
-| **Signal graph (edit DAG)** | `_signalGraph`: append-only DAG of executed commands with cursor, replay, and branching. The undo system *and* the audition substrate. |
-| **Audio graph** | `signalGraph` (serializable): nodes (plugin instances) + connections (typed ports). Compiled by `ModularEngine`. |
-| **Module** | A user-facing studio unit (instrument, effect, utility) with a chassis UI, ports, params, and optionally a worklet DSP core. Built on the Module SDK. |
-| **Plugin descriptor** | Registry entry (`src/plugins/registry.js`): type, label, typed ports, params with defaults/ranges. |
-| **Device** | A tool-surface target the agent can drive: the internal engine (device 0), MIDI hardware, later external DAWs. |
-| **Tool** | A schema-described, agent-callable operation. Wraps commands (engine device) or adapter actions (external devices). |
-| **Harness** | The agent runtime: loop, tool registry, context assembly, memory, skills, branch lifecycle, perception. |
-| **Perception report** | Structured measurement of a rendered audio segment (levels, spectrum, transients, key/tempo, lint findings). |
-| **Skill** | A versioned markdown recipe (technique → concrete command sequences) the harness loads on demand. |
-| **Station** | An agent mode: `session-artist`, `studio-master`, `co-performer`. Selects tool subset, guardrails, and timing policy. |
-| **Quantized launch** | Agent live actions schedule at the next bar/phrase boundary via kernel `at: {bar, beat}` — never "now". |
+| Term                        | Definition                                                                                                                                            |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Kernel**                  | Pure musical logic: model → event compiler → scheduling math. Lives in `src/kernel/`. No DOM, no Web Audio, no globals. Fully unit-testable.          |
+| **Musical model**           | Patterns, tracks, steps, p-locks, scenes, banks, arranger, patches, sample assets — serializable project state.                                       |
+| **Event compiler**          | Pure functions turning a transport window into timestamped events (`src/kernel/event-compiler.js` is the seed).                                       |
+| **Command**                 | The only legal state mutation. Executed via `command-bus.js`. ~38 types exist today.                                                                  |
+| **Signal graph (edit DAG)** | `_signalGraph`: append-only DAG of executed commands with cursor, replay, and branching. The undo system _and_ the audition substrate.                |
+| **Audio graph**             | `signalGraph` (serializable): nodes (plugin instances) + connections (typed ports). Compiled by `ModularEngine`.                                      |
+| **Module**                  | A user-facing studio unit (instrument, effect, utility) with a chassis UI, ports, params, and optionally a worklet DSP core. Built on the Module SDK. |
+| **Plugin descriptor**       | Registry entry (`src/plugins/registry.js`): type, label, typed ports, params with defaults/ranges.                                                    |
+| **Device**                  | A tool-surface target the agent can drive: the internal engine (device 0), MIDI hardware, later external DAWs.                                        |
+| **Tool**                    | A schema-described, agent-callable operation. Wraps commands (engine device) or adapter actions (external devices).                                   |
+| **Harness**                 | The agent runtime: loop, tool registry, context assembly, memory, skills, branch lifecycle, perception.                                               |
+| **Perception report**       | Structured measurement of a rendered audio segment (levels, spectrum, transients, key/tempo, lint findings).                                          |
+| **Skill**                   | A versioned markdown recipe (technique → concrete command sequences) the harness loads on demand.                                                     |
+| **Station**                 | An agent mode: `session-artist`, `studio-master`, `co-performer`. Selects tool subset, guardrails, and timing policy.                                 |
+| **Quantized launch**        | Agent live actions schedule at the next bar/phrase boundary via kernel `at: {bar, beat}` — never "now".                                               |
 
 ---
 
 ## 2. CURRENT STATE — honest assessment
 
 **Real and valuable:**
+
 - 64-step sequencer with p-locks, trig conditions (`always/1st/every-N/A:B/fill`), probability, scenes A/B crossfader morph, 8 banks × 16 patterns, arranger.
 - Command bus (`src/command-bus.js`, 869 lines) with ~38 command types; signal-graph DAG undo/redo **with branching already implemented** (`signalListBranches`, `signalSwitchBranch`, `cursorId`-parented branch creation). This is the crown jewel.
 - Plugin registry with 21 descriptors; `ModularEngine` (`src/engine-graph.js`) with `compile/sync/teardown`; typed ports (audio/control/event).
@@ -65,6 +66,7 @@ When two tasks compete, the one higher in this hierarchy wins.
 - Assistant proxy: OpenAI/Anthropic/local-OpenAI/Ollama routes; `/api/assistant/actions/plan` single-shot planning; `docs/confustudio.manual.json` capability manual.
 
 **Not real yet (do not build on top of these until fixed):**
+
 - Plaits/Clouds/Rings/Sampler worklet voices are **stubbed** in `ModularEngine` (console warnings, test tones).
 - `actions/plan` is single-shot request/response — there is **no agent loop, no tool calling, no memory, no perception**.
 - Ableton Link bridge is SSE simulation, not real Link.
@@ -103,6 +105,7 @@ When two tasks compete, the one higher in this hierarchy wins.
 ```
 
 Hard rules:
+
 - **No private path**: the agent uses the same commands the UI does (already an ARCHITECTURE.md principle — keep enforcing it).
 - **AI never touches the audio thread.** Harness output lands as commands/events; the kernel schedules; worklets render.
 - **Kernel stays pure.** Anything importing DOM or Web Audio does not belong in `src/kernel/`.
@@ -126,15 +129,15 @@ Requirements: exact bidirectional mapping to the musical model (`parseScore(text
 
 Deterministic, budgeted context builder in the harness (`src/harness/context.mjs`):
 
-| Slot | Content | Budget (approx tokens) |
-|---|---|---|
-| Identity | station, guardrail summary, output contract | 400 |
-| Project digest | meta (bpm/key/intent), track table (name, machine, level, sends), active bank/pattern in CS-Score | 1,500 |
-| Focus | selected track/pattern expanded; relevant patch params with units/ranges | 1,000 |
-| Memory | project memory + matched taste entries | 600 |
-| Skills | loaded skill bodies (max 2 by default) | 1,500 |
-| Perception | latest PerceptionReport summary (if any) | 400 |
-| Tools | schemas for the active station's allowlist only | provider-side |
+| Slot           | Content                                                                                           | Budget (approx tokens) |
+| -------------- | ------------------------------------------------------------------------------------------------- | ---------------------- |
+| Identity       | station, guardrail summary, output contract                                                       | 400                    |
+| Project digest | meta (bpm/key/intent), track table (name, machine, level, sends), active bank/pattern in CS-Score | 1,500                  |
+| Focus          | selected track/pattern expanded; relevant patch params with units/ranges                          | 1,000                  |
+| Memory         | project memory + matched taste entries                                                            | 600                    |
+| Skills         | loaded skill bodies (max 2 by default)                                                            | 1,500                  |
+| Perception     | latest PerceptionReport summary (if any)                                                          | 400                    |
+| Tools          | schemas for the active station's allowlist only                                                   | provider-side          |
 
 Everything else is fetchable via read tools (`project.describe`, `score.read`, `patch.read`) — pull, don't push. Log the assembled context per run (see §B5 traces).
 
@@ -146,11 +149,11 @@ Sessions use the established `S#` convention; each phase ends with `npm test` gr
 
 ### PHASE 0 — Stabilize (prerequisite, 1–2 sessions)
 
-0.1 Merge PR #1 into `main` (verify in browser first per NEXT_SESSION.md protocol: Incognito check for the stale-cache report).
+0.1 Merge PR #1 into `main` (verify in browser first per NEXT*SESSION.md protocol: Incognito check for the stale-cache report).
 0.2 Diagnose/close the "unusable mess" report: if reproducible in Incognito, fix; else document the SW-cache postmortem and keep the v4-bump + reset-hatch mitigation.
-0.3 **Type the boundary.** Adopt TypeScript-checked JSDoc (`checkJs` via `jsconfig.json`) for `src/kernel/`, `src/command-bus.js`, `src/state.js`, `src/plugins/*` only. Define `@typedef` for `Command`, `Step`, `Track`, `Pattern`, `PluginDescriptor`, `GraphNode`, `Connection`. No full-codebase TS migration (decision log stands) — but the agent-facing boundary must be machine-checkable.
-0.4 Finish consolidating `window._*` globals into `__CONFUSTUDIO__` (roadmap Phase 2 item).
-0.5 Extract remaining magic strings to `constants.js` (`STATE_PATHS`, `EVENTS`).
+0.3 **Type the boundary.** Adopt TypeScript-checked JSDoc (`checkJs` via `jsconfig.json`) for `src/kernel/`, `src/command-bus.js`, `src/state.js`, `src/plugins/*`only. Define`@typedef`for`Command`, `Step`, `Track`, `Pattern`, `PluginDescriptor`, `GraphNode`, `Connection`. No full-codebase TS migration (decision log stands) — but the agent-facing boundary must be machine-checkable.
+0.4 Finish consolidating `window.\*\*`globals into`**CONFUSTUDIO**`(roadmap Phase 2 item).
+0.5 Extract remaining magic strings to`constants.js` (`STATE_PATHS`, `EVENTS`).
 
 **Acceptance:** `main` green; typedefs enforced in CI (`tsc --noEmit` over checked files added to `npm test`); zero console errors on clean boot and returning-user boot.
 
@@ -161,6 +164,7 @@ This phase serves hierarchy item 1 (sound engine) and the community-extensibilit
 **A1. Un-stub the voices.** Complete real worklet implementations for the four stubbed plugins (sampler first — it is the studio's backbone). Sampler requirements: sample start/end/loop points, pitch via the existing `cs-resampler` Hermite interpolation, per-step p-lockable start offset (slice-by-plock), reverse, one-shot/gate/loop modes, choke groups.
 
 **A2. Voice quality pass.** Professional-quality checklist applied to every instrument plugin:
+
 - Declick: 1–5 ms envelope on every voice start/stop; no zipper noise on param changes (use `setTargetAtTime`/k-rate smoothing, never instantaneous `value =` on audible params).
 - Denormal protection in custom worklet DSP.
 - Oversampling (2×) on nonlinear stages (drive/saturator/acid filter) — measure CPU before/after.
@@ -168,6 +172,7 @@ This phase serves hierarchy item 1 (sound engine) and the community-extensibilit
 - A `tests/audio-quality.mjs` harness: offline-render each plugin's reference patch, assert no NaNs, no DC offset > −60 dB, no clipping, expected RMS window. **This is the engine's regression net and later doubles as the perception substrate.**
 
 **A3. The four flagship voices** (original names TBD with Design brief; working codenames):
+
 - `CS-DRUM` — the existing CONFUsynth track engine formalized: sample-based drum/groove voice, Elektron-style p-locks everywhere (already largely present).
 - `CS-ACID` — evolve `acid_machine.js`: mono, saw/square, resonant lowpass with drive, slide/accent as first-class step properties in the kernel event (accent already exists; add `slide` to `createStepTriggerEvent` p-locks and voice portamento handling).
 - `CS-LADDER` — evolve `monosynth.js`: 2–3 osc mono, 24 dB/oct ladder-style filter (4-pole cascade worklet), glide, filter envelope amount.
@@ -203,11 +208,12 @@ Requirements: params gain `unit`, `curve`, `smooth` fields (agent + UI both need
 
 > **Spec source:** `CONFUSTUDIO_AI_BRIEF.md` §1–§4, §6, §8 (loop state machine, tool-call IR, tool catalog, stations file, prompt layers, traces). The items below are the build checklist; the AI brief defines the contracts.
 
-**B1. Tool registry (`src/harness/tools/`).** Wrap every command type in a tool with JSON Schema (name, description, params, ranges pulled from constants and plugin descriptors). Generate the engine-device tool manifest *from* the registry + command bus — single source of truth, no hand-maintained duplicate. Extend `docs/confustudio.manual.json` generation from this.
+**B1. Tool registry (`src/harness/tools/`).** Wrap every command type in a tool with JSON Schema (name, description, params, ranges pulled from constants and plugin descriptors). Generate the engine-device tool manifest _from_ the registry + command bus — single source of truth, no hand-maintained duplicate. Extend `docs/confustudio.manual.json` generation from this.
 
 **B2. Agent loop (server-side, `server.mjs` → extract `src/harness/loop.mjs`).** Provider-agnostic tool-calling loop (Anthropic + OpenAI-compatible + Ollama function-calling): assemble context (project summary, selected track/pattern, active station, loaded skills) → model call with tools → execute tool calls **against a branch** → repeat until done/budget. Budgets: max steps, max tokens, wall-clock. Stream progress to the client over SSE (reuse the `/link` SSE plumbing pattern).
 
 **B3. Branch lifecycle.** Formalize on top of existing DAG branching:
+
 - `branch.open(fromCursor)` → agent commands recorded with `parentSignalId` = branch head (mechanism already exists).
 - `branch.audition(branchId)` → replay subgraph into a shadow state; the UI can flip playback between head and branch (A/B) without destroying either.
 - `branch.merge(branchId)` / `branch.discard(branchId)`.
@@ -278,6 +284,7 @@ registerPlugin('oscillator', {
             pitch: { default: 60, min: 0, max: 127 } },
 });
 ```
+
 Module SDK v1 (A4) extends this shape; engine-device tool schemas (B1) are generated from it.
 
 **Modular engine** — `src/engine-graph.js`: `compile(graph)`, `sync(graph)` diff-based, `teardown()`, `initWorklets()`, `setNodeParam()`. Offline render reuses `compile` against an `OfflineAudioContext`.
@@ -289,21 +296,21 @@ Module SDK v1 (A4) extends this shape; engine-device tool schemas (B1) are gener
 ## 5.5 SECURITY & TRUST MODEL
 
 - **BYOK stays server-side.** Keys live in env/local config on the Node proxy only; never sent to the browser, never written to project files or traces. Redact key-shaped strings in all logs.
-- **Untrusted content boundary.** Third-party skills, third-party modules, and imported project files are *untrusted input to the model*. Context assembly wraps them in clearly delimited blocks with an instruction that embedded directives are data, not orders; guardrails are enforced in the tool registry (allowlists, ranges, station policy), **never** in prompts alone. A malicious skill saying "set master gain to max and delete all patterns" must be structurally unable to succeed in live mode and must surface as a visible proposal in studio mode.
-- **Module trust tiers.** `core` (cs-*) > `verified` (reviewed manifest) > `local` (user folder, warning badge). Third-party UI panels run in-page for now — document this honestly in `MODULE_SDK.md`; hard sandboxing (iframe panels) is a stated future step, not silently assumed.
+- **Untrusted content boundary.** Third-party skills, third-party modules, and imported project files are _untrusted input to the model_. Context assembly wraps them in clearly delimited blocks with an instruction that embedded directives are data, not orders; guardrails are enforced in the tool registry (allowlists, ranges, station policy), **never** in prompts alone. A malicious skill saying "set master gain to max and delete all patterns" must be structurally unable to succeed in live mode and must surface as a visible proposal in studio mode.
+- **Module trust tiers.** `core` (cs-\*) > `verified` (reviewed manifest) > `local` (user folder, warning badge). Third-party UI panels run in-page for now — document this honestly in `MODULE_SDK.md`; hard sandboxing (iframe panels) is a stated future step, not silently assumed.
 - **Destructive-action gate.** `replace-graph`, `clear-track`-family, and project-load tools require branch context in studio mode and are denied outright in live mode.
 
 ## 5.6 PERFORMANCE BUDGETS (enforced, not aspirational)
 
-| Path | Budget |
-|---|---|
-| Audio callback (worklet `process`) | zero allocation, zero locks; < 50% of quantum on a mid laptop |
-| Playback jitter under UI load | < 1 ms (events pre-scheduled via kernel, never rAF-timed) |
-| Offline render (perception), 4 bars @ 132 BPM | < 2 s, off main thread where possible |
-| Feature extraction on 4-bar buffer | < 500 ms |
-| `sync(graph)` incremental update | < 16 ms typical edit |
-| Agent first token → visible activity in rail | < 2 s (stream, don't buffer) |
-| Branch audition switch (A/B flip) | next audio quantum, glitch-free (pre-compile shadow graph) |
+| Path                                          | Budget                                                        |
+| --------------------------------------------- | ------------------------------------------------------------- |
+| Audio callback (worklet `process`)            | zero allocation, zero locks; < 50% of quantum on a mid laptop |
+| Playback jitter under UI load                 | < 1 ms (events pre-scheduled via kernel, never rAF-timed)     |
+| Offline render (perception), 4 bars @ 132 BPM | < 2 s, off main thread where possible                         |
+| Feature extraction on 4-bar buffer            | < 500 ms                                                      |
+| `sync(graph)` incremental update              | < 16 ms typical edit                                          |
+| Agent first token → visible activity in rail  | < 2 s (stream, don't buffer)                                  |
+| Branch audition switch (A/B flip)             | next audio quantum, glitch-free (pre-compile shadow graph)    |
 
 Add a `tests/perf-smoke.mjs` that asserts the offline-render and sync budgets on CI hardware with generous margins.
 
@@ -315,14 +322,14 @@ Add a `tests/perf-smoke.mjs` that asserts the offline-render and sync budgets on
 
 ## 5.8 RISK REGISTER (watch actively)
 
-| Risk | Mitigation |
-|---|---|
-| Worklet un-stubbing (A1) stalls → everything downstream slips | Sampler first; ship phases per-voice, don't gate B on all four flagships (B needs sampler + one synth voice minimum) |
-| Perception render path diverges from realtime path → agent hears something different from the user | One `compile()` code path for both contexts; golden-render regression test comparing offline vs captured realtime output |
-| Branch replay cost grows with session length | Periodic checkpoint snapshots in the DAG (replay from nearest checkpoint, not root) — add when replay > 200 ms, not before |
-| Provider tool-calling differences (Anthropic/OpenAI/Ollama) leak into harness logic | Single internal tool-call IR; per-provider adapters translate at the edge; harness unit tests run against the IR with a mock provider |
-| Scope gravity toward the fun parts (harness) before the floor (engine) | Phase acceptance gates are blocking; NEXT_SESSION.md records gate status every session |
-| Third-party module quality erodes the "professional sound" promise | Audio-quality harness (A2) is public and runnable against any module; verified tier requires passing it |
+| Risk                                                                                               | Mitigation                                                                                                                            |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Worklet un-stubbing (A1) stalls → everything downstream slips                                      | Sampler first; ship phases per-voice, don't gate B on all four flagships (B needs sampler + one synth voice minimum)                  |
+| Perception render path diverges from realtime path → agent hears something different from the user | One `compile()` code path for both contexts; golden-render regression test comparing offline vs captured realtime output              |
+| Branch replay cost grows with session length                                                       | Periodic checkpoint snapshots in the DAG (replay from nearest checkpoint, not root) — add when replay > 200 ms, not before            |
+| Provider tool-calling differences (Anthropic/OpenAI/Ollama) leak into harness logic                | Single internal tool-call IR; per-provider adapters translate at the edge; harness unit tests run against the IR with a mock provider |
+| Scope gravity toward the fun parts (harness) before the floor (engine)                             | Phase acceptance gates are blocking; NEXT_SESSION.md records gate status every session                                                |
+| Third-party module quality erodes the "professional sound" promise                                 | Audio-quality harness (A2) is public and runnable against any module; verified tier requires passing it                               |
 
 ## 6. NON-GOALS / CUT LIST (locked)
 

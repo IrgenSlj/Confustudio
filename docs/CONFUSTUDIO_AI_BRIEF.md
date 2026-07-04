@@ -66,34 +66,34 @@ Internal IR: `{ name, args, callId }` / result `{ callId, ok, data?, error?: { c
 
 Tools are **generated** from the plugin registry + command bus + manual — never hand-duplicated. Grouping and contracts:
 
-| Group | Tools (v1) | Notes |
-|---|---|---|
-| Project | `project.describe`, `project.setMeta`, `project.memory.read/append` | `describe` returns the budgeted digest (see §4) |
-| Transport | `transport.set` (bpm/swing), `transport.play/stop`†, `transport.tap` | † guarded per station |
-| Score | `score.read(bank,pattern)`, `score.write(bank,pattern,text)` | primary pattern interface; write compiles to commands |
-| Steps (fine) | `step.set`, `step.plock`, `pattern.generate` (drum/euclid), `pattern.tools` (fill/mutate/quantize/humanize/randomize) | for surgical edits where score rewrite is overkill |
-| Patch | `patch.read(moduleId)`, `patch.set(moduleId, params{})`, `patch.savePreset`, `patch.loadPreset` | params validated against descriptor `min/max/values/unit` |
-| Graph/Routing | `graph.describe`, `graph.addNode`, `graph.connect/disconnect`, `graph.removeNode`† | topology changes guarded in live |
-| Mixer | `mix.set(track, {level,pan,sendA,sendB})`, `mix.mute/solo`, `mix.readMeters` | `readMeters` returns latest LUFS/peak snapshot |
-| Scenes/Arranger | `scene.write`, `scene.apply`, `xfade.set/morph`, `arranger.read/write` | |
-| Sampler | `sample.list`, `sample.assign(track, assetId)`, `sample.edit(start,end,loop,reverse)` | no file-system access beyond the project asset store |
-| Perception | `render({bars,tracks?,fromBar?})`, `measure(renderId)`, `lint(renderId)`, `compare(renderIdA,renderIdB)` | see §5 |
-| Branch | `branch.status`, `branch.note(text)` | open is implicit; merge/discard user-only |
-| Performance | `queue.pattern(bank,pattern,at)`, `queue.scene(scene,at)`, `queue.fill(track,at)`, `queue.mute(tracks,at)`, `xfade.morph(target,overBars)` | `at` = `{bar}` or `'nextBar'|'nextPhrase'`; co-performer only |
-| Manual | `manual.search(query)`, `manual.section(id)` | retrieval over `STUDIO_MANUAL.md` sections |
+| Group           | Tools (v1)                                                                                                                                 | Notes                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- | -------------------------------- |
+| Project         | `project.describe`, `project.setMeta`, `project.memory.read/append`                                                                        | `describe` returns the budgeted digest (see §4)           |
+| Transport       | `transport.set` (bpm/swing), `transport.play/stop`†, `transport.tap`                                                                       | † guarded per station                                     |
+| Score           | `score.read(bank,pattern)`, `score.write(bank,pattern,text)`                                                                               | primary pattern interface; write compiles to commands     |
+| Steps (fine)    | `step.set`, `step.plock`, `pattern.generate` (drum/euclid), `pattern.tools` (fill/mutate/quantize/humanize/randomize)                      | for surgical edits where score rewrite is overkill        |
+| Patch           | `patch.read(moduleId)`, `patch.set(moduleId, params{})`, `patch.savePreset`, `patch.loadPreset`                                            | params validated against descriptor `min/max/values/unit` |
+| Graph/Routing   | `graph.describe`, `graph.addNode`, `graph.connect/disconnect`, `graph.removeNode`†                                                         | topology changes guarded in live                          |
+| Mixer           | `mix.set(track, {level,pan,sendA,sendB})`, `mix.mute/solo`, `mix.readMeters`                                                               | `readMeters` returns latest LUFS/peak snapshot            |
+| Scenes/Arranger | `scene.write`, `scene.apply`, `xfade.set/morph`, `arranger.read/write`                                                                     |                                                           |
+| Sampler         | `sample.list`, `sample.assign(track, assetId)`, `sample.edit(start,end,loop,reverse)`                                                      | no file-system access beyond the project asset store      |
+| Perception      | `render({bars,tracks?,fromBar?})`, `measure(renderId)`, `lint(renderId)`, `compare(renderIdA,renderIdB)`                                   | see §5                                                    |
+| Branch          | `branch.status`, `branch.note(text)`                                                                                                       | open is implicit; merge/discard user-only                 |
+| Performance     | `queue.pattern(bank,pattern,at)`, `queue.scene(scene,at)`, `queue.fill(track,at)`, `queue.mute(tracks,at)`, `xfade.morph(target,overBars)` | `at` = `{bar}` or `'nextBar'                              | 'nextPhrase'`; co-performer only |
+| Manual          | `manual.search(query)`, `manual.section(id)`                                                                                               | retrieval over `STUDIO_MANUAL.md` sections                |
 
 Contracts: every tool returns the uniform envelope; every mutating tool echoes the resulting state slice (e.g. `patch.set` returns the new params) so the model needn't re-read; every tool schema carries a one-line "when to use" and one example call — generated from the manual's tool reference section.
 
 ## 3. STATIONS & GUARDRAILS
 
-| | session-artist | studio-master | co-performer |
-|---|---|---|---|
-| Purpose | compose, sound-design, pattern work | project-wide: mix pass, arrangement, memory-aware direction | live actions at phrase boundaries |
-| Tool allowlist | all except performance queue | all except performance queue | performance queue, `xfade`, `mix.set` (bounded ±6 dB), `scene.apply`, `score.read`, perception reads |
-| Denied always | — | — | `transport.stop`, master gain, graph topology, project load/save, `pattern.tools.randomize-all` |
-| Mutation target | branch | branch | **direct, but only via quantized queue** (queued actions are cancellable until boundary; each is logged as a command) |
-| Verify policy | mandatory render+lint | mandatory; plus cross-track masking check | pre-verified moves only: live actions must come from skills or previously auditioned material; no unheard experiments |
-| Budgets | default | default ×2 | tight (§1.1) |
+|                 | session-artist                      | studio-master                                               | co-performer                                                                                                          |
+| --------------- | ----------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Purpose         | compose, sound-design, pattern work | project-wide: mix pass, arrangement, memory-aware direction | live actions at phrase boundaries                                                                                     |
+| Tool allowlist  | all except performance queue        | all except performance queue                                | performance queue, `xfade`, `mix.set` (bounded ±6 dB), `scene.apply`, `score.read`, perception reads                  |
+| Denied always   | —                                   | —                                                           | `transport.stop`, master gain, graph topology, project load/save, `pattern.tools.randomize-all`                       |
+| Mutation target | branch                              | branch                                                      | **direct, but only via quantized queue** (queued actions are cancellable until boundary; each is logged as a command) |
+| Verify policy   | mandatory render+lint               | mandatory; plus cross-track masking check                   | pre-verified moves only: live actions must come from skills or previously auditioned material; no unheard experiments |
+| Budgets         | default                             | default ×2                                                  | tight (§1.1)                                                                                                          |
 
 Guardrail implementation: a `stationPolicy.json` consumed by the registry at call time; denial returns `{ ok:false, error:{ code:'GUARDED', hint } }` and is surfaced in the rail. Policy is user-editable in settings with safe defaults.
 
@@ -102,10 +102,11 @@ Guardrail implementation: a `stationPolicy.json` consumed by the registry at cal
 **Context assembly** (budgets in Code brief §3.6) is pull-biased: small always-on digest, everything else via read tools. The **manual is the keystone**: `STUDIO_MANUAL.md` is chunked by section id at server boot; the identity slot always includes its "Operating Principles for AI" section (§M-0 of the manual); other sections arrive via `manual.search/section` or skill references.
 
 **Memory.**
-- `project.memory` (in project file): `{ intent, key, bpmFeel, references[], decisions[{date,text}], agentNotes[] }`. Read into context; `memory.append` is agent-writable (decisions require user confirm).
-- Taste memory (`~/.confustudio/memory.json`, opt-in): `{ bpmRange, scales[], favoredModules[], moves[], vetoes[] }`. `vetoes` are hard ("never add vocal chops") and enforced by a context instruction *plus* a lint rule where expressible.
 
-**Skills** (`skills/*.md`): front-matter `{ id, title, station, style?, requires: [moduleIds], version }` + body containing *why*, *how* (concrete tool/command sequences, CS-Score fragments), and *verify* (what the perception report should show — e.g. "sidechain pump: short-term LUFS dips ≥ 2 LU on kick hits"). The *verify* block is what elevates skills from recipes to professional judgment: a skill isn't done until its measurable signature is present. Loading: keyword/`requires` matching against the task + project; max 2 by default. First ten skills enumerated in Code brief Phase D3.
+- `project.memory` (in project file): `{ intent, key, bpmFeel, references[], decisions[{date,text}], agentNotes[] }`. Read into context; `memory.append` is agent-writable (decisions require user confirm).
+- Taste memory (`~/.confustudio/memory.json`, opt-in): `{ bpmRange, scales[], favoredModules[], moves[], vetoes[] }`. `vetoes` are hard ("never add vocal chops") and enforced by a context instruction _plus_ a lint rule where expressible.
+
+**Skills** (`skills/*.md`): front-matter `{ id, title, station, style?, requires: [moduleIds], version }` + body containing _why_, _how_ (concrete tool/command sequences, CS-Score fragments), and _verify_ (what the perception report should show — e.g. "sidechain pump: short-term LUFS dips ≥ 2 LU on kick hits"). The _verify_ block is what elevates skills from recipes to professional judgment: a skill isn't done until its measurable signature is present. Loading: keyword/`requires` matching against the task + project; max 2 by default. First ten skills enumerated in Code brief Phase D3.
 
 ## 5. PERCEPTION CONTRACT
 
@@ -115,14 +116,18 @@ Guardrail implementation: a `stationPolicy.json` consumed by the registry at cal
 
 ```json
 {
-  "renderId": "r_8f2", "bars": 4, "bpm": 132,
-  "master": { "lufsIntegrated": -13.8, "lufsShortTermMax": -10.2,
-               "truePeakDb": -1.1, "crest": 9.4,
-               "bands": { "sub": -18.2, "low": -14.1, "lowmid": -16.9,
-                           "mid": -15.0, "high": -17.3, "air": -24.8 } },
-  "tracks": [ { "index": 0, "name": "kick", "lufs": -16.0, "onsetsPerBar": 4,
-                 "centroidHz": 180 } ],
-  "masking": [ { "a": 0, "b": 2, "band": "sub", "overlap": 0.71 } ]
+  "renderId": "r_8f2",
+  "bars": 4,
+  "bpm": 132,
+  "master": {
+    "lufsIntegrated": -13.8,
+    "lufsShortTermMax": -10.2,
+    "truePeakDb": -1.1,
+    "crest": 9.4,
+    "bands": { "sub": -18.2, "low": -14.1, "lowmid": -16.9, "mid": -15.0, "high": -17.3, "air": -24.8 }
+  },
+  "tracks": [{ "index": 0, "name": "kick", "lufs": -16.0, "onsetsPerBar": 4, "centroidHz": 180 }],
+  "masking": [{ "a": 0, "b": 2, "band": "sub", "overlap": 0.71 }]
 }
 ```
 
@@ -167,7 +172,7 @@ Evals (`evals/`, task-card format per Code brief §7) grouped: **pattern literac
 - D-AI2 Live station executes only pre-verified material via quantized queue; no unheard experiments live.
 - D-AI3 Tool schemas, docs, and manual are one generated pipeline; hand-duplication is a bug.
 - D-AI4 Quantitative claims must cite trace measurements (enforced by presenter template).
-- D-AI5 Skills carry a *verify* block; a skill without a measurable signature is a draft.
+- D-AI5 Skills carry a _verify_ block; a skill without a measurable signature is a draft.
 - D-AI6 MCP-inbound external agents pass through the same registry/guardrails/branches as the internal harness.
 - D-AI7 Prompts are versioned files, snapshotted in traces, regression-tested by evals.
 - D-AI8 Audio buffers never enter model context; only measurements do.

@@ -10,16 +10,16 @@
 
 ## File-by-file mapping
 
-| Deliverable | Maps to | How |
-|---|---|---|
-| Design tokens | `src/css/tokens.css` (already integrated + more complete than raw) | Repo version has a back-compat alias block the raw lacks — **do not blind-replace**. Only additive `--warn`/`--focus-ring` + `.t-*` utilities were new (now in `src/css/components.css`). |
-| Component library (production) | `system-canvas.css` + `system-canvas.js` | The real `.knob`/`.fader`/`.step`/`.module`/`.seg7`/`.mini-screen` classes, self-scaffolding via JS. **CAVEAT: `.step`/`.knob`/`.fader` collide with existing app CSS — scope/namespace on adoption and screenshot-verify existing pages.** `system-canvas.js` uses fake meter data — replace `animateMeters`/`animateSpectrum` with engine taps, keep paint/interaction. |
-| Component library (docs) | `docs/design-system/component-library.html` | `.lib-*`-namespaced showcase page. Reference only; doesn't ship into the app. |
-| Buttons/chips/type | `src/css/components.css` (DONE) | `.btn` system + `.chip` + `.t-*` — additive, no collision. |
-| Chassis chrome | `src/css/chassis.css` + `src/chassis.js` | Styles transport/tabs/channel-rail/dock/osc via existing selectors. Meter fills must be real `<div class="fill">` children, not pseudo-elements. |
-| Pattern page | `src/pages/pattern.js` + `src/css/drum-machine.css` | New shape: `state.tracks[i].steps[s] = {on,accent,vel,prob,mt,locks:[{param,val}],cond}`. Write an adapter to the real model. `renderToolbar/Trackbar/Grid/Detail/AIBar` are pure-function templates. |
-| Mixer page | `src/pages/mixer.js` + `src/css/mixer.css` | Vertical faders know level via `--lvl` (0..1, 0.75=unity). Drive `.fill` height from the per-frame meter loop; add master LUFS 7-seg + spectrum + masking. |
-| Studio canvas | `src/studio-modules.js`, `src/cables.js` | `studio-canvas-redesign.md` — doc, not code. Highest-leverage: adopt the `state.signalGraph` shape as one source of truth. |
+| Deliverable                    | Maps to                                                            | How                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Design tokens                  | `src/css/tokens.css` (already integrated + more complete than raw) | Repo version has a back-compat alias block the raw lacks — **do not blind-replace**. Only additive `--warn`/`--focus-ring` + `.t-*` utilities were new (now in `src/css/components.css`).                                                                                                                                                                                 |
+| Component library (production) | `system-canvas.css` + `system-canvas.js`                           | The real `.knob`/`.fader`/`.step`/`.module`/`.seg7`/`.mini-screen` classes, self-scaffolding via JS. **CAVEAT: `.step`/`.knob`/`.fader` collide with existing app CSS — scope/namespace on adoption and screenshot-verify existing pages.** `system-canvas.js` uses fake meter data — replace `animateMeters`/`animateSpectrum` with engine taps, keep paint/interaction. |
+| Component library (docs)       | `docs/design-system/component-library.html`                        | `.lib-*`-namespaced showcase page. Reference only; doesn't ship into the app.                                                                                                                                                                                                                                                                                             |
+| Buttons/chips/type             | `src/css/components.css` (DONE)                                    | `.btn` system + `.chip` + `.t-*` — additive, no collision.                                                                                                                                                                                                                                                                                                                |
+| Chassis chrome                 | `src/css/chassis.css` + `src/chassis.js`                           | Styles transport/tabs/channel-rail/dock/osc via existing selectors. Meter fills must be real `<div class="fill">` children, not pseudo-elements.                                                                                                                                                                                                                          |
+| Pattern page                   | `src/pages/pattern.js` + `src/css/drum-machine.css`                | New shape: `state.tracks[i].steps[s] = {on,accent,vel,prob,mt,locks:[{param,val}],cond}`. Write an adapter to the real model. `renderToolbar/Trackbar/Grid/Detail/AIBar` are pure-function templates.                                                                                                                                                                     |
+| Mixer page                     | `src/pages/mixer.js` + `src/css/mixer.css`                         | Vertical faders know level via `--lvl` (0..1, 0.75=unity). Drive `.fill` height from the per-frame meter loop; add master LUFS 7-seg + spectrum + masking.                                                                                                                                                                                                                |
+| Studio canvas                  | `src/studio-modules.js`, `src/cables.js`                           | `studio-canvas-redesign.md` — doc, not code. Highest-leverage: adopt the `state.signalGraph` shape as one source of truth.                                                                                                                                                                                                                                                |
 
 ## Order of operations (each ships independently)
 
@@ -38,7 +38,9 @@ Legacy names kept/aliased: `--muted`→`--fg-3`, `--bg2`→`--bg-2`, `--surface2
 
 ```js
 // src/pages/<page>.js
-export function render(state, root) { /* root === #page-content; build DOM; return cleanup|undefined */ }
+export function render(state, root) {
+  /* root === #page-content; build DOM; return cleanup|undefined */
+}
 ```
 
 ## AI integration hooks

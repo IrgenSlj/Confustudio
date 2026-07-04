@@ -10,20 +10,62 @@
  */
 
 /* ─── Typography utilities ──────────────────────────────────────────────── */
-.t-display { font-family: var(--font-display); font-size: var(--fs-32); font-weight: 600; letter-spacing: var(--tracking-tight); line-height: var(--lh-tight); }
-.t-h1      { font-size: var(--fs-24); font-weight: 600; letter-spacing: var(--tracking-tight); line-height: var(--lh-snug); }
-.t-h2      { font-size: var(--fs-18); font-weight: 600; letter-spacing: var(--tracking-tight); line-height: var(--lh-snug); }
-.t-body    { font-size: var(--fs-14); line-height: var(--lh-normal); }
-.t-small   { font-size: var(--fs-12); line-height: var(--lh-snug); color: var(--fg-2); }
-.t-mono    { font-family: var(--font-mono); font-feature-settings: "tnum"; }
-.t-label   { font-family: var(--font-mono); font-size: var(--fs-11); letter-spacing: var(--tracking-mono); text-transform: uppercase; color: var(--fg-3); }
-.t-led     { font-family: var(--font-mono); font-size: var(--fs-20); letter-spacing: 0.04em; color: var(--live); text-shadow: 0 0 8px var(--live-glow); }
-.tabular   { font-variant-numeric: tabular-nums; }
+.t-display {
+  font-family: var(--font-display);
+  font-size: var(--fs-32);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--lh-tight);
+}
+.t-h1 {
+  font-size: var(--fs-24);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--lh-snug);
+}
+.t-h2 {
+  font-size: var(--fs-18);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--lh-snug);
+}
+.t-body {
+  font-size: var(--fs-14);
+  line-height: var(--lh-normal);
+}
+.t-small {
+  font-size: var(--fs-12);
+  line-height: var(--lh-snug);
+  color: var(--fg-2);
+}
+.t-mono {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum';
+}
+.t-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-11);
+  letter-spacing: var(--tracking-mono);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.t-led {
+  font-family: var(--font-mono);
+  font-size: var(--fs-20);
+  letter-spacing: 0.04em;
+  color: var(--live);
+  text-shadow: 0 0 8px var(--live-glow);
+}
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
 
 /* ─── Buttons ───────────────────────────────────────────────────────────── */
 .btn {
   appearance: none;
-  display: inline-flex; align-items: center; justify-content: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   gap: 6px;
   min-height: 36px;
   padding: 0 var(--s-3);
@@ -36,16 +78,27 @@
   letter-spacing: var(--tracking-mono);
   text-transform: uppercase;
   cursor: pointer;
-  transition: filter var(--dur-2) var(--ease), background var(--dur-2) var(--ease);
+  transition:
+    filter var(--dur-2) var(--ease),
+    background var(--dur-2) var(--ease);
 }
-.btn:hover { filter: brightness(1.15); }
-.btn:active { transform: translateY(1px); }
-.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn:hover {
+  filter: brightness(1.15);
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .btn.btn-primary {
   background: linear-gradient(180deg, var(--accent), var(--accent-dim));
   color: #1a1a08;
   border-color: var(--accent);
-  box-shadow: 0 0 12px var(--accent-glow), inset 0 1px 0 rgba(255,255,255,0.30);
+  box-shadow:
+    0 0 12px var(--accent-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
   font-weight: 600;
 }
 .btn.btn-secondary {
@@ -58,7 +111,10 @@
   color: var(--fg-2);
   border-color: transparent;
 }
-.btn.btn-ghost:hover { background: var(--surface-hover); color: var(--fg); }
+.btn.btn-ghost:hover {
+  background: var(--surface-hover);
+  color: var(--fg);
+}
 .btn.btn-danger {
   background: linear-gradient(180deg, #c4392e, #8c241c);
   color: #fff;
@@ -66,21 +122,25 @@
   box-shadow: 0 0 8px var(--record-glow);
 }
 .btn.btn-electric {
-  background: linear-gradient(180deg, rgba(103,215,255,0.18), rgba(103,215,255,0.06));
+  background: linear-gradient(180deg, rgba(103, 215, 255, 0.18), rgba(103, 215, 255, 0.06));
   color: var(--electric);
-  border-color: rgba(103,215,255,0.45);
-  box-shadow: 0 0 8px rgba(103,215,255,0.20);
+  border-color: rgba(103, 215, 255, 0.45);
+  box-shadow: 0 0 8px rgba(103, 215, 255, 0.2);
 }
 .btn[disabled] {
   opacity: 0.4;
   pointer-events: none;
   filter: grayscale(0.5);
 }
-.btn.btn-icon { min-width: 36px; padding: 0; }
+.btn.btn-icon {
+  min-width: 36px;
+  padding: 0;
+}
 
 /* ─── Chip / Badge ──────────────────────────────────────────────────────── */
 .chip {
-  display: inline-flex; align-items: center;
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
   padding: 4px 10px;
   background: var(--surface);
@@ -93,12 +153,32 @@
   text-transform: uppercase;
 }
 .chip .dot {
-  width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
   box-shadow: 0 0 6px currentColor;
 }
-.chip.live     { color: var(--live);     border-color: rgba(90,221,113,0.35); }
-.chip.record   { color: var(--record);   border-color: rgba(240,91,82,0.35); }
-.chip.accent   { color: var(--accent);   border-color: rgba(240,198,64,0.35); }
-.chip.electric { color: var(--electric); border-color: rgba(103,215,255,0.35); }
-.chip.warn     { color: var(--warn);     border-color: rgba(255,140,82,0.35); }
-.chip.muted    { color: var(--fg-mute); }
+.chip.live {
+  color: var(--live);
+  border-color: rgba(90, 221, 113, 0.35);
+}
+.chip.record {
+  color: var(--record);
+  border-color: rgba(240, 91, 82, 0.35);
+}
+.chip.accent {
+  color: var(--accent);
+  border-color: rgba(240, 198, 64, 0.35);
+}
+.chip.electric {
+  color: var(--electric);
+  border-color: rgba(103, 215, 255, 0.35);
+}
+.chip.warn {
+  color: var(--warn);
+  border-color: rgba(255, 140, 82, 0.35);
+}
+.chip.muted {
+  color: var(--fg-mute);
+}

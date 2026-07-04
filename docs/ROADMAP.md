@@ -38,7 +38,7 @@ Legend: `[x]` done · `[~]` in progress / partial · `[ ]` not started.
 
 > Spec: `CONFUSTUDIO_AI_BRIEF.md` §1–4,6,8. Gate (D-N16): may start once sampler + one synth voice pass the audio-quality harness.
 
-- [x] **B6 CS-Score** parser/emitter — `src/kernel/score.js` + `tests/score-roundtrip.mjs` + `docs/CS_SCORE.md` (pure). *Remaining:* command-compilation layer (`score.write` compiles to command-bus ops on the active branch).
+- [x] **B6 CS-Score** parser/emitter — `src/kernel/score.js` + `tests/score-roundtrip.mjs` + `docs/CS_SCORE.md` (pure). _Remaining:_ command-compilation layer (`score.write` compiles to command-bus ops on the active branch).
 - [ ] B1 Tool registry (`src/harness/tools/`) — wrap every command type in a JSON-Schema tool generated from the registry + command bus (single source of truth); regenerate `docs/confustudio.manual.json` from it.
 - [ ] B2 Agent loop — extract `src/harness/loop.mjs` from `server.mjs`: provider-agnostic tool-calling state machine (IDLE→PLAN→ACT→VERIFY→PRESENT) with budgets; SSE stream to the client; single tool-call IR + per-provider adapters + mock provider.
 - [ ] B3 Branch lifecycle — formalize `branch.open/audition/merge/discard` over the existing DAG branching; persist a `branches` compartment so proposals survive reload.
@@ -51,7 +51,7 @@ Legend: `[x]` done · `[~]` in progress / partial · `[ ]` not started.
 > Spec: `CONFUSTUDIO_AI_BRIEF.md` §5.
 
 - [x] Loudness math — `src/kernel/loudness.js` (BS.1770 K-weighting → momentary/short-term/**integrated** LUFS) + `test:perception`. Wired to the **mixer master meter** (M/S/I + peak dBFS, realtime).
-- [x] Band energies (C2 seed) — `src/kernel/spectrum.js` (6-band aggregation, shared vocabulary) + `test:spectrum`. Pure. *Not yet wired into the mixer spectrum UI.*
+- [x] Band energies (C2 seed) — `src/kernel/spectrum.js` (6-band aggregation, shared vocabulary) + `test:spectrum`. Pure. _Not yet wired into the mixer spectrum UI._
 - [ ] C1 Offline render tool — `render({bars,tracks?,fromBar?})` via OfflineAudioContext through the **same `compile()` path** as realtime (D-N15); per-track stem rendering.
 - [ ] C2 Feature extraction (`src/harness/perception/`) — reuse loudness.js + spectrum.js; add true-peak, crest, spectral centroid/rolloff, onset density, per-track pairwise band-overlap (masking).
 - [ ] C3 Musical lint — rules over model+features: `sub-collision`, `mud-250-500`, `clipping`, `over-limited`, `key-violation`, `level-staging`, `silent-track-routed` → `PerceptionReport`.
