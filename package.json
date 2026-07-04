@@ -33,9 +33,10 @@
   "scripts": {
     "start": "node server.mjs",
     "dev": "node --watch server.mjs",
-    "test": "npm run lint && npm run test:types && npm run test:syntax && npm run test:kernel && npm run test:score && npm run test:perception && npm run test:state && npm run test:server && npm run test:ui-smoke",
+    "test": "npm run lint && npm run test:types && npm run test:syntax && npm run test:kernel && npm run test:score && npm run test:perception && npm run test:spectrum && npm run test:state && npm run test:server && npm run test:ui-smoke",
     "test:types": "tsc -p jsconfig.json",
     "test:perception": "node tests/loudness.mjs",
+    "test:spectrum": "node tests/spectrum.mjs",
     "test:syntax": "node tests/syntax-check.mjs",
     "test:kernel": "node tests/kernel-event-compiler.mjs",
     "test:score": "node tests/score-roundtrip.mjs",
