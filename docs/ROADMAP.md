@@ -40,7 +40,7 @@ Legend: `[x]` done · `[~]` in progress / partial · `[ ]` not started.
 
 - [x] **B6 CS-Score** parser/emitter — `src/kernel/score.js` + `tests/score-roundtrip.mjs` + `docs/CS_SCORE.md` (pure). _Remaining:_ command-compilation layer (`score.write` compiles to command-bus ops on the active branch).
 - [x] **B1 Tool registry** (`src/harness/tools/`) — 17 tools compiling to real command-bus commands (no private path, 247-check `test:harness`); pure zero-dep JSON-Schema validator; station allowlists + per-param clamping guardrails; Anthropic/OpenAI adapters. _Remaining:_ regenerate `docs/confustudio.manual.json` from `buildManualToolSurface()`.
-- [ ] B2 Agent loop — extract `src/harness/loop.mjs` from `server.mjs`: provider-agnostic tool-calling state machine (IDLE→PLAN→ACT→VERIFY→PRESENT) with budgets; SSE stream to the client; single tool-call IR + per-provider adapters + mock provider.
+- [x] **B2 Agent loop** — `src/harness/loop.mjs` (IDLE→PLAN→ACT→VERIFY→PRESENT) + tool-call IR (`ir.js`) + deterministic **mock provider**; budgets, error-storm abort, station guardrails, pluggable VERIFY hook (Phase C fills it), one repair cycle; branches-not-mutations (edits a clone); proposal + trace out. 27-check `test:loop`, no API key. _Remaining:_ real per-provider adapters (Anthropic/OpenAI at the edge) + SSE stream to the client (pairs with B4).
 - [ ] B3 Branch lifecycle — formalize `branch.open/audition/merge/discard` over the existing DAG branching; persist a `branches` compartment so proposals survive reload.
 - [ ] B4 In-app **Director rail** + proposal cards (chat, station switch, activity log, audition/merge/discard) — replaces the fire-and-forget `actions/plan` path. (Design: S4.)
 - [ ] B5 Traces — per-run artifact (context digest, turns, tool calls, budgets, disposition, prompt snapshot); rail activity log is a live view.
@@ -106,11 +106,10 @@ Source: `docs/design-system/{module-chassis-spec,integration-guide}.md`. DesignS
 
 ## Immediate next actions (pick up here)
 
-The active lead is **deploy + monetize via the AI co-producer**. B1 (tool registry) is done — build the loop on top. Full detail + specs in `NEXT_SESSION.md`.
+The active lead is **deploy + monetize via the AI co-producer**. B1 (tool registry) and B2 (agent loop) are done — build the branch lifecycle + the visible rail on top. Full detail + specs in `NEXT_SESSION.md`.
 
-1. **B2 — Agent loop** (`src/harness/loop.mjs`) + tool-call IR + deterministic **mock provider** → the `IDLE→PLAN→ACT→VERIFY→PRESENT` state machine executing B1 tools on a cloned branch. Fully testable, no API key. **START HERE.**
-2. **B3 — Branch lifecycle** (`branch.open/audition/merge/discard`) wrapping the existing signal-graph DAG.
-3. **B4 — Director rail** + proposal cards (the demoable, paywallable moment) → wire to `window.confustudioCommands.execute`.
-4. **Deploy** (`docs/DEPLOY.md`, one command, needs the user's account) — for a free-studio funnel, any time.
-5. **Phase C** offline render → feature extraction (reuse `loudness.js`/`spectrum.js`) → musical lint → wire into the loop's VERIFY stage (makes the agent hear).
-6. Parallel polish: wire `spectrum.js` into the mixer 6-band UI; per-track VU taps; **Phase 0.4** globals consolidation.
+1. **B3 — Branch lifecycle** (`branch.open/audition/merge/discard`) wrapping the existing signal-graph DAG. Persist a `branches` compartment so the loop's proposals survive reload. **START HERE.**
+2. **B4 — Director rail** + proposal cards (the demoable, paywallable moment) → drive `runAgent`, render proposals, wire audition/merge to `window.confustudioCommands.execute`. Needs a real per-provider adapter (Anthropic/OpenAI) behind `/api/assistant`.
+3. **Deploy** (`docs/DEPLOY.md`, one command, needs the user's account) — for a free-studio funnel, any time.
+4. **Phase C** offline render → feature extraction (reuse `loudness.js`/`spectrum.js`) → musical lint → wire into the loop's VERIFY stage (makes the agent hear).
+5. Parallel polish: wire `spectrum.js` into the mixer 6-band UI; per-track VU taps; **Phase 0.4** globals consolidation.
