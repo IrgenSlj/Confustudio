@@ -33,7 +33,7 @@
   "scripts": {
     "start": "node server.mjs",
     "dev": "node --watch server.mjs",
-    "test": "npm run lint && npm run test:types && npm run test:syntax && npm run test:kernel && npm run test:score && npm run test:perception && npm run test:spectrum && npm run test:harness && npm run test:loop && npm run test:state && npm run test:server && npm run test:ui-smoke",
+    "test": "npm run lint && npm run test:types && npm run test:syntax && npm run test:kernel && npm run test:score && npm run test:perception && npm run test:spectrum && npm run test:harness && npm run test:loop && npm run test:branch && npm run test:state && npm run test:server && npm run test:ui-smoke",
     "test:types": "tsc -p jsconfig.json",
     "test:perception": "node tests/loudness.mjs",
     "test:spectrum": "node tests/spectrum.mjs",
@@ -50,7 +50,8 @@
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
     "confu": "electron .",
-    "confu:dev": "ELECTRON_IS_DEV=1 electron ."
+    "confu:dev": "ELECTRON_IS_DEV=1 electron .",
+    "test:branch": "node tests/harness-branch.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

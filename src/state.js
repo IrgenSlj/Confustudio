@@ -587,6 +587,10 @@ export function createAppState() {
     // Audio routing graph (serializable)
     signalGraph: createAudioGraph(),
 
+    // Agent branch proposals (Phase B3 harness) — serializable so the
+    // co-producer's proposals survive a reload. items keyed by branch id.
+    branches: { items: {}, activeAuditionId: null },
+
     // Project
     project: createProject(),
   });
