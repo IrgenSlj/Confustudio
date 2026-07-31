@@ -1,69 +1,90 @@
 # Deploying CONFUstudio
 
-CONFUstudio is a single dependency-light Node server (`server.mjs`) that serves
-the static app and an optional AI bridge. It needs two things most static hosts
-can't give it, which is why it deploys as a **container**, not a static bundle:
+**Status:** local evaluation only; public assistant deployment blocked
 
-1. **COOP/COEP headers** (`Cross-Origin-Opener-Policy: same-origin`,
-   `Cross-Origin-Embedder-Policy: require-corp`) on every response — required
-   for `SharedArrayBuffer` and AudioWorklet. Netlify/Vercel static hosting can
-   set headers, but the AI bridge needs a running server anyway.
-2. **A server-side home for AI keys** — keys are read from the process
-   environment and never sent to the browser.
+**Updated:** 2026-07-31
 
-## Recommended: Fly.io
+The previous container instructions exposed the static application and assistant
+proxy as one public service. That topology is not approved. The current proxy can
+attach server credentials to a client-selected destination and does not yet have
+the authentication, quota, origin, or egress controls required for public use.
 
-Greenfield config lives in `fly.toml` + `Dockerfile`. Scales to zero when idle,
-so a pre-launch deploy costs ~nothing.
+See [`../SECURITY.md`](../SECURITY.md) and Phase 6 of
+[`DEVELOPMENT_PLAN.md`](./DEVELOPMENT_PLAN.md).
+
+## Supported Today: Local Evaluation
 
 ```bash
-# one-time
-fly auth login
-fly launch --copy-config --now       # uses fly.toml/Dockerfile; pick app name + region
-
-# optional AI bridge (keys stay server-side)
-fly secrets set ANTHROPIC_API_KEY=... ANTHROPIC_MODEL=claude-sonnet-5
-
-# subsequent deploys
-fly deploy
+npm install
+npm start
+# open http://127.0.0.1:4173
 ```
 
-Health check: `GET /healthz` → `{"ok":true}`. Configured in `fly.toml`.
+Keep the process bound to loopback. Use synthetic projects and test credentials
+only. Local OpenAI-compatible or Ollama endpoints are development integrations,
+not public proxy features.
 
-## Any container host (Render / Railway / a VPS)
-
-The image is portable. Binding to all interfaces is automatic: the server
-binds `127.0.0.1` for local dev but `0.0.0.0` when `NODE_ENV=production` (set
-in the Dockerfile), so containers are reachable without extra flags. `HOST`
-overrides it if you need to.
+Useful checks:
 
 ```bash
-docker build -t confustudio .
-docker run --rm -p 4173:4173 confustudio
-# → http://localhost:4173  (healthcheck: /healthz)
+curl http://127.0.0.1:4173/healthz
+npm test
 ```
 
-- **Render:** one-click via **New → Blueprint** (`render.yaml` is committed),
-  or a Docker web service with health check path `/healthz`. Add AI keys as
-  environment variables (marked secret).
-- **Railway:** deploy the Dockerfile; Railway injects `PORT` (the server
-  respects it). Add keys as variables.
+The studio itself should work without any provider configuration.
 
-## After deploy — verify in a real browser (mandatory)
+## Prohibited Until the Security Gate Passes
 
-`npm test` green ≠ working app. On the live URL, hard-reload past any service
-worker, then confirm:
+- Do not run the current container on a public interface.
+- Do not add production OpenAI, Anthropic, or other hosted-provider keys.
+- Do not deploy the current `fly.toml` or `render.yaml` as an internet-facing service.
+- Do not rely on CORS, COOP/COEP, or a secret URL as access control.
+- Do not offer the current proxy to other machines on a private network.
 
-- App renders; **zero console errors** on first load AND on reload (the
-  returning-user path — see the `deepMerge` data-loss fix).
-- `crossOriginIsolated === true` in the console (COOP/COEP landed through the
-  platform's proxy).
-- If the AI bridge is configured: `GET /api/assistant/providers` reports it
-  `configured: true`.
+The existing deployment artifacts remain in the repository as historical scaffolding
+and will be replaced or constrained during the implementation plan.
 
-## Notes
+## Target Deployment Topology
 
-- No build step, no bundler — the browser loads ES modules directly.
-- `confu/` (Electron) is not part of the web deploy.
-- PWA install + offline shell come from `public/sw.js`; after a deploy, the
-  service worker is network-first for the shell (see the stale-cache postmortem).
+```text
+Static PWA/CDN
+  - hashed Vite assets
+  - COOP/COEP and browser security headers
+  - generated service-worker revisions
+  - no provider credentials
+
+Authenticated hosted API
+  - separate origin/service
+  - fixed provider destinations
+  - encrypted secret storage
+  - session authentication and authorization
+  - CSRF/origin policy
+  - per-user quotas, rate limits, and spending caps
+  - request/response size and time budgets
+  - redacted audit and abuse monitoring
+
+Loopback bridge
+  - optional local/Ollama providers
+  - binds only to 127.0.0.1/::1
+  - never shares the public API trust boundary
+```
+
+## Future Release Checklist
+
+The hosted deployment documentation will be re-enabled only when all items below
+have automated evidence:
+
+- [ ] Vite production build and generated asset revisioning.
+- [ ] Fresh, returning-user, offline, service-worker update, and rollback boots.
+- [ ] `crossOriginIsolated === true` where required by the audio runtime.
+- [ ] CSP, frame, content-type, referrer, and permissions policies.
+- [ ] Exact provider origin/path allowlist and redirect rejection.
+- [ ] Authentication, authorization, CSRF, origin, rate, quota, and budget tests.
+- [ ] No secret in browser responses, logs, traces, URLs, or arbitrary egress.
+- [ ] Database, migration, backup, deletion, and recovery procedures.
+- [ ] Health, readiness, structured logging, alerting, and incident rollback.
+- [ ] Independent security review and maintainer sign-off.
+
+Host-specific commands, secrets, regions, scaling, and cost controls will be added
+after the topology is implemented. Until then, a successful container start is not
+evidence that the application is safe to publish.

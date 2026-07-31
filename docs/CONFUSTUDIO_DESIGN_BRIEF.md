@@ -1,9 +1,16 @@
 # CONFUSTUDIO — UI/UX & GRAPHICS BRIEF (DESIGN)
 
-**Version:** 1.2 · **Date:** 2026-07-03 · **Owner:** Irgen Salianji
-**Audience:** Claude Design
-**Companion documents:** `CONFUSTUDIO_CODE_BRIEF.md` (defines the phases this design must serve), `CONFUSTUDIO_AI_BRIEF.md` (**behavioral source of truth for all agent UI** — stations, proposal lifecycle, guardrail denials, UNVERIFIED state), `CONFUSTUDIO_STUDIO_MANUAL.md` (the vocabulary this UI must teach)
-**Existing foundation:** the `confusynth-ui-ux` handoff bundle is **adopted and in production** — `src/css/tokens.css` (68-token chassis system), `docs/design-guide.md`, themes `default/blue/red/mono/light`. **This brief extends that system; it does not replace it.**
+**Version:** 1.3 · **Reviewed:** 2026-07-31 · **Owner:** Irgen Salianji
+**Status:** design requirements reference; delivery follows Phases 4-6
+**Audience:** product design and UI contributors
+**Companion documents:** `DEVELOPMENT_PLAN.md` (sequence and gates), `ARCHITECTURE.md` (UI boundary), `CONFUSTUDIO_AI_BRIEF.md` (agent behavior), `STUDIO_MANUAL.md` (shipped vocabulary)
+**Existing foundation:** tokens and themes are integrated; prototype handoff code
+is reference material and must not be adopted without accessibility, collision,
+performance, and real-data verification.
+
+> The 2026-07-31 review found excessive navigation, undersized controls, dense
+> typography, full-page rebuilding, missing accessible names, and overlap risk.
+> Workflow simplification and the Starter Desk precede the Director rail.
 
 ---
 
@@ -142,18 +149,25 @@ Hardware-terse, lowercase-avoidant on chassis, sentence case on screens. Labels 
 
 ## 11. CONSTRAINTS
 
-- Plain CSS custom properties; no preprocessor, no build step, no CSS framework (repo rule).
+- CSS custom properties remain the token source. Vite and Lit are the target build
+  and component stack; no CSS framework is planned.
 - All colors via tokens; semantic aliases preferred (`--success`, not `#5add71`).
 - Themes must keep working: design in `default`, verify `light` and `mono` (the mono theme is the accessibility stress test).
-- Desktop + PWA only; minimum sensible width ~1100 px; no mobile layouts in this brief.
+- Desktop + PWA first. Core workflows must remain coherent at 1024 px and above;
+  narrower layouts may present an explicit unsupported state until responsive work is scoped.
 - Performance: canvas with 15+ modules and 30+ cables must not jank during playback — prefer transform/opacity animation, avoid layout thrash, respect the existing pointer-interaction hardening.
 - Everything original: names, glyphs, layouts, trade dress. Inspiration is behavioral and typographic discipline, never quotation.
 
-## 12. SEQUENCE FOR CLAUDE DESIGN SESSIONS
+## 12. DESIGN DELIVERY ORDER
 
-S1: Module Chassis Spec + component library (unblocks the Code brief's Phase A4).
-S2: CS-DRUM + CS-ACID panels; PATTERN page.
-S3: CS-LADDER + CS-POLY panels; SOUND page as module editor; patch + sample browsers.
-S4: Director rail, proposal cards, ghost/diff system (pairs with Code Phase B).
-S5: Perception meters + MIXER page (pairs with Code Phase C); Starter Desk + onboarding.
-S6: Live mode skin (pairs with Code Phase E); identity refresh; copy guide; design-guide v2.
+1. Phase 4: accessible Lit control primitives, shell states, keyboard behavior,
+   readable type/spacing, and supported-width rules.
+2. Phase 5: navigation consolidation, Pattern and Sound workflows, Starter Desk,
+   first jam, save/recovery status, and observed usability sessions.
+3. Phase 3/5 support: sampler and flagship voice panels backed by real engine params.
+4. Phase 6: Director rail, materialized diffs, audition/merge/conflict states, and
+   perception language after headless AI acceptance.
+5. Phase 7: Module SDK visuals, live skin, extended browsers, and identity expansion.
+
+No design prototype may use fake meters or interactions in production. Visual work
+ships only with real state, stable layout, accessibility checks, and browser evidence.

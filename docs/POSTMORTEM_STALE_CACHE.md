@@ -1,6 +1,15 @@
 # Postmortem: "Unusable mess" after update — stale service-worker cache
 
-Status: **not-reproducible-mitigated** · Phase 0.2 close-out · Last verified: 2026-07-03
+Status: **historical / mitigated, with replacement work planned**
+
+Last reviewed: 2026-07-31
+
+Authority: [`DEVELOPMENT_PLAN.md`](./DEVELOPMENT_PLAN.md), Phase 4 release behavior
+
+The mitigation reduced the original failure mode, but manual cache-version bumps
+and ad hoc localStorage repair are not the final release design. Vite-generated
+asset revisions, tested service-worker update/rollback flows, versioned project
+migrations, IndexedDB persistence, and user-visible recovery replace these mechanisms.
 
 ## Summary
 
@@ -81,7 +90,8 @@ issue rather than a regression in the deployed bundle.
   network-first shell; a fully-offline returning client would still boot the old
   shell. Non-shell same-origin assets are cache-first, so a renamed non-shell asset
   could 404 from an old cache until the version bump evicts it.
-- **Recommendation:** keep bumping `CACHE_NAME` on every deploy (ideally wire it to
-  the build hash so it can't be forgotten); the network-first shell already covers
-  the online case. If a user still hits a broken UI, the manual escape is
+- **Interim recommendation:** keep bumping `CACHE_NAME` on every local/pre-release
+  build until Phase 4 generates revisions from the production build. The
+  network-first shell covers the online case. If a user still hits a broken UI,
+  the manual escape is
   **SET → SYSTEM → WORKSPACE → Reset workspace** (Hard reset if that is not enough).

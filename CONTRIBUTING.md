@@ -1,74 +1,102 @@
 # Contributing to CONFUstudio
 
-Thanks for your interest in contributing. CONFUstudio is an early-stage, browser-first music studio. Contributions of any size are welcome.
+CONFUstudio is an early-stage browser music studio currently executing a
+foundation reset. Contributions are welcome, but work must follow the blocking
+phase order in [`docs/DEVELOPMENT_PLAN.md`](./docs/DEVELOPMENT_PLAN.md) and the
+live status in [`docs/ROADMAP.md`](./docs/ROADMAP.md).
 
 ## Code of Conduct
 
-This project follows the [Contributor Covenant](./CODE_OF_CONDUCT.md). By participating you agree to abide by its terms.
+Participation is governed by [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md).
 
-## Getting set up
+## Setup
 
 ```bash
 git clone https://github.com/IrgenSlj/Confustudio.git
 cd Confustudio
 npm install
-npm start            # serves http://127.0.0.1:4173
+npm start
 ```
 
-Requires Node.js 20+. A modern Chromium-based browser is recommended for Web Audio, AudioWorklet, and WebMIDI coverage.
+Node.js 20+ is required. The current app is served at `http://127.0.0.1:4173`.
+Keep the assistant server on loopback and do not use production provider keys.
 
-## Running tests and checks
+## Before Starting Work
+
+1. Confirm the owning roadmap phase is open.
+2. Link a tracking issue from the development plan's PR sequence.
+3. Identify the contract being changed and its rollback path.
+4. Add a failing regression, fixture, or measurable baseline first.
+5. Keep the change independently reviewable; do not combine foundation work with features.
+
+Large changes to architecture or ordering require an ADR and updates to the plan,
+roadmap, architecture, and next-session documents.
+
+## Checks
 
 ```bash
-npm run lint         # ESLint must be clean (no errors, ideally no warnings)
-npm run format       # Prettier --check
-npm test             # syntax + state + server + UI smoke (Playwright)
+npm run lint
+npm run format
+npm test
 ```
 
-A pull request must keep `npm run lint` and `npm test` green. Use `npm run lint:fix` and `npm run format:fix` for autofixes.
+These compatibility checks are necessary but not sufficient. Add evidence based
+on the affected boundary:
 
-## Branching and commits
+- Project/state: migration, corrupt input, quota, save/reload, and property tests.
+- Commands/history: inverse, undo/redo, deterministic seed, target drift, and fuzz tests.
+- Server/security: hostile requests, auth/origin/CSRF, egress, redirect, limits, and logs.
+- Audio/transport: deterministic events, offline fixtures, CPU/jitter data, and listening notes.
+- UI: Chromium/Firefox/WebKit where relevant, keyboard path, axe, screenshots,
+  supported widths, and returning-user behavior.
+- PWA: fresh, offline, returning, update, and rollback boot paths.
+- AI: versioned task evals, guardrail denials, budget failure, trace redaction,
+  and audition/merge identity.
 
-- Branch off `main`.
-- Use a short, descriptive branch name (e.g. `fix/sample-reload-toast`, `feat/arranger-shuffle`).
-- Commit messages: imperative mood, short subject (≤ 72 chars), wrap body at 72 chars.
-- Reference issues with `Fixes #123` / `Refs #123` when applicable.
+Every pull request states before/after measurements for performance-sensitive work.
 
-## Pull requests
+## Coding Rules
 
-Before opening:
+- Existing code uses ES modules, 2-space indentation, single quotes, semicolons,
+  Prettier, and ESLint.
+- New migrated boundaries use strict TypeScript and runtime schemas.
+- Persistent edits go through the validated command reducer. Direct mutation is
+  limited to clearly transient view/runtime data.
+- Commands use stable target IDs, never current selection as an implicit target.
+- Random behavior is seeded or materialized.
+- Kernel and command packages remain pure: no DOM, Web Audio, storage, or globals.
+- Audio-thread code performs no allocation in steady state when avoidable and no
+  DOM, network, storage, or model work.
+- Untrusted values render as text/template bindings, never string-built HTML.
+- Do not introduce new `window.*` integration globals.
+- New controls require an accessible name, keyboard behavior, stable dimensions,
+  focus styling, and documented state coverage.
 
-1. Run `npm run lint` and `npm test`.
-2. If you changed UI behavior, exercise it in the browser and note what you tested in the PR body.
-3. Keep PRs focused. Large refactors should be discussed in an issue first.
-4. Document any new env vars, routes, command types, or migration notes in `README.md` / `NEXT_SESSION.md`.
+## Branches and Commits
 
-Your PR should describe:
+- Branch from `main` with the plan prefix, such as `security/01-provider-egress`.
+- Keep commits focused and use imperative subjects no longer than 72 characters.
+- Reference issues with `Fixes #123` or `Refs #123`.
+- Never mix generated asset churn or unrelated formatting into a foundation commit.
 
-- What changed and why.
-- How you tested it (commands run, browsers used, audio paths exercised).
-- Any follow-up work you deliberately deferred.
+## Documentation Contract
 
-## Coding conventions
+Update documentation in the same pull request when a contract changes:
 
-- ES modules everywhere. The server uses `node:` builtins.
-- 2-space indent, single quotes, semicolons. Prettier and ESLint are authoritative — match them rather than memorizing rules.
-- Prefix intentionally unused variables with `_` (the ESLint config ignores those).
-- Avoid `window._*` globals in new code. Existing ones are being consolidated under a single namespace (see `NEXT_SESSION.md` Phase 2).
-- Keep audio-thread code (worklets) allocation-free in steady state.
-- Use the command bus (`window.confustudioCommands.execute(...)`) for any user-visible, undoable state mutation. Direct mutation is acceptable for ephemeral UI state.
+- `docs/ROADMAP.md` for completion status.
+- `docs/ARCHITECTURE.md` for boundaries and decisions.
+- `NEXT_SESSION.md` for the next approved batch.
+- `docs/STUDIO_MANUAL.md` for shipped commands, controls, and workflows.
+- Schema/migration notes for persisted formats.
+- `SECURITY.md` and `docs/DEPLOY.md` for trust or release-boundary changes.
 
-## Reporting bugs and proposing features
+Do not mark target behavior as shipped until its acceptance evidence is committed.
 
-Open an issue with:
+## Security Reports
 
-- For bugs: steps to reproduce, expected vs. actual behavior, browser + OS, console errors.
-- For features: the use case, why the current workflow falls short, and any sketch of the UI.
-
-## Security
-
-If you find a security issue, please follow [SECURITY.md](./SECURITY.md) instead of filing a public issue.
+Follow [`SECURITY.md`](./SECURITY.md). Do not place exploits, keys, private projects,
+or provider abuse details in public issues.
 
 ## Licensing
 
-By contributing, you agree that your contributions are licensed under the [Apache License, Version 2.0](./LICENSE), the same license as the project.
+Contributions are licensed under the [Apache License 2.0](./LICENSE).

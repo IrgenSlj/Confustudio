@@ -4,92 +4,117 @@
 [![Node](https://img.shields.io/badge/Node-%3E%3D20-brightgreen)](./package.json)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 
-> **A digital, modular, open-source reproduction of a hybrid techno/house home studio — a sequencer brain, a sampler, and monumental synth voices — driven by one agent harness that works in parameters and performances, never in rendered black-box audio.**
+CONFUstudio is an experimental browser-based groovebox, sampler, sequencer, and
+modular music studio. Its long-term differentiator is an AI co-producer that works
+in editable parameters and auditionable proposals rather than replacing the
+project with generated audio.
 
-CONFUstudio runs in the browser (installable as a PWA), with a dependency-light Node server for static hosting and an optional local AI bridge. Frontend is plain HTML, CSS, and modern JavaScript — no build step, no framework. The moat is **owning the engine**: every sound is an inspectable, re-editable patch; the agent designs patches, writes patterns, routes signals, rides mixes, and performs — it never generates waveforms.
+## Current Status
 
-## The thesis (locked)
+The repository is undergoing a foundation reset. The current prototype has broad
+features and a distinctive hardware-inspired interface, but its state/history,
+persistence, transport/audio ownership, UI rendering, and public assistant security
+boundaries are not ready for further feature expansion or public AI deployment.
 
-1. **Parameters, not renders.** Every sound is state. The agent edits state through the same command bus the UI uses — no private path.
-2. **Branches, not mutations.** Agent proposals materialize as branches of the edit-history DAG; you audition against head, then merge or discard. Merge is always a human click.
-3. **Perception is mandatory.** The agent can _hear_: offline render → feature extraction → musical lint → self-correct. No perception, no "agentic" label.
-4. **One harness, three stations.** Session Artist (compose/sound-design), Studio Master (mix + project memory), Co-Performer (quantized-launch live actions).
-5. **Community-extensible.** Instruments are built against a public Module SDK; third parties ship voices without touching core.
-6. **Original identity.** Behavioral homage to classic hardware; every name, glyph, preset, and panel is original — no trademarked names anywhere.
+Development is paused pending maintainer approval of the new plan:
 
-**Product hierarchy (breaks every tie, top wins):** sound-engine quality → ease of use → advanced music-making.
+- [`docs/DEVELOPMENT_PLAN.md`](./docs/DEVELOPMENT_PLAN.md): canonical sequence,
+  stack decisions, acceptance gates, and pull-request plan.
+- [`docs/ROADMAP.md`](./docs/ROADMAP.md): live status.
+- [`NEXT_SESSION.md`](./NEXT_SESSION.md): next approved batch only.
+- [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md): current and target boundaries.
+- [`SECURITY.md`](./SECURITY.md): current deployment restrictions.
 
-## Status & roadmap
+Do not publicly expose the current assistant proxy or configure it with production
+provider credentials.
 
-The work is organized into blocking phases: **0** stabilize · **A** engine to professional quality + Module SDK · **B** harness + branch auditioning · **C** perception · **D** studio-master memory/skills · **E** co-performer live mode · **F** external devices.
+## Product Direction
 
-- **Live status:** [`docs/ROADMAP.md`](./docs/ROADMAP.md) — the checklist across all phases.
-- **Session handoff:** [`NEXT_SESSION.md`](./NEXT_SESSION.md).
-- **Authoritative specs:** [`docs/CONFUSTUDIO_CODE_BRIEF.md`](./docs/CONFUSTUDIO_CODE_BRIEF.md) (phasing/engine/SDK), [`docs/CONFUSTUDIO_AI_BRIEF.md`](./docs/CONFUSTUDIO_AI_BRIEF.md) (harness — authoritative), [`docs/CONFUSTUDIO_DESIGN_BRIEF.md`](./docs/CONFUSTUDIO_DESIGN_BRIEF.md) (UI/UX), and [`docs/STUDIO_MANUAL.md`](./docs/STUDIO_MANUAL.md) (human + agent knowledge base).
+Priority order:
 
-## Architecture
+1. Security and data integrity.
+2. Deterministic editing, undo, persistence, and timing.
+3. Professional sampler/engine quality and a focused music-making workflow.
+4. Readable, accessible, fast UI and a ten-second first-run experience.
+5. Deterministic AI proposals with perception, traces, and human-controlled merge.
+6. Module SDK, external devices, and additional packaging.
 
-```
-UI shell (pages, studio canvas, module chassis) — edits state ONLY via the command bus
-        │
-Agent harness (src/harness/)  — loop · context · memory · skills · stations · branches
-        │
-Tool registry (MCP-shaped)    — device 0: engine tools · perception · branch · adapters
-        │
-Command bus + signal graph    — the edit DAG (undo/redo + branch auditioning substrate)
-        │
-Kernel (src/kernel/) — PURE   — musical model · event compiler · transport math · CS-Score
-        │
-Audio graph + ModularEngine   — persistent instruments
-        │
-DSP runtime — AudioWorklets    + offline render path (OfflineAudioContext) for perception
-```
+Core principles:
 
-Hard rules: **no private path** (agent uses the UI's commands); **AI never touches the audio thread**; **the kernel stays pure** (no DOM, no Web Audio, no globals — fully unit-testable). Types are enforced at the agent-facing boundary via checked-JSDoc (`jsconfig.json`, `npm run test:types`) — not a full TypeScript migration.
+- **Parameters, not opaque renders.** Sounds remain inspectable project state.
+- **Proposals, not silent mutations.** AI edits are auditioned before human merge.
+- **Perception before claims.** Audio assertions require offline measurement.
+- **One command path.** Human and agent edits cross the same validated boundary.
+- **One musical clock and audio graph.** Realtime and offline paths share a compiler.
+- **AI is optional.** The studio works when every provider is unavailable.
 
-**CS-Score** ([`docs/CS_SCORE.md`](./docs/CS_SCORE.md)) is the agent's compact, lossless text notation for patterns — the reason a music agent can be as fluent as a coding agent.
+## Prototype Capabilities
 
-## Running
+The current prototype includes a 64-step sequencer, p-locks, trig conditions,
+probability and microtiming, audio and MIDI tracks, banks and patterns, scenes,
+arranger, mixer buses, sample/tone/noise machines, effects, modular routing,
+WebMIDI, project packages, PWA support, loudness/spectrum kernels, and an early
+agent harness.
 
-Requirements: Node 20+ and a modern browser with Web Audio + MediaRecorder.
+These capabilities are not all production-ready. In particular:
+
+- Undo/replay and proposal merge are not yet deterministic.
+- Project state is oversized and persistence/history are not properly bounded.
+- Multiple scheduler/audio paths compete for authority.
+- Several modular voices are placeholders.
+- The Director rail, full perception loop, memory, and production provider API
+  are not complete.
+- Electron packaging and Ableton Link are parked.
+
+## Running Locally
+
+Requirements: Node.js 20+ and a modern browser with Web Audio.
 
 ```bash
-npm start          # serves http://127.0.0.1:4173 (COOP/COEP on, for AudioWorklet/SharedArrayBuffer)
-npm test           # lint · types · syntax · kernel · score · perception · spectrum · harness · state · server · ui-smoke
-docker build -t confustudio . && docker run --rm -p 4173:4173 confustudio
+npm install
+npm start
+# http://127.0.0.1:4173
 ```
 
-Deploy to a public URL (Fly.io / Render, one command): see [`docs/DEPLOY.md`](./docs/DEPLOY.md).
-
-Optional AI bridge (keys stay server-side, never sent to the browser):
+Checks:
 
 ```bash
-export ANTHROPIC_API_KEY=...   ANTHROPIC_MODEL=claude-sonnet-5
-export OPENAI_API_KEY=...      OPENAI_MODEL=gpt-4.1-mini
-# or a local OpenAI-compatible endpoint / Ollama — see server.mjs provider catalog
+npm run lint
+npm run format
+npm test
 ```
 
-## What's implemented today
+The current test suite is useful but does not yet prove audio quality,
+accessibility, multi-browser behavior, history correctness, or deployment safety.
+The development plan adds those gates.
 
-- **Sequencer brain:** 64-step engine, p-locks per step, trig conditions (`always/1st/every-N/A:B/fill`), probability, micro-timing, 8 audio + 8 MIDI tracks, 8 banks × 16 patterns, scene A/B crossfader morph, arranger/song mode.
-- **Sound:** tone/noise/sample machines; per-track filter (LP/BP/HP), ADSR, LFO, drive, EQ, bitcrusher + sample-rate reduction; `cs-resampler` AudioWorklet (4-point Hermite) for pitched samples; convolution reverb + delay sends.
-- **Mixer/routing:** per-track + 8 group buses with **real** metering (AnalyserNode taps); master bus with soft limiting; a modular patch-cable canvas with typed ports (audio/control/event) and persisted layout.
-- **Perception (seed):** BS.1770 K-weighted **LUFS** metering (`src/kernel/loudness.js`) surfaced as a real master meter on the mixer, plus a 6-band spectrum kernel (`src/kernel/spectrum.js`) — the shared vocabulary the agent will hear in.
-- **Agent harness (foundation):** a tool registry (`src/harness/tools/`) that wraps studio commands as validated, guardrailed, station-scoped tools compiling 1:1 to the same command bus the UI uses — **no private path**. Exposed to the AI at `/api/assistant/context` as the live capability surface.
-- **MIDI:** WebMIDI I/O, clock out (24 ppqn) with start/stop transport.
-- **Platform:** installable PWA; COOP/COEP → SharedArrayBuffer; optional AI bridge (OpenAI/Anthropic/local/Ollama); one-command container deploy (Fly.io / Render — see [`docs/DEPLOY.md`](./docs/DEPLOY.md)); portable project packages with embedded audio assets + workspace layout.
+## Target Stack
 
-Stubbed / not real yet (see the roadmap): Plaits/Clouds/Rings/modular-sampler worklet voices, the full agent **loop** (the tool registry landed; the tool-calling state machine + branch auditioning + perception-gating are Phase B/C), real Ableton Link.
+Migration is incremental rather than a rewrite:
 
-The `confu/` directory is a parked Electron shell (unmaintained until Phase F — no desktop packaging before then).
+- Vite builds and hashed assets.
+- Strict TypeScript for project, command, kernel, engine, harness, and UI boundaries.
+- Lit Web Components for page-by-page UI replacement.
+- Pure reducers and inverse patches for deterministic history and proposals.
+- Valibot runtime schemas at every trust boundary.
+- Dexie/IndexedDB project storage and OPFS/IndexedDB audio assets.
+- One PPQ event compiler and persistent AudioWorklet graph.
+- Vitest, Playwright Test, axe-core, and offline audio fixtures.
+- Separate authenticated hosted API and loopback-only local provider bridge.
+- PWA-first packaging; no Rust/WASM or desktop shell without measured need.
 
-## Non-goals (locked)
+## Documentation
 
-No CLAP/VST3/AU · no Tauri desktop until Phase F · no mobile/responsive pass (desktop + PWA only) · no Rust/WASM DSP in this brief (worklets suffice; the kernel boundary keeps the door open) · no full TypeScript migration · no audio-generation models of any kind.
+The code, AI, design, score, manual, and design-system briefs remain domain
+references. Their historical phase labels do not override the development plan.
+Research and postmortems are evidence records, not current implementation claims.
 
 ## Contributing
 
-Contributions welcome — see [CONTRIBUTING.md](./CONTRIBUTING.md) and the [Code of Conduct](./CODE_OF_CONDUCT.md). Security reports: [SECURITY.md](./SECURITY.md). Everything ships behind a green `npm test`, verified in a real browser.
+Read [`CONTRIBUTING.md`](./CONTRIBUTING.md) before opening a change. Foundation
+work follows the ordered roadmap and requires migration, security, performance,
+audio, or browser evidence appropriate to its risk. Security reports belong in a
+private advisory as described in [`SECURITY.md`](./SECURITY.md).
 
 ## License
 

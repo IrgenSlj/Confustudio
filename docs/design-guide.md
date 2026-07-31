@@ -1,4 +1,10 @@
-# CONFUstudio — Design System (v1 token guide)
+# CONFUstudio — Design System (token guide)
+
+**Status:** current token reference; component migration is Phase 4
+
+**Reviewed:** 2026-07-31
+
+**Plan:** [`DEVELOPMENT_PLAN.md`](./DEVELOPMENT_PLAN.md)
 
 > The Claude Design **v2.0** handoff supersedes and extends this. See
 > [`design-system/module-chassis-spec.md`](./design-system/module-chassis-spec.md)
@@ -7,10 +13,11 @@
 > design-guide v2 is a pending deliverable. This page remains accurate for the
 > token system and theming.
 
-The single source of truth for visual tokens. Everything here is implemented as
-CSS custom properties in `src/styles.css` `:root`, so new CSS should reference
-`var(--token)` rather than hard-coded values. No build step, no preprocessor —
-plain CSS custom properties only.
+The single source of truth for visual tokens. Tokens currently span
+`src/css/tokens.css` and compatibility values in `src/styles.css`; Phase 4 must
+consolidate ownership before removing aliases. New CSS should reference
+`var(--token)` rather than hard-coded values. Vite and Lit are the target build
+and component stack; CSS custom properties remain the theming contract.
 
 ## How theming works
 
@@ -93,7 +100,8 @@ Animate **transform + opacity only** (no layout-triggering properties).
 
 ## Interaction & layout
 
-- `--touch-min` 44px — minimum hit target for any interactive control (touch a11y).
+- Studio controls have a 32px minimum target; primary/live controls use 44px.
+  Existing smaller controls are technical debt, not approved exceptions.
 - Z-index scale: `--z-canvas` 1 · `--z-overlay` 1000 · `--z-toast` 2000 · `--z-modal` 3000.
 
 ## Accessibility checklist
@@ -104,7 +112,14 @@ Animate **transform + opacity only** (no layout-triggering properties).
 
 ## Adoption
 
-New/refactored CSS should reference tokens instead of literals — e.g.
+New/refactored Lit components should reference tokens instead of literals — e.g.
 `padding: var(--space-3)`, `border-radius: var(--radius-md)`,
 `box-shadow: var(--shadow-md)`, `color: var(--text)`. Existing CSS keeps working
-unchanged; migrate opportunistically.
+until its owning workflow is migrated. Do not add a second unscoped global
+component layer. Every migrated component needs stable dimensions, accessible
+name, keyboard behavior, visible focus, reduced-motion behavior, and state tests.
+
+The hardware identity is retained, but visual density is not a product goal. Text
+must remain readable, controls must not overlap, and advanced detail should use
+progressive disclosure. Phase 5 validates the Starter Desk and core workflow with
+observed users before further visual expansion.

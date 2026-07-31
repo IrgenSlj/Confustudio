@@ -1,6 +1,9 @@
 # Code of Conduct
 
 CONFUstudio aims to be a welcoming, productive, and respectful community.
+Technical contributions also follow the scoped review and evidence expectations in
+[`CONTRIBUTING.md`](./CONTRIBUTING.md); disagreement about architecture or priority
+must remain focused on evidence and project outcomes.
 
 ## Expected behavior
 

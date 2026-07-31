@@ -1,6 +1,17 @@
 # CONFUstudio — Module Chassis Spec & Handoff
 
-> **For:** Claude Code, integrating the system-canvas designs into the codebase.
+**Status:** visual requirements reference; production integration deferred
+
+**Reviewed:** 2026-07-31
+
+**Plan:** [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT_PLAN.md), Phases 3, 4, and 7
+
+This specification does not authorize direct adoption of the design harness.
+Production controls are scoped Lit components backed by real parameters and meters.
+The sampler and first flagship voice validate the chassis before it becomes the
+public Module SDK contract. Accessibility and readability floors override density.
+
+> **For:** contributors implementing the future typed component and Module SDK layers.
 > **Companion files:** `Confustudio System.html` (the visual contract, pannable canvas), `system-canvas.css` (all new component styles), `system-canvas.js` (interaction behaviours), `tokens.css` (extended token set).
 > **Version:** 2.0 · July 2026
 > **Source:** Claude Design project "Confusynth UI/UX" (0a865dfd-…). Mirrored in-repo for durability.
@@ -9,7 +20,10 @@
 
 ## 0. How to read the deliverable
 
-Open `Confustudio System.html`. It is a single pannable canvas organised into six horizontal bands (S1–S6), each labelled on the left. Every frame carries a `data-screen-label` so review comments and diffs can name the surface. Nothing is a static mock — knobs turn, faders slide, meters animate, the A/B lever reveals ghosts, and Merge crystallizes a diff.
+`Confustudio System.html` is a visual prototype organized into six bands. Its
+interactions demonstrate intent, not production correctness. Animated meters are
+fake, branch behavior is not wired to deterministic proposals, and generic class
+names can collide with the current application.
 
 The three pillars the whole system serves:
 
@@ -135,11 +149,17 @@ Four flagship panels. **Character is behavioural/tonal homage only — all trade
 
 ---
 
-## 8. Integration checklist for Claude Code
+## 8. Future Integration Checklist
 
 - [ ] Merge the two new tokens into `tokens.css` (already present in the repo's tokens.css — `--warn`, `--focus-ring`).
-- [ ] Adopt `system-canvas.css` component classes; they layer on top of `tokens.css` + `component-library.css`. **CAVEAT (repo reality):** class names `.knob`/`.step`/`.fader` may collide with existing app CSS — scope or namespace on adoption, verify no regression on the existing PATTERN/MIXER pages via a real-browser screenshot.
-- [ ] Wire real audio state into the self-scaffolding controls — `system-canvas.js` is a design harness (random meter data, demo A/B). Replace the `animateMeters`/`animateSpectrum` fakes with engine taps; keep the paint/interaction logic.
+- [ ] Rebuild the component concepts as scoped Lit components; do not adopt
+      unscoped `.knob`/`.step`/`.fader` classes.
+- [ ] Wire real audio state through typed meter subscriptions; do not carry over
+      `animateMeters`, `animateSpectrum`, or demo A/B behavior.
 - [ ] Enforce the **Module SDK manifest → control** mapping (§2) so third-party modules render correctly from metadata alone.
 - [ ] Respect `prefers-reduced-motion` — crystallize/pulse already gate on it.
 - [ ] Keep the ergonomic floors from §3 (knob 44/60/88, brightened labels).
+- [ ] Verify keyboard operation, accessible names/values, 4.5:1 text contrast,
+      32px studio targets, 44px live targets, and supported widths.
+- [ ] Validate the chassis on the production sampler and flagship synth before
+      documenting it as a third-party SDK contract.

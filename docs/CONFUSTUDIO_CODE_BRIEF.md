@@ -1,13 +1,19 @@
 # CONFUSTUDIO — DEVELOPMENT BRIEF (CODE)
 
-**Version:** 1.2 · **Date:** 2026-07-03 · **Owner:** Irgen Salianji
-**Audience:** Claude Code (implementation agent)
-**Companion documents:** `CONFUSTUDIO_AI_BRIEF.md` (**authoritative for all harness/agent behavior** — Phases B–F implement its specs), `CONFUSTUDIO_DESIGN_BRIEF.md` (Claude Design), `CONFUSTUDIO_STUDIO_MANUAL.md` (agent knowledge base; maintained per its M-13 contract — manual updates ship in the same PR as the features they describe)
-**Repo:** github.com/IrgenSlj/Confustudio · branch state: PR #1 (`fix/signal-graph-runtime-bugs`) unmerged; `main` behind.
+**Version:** 1.3 · **Reviewed:** 2026-07-31 · **Owner:** Irgen Salianji
+**Status:** domain requirements reference; phase order superseded
+**Audience:** implementation contributors
+**Companion documents:** `DEVELOPMENT_PLAN.md` (**authoritative for sequence and gates**), `ARCHITECTURE.md` (target boundaries), `CONFUSTUDIO_AI_BRIEF.md` (harness requirements), `CONFUSTUDIO_DESIGN_BRIEF.md` (UI requirements), `STUDIO_MANUAL.md` (shipped operator knowledge)
+**Repo:** github.com/IrgenSlj/Confustudio · branch: `main`.
+
+> The engine, SDK, and product requirements in this brief remain useful. The
+> 2026-07-31 review found that its state/history and security assumptions were
+> incorrect, and that AI work advanced ahead of its audio-quality gate. Section 4
+> is retained as design history; implementation follows `DEVELOPMENT_PLAN.md`.
 
 ---
 
-## 0. LOCKED THESIS — do not re-litigate
+## 0. PRODUCT THESIS
 
 > **Confustudio is a digital, modular, open-source reproduction of a hybrid techno/house home studio — sequencer brain, sampler, and monumental synth voices — driven by one agent harness that works in parameters and performances, never in rendered black-box audio.**
 
@@ -53,12 +59,32 @@ When two tasks compete, the one higher in this hierarchy wins.
 
 ---
 
-## 2. CURRENT STATE — honest assessment
+## 2. CURRENT STATE — original assessment with review correction
+
+The following inventory was written before the 2026-07-31 architecture review.
+Corrections that govern implementation:
+
+- The command DAG is not a reliable undo or proposal substrate yet: it lacks a
+  correct baseline/replay contract, can persist unexpectedly, and is bypassed by
+  direct UI mutations.
+- Proposal commands can retarget through current selection and random operations
+  can produce different audition and merge results.
+- The eager default model is about 10 MB in memory/JSON traversal terms and makes
+  ordinary command capture too slow for an interactive instrument.
+- The live scheduler, legacy engine, modular engine, and module timers do not form
+  one authoritative realtime/offline audio path.
+- The hosted-provider proxy and imported-project rendering have release-blocking
+  security defects.
+- The checked-JSDoc gate excludes most of the application and is not the target
+  typing strategy. Migration is now Vite plus strict TypeScript by package.
 
 **Real and valuable:**
 
 - 64-step sequencer with p-locks, trig conditions (`always/1st/every-N/A:B/fill`), probability, scenes A/B crossfader morph, 8 banks × 16 patterns, arranger.
-- Command bus (`src/command-bus.js`, 869 lines) with ~38 command types; signal-graph DAG undo/redo **with branching already implemented** (`signalListBranches`, `signalSwitchBranch`, `cursorId`-parented branch creation). This is the crown jewel.
+- Command bus (`src/command-bus.js`) with roughly 38 command types and an early
+  signal-graph DAG API. Branch-list/switch functions exist, but undo, baseline,
+  replay, persistence, and deterministic proposal semantics require replacement
+  under Phase 2 before this can be treated as a product capability.
 - Plugin registry with 21 descriptors; `ModularEngine` (`src/engine-graph.js`) with `compile/sync/teardown`; typed ports (audio/control/event).
 - Kernel seam started: `src/kernel/transport.js` (pure timing math incl. `beatToFrame`) and `src/kernel/event-compiler.js` (pure trig/probability/event creation).
 - Convolution reverb, delay, bitcrusher, sinc resampler worklet; WebMIDI I/O + MIDI clock out (24ppqn); COOP/COEP → SharedArrayBuffer available.
@@ -70,7 +96,9 @@ When two tasks compete, the one higher in this hierarchy wins.
 - Plaits/Clouds/Rings/Sampler worklet voices are **stubbed** in `ModularEngine` (console warnings, test tones).
 - `actions/plan` is single-shot request/response — there is **no agent loop, no tool calling, no memory, no perception**.
 - Ableton Link bridge is SSE simulation, not real Link.
-- PR #1 unmerged; an "unusable mess" user report is undiagnosed (suspected stale SW cache / corrupt localStorage; SW bumped to v4, reset hatches added).
+- The former PR #1 and stale-cache investigation were closed in July 2026. The
+  mitigations are recorded in `POSTMORTEM_STALE_CACHE.md`; Phase 4 replaces manual
+  cache bumps and ad hoc storage repair with build revisions and migrations.
 - 84 `window._*` globals partially consolidated; no types anywhere.
 
 ---
@@ -143,13 +171,17 @@ Everything else is fetchable via read tools (`project.describe`, `score.read`, `
 
 ---
 
-## 4. PHASE PLAN
+## 4. HISTORICAL PHASE PLAN
+
+This section is retained to preserve the original requirements and rationale. It
+is not the active build order. Map these deliverables into Phases 3, 6, and 7 of
+`DEVELOPMENT_PLAN.md`; do not start them ahead of the blocking foundation gates.
 
 Sessions use the established `S#` convention; each phase ends with `npm test` green plus the phase's acceptance checks. Do not start a phase before the previous phase's acceptance checks pass.
 
 ### PHASE 0 — Stabilize (prerequisite, 1–2 sessions)
 
-0.1 Merge PR #1 into `main` (verify in browser first per NEXT*SESSION.md protocol: Incognito check for the stale-cache report).
+0.1 Historical/completed: merge the former PR #1 and close the stale-cache report.
 0.2 Diagnose/close the "unusable mess" report: if reproducible in Incognito, fix; else document the SW-cache postmortem and keep the v4-bump + reset-hatch mitigation.
 0.3 **Type the boundary.** Adopt TypeScript-checked JSDoc (`checkJs` via `jsconfig.json`) for `src/kernel/`, `src/command-bus.js`, `src/state.js`, `src/plugins/*`only. Define`@typedef`for`Command`, `Step`, `Track`, `Pattern`, `PluginDescriptor`, `GraphNode`, `Connection`. No full-codebase TS migration (decision log stands) — but the agent-facing boundary must be machine-checkable.
 0.4 Finish consolidating `window.\*\*`globals into`**CONFUSTUDIO**`(roadmap Phase 2 item).
@@ -217,7 +249,9 @@ Requirements: params gain `unit`, `curve`, `smooth` fields (agent + UI both need
 - `branch.open(fromCursor)` → agent commands recorded with `parentSignalId` = branch head (mechanism already exists).
 - `branch.audition(branchId)` → replay subgraph into a shadow state; the UI can flip playback between head and branch (A/B) without destroying either.
 - `branch.merge(branchId)` / `branch.discard(branchId)`.
-- Serialize branches with the project (currently `_signalGraph` is runtime-only and stripped — introduce an opt-in persisted `branches` compartment so proposals survive reload).
+- Persist bounded proposal records separately from portable project data. The old
+  `_signalGraph` was intended to be runtime-only but is not reliably stripped;
+  do not reuse its serialization behavior.
 
 **B4. In-app agent panel.** Chat + proposal cards (each proposal = branch + summary + diff of touched commands) + audition/merge/discard controls. Replace the current fire-and-forget `actions/plan` UI path. (Visual spec in the Design brief.)
 
@@ -337,11 +371,13 @@ Add a `tests/perf-smoke.mjs` that asserts the offline-render and sync budgets on
 - **No Tauri desktop packaging** until Phase F is done (the `confu/` shell stays as-is, unmaintained).
 - **No mobile/responsive pass** (desktop + PWA only).
 - **No Rust/WASM DSP migration** in this brief (worklets are sufficient; keep the door open via the kernel boundary).
-- **No full TypeScript migration** (checked-JSDoc boundary only).
+- **No big-bang TypeScript rewrite.** Strict TypeScript is adopted incrementally
+  at package and service boundaries per the development plan.
 - **No embeddings/vector store** for skills or memory (keyword loading first).
 - **No audio-generation models** of any kind (thesis corollary 1).
 - **No in-core Ableton bridge** (adapter spec only, Phase F).
-- **No new state-management library** (command bus stands).
+- **No UI-framework-owned project state.** The current command bus is replaced
+  incrementally by a pure reducer and inverse-patch contract.
 
 ## 7. TESTING & EVAL DISCIPLINE
 
@@ -365,13 +401,14 @@ Add a `tests/perf-smoke.mjs` that asserts the offline-render and sync budgets on
 
 - Every session ends by updating `NEXT_SESSION.md` (existing discipline — keep it).
 
-## 8. DECISION LOG (append-only; inherited decisions remain in force)
+## 8. DECISION LOG
 
 - D-N1 One harness, three stations; sequenced Session Artist → Studio Master → Co-Performer.
 - D-N2 Agent proposals are branches; no direct mutation of head.
 - D-N3 Perception gate: no "agentic" labeling without render-measure-lint loop.
 - D-N4 Tool layer MCP-shaped; engine is device 0; external control = adapters.
-- D-N5 Checked-JSDoc types at kernel/command/plugin boundary; no full TS.
+- D-N5 Superseded 2026-07-31: strict TypeScript is adopted incrementally; there is
+  still no big-bang rewrite.
 - D-N6 Live agent actions are quantized-launch only; guardrails enforced in registry, not prompts.
 - D-N7 Original naming; classic-hardware inspiration is behavioral, never nominal.
 - D-N8 Sampler is the first un-stub (studio backbone).
@@ -382,12 +419,20 @@ Add a `tests/perf-smoke.mjs` that asserts the offline-render and sync budgets on
 - D-N13 Uniform tool-result envelope with model-facing `hint`; errors are loop feedback, not failures.
 - D-N14 Every agent run produces a persisted trace; evals assert on traces.
 - D-N15 One `compile()` path for realtime and offline render (perception fidelity guarantee).
-- D-N16 Phase B may start once sampler + one synth voice pass the audio-quality harness (doesn't wait for all four flagships).
-- D-N17 Document ownership: AI brief is authoritative for harness behavior; Studio Manual is authoritative for studio knowledge and updates in the same PR as the features it documents; this brief owns phasing, engine, and SDK.
+- D-N16 Superseded 2026-07-31: AI product work resumes only after security,
+  deterministic core, audio, UI, and product gates P1-P5 pass.
+- D-N17 Document ownership: `DEVELOPMENT_PLAN.md` owns phasing; `ARCHITECTURE.md`
+  owns boundaries; this brief owns engine and SDK requirements; the AI brief owns
+  harness requirements; the manual documents shipped behavior only.
+- D-N18 Project schema v4 is sparse, stable-ID based, runtime-validated, and stored
+  outside localStorage.
+- D-N19 One pure compiler and one persistent graph serve realtime and offline audio.
+- D-N20 Public hosted providers use a separate authenticated API; local providers
+  remain in a loopback-only bridge.
 
-## 9. SESSION 1 ORDERS (start here)
+## 9. NEXT IMPLEMENTATION ORDER
 
-1. Phase 0.1–0.2: merge PR #1, close or document the stale-cache report.
-2. Phase 0.3: `jsconfig.json` + typedefs for `Command`, `PluginDescriptor`, `Step/Track/Pattern`, graph types; wire `tsc --noEmit` into `npm test`.
-3. Begin A1: real sampler worklet (spec in A1), behind the existing `cs-resampler` interpolation.
-4. Update `NEXT_SESSION.md` with Phase/acceptance status.
+Wait for explicit approval, then execute the pull-request sequence in
+`DEVELOPMENT_PLAN.md` section 5. The first change is baseline fixtures, benchmarks,
+an ADR, and a public AI kill switch. Do not begin sampler, SDK, Director, or provider
+work until its owning gate opens.

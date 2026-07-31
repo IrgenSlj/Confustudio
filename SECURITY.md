@@ -1,27 +1,72 @@
 # Security Policy
 
-## Supported versions
+## Current Security Status
 
-CONFUstudio is in early development. Only the latest commit on `main` is supported.
+CONFUstudio is in early development. Only the latest commit on `main` is
+supported. The application is suitable for local evaluation, but the current
+assistant proxy must not be exposed publicly or configured with production API
+keys. Public hosted-provider deployment is blocked until Phase 6 of
+[`docs/DEVELOPMENT_PLAN.md`](./docs/DEVELOPMENT_PLAN.md) passes.
 
-## Reporting a vulnerability
+Known classes under active remediation include provider credential forwarding,
+server-side request forgery, stored HTML injection from imported projects,
+insufficient runtime command/import validation, and missing public API abuse controls.
 
-Please do not open a public issue for security reports.
+## Reporting a Vulnerability
 
-Instead, open a private security advisory on GitHub:
+Do not open a public issue. Open a private GitHub security advisory:
+
 https://github.com/IrgenSlj/Confustudio/security/advisories/new
 
 Include:
 
-- A description of the issue and its impact.
-- Steps to reproduce, ideally with a minimal proof of concept.
-- Affected files or routes.
-- Your suggested fix, if you have one.
+- A description of the issue and likely impact.
+- Reproduction steps and a minimal proof of concept when possible.
+- Affected files, routes, providers, project formats, or browser versions.
+- Whether credentials, imported projects, local network access, or persistence
+  are involved.
+- A suggested remediation, if available.
 
-You can expect an initial response within a few days. We will work with you on a fix and coordinate disclosure timing.
+Do not include real provider credentials or private project/audio data. Use test
+keys and synthetic fixtures. The maintainer will acknowledge reports as capacity
+allows and coordinate remediation and disclosure.
 
 ## Scope
 
-The local server (`server.mjs`) binds to `127.0.0.1` by default. Issues that require exposing the server to the public internet are out of scope unless they demonstrate a problem in the default configuration.
+In scope:
 
-The assistant bridge proxies requests to OpenAI, Anthropic, and other model providers. API keys are read from environment variables and are never written to disk. Reports about key handling or proxy abuse are in scope.
+- Browser application, project import/export, persistence, PWA, and service worker.
+- `server.mjs` static and assistant routes, including loopback use.
+- Provider credentials, proxy abuse, SSRF, redirect handling, and response leakage.
+- Command/tool validation, agent guardrails, proposal merge, and prompt injection.
+- Module manifests, audio assets, filenames, and workspace packages.
+- Authentication, authorization, CSRF, origin policy, quotas, and rate limiting
+  once the hosted API exists.
+- Dependency and build-chain vulnerabilities with a plausible project impact.
+
+The fact that an exploit requires a non-default public deployment does not make it
+out of scope. Deployment files and documentation are part of the supported system.
+
+Generally out of scope:
+
+- Denial of service requiring physical access to the same machine and no trust
+  boundary bypass.
+- Vulnerabilities exclusively in unsupported browser versions.
+- Social engineering, spam, and scanner-only reports without a reproducible impact.
+
+## Deployment Rules
+
+- The current server binds to loopback for development. Do not override that for
+  internet exposure while the security block is active.
+- Do not place OpenAI, Anthropic, or other production keys in the current process.
+- Do not treat CORS as authentication or an SSRF defense.
+- Imported projects and provider output are untrusted data.
+- Secrets must never appear in browser responses, logs, traces, fixtures, project
+  packages, URLs, or arbitrary outbound requests.
+
+## Release Gate
+
+Before public AI use, the project requires fixed provider egress, redirect policy,
+authentication, CSRF/origin controls, per-user quotas and rate limits, request and
+response budgets, audit events, CSP, hostile import fixtures, and an independent
+security review. The detailed checklist is Phase 1 and Phase 6 of the development plan.

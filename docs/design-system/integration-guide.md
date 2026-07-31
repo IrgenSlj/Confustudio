@@ -1,54 +1,68 @@
-# CONFUstudio · Design Integration Guide
+# CONFUstudio Design Integration Guide
 
-> How to land each Claude Design v2.0 deliverable into the existing codebase — no build step, no framework, no runtime deps. Mirrored in-repo from the design project (0a865dfd-…) for durability. The prototype HTML is the source of truth for visual behaviour; the markdown docs are the source of truth for intent.
+**Status:** reference assets only; migration follows Phases 4-5
 
-## Deliverables (in the design project, fetch via DesignSync)
+**Reviewed:** 2026-07-31
 
-`tokens.css` · `chassis.css`/`chassis.js` · `component-library.css`/`.html` · `pattern.css`/`.js`/`pattern-page.html` · `mixer.css`/`.js`/`mixer-page.html` · `system-canvas.css`/`system-canvas.js` (the **production** component library) · `Confustudio System.html` (the pannable canvas) · `module-chassis-spec.md` · `design-guide.md` · `studio-canvas-redesign.md`
+**Authority:** [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT_PLAN.md)
 
-**DesignSync is main-context only** — subagents can't call it. Fetch each file yourself with `DesignSync {method:'get_file', projectId:'0a865dfd-ed0d-407e-9c59-a80f2b4a781e', path}`.
+The Claude Design v2 handoff contains useful visual research, but its prototype
+HTML, fake meters, self-scaffolding scripts, global class names, and old state
+adapters are not production architecture. Do not copy a complete handoff file into
+the app. Reimplement validated behavior as scoped Lit components backed by typed
+services and real engine data.
 
-## File-by-file mapping
+## Assets and Their Role
 
-| Deliverable                    | Maps to                                                            | How                                                                                                                                                                                                                                                                                                                                                                       |
-| ------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Design tokens                  | `src/css/tokens.css` (already integrated + more complete than raw) | Repo version has a back-compat alias block the raw lacks — **do not blind-replace**. Only additive `--warn`/`--focus-ring` + `.t-*` utilities were new (now in `src/css/components.css`).                                                                                                                                                                                 |
-| Component library (production) | `system-canvas.css` + `system-canvas.js`                           | The real `.knob`/`.fader`/`.step`/`.module`/`.seg7`/`.mini-screen` classes, self-scaffolding via JS. **CAVEAT: `.step`/`.knob`/`.fader` collide with existing app CSS — scope/namespace on adoption and screenshot-verify existing pages.** `system-canvas.js` uses fake meter data — replace `animateMeters`/`animateSpectrum` with engine taps, keep paint/interaction. |
-| Component library (docs)       | `docs/design-system/component-library.html`                        | `.lib-*`-namespaced showcase page. Reference only; doesn't ship into the app.                                                                                                                                                                                                                                                                                             |
-| Buttons/chips/type             | `src/css/components.css` (DONE)                                    | `.btn` system + `.chip` + `.t-*` — additive, no collision.                                                                                                                                                                                                                                                                                                                |
-| Chassis chrome                 | `src/css/chassis.css` + `src/chassis.js`                           | Styles transport/tabs/channel-rail/dock/osc via existing selectors. Meter fills must be real `<div class="fill">` children, not pseudo-elements.                                                                                                                                                                                                                          |
-| Pattern page                   | `src/pages/pattern.js` + `src/css/drum-machine.css`                | New shape: `state.tracks[i].steps[s] = {on,accent,vel,prob,mt,locks:[{param,val}],cond}`. Write an adapter to the real model. `renderToolbar/Trackbar/Grid/Detail/AIBar` are pure-function templates.                                                                                                                                                                     |
-| Mixer page                     | `src/pages/mixer.js` + `src/css/mixer.css`                         | Vertical faders know level via `--lvl` (0..1, 0.75=unity). Drive `.fill` height from the per-frame meter loop; add master LUFS 7-seg + spectrum + masking.                                                                                                                                                                                                                |
-| Studio canvas                  | `src/studio-modules.js`, `src/cables.js`                           | `studio-canvas-redesign.md` — doc, not code. Highest-leverage: adopt the `state.signalGraph` shape as one source of truth.                                                                                                                                                                                                                                                |
+| Asset                    | Use now                      | Migration rule                                                                  |
+| ------------------------ | ---------------------------- | ------------------------------------------------------------------------------- |
+| `src/css/tokens.css`     | Current token source         | Consolidate compatibility aliases in Phase 4; preserve themes.                  |
+| `src/css/components.css` | Existing additive utilities  | Freeze new global selectors; replace workflow by workflow.                      |
+| `system-canvas.css/js`   | Visual interaction reference | Namespace concepts; do not ship fake data or self-created hidden DOM contracts. |
+| Pattern/mixer prototypes | Layout reference             | Rebuild only after v4 selectors and command reducers exist.                     |
+| Chassis spec             | Module visual requirements   | Apply to the sampler/flagship voice, then SDK modules in Phase 7.               |
+| Director/ghost concepts  | AI UX requirements           | Defer until deterministic headless proposals pass in Phase 6.                   |
 
-## Order of operations (each ships independently)
+Design project files may not be available to every contributor. Required behavior
+must be captured in-repo before it becomes an implementation dependency.
 
-1. **Tokens** — done (canonical in repo; `--warn`/`--focus-ring`/`.t-*` landed).
-2. **Components** — `src/css/components.css` (`.btn`/`.chip`/`.t-*`) done; adopt `system-canvas.css/js` for new surfaces next.
-3. **Chassis chrome** — dress transport/tabs/rail; verify DOM selectors match.
-4. **Pattern page** — adapter to real state; STEP DETAIL in-place editor; trig-condition glyph rack. Playhead updates only `.is-playing`, not a full re-render.
-5. **Mixer page** — vertical faders + VU + master LUFS + spectrum/masking + lint tags.
-6. **Studio canvas refactor** — separate epic; `state.signalGraph` first.
+## Production Component Contract
 
-## Backwards compatibility (already handled in repo tokens.css)
+- Lit component with typed public properties and events.
+- Reads selected data through a subscription; never imports the global app state.
+- Dispatches a validated command with stable target IDs for persistent edits.
+- Renders untrusted strings through text bindings.
+- Uses scoped styles or an explicitly namespaced shared class.
+- Provides accessible name, role, value, keyboard behavior, and visible focus.
+- Has stable dimensions and cannot shift layout when values, hover, or playback change.
+- Honors reduced motion and does not rely on color alone.
+- Uses real engine/project data; demo animation and random meters are prohibited.
+- Includes interaction and visual evidence at supported widths.
 
-Legacy names kept/aliased: `--muted`→`--fg-3`, `--bg2`→`--bg-2`, `--surface2`→`--surface-2`, `--text`→`--fg`, `--text-dim`→`--fg-3`, `--text-muted`→`--fg-mute`; `--chassis-*`, `--screen-*`, `--track-0..7`, `--accent/--live/--record/--electric`, `--font-*` all preserved. `styles.css`'s legacy `:root` is imported after tokens.css, so its values win where it redefines.
+## Delivery Order
 
-## Page render contract
+1. Establish Vite, strict TypeScript, Lit, typed services, and v4 selectors.
+2. Build accessible primitives: icon button, toggle, segmented control, knob,
+   fader, step, meter, readout, tooltip, dialog/drawer, and status indicator.
+3. Migrate the shell, navigation, save/recovery states, and one small workflow.
+4. Migrate Pattern and Sound as the primary creation path without full-page rebuilds.
+5. Add Mixer and Arrange after the authoritative audio/transport data exists.
+6. Build Starter Desk and onboarding, then validate with observed first-use sessions.
+7. Build Director proposal/diff components only after Phase 6 headless acceptance.
+8. Publish chassis components through Module SDK v1 in Phase 7.
 
-```js
-// src/pages/<page>.js
-export function render(state, root) {
-  /* root === #page-content; build DOM; return cleanup|undefined */
-}
-```
+## Verification
 
-## AI integration hooks
+Every UI pull request includes:
 
-Each page exposes `aiAction(kind)`. Pattern: `humanize·fill·variation·complement·sparser·busier`. Mixer: `balance·punch·space·warm·match`. In production these route through the harness (Phase B): send the relevant `state` slice + kind → endpoint returns a **diff** (never whole state) → apply client-side → toast + render.
+- Playwright interaction checks on relevant Chromium, Firefox, and WebKit paths.
+- axe results and a keyboard-only completion path.
+- Screenshots at 1024x768, 1365x768, and 1440x900 where the surface applies.
+- No clipped text, incoherent overlap, unexpected horizontal scroll, or focus loss.
+- Fresh, returning-user, migration/recovery, and offline states where applicable.
+- Render-count and interaction-latency comparison for replaced pages.
+- Real audio/meter values for any audio visualization.
 
-## Verification (tests can't see rendering)
-
-Use a Playwright screenshot script (see the `shoot.mjs` pattern modelled on `tests/ui-smoke.mjs`): boot `server.mjs`, clear SW/localStorage, navigate `.page-tabs button[data-page="…"]`, screenshot, and collect `pageerror`/`console error`. Gate every visual step on a before/after screenshot + zero console errors.
-
-Smoke checks: click 4 steps → velocity bar appears · right-click a step → detail updates without toggling · drag a fader → value + dB readout + master meter update · resize 1440→1024→768 → no horizontal scrollbar · Tab → visible focus ring everywhere.
+The prior `aiAction(kind)` page hook is retired as a target. Agent actions use the
+same stable-ID command/proposal registry as human edits; pages do not own a private
+AI mutation path.

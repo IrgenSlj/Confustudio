@@ -1,8 +1,15 @@
 # CONFUSTUDIO — AI INTEGRATION & STUDIO CONTROL BRIEF
 
-**Version:** 1.0 · **Date:** 2026-07-03 · **Owner:** Irgen Salianji
-**Audience:** Claude Code (harness implementation) — this document is the **source of truth for everything agentic**. `CONFUSTUDIO_CODE_BRIEF.md` owns phasing and the engine; where they overlap, this brief is authoritative on harness behavior.
-**Companions:** `CONFUSTUDIO_CODE_BRIEF.md` (v1.2), `CONFUSTUDIO_DESIGN_BRIEF.md` (v1.2), `CONFUSTUDIO_STUDIO_MANUAL.md` (the agent's knowledge base).
+**Version:** 1.1 · **Reviewed:** 2026-07-31 · **Owner:** Irgen Salianji
+**Status:** harness requirements reference; implementation is gated by Phase 6
+**Audience:** harness and API contributors. This brief owns agent behavior;
+`DEVELOPMENT_PLAN.md` owns sequence and `ARCHITECTURE.md` owns system boundaries.
+**Companions:** `DEVELOPMENT_PLAN.md`, `CONFUSTUDIO_CODE_BRIEF.md`, `CONFUSTUDIO_DESIGN_BRIEF.md`, `STUDIO_MANUAL.md`.
+
+> Existing loop, registry, and branch modules are prototypes, not proof that the
+> contracts below are satisfied. The 2026-07-31 review found selection-dependent
+> targeting, nondeterministic audition/merge, incomplete history, manual schema
+> drift, and an unsafe public proxy. Headless determinism and security gates precede UI.
 
 ---
 
@@ -15,6 +22,16 @@
 5. **Guardrails are structural.** Enforced in the tool registry per station; prompts are never a security boundary.
 6. **One harness, three stations**: `session-artist`, `studio-master`, `co-performer` — same loop/memory/skills, different tool allowlists and timing policy.
 7. **Knowledge is a document pipeline**: `STUDIO_MANUAL.md` → generated tool docs → skills → context. The agent is only as pro as its manual; keep the manual true.
+8. **Explicit targets.** Every write names stable entity IDs and a base revision;
+   current UI selection is never an agent write target.
+9. **Audition equals merge.** Proposals contain a materialized, hashed patch; random
+   operations carry seeds. Re-running intent at merge time is prohibited.
+10. **All model and project content is untrusted.** Runtime schemas and structural
+    allowlists, not prompts, define authority.
+11. **Hosted and local providers have separate trust boundaries.** Hosted requests
+    use fixed egress through an authenticated API; local providers stay loopback-only.
+12. **Bounded operation.** Turns, calls, tokens, response size, time, storage, and
+    provider spend all have enforced limits.
 
 ---
 
@@ -177,10 +194,16 @@ Evals (`evals/`, task-card format per Code brief §7) grouped: **pattern literac
 - D-AI7 Prompts are versioned files, snapshotted in traces, regression-tested by evals.
 - D-AI8 Audio buffers never enter model context; only measurements do.
 
-## 11. BUILD ORDER (maps to Code brief phases)
+## 11. BUILD ORDER
 
-1. (Phase B) IR + mock provider + loop state machine + tool registry generation + branch lifecycle + traces + CS-Score tools + Director SSE.
-2. (Phase C) render/measure/lint/compare + presenter template + VERIFY stage wiring + honesty rule.
-3. (Phase D) memory schemas + skill loader + first ten skills with verify blocks + manual retrieval tools + eval set to ten.
-4. (Phase E) station policies file + performance queue tools + live degraded budgets.
-5. (Phase F) MIDI-out device + `--mcp` serve mode.
+AI implementation is Phase 6 of `DEVELOPMENT_PLAN.md` and starts only after Gates
+P1-P5. Within that phase:
+
+1. Generate tools, schemas, docs, command bindings, and server allowlists from one registry.
+2. Port the loop to stable-ID, base-revision v4 commands and materialized proposals.
+3. Add bounded, redacted traces and the versioned headless eval suite.
+4. Add shared offline rendering, measurement, lint, comparison, and one repair cycle.
+5. Prove proposal target correctness, determinism, conflict behavior, and prompt-injection denial.
+6. Build the Director rail and proposal UI after headless acceptance passes.
+7. Build the separate authenticated hosted API and complete an independent security review.
+8. Pilot with hard spending caps; memory, skills, live mode, and MCP remain later work.

@@ -1,5 +1,16 @@
 # CS-Score — pattern text notation
 
+**Status:** parser/emitter implemented; command integration deferred to Phase 6
+
+**Reviewed:** 2026-07-31
+
+**Plan:** [`DEVELOPMENT_PLAN.md`](./DEVELOPMENT_PLAN.md)
+
+CS-Score remains the preferred compact pattern projection for future agent work.
+It does not replace project schema v4, stable IDs, runtime validation, or the
+deterministic command/proposal boundary. `score.write` must name bank/pattern IDs
+and a base revision; it must never target the currently selected pattern implicitly.
+
 CS-Score is a **lossless, line-oriented mini-notation** for sequencer patterns. Raw
 project JSON is token-hostile (a 16-step track with p-locks is hundreds of tokens);
 CS-Score gives the music agent the same affordance coding agents get from source
@@ -39,7 +50,7 @@ normalizeScore(emitScore(parseScore(x).pattern)) === normalizeScore(x)
 is idempotent and canonical text is its own normal form. (`tests/score-roundtrip.mjs`
 asserts this across a spread of fixtures.)
 
-The tools `score.read(bank, pattern)` / `score.write(bank, pattern, text)` (a later
+The tools `score.read(patternId)` / `score.write(patternId, baseRevision, text)` (a later
 phase) sit on top of this module: `score.write` compiles the parsed fragment to
 ordinary commands on the active branch, so undo / branching / audit all still hold.
 This module itself is just the pure parse ⇄ emit boundary.
@@ -67,13 +78,13 @@ optional and order-independent on input; the canonical (emitted) order is fixed:
 # bank <B> · pattern <N> · <bpm>bpm · len <L> · swing <S>%
 ```
 
-| Field         | Grammar | Meaning                                  |
-| ------------- | ------- | ---------------------------------------- |
-| `bank <B>`    | word    | Bank name/letter                         |
-| `pattern <N>` | integer | Pattern number                           |
-| `<bpm>bpm`    | number  | Tempo                                    |
-| `len <L>`     | integer | Pattern length = number of steps per bar |
-| `swing <S>%`  | number  | Swing percentage                         |
+| Field         | Grammar | Meaning                                                                          |
+| ------------- | ------- | -------------------------------------------------------------------------------- |
+| `bank <B>`    | word    | Bank name/letter                                                                 |
+| `pattern <N>` | integer | Pattern number                                                                   |
+| `<bpm>bpm`    | number  | Tempo                                                                            |
+| `len <L>`     | integer | Pattern length in steps; musical bars come from transport time signature and PPQ |
+| `swing <S>%`  | number  | Swing percentage                                                                 |
 
 `len` is the source of truth for the step count. If the header omits `len`, it is
 inferred from the first track's step count. `len` is always emitted (it is derivable);

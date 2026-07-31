@@ -2,7 +2,20 @@
 
 Date: 2026-06-29
 
-This memo looks at how proven music systems generate and schedule sound, then maps those patterns onto CONFUstudio's current implementation. The conclusion is direct: CONFUstudio already has useful Web Audio pieces, but it does not yet have a clear music kernel. Timing, event generation, DSP, routing, and module ownership are spread across UI code, the legacy track engine, the modular graph prototype, and standalone module timers.
+**Status:** historical research, validated by the 2026-07-31 review
+
+**Current authority:** [`ARCHITECTURE.md`](./ARCHITECTURE.md) and
+[`DEVELOPMENT_PLAN.md`](./DEVELOPMENT_PLAN.md)
+
+The review confirmed this memo's central diagnosis: multiple clocks, per-trigger
+graph allocation, and competing engine ownership remain material risks. Phase 3
+now turns the research into blocking deliverables: PPQ musical time, one pure event
+compiler, one live scheduler, persistent track/voice graphs, and realtime/offline parity.
+
+The target remains Web Audio plus AudioWorklet. Rust/WASM is no longer a planned
+phase by default; it requires a profile showing a specific worklet misses its budget.
+
+This memo looks at how proven music systems generate and schedule sound, then maps those patterns onto CONFUstudio's June 2026 implementation. The conclusion is direct: CONFUstudio has useful Web Audio pieces, but it does not yet have a clear music kernel. Timing, event generation, DSP, routing, and module ownership are spread across UI code, the legacy track engine, the modular graph prototype, and standalone module timers.
 
 ## Current CONFUstudio Sound Path
 
