@@ -10,9 +10,5 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      # AI bridge keys stay server-side. Set them in the Render dashboard
-      # (marked secret) rather than committing them here:
-      # - key: ANTHROPIC_API_KEY
-      #   sync: false
-      # - key: ANTHROPIC_MODEL
-      #   value: claude-sonnet-5
+      # Public assistant deployment is blocked until the authenticated API phase.
+      # Do not add provider keys or CONFUSTUDIO_ENABLE_ASSISTANT_PROXY here.

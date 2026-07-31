@@ -8,9 +8,14 @@ assistant proxy must not be exposed publicly or configured with production API
 keys. Public hosted-provider deployment is blocked until Phase 6 of
 [`docs/DEVELOPMENT_PLAN.md`](./docs/DEVELOPMENT_PLAN.md) passes.
 
-Known classes under active remediation include provider credential forwarding,
-server-side request forgery, stored HTML injection from imported projects,
-insufficient runtime command/import validation, and missing public API abuse controls.
+Provider destinations are now server-owned, redirects fail closed, local providers
+are loopback-only, and upstream responses are bounded and normalized. Remaining
+known classes under active remediation include stored HTML injection from imported
+projects, insufficient runtime command/import validation, missing browser security
+headers, and missing public API authentication and abuse controls.
+
+The provider policy and residual risks are documented in
+[`docs/security/provider-egress.md`](./docs/security/provider-egress.md).
 
 ## Reporting a Vulnerability
 
@@ -61,7 +66,11 @@ Generally out of scope:
 - Assistant POST routes are disabled unless
   `CONFUSTUDIO_ENABLE_ASSISTANT_PROXY=1` is set. This kill switch is containment,
   not authorization or an egress defense.
-- Do not place OpenAI, Anthropic, or other production keys in the current process.
+- Provider URLs and keys are server configuration. Browser `baseUrl` and `apiKey`
+  fields are rejected.
+- Hosted provider URLs require public HTTPS destinations and never follow redirects.
+- Local provider URLs are restricted to loopback.
+- Do not place production keys in a publicly reachable current process.
 - Do not treat CORS as authentication or an SSRF defense.
 - Imported projects and provider output are untrusted data.
 - Secrets must never appear in browser responses, logs, traces, fixtures, project

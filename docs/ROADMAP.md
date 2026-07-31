@@ -21,8 +21,8 @@ Legend: `[x]` complete, `[~]` in progress or partial, `[ ]` not started,
 - [x] Maintainer approval to begin development.
 - [!] Public hosted-provider deployment is blocked by Phase 1 security work.
 
-The next implementation batch is `security/01-provider-egress`, tracked in
-[#11](https://github.com/IrgenSlj/Confustudio/issues/11).
+The next implementation batch is `security/02-browser-boundaries`, tracked in
+[#12](https://github.com/IrgenSlj/Confustudio/issues/12).
 
 ## Phase 0: Baselines and Release Freeze
 
@@ -37,9 +37,9 @@ The next implementation batch is `security/01-provider-egress`, tracked in
 
 ## Phase 1: Security and Trust Boundaries
 
-- [ ] Fix hosted-provider credential exfiltration and arbitrary `baseUrl` use.
-- [ ] Block SSRF, redirect escape, and private-network access in hosted routes.
-- [ ] Separate loopback-only local providers from the future public API.
+- [x] Fix hosted-provider credential exfiltration and arbitrary `baseUrl` use.
+- [x] Block SSRF, redirect escape, and private-network access in hosted routes.
+- [x] Separate loopback-only local providers from the future public API.
 - [ ] Add authentication, origin/CSRF checks, rate limits, budgets, and audit events.
 - [ ] Add CSP and the remaining browser security headers.
 - [ ] Replace untrusted HTML interpolation with safe text/template rendering.

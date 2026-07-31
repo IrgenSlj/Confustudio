@@ -29,7 +29,5 @@ primary_region = "ams"   # pick the region nearest you / your users
   size = "shared-cpu-1x"
   memory = "512mb"
 
-# The optional AI bridge reads keys from the server environment. Set them as
-# Fly secrets so they never reach the browser:
-#   fly secrets set ANTHROPIC_API_KEY=... ANTHROPIC_MODEL=claude-sonnet-5
-#   fly secrets set OPENAI_API_KEY=...    OPENAI_MODEL=gpt-4.1-mini
+# Public assistant deployment is blocked until the authenticated API phase.
+# Do not set provider keys or CONFUSTUDIO_ENABLE_ASSISTANT_PROXY here.

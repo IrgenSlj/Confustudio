@@ -89,6 +89,8 @@ npm run baseline    # characterization report; timings are not CI thresholds
 The assistant POST proxy is disabled by default. During local-only development it
 can be enabled explicitly with `CONFUSTUDIO_ENABLE_ASSISTANT_PROXY=1`; this does
 not make the current proxy safe for public exposure or production credentials.
+Provider destinations and optional local-provider credentials are server-owned;
+see [`docs/security/provider-egress.md`](./docs/security/provider-egress.md).
 
 The current test suite is useful but does not yet prove audio quality,
 accessibility, multi-browser behavior, history correctness, or deployment safety.

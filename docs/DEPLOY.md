@@ -28,6 +28,12 @@ Assistant POST routes are disabled by default. Local test sessions must opt in
 with `CONFUSTUDIO_ENABLE_ASSISTANT_PROXY=1`; never set it on a public deployment
 of the current server.
 
+The temporary bridge now fixes provider destinations server-side, rejects
+redirect/private-host escape, restricts local providers to loopback, and bounds
+responses. Authentication and abuse controls are still absent, so this does not
+change the public deployment prohibition. See
+[`security/provider-egress.md`](./security/provider-egress.md).
+
 Useful checks:
 
 ```bash

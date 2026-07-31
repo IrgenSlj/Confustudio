@@ -71,7 +71,6 @@ export async function chatAssistant(payload) {
       messages,
       context: payload.context || undefined,
       model: payload.model || undefined,
-      baseUrl: payload.baseUrl || undefined,
       temperature: payload.temperature,
       maxTokens: payload.maxTokens,
     }),
@@ -95,10 +94,8 @@ export async function planAssistantActions(payload) {
       message,
       context: payload.context || undefined,
       model: payload.model || undefined,
-      baseUrl: payload.baseUrl || undefined,
       temperature: payload.temperature,
       maxTokens: payload.maxTokens,
-      apiKey: payload.apiKey,
     }),
   });
 }

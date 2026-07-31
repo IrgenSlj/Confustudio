@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { buildManualToolSurface } from './src/harness/tools/registry.js';
+import { createAssistantProxyError, postProviderJson, resolveProviderEndpoint } from './src/server/provider-egress.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = __dirname;
@@ -17,6 +18,8 @@ const host = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0
 const assistantProxyEnabled = ['1', 'true', 'yes'].includes(
   String(process.env.CONFUSTUDIO_ENABLE_ASSISTANT_PROXY || '').toLowerCase(),
 );
+const allowTestProviderOrigins =
+  process.env.NODE_ENV === 'test' && process.env.CONFUSTUDIO_ALLOW_TEST_PROVIDER_ORIGINS === '1';
 const PROVIDER_ALIASES = {
   local: 'local-openai',
   'local-openai-compatible': 'local-openai',
@@ -118,6 +121,7 @@ function buildProviderCatalog() {
       id: 'openai',
       label: 'OpenAI',
       transport: 'responses',
+      scope: 'hosted',
       configured: Boolean(process.env.OPENAI_API_KEY),
       model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
       baseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com',
@@ -126,6 +130,7 @@ function buildProviderCatalog() {
       id: 'anthropic',
       label: 'Anthropic',
       transport: 'messages',
+      scope: 'hosted',
       configured: Boolean(process.env.ANTHROPIC_API_KEY),
       model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-latest',
       baseUrl: process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com',
@@ -134,14 +139,17 @@ function buildProviderCatalog() {
       id: 'local-openai',
       label: 'Local OpenAI-compatible',
       transport: 'chat-completions',
+      scope: 'local',
       configured: Boolean(process.env.LOCAL_AI_BASE_URL || process.env.ASSISTANT_BASE_URL),
       model: process.env.LOCAL_AI_MODEL || process.env.ASSISTANT_MODEL || 'local-model',
       baseUrl: localBaseUrl || 'http://127.0.0.1:1234/v1',
+      apiKey: process.env.LOCAL_AI_API_KEY || null,
     },
     ollama: {
       id: 'ollama',
       label: 'Ollama',
       transport: 'ollama-chat',
+      scope: 'local',
       configured: Boolean(process.env.OLLAMA_HOST),
       model: process.env.OLLAMA_MODEL || 'llama3.1',
       baseUrl: process.env.OLLAMA_HOST || 'http://127.0.0.1:11434',
@@ -362,49 +370,36 @@ function readJsonBody(req, maxBytes = 128 * 1024) {
   });
 }
 
-function withTimeout(timeoutMs = 60000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(new Error('Request timed out')), timeoutMs);
-  return {
-    signal: controller.signal,
-    cancel() {
-      clearTimeout(timer);
-    },
-  };
-}
-
-async function postJson(url, payload, headers = {}, timeoutMs = 60000) {
-  const timeout = withTimeout(timeoutMs);
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers,
-      },
-      body: JSON.stringify(payload),
-      signal: timeout.signal,
-    });
-    const text = await response.text();
-    let data = null;
-    try {
-      data = text ? JSON.parse(text) : null;
-    } catch (_) {
-      data = { raw: text };
-    }
-    return { response, data };
-  } finally {
-    timeout.cancel();
-  }
-}
-
-function providerResult(provider, model, text, raw = null) {
+function providerResult(provider, model, text) {
   return {
     provider,
     model,
     text,
-    raw,
   };
+}
+
+function assertServerOwnedProviderConfiguration(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw createAssistantProxyError('Request body must be a JSON object', 'INVALID_REQUEST_BODY', 400);
+  }
+  const forbidden = ['baseUrl', 'apiKey'].filter((field) => Object.hasOwn(body, field));
+  if (forbidden.length) {
+    const error = createAssistantProxyError(
+      'Provider destinations and credentials are configured on the server',
+      'CLIENT_PROVIDER_CONFIG_FORBIDDEN',
+      400,
+    );
+    error.payload = { forbiddenFields: forbidden };
+    throw error;
+  }
+}
+
+function createProviderStatusError(providerId, status) {
+  return createAssistantProxyError(
+    `Provider ${providerId} request failed with status ${status}`,
+    'UPSTREAM_REQUEST_FAILED',
+    502,
+  );
 }
 
 function buildAssistantActionPlannerPrompt(bodyContext = null) {
@@ -460,6 +455,7 @@ function extractJsonObject(text) {
 }
 
 async function requestAssistantProvider(body, systemPrompt) {
+  assertServerOwnedProviderConfiguration(body);
   const providerConfig = resolveAssistantConfig(body.provider);
   const messages = normalizeAssistantMessages(body);
   const temperatureValue = Number(body.temperature);
@@ -480,9 +476,6 @@ async function requestAssistantProvider(body, systemPrompt) {
     throw error;
   }
 
-  const requestBaseUrl =
-    typeof body.baseUrl === 'string' && body.baseUrl.trim() ? body.baseUrl.trim() : providerConfig.baseUrl;
-
   if (messages.length === 0) {
     const error = new Error('message or messages is required');
     error.statusCode = 400;
@@ -496,8 +489,11 @@ async function requestAssistantProvider(body, systemPrompt) {
       throw error;
     }
 
-    const { response, data } = await postJson(
-      `${requestBaseUrl.replace(/\/$/, '')}/v1/responses`,
+    const endpoint = await resolveProviderEndpoint(providerConfig, 'v1/responses', {
+      allowTestProviderOrigins,
+    });
+    const { response, data } = await postProviderJson(
+      endpoint,
       {
         model: body.model || providerConfig.model,
         input: toOpenAIResponsesInput(systemPrompt, messages),
@@ -510,12 +506,10 @@ async function requestAssistantProvider(body, systemPrompt) {
     );
 
     if (!response.ok) {
-      const error = new Error(data?.error?.message || data?.raw || JSON.stringify(data));
-      error.statusCode = response.status;
-      throw error;
+      throw createProviderStatusError(providerConfig.id, response.status);
     }
 
-    return providerResult(providerConfig.id, body.model || providerConfig.model, extractOpenAIText(data), data);
+    return providerResult(providerConfig.id, body.model || providerConfig.model, extractOpenAIText(data));
   }
 
   if (providerConfig.id === 'anthropic') {
@@ -525,8 +519,11 @@ async function requestAssistantProvider(body, systemPrompt) {
       throw error;
     }
 
-    const { response, data } = await postJson(
-      `${requestBaseUrl.replace(/\/$/, '')}/v1/messages`,
+    const endpoint = await resolveProviderEndpoint(providerConfig, 'v1/messages', {
+      allowTestProviderOrigins,
+    });
+    const { response, data } = await postProviderJson(
+      endpoint,
       {
         model: body.model || providerConfig.model,
         max_tokens: maxTokens,
@@ -541,37 +538,39 @@ async function requestAssistantProvider(body, systemPrompt) {
     );
 
     if (!response.ok) {
-      const error = new Error(data?.error?.message || data?.raw || JSON.stringify(data));
-      error.statusCode = response.status;
-      throw error;
+      throw createProviderStatusError(providerConfig.id, response.status);
     }
 
-    return providerResult(providerConfig.id, body.model || providerConfig.model, extractAnthropicText(data), data);
+    return providerResult(providerConfig.id, body.model || providerConfig.model, extractAnthropicText(data));
   }
 
   if (providerConfig.id === 'local-openai') {
-    const { response, data } = await postJson(
-      `${requestBaseUrl.replace(/\/$/, '')}/chat/completions`,
+    const endpoint = await resolveProviderEndpoint(providerConfig, 'chat/completions', {
+      allowTestProviderOrigins,
+    });
+    const { response, data } = await postProviderJson(
+      endpoint,
       {
         model: body.model || providerConfig.model,
         messages: toOpenAIChatMessages(systemPrompt, messages),
         temperature,
         max_tokens: maxTokens,
       },
-      body.apiKey ? { Authorization: `Bearer ${body.apiKey}` } : {},
+      providerConfig.apiKey ? { Authorization: `Bearer ${providerConfig.apiKey}` } : {},
     );
 
     if (!response.ok) {
-      const error = new Error(data?.error?.message || data?.raw || JSON.stringify(data));
-      error.statusCode = response.status;
-      throw error;
+      throw createProviderStatusError(providerConfig.id, response.status);
     }
 
-    return providerResult(providerConfig.id, body.model || providerConfig.model, extractChatCompletionText(data), data);
+    return providerResult(providerConfig.id, body.model || providerConfig.model, extractChatCompletionText(data));
   }
 
   if (providerConfig.id === 'ollama') {
-    const { response, data } = await postJson(`${requestBaseUrl.replace(/\/$/, '')}/api/chat`, {
+    const endpoint = await resolveProviderEndpoint(providerConfig, 'api/chat', {
+      allowTestProviderOrigins,
+    });
+    const { response, data } = await postProviderJson(endpoint, {
       model: body.model || providerConfig.model,
       messages: toOpenAIChatMessages(systemPrompt, messages),
       options: {
@@ -582,12 +581,10 @@ async function requestAssistantProvider(body, systemPrompt) {
     });
 
     if (!response.ok) {
-      const error = new Error(data?.error?.message || data?.raw || JSON.stringify(data));
-      error.statusCode = response.status;
-      throw error;
+      throw createProviderStatusError(providerConfig.id, response.status);
     }
 
-    return providerResult(providerConfig.id, body.model || providerConfig.model, extractOllamaText(data), data);
+    return providerResult(providerConfig.id, body.model || providerConfig.model, extractOllamaText(data));
   }
 
   const error = new Error(`Provider transport not implemented: ${providerConfig.id}`);
@@ -719,16 +716,22 @@ async function serveFile(res, filePath) {
 async function handleAssistant(req, res) {
   try {
     const body = await readJsonBody(req);
+    assertServerOwnedProviderConfiguration(body);
     const result = await requestAssistantProvider(body, buildAssistantSystemPrompt(body.context));
     sendJson(res, 200, result);
   } catch (error) {
-    sendJson(res, error.statusCode || 500, { error: error.message, ...(error.payload || {}) });
+    sendJson(res, error.statusCode || 500, {
+      error: error.message,
+      ...(error.code ? { code: error.code } : {}),
+      ...(error.payload || {}),
+    });
   }
 }
 
 async function handleAssistantActionPlan(req, res) {
   try {
     const body = await readJsonBody(req);
+    assertServerOwnedProviderConfiguration(body);
     body.message = typeof body.message === 'string' ? body.message : '';
     body.messages = [{ role: 'user', content: body.message }];
     const result = await requestAssistantProvider(body, buildAssistantActionPlannerPrompt(body.context));
@@ -754,7 +757,11 @@ async function handleAssistantActionPlan(req, res) {
       text: result.text,
     });
   } catch (error) {
-    sendJson(res, error.statusCode || 500, { error: error.message, ...(error.payload || {}) });
+    sendJson(res, error.statusCode || 500, {
+      error: error.message,
+      ...(error.code ? { code: error.code } : {}),
+      ...(error.payload || {}),
+    });
   }
 }
 

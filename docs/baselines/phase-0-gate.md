@@ -50,6 +50,7 @@ targets. Phase 2 and Phase 4 budgets remain defined in the development plan.
 - `npm run lint`
 - `npm run test:types`
 - `npm run test:baseline`
+- `npm run test:security`
 - `npm run test:server`
 - Full `npm test` before merge/push
 
