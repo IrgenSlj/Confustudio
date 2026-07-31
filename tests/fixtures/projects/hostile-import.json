@@ -1,0 +1,32 @@
+{
+  "format": "confustudio-project-package",
+  "packageVersion": "1.1.0",
+  "schemaVersion": "3.1.0",
+  "metadata": {
+    "name": "<img src=x onerror=globalThis.__fixtureExecuted=true>",
+    "author": "<script>globalThis.__fixtureExecuted=true</script>",
+    "description": "\" autofocus onfocus=globalThis.__fixtureExecuted=true x=\""
+  },
+  "project": {
+    "name": "<img src=x onerror=globalThis.__fixtureExecuted=true>",
+    "banks": [
+      {
+        "name": "<svg onload=globalThis.__fixtureExecuted=true>",
+        "patterns": [
+          {
+            "name": "<img src=x onerror=globalThis.__fixtureExecuted=true>",
+            "kit": {
+              "tracks": [
+                {
+                  "name": "</div><script>globalThis.__fixtureExecuted=true</script>",
+                  "steps": []
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "assets": { "version": 1, "records": [] }
+}

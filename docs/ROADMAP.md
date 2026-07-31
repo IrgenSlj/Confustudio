@@ -1,6 +1,6 @@
 # CONFUstudio Roadmap
 
-**Status:** planning reset committed; implementation not started
+**Status:** Phase 0 complete; Phase 1 security work is next
 
 **Updated:** 2026-07-31
 
@@ -18,22 +18,22 @@ Legend: `[x]` complete, `[~]` in progress or partial, `[ ]` not started,
       product review completed.
 - [x] Product direction and stack migration documented.
 - [x] Existing briefs and guides reconciled with the new authority hierarchy.
-- [ ] Maintainer approval to begin development.
+- [x] Maintainer approval to begin development.
 - [!] Public hosted-provider deployment is blocked by Phase 1 security work.
 
-The next approved implementation batch will be PR 1, `plan/00-baselines`.
-Until approval, this repository is in a documentation-only planning state.
+The next implementation batch is `security/01-provider-egress`, tracked in
+[#11](https://github.com/IrgenSlj/Confustudio/issues/11).
 
 ## Phase 0: Baselines and Release Freeze
 
-- [ ] Create tracking issues and dependencies for PRs 1-25.
-- [ ] Add architecture decision record for Vite, strict TypeScript, Lit,
+- [x] Create tracking issues and dependencies for PRs 1-25 (#10-#34).
+- [x] Add architecture decision record for Vite, strict TypeScript, Lit,
       Valibot, Dexie, and the API split.
-- [ ] Record project-size, command-latency, load, scheduler-jitter, and
+- [x] Record project-size, command-latency, load, scheduler-jitter, and
       accessibility baselines.
-- [ ] Commit v1-v3 migration, corrupt-state, oversized-state, and hostile fixtures.
-- [ ] Add the public AI kill switch and document rollback.
-- [ ] Pass Gate P0 in `DEVELOPMENT_PLAN.md`.
+- [x] Commit v1-v3 migration, corrupt-state, oversized-state, and hostile fixtures.
+- [x] Add the public AI kill switch and document rollback.
+- [x] Pass Gate P0 in `DEVELOPMENT_PLAN.md`.
 
 ## Phase 1: Security and Trust Boundaries
 

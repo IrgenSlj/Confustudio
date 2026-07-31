@@ -1,0 +1,10 @@
+{
+  "project": {
+    "name": 42,
+    "banks": [null, { "patterns": "not-an-array" }],
+    "scenes": [{ "tracks": [null] }]
+  },
+  "activeBank": -400,
+  "activePattern": 999999,
+  "signalGraph": { "nodes": [], "connections": "invalid" }
+}

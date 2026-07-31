@@ -24,6 +24,10 @@ Keep the process bound to loopback. Use synthetic projects and test credentials
 only. Local OpenAI-compatible or Ollama endpoints are development integrations,
 not public proxy features.
 
+Assistant POST routes are disabled by default. Local test sessions must opt in
+with `CONFUSTUDIO_ENABLE_ASSISTANT_PROXY=1`; never set it on a public deployment
+of the current server.
+
 Useful checks:
 
 ```bash

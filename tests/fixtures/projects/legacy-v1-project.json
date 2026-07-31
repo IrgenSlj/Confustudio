@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "name": "Legacy V1 Characterization",
+  "bpm": 126,
+  "tracks": [
+    {
+      "name": "Synthetic Kick",
+      "machine": "tone",
+      "steps": [true, false, false, false, true, false, false, false]
+    }
+  ]
+}

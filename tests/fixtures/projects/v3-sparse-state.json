@@ -1,0 +1,31 @@
+{
+  "bpm": 124,
+  "activeBank": 0,
+  "activePattern": 0,
+  "selectedTrackIndex": 0,
+  "project": {
+    "name": "V3 Sparse Characterization",
+    "author": "Fixture",
+    "description": "Synthetic data only",
+    "banks": [
+      {
+        "name": "A",
+        "patterns": [
+          {
+            "name": "Pattern 01",
+            "length": 16,
+            "kit": {
+              "tracks": [
+                {
+                  "name": "Synthetic Kick",
+                  "machine": "tone",
+                  "steps": [{ "active": true, "paramLocks": {} }]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

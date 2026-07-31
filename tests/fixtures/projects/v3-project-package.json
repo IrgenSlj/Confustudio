@@ -1,0 +1,21 @@
+{
+  "format": "confustudio-project-package",
+  "packageVersion": "1.1.0",
+  "schemaVersion": "3.1.0",
+  "exportedAt": 1785456000000,
+  "app": { "name": "CONFUstudio" },
+  "metadata": {
+    "name": "V3 Package Characterization",
+    "author": "Fixture",
+    "description": "Synthetic data only"
+  },
+  "project": {
+    "name": "V3 Package Characterization",
+    "author": "Fixture",
+    "description": "Synthetic data only",
+    "createdAt": 1785456000000,
+    "banks": []
+  },
+  "assets": { "version": 1, "records": [] },
+  "workspace": { "version": 1, "studioLayout": [], "studioView": null, "studioCables": [] }
+}

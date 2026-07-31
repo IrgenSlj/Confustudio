@@ -6,7 +6,7 @@
 
 **Owner:** project maintainer
 
-**Implementation state:** waiting for explicit development approval
+**Implementation state:** Phase 0 complete; Phase 1 security work active
 
 This document defines the order of work, acceptance gates, and target stack. It
 supersedes older phase ordering in the code, AI, and design briefs. The briefs
@@ -396,8 +396,8 @@ security, and selected audio checks without running the same stage twice.
 - Research and postmortems are historical evidence, not current implementation claims.
 - Any change in direction requires a short ADR and updates to these four documents.
 
-## 9. Kickoff Boundary
+## 9. Current Boundary
 
-This documentation revision does not begin Phase 0 implementation. After explicit
-approval, development starts with PR 1, `plan/00-baselines`. No other feature work
-should be bundled into that kickoff.
+Phase 0 was approved and completed under issue #10. Development continues with
+PR 2, `security/01-provider-egress`, under issue #11. Public AI execution remains
+default-off and no later phase may bypass the blocking gates.

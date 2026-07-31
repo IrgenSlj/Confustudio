@@ -11,12 +11,13 @@ project with generated audio.
 
 ## Current Status
 
-The repository is undergoing a foundation reset. The current prototype has broad
+The repository is executing a gated foundation reset. Phase 0 baselines are
+complete and Phase 1 security work is active. The current prototype has broad
 features and a distinctive hardware-inspired interface, but its state/history,
 persistence, transport/audio ownership, UI rendering, and public assistant security
 boundaries are not ready for further feature expansion or public AI deployment.
 
-Development is paused pending maintainer approval of the new plan:
+Development follows the approved plan:
 
 - [`docs/DEVELOPMENT_PLAN.md`](./docs/DEVELOPMENT_PLAN.md): canonical sequence,
   stack decisions, acceptance gates, and pull-request plan.
@@ -82,7 +83,12 @@ Checks:
 npm run lint
 npm run format
 npm test
+npm run baseline    # characterization report; timings are not CI thresholds
 ```
+
+The assistant POST proxy is disabled by default. During local-only development it
+can be enabled explicitly with `CONFUSTUDIO_ENABLE_ASSISTANT_PROXY=1`; this does
+not make the current proxy safe for public exposure or production credentials.
 
 The current test suite is useful but does not yet prove audio quality,
 accessibility, multi-browser behavior, history correctness, or deployment safety.

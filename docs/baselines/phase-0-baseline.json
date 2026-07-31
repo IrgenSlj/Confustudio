@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-07-31T20:43:48.898Z",
+  "sourceCommit": "6e2d06ad5ced7199b20ae0bcdbc4e95cd503fbd4",
+  "environment": {
+    "node": "v25.6.0",
+    "platform": "darwin",
+    "release": "25.0.0",
+    "architecture": "arm64",
+    "cpu": "Apple M1 Pro",
+    "logicalCpuCount": 8
+  },
+  "node": {
+    "defaultStateBytes": 10309828,
+    "defaultProjectPackageBytes": 10646002,
+    "eagerShape": {
+      "banks": 8,
+      "patterns": 128,
+      "tracks": 1024,
+      "steps": 65536
+    },
+    "createStateMs": {
+      "samples": 12,
+      "min": 3.61,
+      "median": 4.11,
+      "p95": 4.32,
+      "max": 4.32,
+      "mean": 4.09
+    },
+    "captureCommandStateMs": {
+      "samples": 8,
+      "min": 109.53,
+      "median": 110.22,
+      "p95": 121.35,
+      "max": 121.35,
+      "mean": 111.93
+    },
+    "directReducerCommandMs": {
+      "samples": 20,
+      "min": 0,
+      "median": 0,
+      "p95": 0,
+      "max": 0.63,
+      "mean": 0.03
+    }
+  },
+  "browser": {
+    "browser": "147.0.7727.15",
+    "viewport": {
+      "width": 1365,
+      "height": 768
+    },
+    "coldLoadWallMs": 914.22,
+    "cleanReloadWallMs": 618.71,
+    "domNodes": 948,
+    "visibleInteractiveControls": 269,
+    "unnamedInteractiveControls": 0,
+    "controlsBelow24px": 132,
+    "controlsBelow32px": 260,
+    "localStorageBytes": 3615,
+    "navigation": {
+      "domContentLoadedMs": 55.314999997615814,
+      "loadEventMs": 55.689999997615814,
+      "transferBytes": 12086
+    },
+    "publicCommandMs": {
+      "samples": 6,
+      "min": 202.41,
+      "median": 203.46,
+      "p95": 215.67,
+      "max": 215.67,
+      "mean": 208.3
+    },
+    "scheduler": {
+      "bpm": 120,
+      "expectedStepIntervalMs": 125,
+      "capturedTriggers": 9,
+      "scheduledIntervalJitterMs": {
+        "samples": 8,
+        "min": 0,
+        "median": 0,
+        "p95": 0,
+        "max": 0,
+        "mean": 0
+      },
+      "submissionLeadMs": {
+        "samples": 9,
+        "min": 50,
+        "median": 94.12,
+        "p95": 115.01,
+        "max": 115.01,
+        "mean": 88.83
+      }
+    },
+    "consoleErrors": []
+  },
+  "interpretation": {
+    "thresholds": "Characterization only. Target budgets are defined in docs/DEVELOPMENT_PLAN.md.",
+    "accessibility": "Counts are heuristic inventory, not an axe or manual accessibility audit.",
+    "scheduler": "Measures submission lead and scheduled timestamp regularity, not acoustic output jitter."
+  }
+}

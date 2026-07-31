@@ -58,6 +58,9 @@ Generally out of scope:
 
 - The current server binds to loopback for development. Do not override that for
   internet exposure while the security block is active.
+- Assistant POST routes are disabled unless
+  `CONFUSTUDIO_ENABLE_ASSISTANT_PROXY=1` is set. This kill switch is containment,
+  not authorization or an egress defense.
 - Do not place OpenAI, Anthropic, or other production keys in the current process.
 - Do not treat CORS as authentication or an SSRF defense.
 - Imported projects and provider output are untrusted data.

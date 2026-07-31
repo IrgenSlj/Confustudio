@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Scrubbed characterization inputs for project schema v4 migrations and Phase 1 trust-boundary tests.",
+  "fixtures": [
+    {
+      "file": "legacy-v1-project.json",
+      "classification": "legacy-v1",
+      "validJson": true,
+      "expectedFutureOutcome": "migrate-with-report"
+    },
+    {
+      "file": "legacy-v2-tracks.json",
+      "classification": "legacy-v2",
+      "validJson": true,
+      "expectedFutureOutcome": "migrate-with-report"
+    },
+    {
+      "file": "v3-sparse-state.json",
+      "classification": "current-v3-state",
+      "validJson": true,
+      "expectedFutureOutcome": "migrate"
+    },
+    {
+      "file": "v3-project-package.json",
+      "classification": "current-v3-package",
+      "validJson": true,
+      "expectedFutureOutcome": "migrate"
+    },
+    {
+      "file": "corrupt-structure.json",
+      "classification": "corrupt-shape",
+      "validJson": true,
+      "expectedFutureOutcome": "reject-with-recovery-export"
+    },
+    {
+      "file": "hostile-import.json",
+      "classification": "hostile-content",
+      "validJson": true,
+      "expectedFutureOutcome": "reject-or-render-as-text"
+    },
+    {
+      "file": "limits-exceeded.json",
+      "classification": "collection-limits",
+      "validJson": true,
+      "expectedFutureOutcome": "reject-before-normalization"
+    },
+    {
+      "file": "invalid-json.txt",
+      "classification": "syntax-error",
+      "validJson": false,
+      "expectedFutureOutcome": "reject-with-recovery-export"
+    }
+  ]
+}

@@ -25,6 +25,7 @@ async function startServer() {
       LOCAL_AI_BASE_URL: '',
       ASSISTANT_BASE_URL: '',
       ASSISTANT_PROVIDER: '',
+      CONFUSTUDIO_ENABLE_ASSISTANT_PROXY: '',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -101,7 +102,13 @@ try {
     'Assistant default provider should be auto in unconfigured env',
     providers,
   );
+  assert(providers.assistantProxyEnabled === false, 'Assistant proxy must be disabled by default', providers);
   assert(Boolean(providers.providers?.openai), 'Assistant providers payload missing OpenAI provider', providers);
+  assert(
+    !Object.values(providers.providers).some((provider) => 'baseUrl' in provider),
+    'Public provider catalog must not expose upstream URLs',
+    providers,
+  );
 
   // Health probe (used by container platforms — Fly/Render).
   const healthRes = await fetch(`${server.baseUrl}/healthz`);
@@ -125,6 +132,7 @@ try {
     'commandTools entries must carry name, parameters, and stations',
     context.commandTools?.[0],
   );
+  assert(context.assistantProxyEnabled === false, 'Assistant context must report the disabled proxy', context);
 
   const chatRes = await fetch(`${server.baseUrl}/api/assistant/chat`, {
     method: 'POST',
@@ -135,7 +143,7 @@ try {
     status: chatRes.status,
   });
   const chatJson = await readJson(chatRes);
-  assert(chatJson.error === 'No assistant provider is configured', 'Assistant error payload mismatch', chatJson);
+  assert(chatJson.code === 'ASSISTANT_PROXY_DISABLED', 'Assistant error payload mismatch', chatJson);
 
   const actionPlanRes = await fetch(`${server.baseUrl}/api/assistant/actions/plan`, {
     method: 'POST',
@@ -147,7 +155,7 @@ try {
   });
   const actionPlanJson = await readJson(actionPlanRes);
   assert(
-    actionPlanJson.error === 'No assistant provider is configured',
+    actionPlanJson.code === 'ASSISTANT_PROXY_DISABLED',
     'Assistant action planner error payload mismatch',
     actionPlanJson,
   );

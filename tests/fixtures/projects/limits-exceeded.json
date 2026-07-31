@@ -1,0 +1,8 @@
+{
+  "project": {
+    "name": "Collection Limit Characterization",
+    "banks": [null, null, null, null, null, null, null, null, null],
+    "scenes": [null, null, null, null, null, null, null, null, null],
+    "description": "The v4 validator must reject counts beyond declared limits before normalization."
+  }
+}

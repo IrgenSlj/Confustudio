@@ -14,6 +14,15 @@ const port = Number(process.env.PORT || 4173);
 // Bind loopback for local dev (safe default), but all interfaces in
 // production so container platforms can route to us. HOST wins if set.
 const host = process.env.HOST || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1');
+const assistantProxyEnabled = ['1', 'true', 'yes'].includes(
+  String(process.env.CONFUSTUDIO_ENABLE_ASSISTANT_PROXY || '').toLowerCase(),
+);
+const PROVIDER_ALIASES = {
+  local: 'local-openai',
+  'local-openai-compatible': 'local-openai',
+  openai_compatible: 'local-openai',
+  openaiCompatible: 'local-openai',
+};
 const assistantManualPath = path.join(docsDir, 'confustudio.manual.json');
 const assistantSystemFallback =
   "You are the CONFUstudio assistant and production co-pilot. Translate the studio's real sequencing, sampling, synth, routing, scene, arrangement, and mix capabilities into concrete next actions the user can execute immediately.";
@@ -40,13 +49,6 @@ const mimeTypes = {
   '.mp3': 'audio/mpeg',
   '.ogg': 'audio/ogg',
   '.flac': 'audio/flac',
-};
-
-const PROVIDER_ALIASES = {
-  local: 'local-openai',
-  'local-openai-compatible': 'local-openai',
-  openai_compatible: 'local-openai',
-  openaiCompatible: 'local-openai',
 };
 
 function buildFallbackManual() {
@@ -166,6 +168,21 @@ function getConfiguredAssistantProviderIds() {
     .map((provider) => provider.id);
 }
 
+function buildPublicProviderCatalog() {
+  return Object.fromEntries(
+    Object.values(assistantProviderCatalog).map((provider) => [
+      provider.id,
+      {
+        id: provider.id,
+        label: provider.label,
+        ...(provider.transport ? { transport: provider.transport } : {}),
+        configured: assistantProxyEnabled && Boolean(provider.configured),
+        ...(provider.default ? { default: true } : {}),
+      },
+    ]),
+  );
+}
+
 function buildAssistantSystemPrompt(bodyContext = null) {
   const assistant = assistantManual.assistant || {};
   const parts = [assistant.systemPrompt || assistantSystemFallback, assistant.contextSummary || ''].filter(Boolean);
@@ -189,7 +206,8 @@ function buildAssistantSystemPrompt(bodyContext = null) {
 function buildAssistantContextEnvelope() {
   return {
     ...assistantManual,
-    providers: assistantProviderCatalog,
+    assistantProxyEnabled,
+    providers: buildPublicProviderCatalog(),
     defaultProvider: defaultAssistantProvider,
     // Generated at runtime from the harness tool registry (src/harness/tools),
     // the single source of truth — the assistant's real studio capability
@@ -583,8 +601,9 @@ async function handleAssistantContext(_req, res) {
 
 async function handleAssistantProviders(_req, res) {
   sendJson(res, 200, {
+    assistantProxyEnabled,
     defaultProvider: defaultAssistantProvider,
-    providers: assistantProviderCatalog,
+    providers: buildPublicProviderCatalog(),
   });
 }
 
@@ -601,6 +620,13 @@ function sendJson(res, statusCode, data) {
     ...ISOLATION_HEADERS,
   });
   res.end(JSON.stringify(data));
+}
+
+function rejectDisabledAssistantProxy(res) {
+  sendJson(res, 503, {
+    error: 'Assistant proxy is disabled',
+    code: 'ASSISTANT_PROXY_DISABLED',
+  });
 }
 
 function writeSse(res, event, data) {
@@ -743,11 +769,19 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === 'POST' && url.pathname === '/api/assistant/chat') {
+    if (!assistantProxyEnabled) {
+      rejectDisabledAssistantProxy(res);
+      return;
+    }
     await handleAssistant(req, res);
     return;
   }
 
   if (req.method === 'POST' && url.pathname === '/api/assistant/actions/plan') {
+    if (!assistantProxyEnabled) {
+      rejectDisabledAssistantProxy(res);
+      return;
+    }
     await handleAssistantActionPlan(req, res);
     return;
   }
