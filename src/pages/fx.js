@@ -1,6 +1,7 @@
 // src/pages/fx.js — Reverb, Delay, Master, Per-Track FX
 
 import { getActiveTrack, saveState } from '../state.js';
+import { escapeHtml, finiteNumber } from '../security/dom.js';
 
 const FILTER_TYPES = ['lowpass', 'bandpass', 'highpass'];
 const FILTER_LABELS = { lowpass: 'LP', bandpass: 'BP', highpass: 'HP' };
@@ -26,7 +27,7 @@ const CONV_REVERB_PRESETS = {
 
 function _reverbPresetInfo(type) {
   const p = CONV_REVERB_PRESETS[type];
-  if (!p) return String(type);
+  if (!p) return escapeHtml(type);
   return `${p.description} — ${p.roomSizeLabel}, ${p.dampingLabel}`;
 }
 
@@ -304,11 +305,12 @@ function calcSyncDelayTime(bpm, div) {
 
 function sliderHTML(label, param, scope, min, max, step, value) {
   const decimals = step < 1 ? 2 : 0;
+  const safeValue = finiteNumber(value, min);
   return `
     <label class="fx-row">
       <span>${label}</span>
-      <output>${Number(value).toFixed(decimals)}</output>
-      <input type="range" min="${min}" max="${max}" step="${step}" value="${value}"
+      <output>${safeValue.toFixed(decimals)}</output>
+      <input type="range" min="${min}" max="${max}" step="${step}" value="${safeValue}"
              data-param="${param}" data-scope="${scope}">
     </label>`;
 }
@@ -329,22 +331,24 @@ function fmtFreq(v) {
 }
 
 function eqBandHTML(label, param, value, scope = 'eq') {
+  const safeValue = finiteNumber(value, 0);
   return `
     <div class="eq-band">
-      <span>${fmtDB(value)}</span>
-      <input type="range" min="-12" max="12" step="0.5" value="${value}"
+      <span>${fmtDB(safeValue)}</span>
+      <input type="range" min="-12" max="12" step="0.5" value="${safeValue}"
              data-param="${param}" data-scope="${scope}">
       <label>${label}</label>
     </div>`;
 }
 
 function compSliderHTML(label, param, min, max, step, value, unit, displayFn) {
-  const displayed = displayFn ? displayFn(value) : Number(value).toFixed(step < 1 ? (step < 0.01 ? 3 : 2) : 0);
+  const safeValue = finiteNumber(value, min);
+  const displayed = displayFn ? displayFn(safeValue) : safeValue.toFixed(step < 1 ? (step < 0.01 ? 3 : 2) : 0);
   return `
     <label class="fx-row">
       <span>${label}</span>
       <output data-comp-out="${param}">${displayed} ${unit}</output>
-      <input type="range" min="${min}" max="${max}" step="${step}" value="${value}"
+      <input type="range" min="${min}" max="${max}" step="${step}" value="${safeValue}"
              data-param="${param}" data-scope="compressor">
     </label>`;
 }
@@ -352,7 +356,7 @@ function compSliderHTML(label, param, min, max, step, value, unit, displayFn) {
 // ─── EQ canvas section HTML ───────────────────────────────────────────────────
 
 function eqCanvasSectionHTML(track) {
-  const midFreq = track.eqMidFreq ?? 1000;
+  const midFreq = finiteNumber(track.eqMidFreq, 1000);
   return `
     <div style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);text-transform:uppercase;margin:4px 0 2px">
       EQ
@@ -390,7 +394,7 @@ export default {
       'display:flex;align-items:center;gap:8px;padding:6px 10px 4px;flex-shrink:0;border-bottom:1px solid rgba(255,255,255,0.06)';
     headerBar.innerHTML = `
       <span class="page-title" style="margin:0">FX</span>
-      <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted)">${track.name}</span>
+      <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted)">${escapeHtml(track.name)}</span>
     `;
     container.appendChild(headerBar);
 
@@ -411,7 +415,7 @@ export default {
     // ── Left column: TRACK EQ + Filter + Performance ──────────────────────────
     leftCol.innerHTML = `
       <div class="page-card" data-card="track">
-        <h4>TRACK: ${track.name}</h4>
+        <h4>TRACK: ${escapeHtml(track.name)}</h4>
         ${eqCanvasSectionHTML(track)}
         <div style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);text-transform:uppercase;margin:6px 0 4px">Filter</div>
         <div style="display:flex;gap:4px;margin-bottom:6px">
@@ -573,12 +577,12 @@ export default {
 
     // ── Sidechain card (appended to right column after innerHTML is set) ──────
     const sc = state.sidechainConfig ?? {};
-    const scSource = sc.source ?? -1;
-    const scTarget = sc.target ?? -1;
-    const scThreshold = sc.threshold ?? -18;
-    const scRatio = sc.ratio ?? 4;
-    const scAttack = sc.attack ?? 10;
-    const scRelease = sc.release ?? 100;
+    const scSource = finiteNumber(sc.source, -1);
+    const scTarget = finiteNumber(sc.target, -1);
+    const scThreshold = finiteNumber(sc.threshold, -18);
+    const scRatio = finiteNumber(sc.ratio, 4);
+    const scAttack = finiteNumber(sc.attack, 10);
+    const scRelease = finiteNumber(sc.release, 100);
     const scEnabled = sc.enabled ?? false;
 
     const scCard = document.createElement('div');
@@ -802,13 +806,13 @@ export default {
     const statusBar = document.createElement('div');
     statusBar.style.cssText =
       'font-family:var(--font-mono);font-size:0.5rem;color:var(--muted);letter-spacing:0.04em;display:flex;gap:10px;align-items:center';
-    const _cvPreset = state.convReverbPreset ?? 'room';
-    const _dtSec = state.delayTime ?? 0.28;
+    const _cvPreset = String(state.convReverbPreset ?? 'room');
+    const _dtSec = finiteNumber(state.delayTime, 0.28);
     const _dtMs = Math.round(_dtSec * 1000);
     statusBar.innerHTML =
-      `<span>REV: <span style="color:var(--screen-text)">${_cvPreset.toUpperCase()}</span></span>` +
+      `<span>REV: <span style="color:var(--screen-text)">${escapeHtml(_cvPreset.toUpperCase())}</span></span>` +
       `<span>DLY: <span style="color:var(--screen-text)">${_dtMs}ms</span></span>` +
-      `<span>CONV MIX: <span style="color:var(--screen-text)">${Math.round((state.convReverbMix ?? 0.3) * 100)}%</span></span>`;
+      `<span>CONV MIX: <span style="color:var(--screen-text)">${Math.round(finiteNumber(state.convReverbMix, 0.3) * 100)}%</span></span>`;
 
     bypassRow.append(bypassBtn, statusBar);
     headerBar.appendChild(bypassRow);

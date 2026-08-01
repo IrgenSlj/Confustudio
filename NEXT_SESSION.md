@@ -1,6 +1,6 @@
 # CONFUstudio Next Session
 
-**State:** provider egress complete; Phase 1 browser boundaries next
+**State:** browser trust boundaries complete; Phase 1 abuse controls next
 
 **Branch:** `main`
 
@@ -16,29 +16,35 @@
   destinations/credentials, public HTTPS validation, private-address denial,
   loopback-only local providers, manual redirects, 1 MiB response limit,
   normalized output, and fake-upstream integration coverage.
+- `security/02-browser-boundaries`,
+  [#12](https://github.com/IrgenSlj/Confustudio/issues/12): bounded project/import
+  schemas, atomic command allowlists, assistant-plan validation, safe persisted
+  rendering, filename normalization, CSP/browser headers, and hostile Chromium
+  regressions.
 
-Provider policy: [`docs/security/provider-egress.md`](./docs/security/provider-egress.md).
+Policies: [`docs/security/provider-egress.md`](./docs/security/provider-egress.md)
+and [`docs/security/browser-boundaries.md`](./docs/security/browser-boundaries.md).
 
 ## Next Batch
 
-`security/02-browser-boundaries`, issue
-[#12](https://github.com/IrgenSlj/Confustudio/issues/12).
+`security/03-abuse-controls`, issue
+[#13](https://github.com/IrgenSlj/Confustudio/issues/13).
 
 Scope:
 
-- Inventory and replace stored-XSS `innerHTML` sinks for project/imported values.
-- Add a strict Content Security Policy and remaining browser security headers.
-- Define bounded runtime schemas for imported project/package structure.
-- Reject oversized, deep, excess-collection, and dangerous-key imports before normalization.
-- Add central command-envelope validation before command dispatch.
-- Add hostile import, DOM execution, invalid-command, and CSP browser regressions.
-- Surface import failure without destroying the current project.
+- Keep assistant routes default-off and define the authenticated session skeleton.
+- Enforce strict allowed origins and CSRF protection on mutation routes.
+- Add per-user rate limits, quotas, request/token/time budgets, and spending caps.
+- Emit bounded, redacted security audit events without prompts, credentials, or project data.
+- Cover anonymous access, origin/CSRF denial, rate/quota exhaustion, budgets, and audit redaction.
+- Preserve the loopback development workflow without weakening the future public boundary.
 
-Do not add authentication/rate limits, Vite, project schema v4, reducer/history,
-UI redesign, or audio changes. Those remain separate issues and gates.
+Do not add Vite, project schema v4, reducer/history, UI redesign, audio changes,
+or a production deployment. Those remain separate issues and gates.
 
 ## Release Block
 
-Provider egress is contained, but the current assistant bridge still has no user
-authentication, CSRF/origin policy, per-user quotas, rate limits, spending caps,
-or audit trail. Public assistant deployment remains prohibited.
+Provider egress and browser boundaries are contained, but the current assistant
+bridge still has no user authentication, CSRF/origin policy, per-user quotas,
+rate limits, spending caps, or audit trail. Public assistant deployment remains
+prohibited.

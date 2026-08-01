@@ -2,8 +2,6 @@
    CONFUstudio v3 — Design System
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap');
-
 /* Canonical design tokens (Claude Design handoff). Imported first so all 68
    tokens resolve; the legacy :root below keeps its own names additively. */
 @import url('./css/tokens.css');

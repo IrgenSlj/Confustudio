@@ -8,14 +8,17 @@ assistant proxy must not be exposed publicly or configured with production API
 keys. Public hosted-provider deployment is blocked until Phase 6 of
 [`docs/DEVELOPMENT_PLAN.md`](./docs/DEVELOPMENT_PLAN.md) passes.
 
-Provider destinations are now server-owned, redirects fail closed, local providers
-are loopback-only, and upstream responses are bounded and normalized. Remaining
-known classes under active remediation include stored HTML injection from imported
-projects, insufficient runtime command/import validation, missing browser security
-headers, and missing public API authentication and abuse controls.
+Provider destinations are server-owned, redirects fail closed, local providers
+are loopback-only, and upstream responses are bounded and normalized. Imported
+projects and persisted values now cross bounded runtime schemas and safe rendering
+adapters; command batches and assistant plans share a fail-closed allowlist; the
+server applies a tested CSP and browser-header baseline. Missing public API
+authentication and abuse controls remain the active release blocker.
 
 The provider policy and residual risks are documented in
-[`docs/security/provider-egress.md`](./docs/security/provider-egress.md).
+[`docs/security/provider-egress.md`](./docs/security/provider-egress.md). Browser
+rendering, imports, commands, CSP, and their remaining limitations are documented
+in [`docs/security/browser-boundaries.md`](./docs/security/browser-boundaries.md).
 
 ## Reporting a Vulnerability
 
@@ -73,6 +76,8 @@ Generally out of scope:
 - Do not place production keys in a publicly reachable current process.
 - Do not treat CORS as authentication or an SSRF defense.
 - Imported projects and provider output are untrusted data.
+- Imported JSON must pass the bounded runtime validator before normalization or mutation.
+- UI and assistant command batches must pass the same command allowlist before mutation.
 - Secrets must never appear in browser responses, logs, traces, fixtures, project
   packages, URLs, or arbitrary outbound requests.
 

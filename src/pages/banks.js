@@ -1,6 +1,8 @@
 // src/pages/banks.js — Bank/Pattern browser
 
 import { EVENTS, STATE_PATHS } from '../constants.js';
+import { escapeHtml } from '../security/dom.js';
+import { readJsonImportFile } from '../security/runtime-validation.js';
 
 const BANK_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
@@ -312,7 +314,7 @@ export default {
         ${BANK_LETTERS[activeBank]}${String(activePattern + 1).padStart(2, '0')}
       </span>
       <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted)">
-        ${project.banks[activeBank].patterns[activePattern].name}
+        ${escapeHtml(project.banks[activeBank].patterns[activePattern].name)}
       </span>`;
     container.append(header);
 
@@ -1000,7 +1002,7 @@ export default {
     const activeTracks = pat.kit.tracks.filter((t) => t.steps.some((s) => s.active)).length;
     const totalSteps = pat.kit.tracks.reduce((sum, t) => sum + t.steps.filter((s) => s.active).length, 0);
     infoPanel.innerHTML = `
-      <span class="pinfo-name">${pat.name}</span>
+      <span class="pinfo-name">${escapeHtml(pat.name)}</span>
       <span class="pinfo-stat">${pat.length} steps</span>
       <span class="pinfo-stat">${activeTracks} tracks</span>
       <span class="pinfo-stat">${totalSteps} notes</span>
@@ -1036,38 +1038,29 @@ export default {
       fileInput.type = 'file';
       fileInput.accept = '.json';
       fileInput.style.display = 'none';
-      fileInput.addEventListener('change', () => {
+      fileInput.addEventListener('change', async () => {
         const file = fileInput.files[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          try {
-            const imported = JSON.parse(e.target.result);
-            if (!imported.kit) {
-              emit('toast', { msg: 'Invalid pattern: missing kit' });
-              return;
-            }
-            if (
-              !executeCommands(
-                {
-                  type: 'replace-pattern',
-                  bankIndex: activeBank,
-                  patternIndex: activePattern,
-                  pattern: JSON.parse(JSON.stringify(imported)),
-                },
-                'Pattern imported',
-              )
-            ) {
-              const target = state.project.banks[activeBank].patterns[activePattern];
-              Object.assign(target, JSON.parse(JSON.stringify(imported)));
-              emit(EVENTS.STATE_CHANGE, { path: 'scale', value: state.scale });
-              emit('toast', { msg: 'Pattern imported' });
-            }
-          } catch (err) {
-            emit('toast', { msg: 'Import failed: invalid JSON' });
+        try {
+          const imported = await readJsonImportFile(file, 'pattern');
+          if (
+            !executeCommands(
+              {
+                type: 'replace-pattern',
+                bankIndex: activeBank,
+                patternIndex: activePattern,
+                pattern: imported,
+              },
+              'Pattern imported',
+            )
+          ) {
+            throw new Error('Pattern could not be applied');
           }
-        };
-        reader.readAsText(file);
+        } catch (err) {
+          emit('toast', { msg: `Import failed: ${err.message}` });
+        } finally {
+          fileInput.value = '';
+        }
       });
       document.body.appendChild(fileInput);
       fileInput.click();

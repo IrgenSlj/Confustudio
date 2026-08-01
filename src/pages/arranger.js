@@ -1,6 +1,7 @@
 // src/pages/arranger.js — Section list, arrangement mode toggle
 
 import { TRACK_COLORS } from '../state.js';
+import { escapeHtml, safeCssColor } from '../security/dom.js';
 
 const TIME_SIGNATURES = ['4/4', '3/4', '6/8', '5/4', '7/8'];
 
@@ -226,7 +227,7 @@ export default {
       arranger.forEach((section, idx) => {
         const isPlaying = idx === activeSectionIdx;
         const isCursor = idx === arrangementCursor;
-        const color = section.color ?? sectionColor(section.name ?? '');
+        const color = safeCssColor(section.color, sectionColor(section.name ?? ''));
         const block = document.createElement('div');
         block.className = `arr-block${isPlaying ? ' playing' : ''}`;
         block.dataset.sectionIdx = idx;
@@ -239,9 +240,9 @@ export default {
         const fa = section.followAction ?? 'next';
         const faIcon = { next: '→', loop: '↻', stop: '■', jump: '↩' }[fa] ?? '';
         block.innerHTML = `
-          <div class="arr-block-name">${section.name ?? `Section ${idx + 1}`}</div>
-          <div class="arr-block-bars">${section.bars ?? 4} bars${section.repeat > 1 ? ` ×${section.repeat}` : ''}</div>
-          ${section.followAction && section.followAction !== 'next' ? `<div class="arr-block-fa">${faIcon} ${fa}</div>` : ''}
+          <div class="arr-block-name">${escapeHtml(section.name ?? `Section ${idx + 1}`)}</div>
+          <div class="arr-block-bars">${escapeHtml(section.bars ?? 4)} bars${section.repeat > 1 ? ` ×${escapeHtml(section.repeat)}` : ''}</div>
+          ${section.followAction && section.followAction !== 'next' ? `<div class="arr-block-fa">${faIcon} ${escapeHtml(fa)}</div>` : ''}
         `;
 
         // Right-click context menu

@@ -11,6 +11,7 @@ import { chatAssistant, fetchAssistantProviders, buildAssistantPrompt } from '..
 import { renderMidiSection } from './settings-midi.js';
 import { renderProjectSection } from './settings-project.js';
 import { EVENTS, STATE_PATHS } from '../constants.js';
+import { escapeHtml, finiteNumber } from '../security/dom.js';
 
 const VERSION_LABEL = `${APP_DISPLAY_VERSION} · schema ${PROJECT_SCHEMA_VERSION}`;
 
@@ -328,8 +329,8 @@ function buildAccentSection(state) {
 
 function infoRow(label, value, color) {
   return `<div class="settings-row">
-    <label>${label}</label>
-    <span style="font-family:var(--font-mono);font-size:0.62rem;color:${color || 'var(--screen-text)'}">${value}</span>
+    <label>${escapeHtml(label)}</label>
+    <span style="font-family:var(--font-mono);font-size:0.62rem;color:${color || 'var(--screen-text)'}">${escapeHtml(value)}</span>
   </div>`;
 }
 
@@ -346,7 +347,12 @@ export default {
     const outputLatMs =
       state.audioContext?.outputLatency != null ? (state.audioContext.outputLatency * 1000).toFixed(1) + 'ms' : '—';
     const workletReady = state.engine?._workletReady !== false;
-    const linkBpm = state.abletonLink && state._linkBpm ? state._linkBpm.toFixed(1) : null;
+    const linkBpm = state.abletonLink && state._linkBpm ? finiteNumber(state._linkBpm, 120).toFixed(1) : null;
+    const selectedRecorderMeta = state.recorderSlotsMeta?.[state.selectedRecorderSlot ?? 0] ?? {};
+    const selectedRecorderDuration = finiteNumber(selectedRecorderMeta.durationSec, 0);
+    const selectedRecorderSummary = selectedRecorderDuration
+      ? `${selectedRecorderDuration.toFixed(2)}s · ${String(selectedRecorderMeta.source ?? 'master').toUpperCase()}`
+      : 'Empty';
 
     container.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0">
@@ -366,14 +372,14 @@ export default {
                 .map((o) => {
                   const outputId = o.id || o.name;
                   const selected = state.midiOutputId === outputId || state.engine?.midiOutput === o;
-                  return `<option value="${outputId}"${selected ? ' selected' : ''}>${o.name || o.id}</option>`;
+                  return `<option value="${escapeHtml(outputId)}"${selected ? ' selected' : ''}>${escapeHtml(o.name || o.id)}</option>`;
                 })
                 .join('')}
             </select>
           </div>
           <div class="settings-row">
             <label>Channel</label>
-            <input type="number" min="1" max="16" value="${state.midiChannel ?? 1}" data-action="midiChannel"
+            <input type="number" min="1" max="16" value="${finiteNumber(state.midiChannel, 1)}" data-action="midiChannel"
                    style="width:48px;font-family:var(--font-mono);font-size:0.62rem;background:var(--screen-bg);color:var(--screen-text);border:1px solid var(--border);padding:2px 4px">
           </div>
           <div class="settings-row" style="margin-top:6px">
@@ -452,7 +458,7 @@ export default {
           </div>
           <div class="settings-row">
             <label>Cue Level</label>
-            <input type="range" min="0" max="2" step="0.01" value="${state.cueLevel ?? 1}" data-action="cueLevel">
+            <input type="range" min="0" max="2" step="0.01" value="${finiteNumber(state.cueLevel, 1)}" data-action="cueLevel">
           </div>
           <div class="settings-row" style="margin-top:8px">
             <label>Metronome</label>
@@ -485,14 +491,8 @@ export default {
             <div class="settings-row" style="align-items:flex-start">
               <label>Selected</label>
               <div style="display:flex;flex-direction:column;gap:4px;font-family:var(--font-mono);font-size:0.54rem;color:var(--screen-text)">
-                <span>${state.recorderSlotsMeta?.[state.selectedRecorderSlot ?? 0]?.name ?? 'Slot'}</span>
-                <span style="color:var(--muted)">
-                  ${
-                    state.recorderSlotsMeta?.[state.selectedRecorderSlot ?? 0]?.durationSec
-                      ? `${state.recorderSlotsMeta[state.selectedRecorderSlot ?? 0].durationSec.toFixed(2)}s · ${(state.recorderSlotsMeta[state.selectedRecorderSlot ?? 0].source ?? 'master').toUpperCase()}`
-                      : 'Empty'
-                  }
-                </span>
+                <span>${escapeHtml(selectedRecorderMeta.name ?? 'Slot')}</span>
+                <span style="color:var(--muted)">${escapeHtml(selectedRecorderSummary)}</span>
               </div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px">
@@ -975,8 +975,8 @@ export default {
         ? new Date(meta.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         : '—';
       info.innerHTML = `
-        <div style="font-family:var(--font-mono);font-size:0.56rem;color:${hasBuffer ? 'var(--screen-text)' : 'var(--muted)'}">${meta.name}</div>
-        <div style="font-family:var(--font-mono);font-size:0.48rem;color:var(--muted)">${sourceLabel} · ${dateLabel}</div>
+        <div style="font-family:var(--font-mono);font-size:0.56rem;color:${hasBuffer ? 'var(--screen-text)' : 'var(--muted)'}">${escapeHtml(meta.name)}</div>
+        <div style="font-family:var(--font-mono);font-size:0.48rem;color:var(--muted)">${escapeHtml(sourceLabel)} · ${escapeHtml(dateLabel)}</div>
       `;
 
       const cap2Btn = document.createElement('button');

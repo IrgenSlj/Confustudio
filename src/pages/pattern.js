@@ -2,6 +2,7 @@
 
 import { TRACK_COLORS } from '../state.js';
 import { EVENTS, STATE_PATHS } from '../constants.js';
+import { escapeHtml, finiteNumber } from '../security/dom.js';
 
 import { getGenreStepWeights, midiToNoteName, euclidean, PLOCK_PARAMS, STEP_CONDITIONS } from './pattern-tools.js';
 
@@ -47,9 +48,9 @@ export default {
     const trackLen = track.trackLength > 0 ? track.trackLength : pattern.length;
     const activeSteps = track.steps.slice(0, trackLen).filter((s) => s.active).length;
     header.innerHTML = `
-      <span class="page-title" style="margin:0">${pattern.name}</span>
+      <span class="page-title" style="margin:0">${escapeHtml(pattern.name)}</span>
       <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--muted)">
-        ${pattern.length} steps &bull; ${state.bpm ?? 120} BPM
+        ${pattern.length} steps &bull; ${finiteNumber(state.bpm, 120)} BPM
       </span>
       <span style="font-family:var(--font-mono);font-size:0.52rem;color:var(--accent);opacity:0.8">${activeSteps}/${trackLen} ON</span>
     `;
@@ -428,7 +429,7 @@ export default {
       labelRow1.style.cssText = 'display:flex;align-items:center;gap:2px;overflow:hidden';
       labelRow1.innerHTML = `
         <span class="mtg-label" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">T${ti + 1}</span>
-        <span class="mtg-machine" style="flex-shrink:0">${(trk.machine || 'tone').slice(0, 4).toUpperCase()}</span>
+        <span class="mtg-machine" style="flex-shrink:0">${escapeHtml((trk.machine || 'tone').slice(0, 4).toUpperCase())}</span>
       `;
       labelWrap.append(labelRow1);
       // Row 2: action buttons (horizontal, compact)
@@ -1451,7 +1452,13 @@ export default {
     const currentActiveSteps = track.steps.slice(0, euclidTrackLen).map((s) => s.active);
 
     // Initial draw
-    drawEuclidCircle(euclidCanvas, state.euclidBeats || 4, euclidStepDefault, euclidOffsetDefault, currentActiveSteps);
+    drawEuclidCircle(
+      euclidCanvas,
+      finiteNumber(state.euclidBeats, 4),
+      euclidStepDefault,
+      euclidOffsetDefault,
+      currentActiveSteps,
+    );
 
     euclidDiv.append(euclidCanvas);
 
@@ -1464,7 +1471,7 @@ export default {
     euclidRow1.style.cssText = 'display:flex;align-items:center;gap:4px';
     euclidRow1.innerHTML = `
       <label>EUCLID</label>
-      <input type="number" min="1" max="64" value="${state.euclidBeats || 4}" style="width:40px" title="beats">
+      <input type="number" min="1" max="64" value="${finiteNumber(state.euclidBeats, 4)}" style="width:40px" title="beats">
       <span style="font-family:var(--font-mono);font-size:0.6rem;color:var(--muted)">/</span>
       <input type="number" min="1" max="64" value="${euclidStepDefault}" style="width:40px" title="steps">
     `;
@@ -1747,7 +1754,7 @@ export default {
     const rndGroup = document.createElement('div');
     rndGroup.style.cssText = 'display:flex;align-items:center;gap:3px;flex-shrink:0';
 
-    const density = state.randomizeDensity ?? 0.5;
+    const density = finiteNumber(state.randomizeDensity, 0.5);
     const densitySlider = document.createElement('input');
     densitySlider.type = 'range';
     densitySlider.min = '0';
@@ -1967,7 +1974,7 @@ export default {
 
     const humanizeDiv = document.createElement('div');
     humanizeDiv.style.cssText = 'display:flex;align-items:center;gap:3px';
-    const humanizeAmtInit = state.humanizeAmount ?? 0.2;
+    const humanizeAmtInit = finiteNumber(state.humanizeAmount, 0.2);
     humanizeDiv.innerHTML = `
       <input type="range" min="0" max="1" step="0.1" value="${humanizeAmtInit}"
         title="Humanize amount" style="width:36px;accent-color:var(--accent)">

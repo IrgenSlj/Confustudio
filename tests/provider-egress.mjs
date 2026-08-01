@@ -86,6 +86,15 @@ async function requestAssistant(baseUrl, body) {
   return { response, payload: await response.json() };
 }
 
+async function requestActionPlan(baseUrl, body) {
+  const response = await fetch(`${baseUrl}/api/assistant/actions/plan`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return { response, payload: await response.json() };
+}
+
 let upstreamMode = 'success';
 const upstreamRequests = [];
 const upstream = http.createServer(async (req, res) => {
@@ -107,6 +116,18 @@ const upstream = http.createServer(async (req, res) => {
     const oversized = 'x'.repeat(1024 * 1024 + 1);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(oversized) });
     res.end(oversized);
+    return;
+  }
+  if (upstreamMode === 'invalid-plan') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        output_text: JSON.stringify({
+          summary: 'Attempt an unsupported write',
+          commands: [{ type: 'set-setting', key: 'project', value: null }],
+        }),
+      }),
+    );
     return;
   }
 
@@ -254,6 +275,18 @@ try {
     oversized.payload.code === 'UPSTREAM_RESPONSE_TOO_LARGE',
     'Missing response-size error code',
     oversized.payload,
+  );
+
+  upstreamMode = 'invalid-plan';
+  const invalidPlan = await requestActionPlan(configuredApp.baseUrl, {
+    provider: 'openai',
+    message: 'Attempt an invalid project write.',
+  });
+  assert(invalidPlan.response.status === 502, 'Invalid assistant commands should fail closed', invalidPlan.payload);
+  assert(
+    invalidPlan.payload.code === 'ASSISTANT_COMMANDS_INVALID',
+    'Missing invalid assistant command error code',
+    invalidPlan.payload,
   );
 
   privateHostedApp = await startConfustudio({

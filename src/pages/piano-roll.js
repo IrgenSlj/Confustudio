@@ -1,6 +1,7 @@
 // src/pages/piano-roll.js — 2D note grid editor
 
 import { TRACK_COLORS } from '../state.js';
+import { escapeHtml } from '../security/dom.js';
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const BLACK_PCS = new Set([1, 3, 6, 8, 10]); // pitch-class indices for black keys
@@ -192,7 +193,7 @@ export default {
     header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0';
     header.innerHTML = `
       <span class="page-title" style="margin:0">Piano Roll</span>
-      <span style="font-family:var(--font-mono);font-size:0.6rem;color:var(--muted)">${track.name} &bull; ${steps} steps</span>
+      <span style="font-family:var(--font-mono);font-size:0.6rem;color:var(--muted)">${escapeHtml(track.name)} &bull; ${steps} steps</span>
       <span style="margin-left:auto;font-family:var(--font-mono);font-size:0.58rem;color:var(--muted)">scroll/zoom via knobs</span>
     `;
     container.append(header);

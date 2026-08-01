@@ -28,6 +28,7 @@ import { resetRecorderSlotMeta, captureRecorderSlot, loadRecorderSlotToTrack, ex
 import { initHistoryUI } from './history-ui.js';
 import { shouldTriggerStep } from './kernel/event-compiler.js';
 import { getStepDurationSeconds } from './kernel/transport.js';
+import { escapeHtml, safeFilenameSegment } from './security/dom.js';
 
 // Page modules
 import patternPage from './pages/pattern.js';
@@ -312,7 +313,7 @@ export function exportMidi(state) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${pattern.name ?? 'pattern'}.mid`;
+  a.download = `${safeFilenameSegment(pattern.name ?? 'pattern')}.mid`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -2725,7 +2726,11 @@ function renderPage() {
   } catch (err) {
     console.error('[renderPage] Error rendering page "' + state.currentPage + '":', err);
     if (el.pageContent) {
-      el.pageContent.innerHTML = `<div style="padding:20px;color:#f05b52;font-family:monospace;font-size:0.6rem;white-space:pre-wrap">Render error (${state.currentPage}):\n${err?.message ?? err}</div>`;
+      const errorMessage = document.createElement('div');
+      errorMessage.style.cssText =
+        'padding:20px;color:#f05b52;font-family:monospace;font-size:0.6rem;white-space:pre-wrap';
+      errorMessage.textContent = `Render error (${state.currentPage}):\n${err?.message ?? err}`;
+      el.pageContent.replaceChildren(errorMessage);
     }
   }
   if (pageChanged) {
@@ -2787,7 +2792,8 @@ function renderKnobBar() {
     const displayVal = value != null ? formatKnobBarValue(value, def) : '—';
 
     slot.innerHTML =
-      `<span class="knob-bar-label">${def.label}</span>` + `<span class="knob-bar-value">${displayVal}</span>`;
+      `<span class="knob-bar-label">${escapeHtml(def.label)}</span>` +
+      `<span class="knob-bar-value">${escapeHtml(displayVal)}</span>`;
     el.knobBar.append(slot);
   });
 }
@@ -2840,7 +2846,7 @@ function renderTrackStrip() {
     if (track.solo) classes.push('soloed');
     card.className = classes.join(' ');
     const active = track.steps.slice(0, pattern.length).filter((s) => s.active).length;
-    card.innerHTML = `<h3>T${i + 1} · ${track.machine}</h3><p>${track.waveform} · ${active} trigs</p>`;
+    card.innerHTML = `<h3>T${i + 1} · ${escapeHtml(track.machine)}</h3><p>${escapeHtml(track.waveform)} · ${active} trigs</p>`;
     card.addEventListener('click', (e) => {
       if (e.shiftKey) emit('track:mute', { trackIndex: i });
       else if (e.altKey) emit('track:solo', { trackIndex: i });

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { buildManualToolSurface } from './src/harness/tools/registry.js';
+import { validateStudioCommandBatch } from './src/security/command-validation.js';
 import { createAssistantProxyError, postProviderJson, resolveProviderEndpoint } from './src/server/provider-egress.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -604,17 +605,41 @@ async function handleAssistantProviders(_req, res) {
   });
 }
 
-// COOP/COEP headers — required for SharedArrayBuffer and AudioWorklet coordination
-const ISOLATION_HEADERS = {
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "base-uri 'none'",
+  "connect-src 'self'",
+  "font-src 'self' data:",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  "frame-src 'none'",
+  "img-src 'self' data: blob:",
+  "manifest-src 'self'",
+  "media-src 'self' data: blob:",
+  "object-src 'none'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "worker-src 'self' blob:",
+].join('; ');
+
+// Shared by HTML, assets, APIs, and errors so no route silently loses policy.
+const SECURITY_HEADERS = {
+  'Content-Security-Policy': CONTENT_SECURITY_POLICY,
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Embedder-Policy': 'require-corp',
+  'Cross-Origin-Resource-Policy': 'same-origin',
+  'Origin-Agent-Cluster': '?1',
+  'Permissions-Policy': 'camera=(), geolocation=(), microphone=(self), midi=(self), payment=(), usb=()',
+  'Referrer-Policy': 'no-referrer',
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
 };
 
 function sendJson(res, statusCode, data) {
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
-    ...ISOLATION_HEADERS,
+    ...SECURITY_HEADERS,
   });
   res.end(JSON.stringify(data));
 }
@@ -648,7 +673,7 @@ async function handleLinkStream(req, res, url) {
     'Content-Type': 'text/event-stream; charset=utf-8',
     'Cache-Control': 'no-store',
     Connection: 'keep-alive',
-    ...ISOLATION_HEADERS,
+    ...SECURITY_HEADERS,
   });
   res.write(': connected\n\n');
   writeSse(res, 'message', { ...linkState, clientId, connected: true });
@@ -692,14 +717,14 @@ async function handleLinkState(req, res) {
 
 async function serveFile(res, filePath) {
   if (!existsSync(filePath)) {
-    res.writeHead(404, ISOLATION_HEADERS);
+    res.writeHead(404, SECURITY_HEADERS);
     res.end('Not found');
     return;
   }
 
   const fileStats = await stat(filePath);
   if (!fileStats.isFile()) {
-    res.writeHead(403, ISOLATION_HEADERS);
+    res.writeHead(403, SECURITY_HEADERS);
     res.end('Forbidden');
     return;
   }
@@ -708,7 +733,7 @@ async function serveFile(res, filePath) {
   res.writeHead(200, {
     'Content-Type': mimeTypes[ext] || 'application/octet-stream',
     'Cache-Control': 'no-store',
-    ...ISOLATION_HEADERS,
+    ...SECURITY_HEADERS,
   });
   createReadStream(filePath).pipe(res);
 }
@@ -745,15 +770,21 @@ async function handleAssistantActionPlan(req, res) {
       });
       return;
     }
+    const commands = Array.isArray(plan.commands) ? plan.commands : [];
+    try {
+      validateStudioCommandBatch(commands, { maxCommands: 24 });
+    } catch (_) {
+      throw createAssistantProxyError(
+        'Assistant action planner returned invalid commands',
+        'ASSISTANT_COMMANDS_INVALID',
+        502,
+      );
+    }
     sendJson(res, 200, {
       provider: result.provider,
       model: result.model,
       summary: typeof plan.summary === 'string' ? plan.summary : '',
-      commands: Array.isArray(plan.commands)
-        ? plan.commands
-            .filter((command) => command && typeof command === 'object' && typeof command.type === 'string')
-            .slice(0, 24)
-        : [],
+      commands,
       text: result.text,
     });
   } catch (error) {
@@ -866,7 +897,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  res.writeHead(404, ISOLATION_HEADERS);
+  res.writeHead(404, SECURITY_HEADERS);
   res.end('Not found');
 });
 

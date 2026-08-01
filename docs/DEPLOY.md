@@ -87,7 +87,7 @@ have automated evidence:
 - [ ] Vite production build and generated asset revisioning.
 - [ ] Fresh, returning-user, offline, service-worker update, and rollback boots.
 - [ ] `crossOriginIsolated === true` where required by the audio runtime.
-- [ ] CSP, frame, content-type, referrer, and permissions policies.
+- [x] CSP, frame, content-type, referrer, and permissions policies on the current server.
 - [ ] Exact provider origin/path allowlist and redirect rejection.
 - [ ] Authentication, authorization, CSRF, origin, rate, quota, and budget tests.
 - [ ] No secret in browser responses, logs, traces, URLs, or arbitrary egress.

@@ -2,6 +2,8 @@
 
 import { saveState, createProjectPackage, applyProjectPackageToState, getActivePattern } from '../state.js';
 import { EVENTS, STATE_PATHS } from '../constants.js';
+import { escapeHtml, finiteNumber, safeFilenameSegment } from '../security/dom.js';
+import { readJsonImportFile } from '../security/runtime-validation.js';
 
 function executeStudioCommand(command, label) {
   const execute = window.confustudioCommands?.execute;
@@ -95,8 +97,8 @@ function _showStemExportModal(state, emit, container) {
     'Renders each track to a separate WAV file using OfflineAudioContext. All tracks share the current pattern length and BPM.';
 
   const tracks = state.project?.banks?.[state.activeBank]?.patterns?.[state.activePattern]?.kit?.tracks ?? [];
-  const bpm = state.bpm ?? 120;
-  const bars = state.recorderBarCount ?? 4;
+  const bpm = finiteNumber(state.bpm, 120);
+  const bars = finiteNumber(state.recorderBarCount, 4);
   const beatsPerBar = 4;
   const durationSec = (bars * beatsPerBar * 60) / bpm;
   const sampleRate = state.audioContext?.sampleRate ?? 44100;
@@ -106,7 +108,7 @@ function _showStemExportModal(state, emit, container) {
   const infoEl = document.createElement('div');
   infoEl.style.cssText =
     'font-size:0.54rem;color:var(--screen-text,#f0c640);margin-bottom:12px;padding:6px 8px;border:1px solid rgba(255,255,255,0.08);border-radius:4px;background:rgba(0,0,0,0.3)';
-  infoEl.innerHTML = `<span style="opacity:0.7">BPM:</span> ${bpm} &nbsp; <span style="opacity:0.7">Bars:</span> ${bars} &nbsp; <span style="opacity:0.7">Duration:</span> ${durationSec.toFixed(2)}s &nbsp; <span style="opacity:0.7">Rate:</span> ${sampleRate}Hz`;
+  infoEl.innerHTML = `<span style="opacity:0.7">BPM:</span> ${escapeHtml(bpm)} &nbsp; <span style="opacity:0.7">Bars:</span> ${escapeHtml(bars)} &nbsp; <span style="opacity:0.7">Duration:</span> ${durationSec.toFixed(2)}s &nbsp; <span style="opacity:0.7">Rate:</span> ${escapeHtml(sampleRate)}Hz`;
 
   if (!stemRenderingAvailable) {
     desc.textContent =
@@ -169,7 +171,7 @@ function _showStemExportModal(state, emit, container) {
       cancelBtn.disabled = false;
       return;
     }
-    const projectName = (state.project?.name ?? 'stem').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const projectName = safeFilenameSegment(state.project?.name ?? 'stem');
 
     if (eng?.renderTrackStem) {
       for (let idx = 0; idx < selectedIndices.length; idx++) {
@@ -231,19 +233,19 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
     <div class="settings-label">PROJECT INFO</div>
     <div class="settings-row">
       <label>Name</label>
-      <input type="text" value="${(state.project.name ?? '').replace(/"/g, '&quot;')}" id="proj-name-input" style="flex:1;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:2px 5px;font-family:var(--font-mono);font-size:0.55rem">
+      <input type="text" value="${escapeHtml(state.project.name ?? '')}" id="proj-name-input" style="flex:1;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:2px 5px;font-family:var(--font-mono);font-size:0.55rem">
     </div>
     <div class="settings-row">
       <label>Author</label>
-      <input type="text" value="${(state.project.author ?? '').replace(/"/g, '&quot;')}" id="proj-author-input" style="flex:1;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:2px 5px;font-family:var(--font-mono);font-size:0.55rem">
+      <input type="text" value="${escapeHtml(state.project.author ?? '')}" id="proj-author-input" style="flex:1;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:2px 5px;font-family:var(--font-mono);font-size:0.55rem">
     </div>
     <div class="settings-row">
       <label>BPM</label>
-      <input type="number" min="40" max="240" value="${state.bpm ?? 120}" id="proj-bpm-input" style="width:52px;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:2px 5px;font-family:var(--font-mono);font-size:0.55rem">
+      <input type="number" min="40" max="240" value="${finiteNumber(state.bpm, 120)}" id="proj-bpm-input" style="width:52px;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:2px 5px;font-family:var(--font-mono);font-size:0.55rem">
     </div>
     <div class="settings-row">
       <label>Notes</label>
-      <textarea id="proj-desc-input" rows="2" style="flex:1;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:2px 5px;font-family:var(--font-mono);font-size:0.52rem;resize:vertical">${state.project.description ?? ''}</textarea>
+      <textarea id="proj-desc-input" rows="2" style="flex:1;background:#1a1a1a;color:var(--screen-text);border:1px solid #333;border-radius:3px;padding:2px 5px;font-family:var(--font-mono);font-size:0.52rem;resize:vertical">${escapeHtml(state.project.description ?? '')}</textarea>
     </div>
     <div class="settings-row" style="color:var(--muted);font-size:0.48rem;font-family:var(--font-mono)">
       Created: ${state.project.createdAt ? new Date(state.project.createdAt).toLocaleDateString() : 'Unknown'}
@@ -393,7 +395,7 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
     const blob = new Blob([json], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `${state.project.name ?? 'confustudio'}-${Date.now()}.json`;
+    a.download = `${safeFilenameSegment(state.project.name)}-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
   });
@@ -402,21 +404,19 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
   loadInput.type = 'file';
   loadInput.accept = '.json';
   loadInput.style.display = 'none';
-  loadInput.addEventListener('change', () => {
+  loadInput.addEventListener('change', async () => {
     const file = loadInput.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const project = JSON.parse(e.target.result);
-        applyProjectPackageToState(state, project);
-        saveState(state);
-        emit(EVENTS.STATE_CHANGE, { path: 'action_renderPage', value: true });
-      } catch (err) {
-        alert('Invalid project file: ' + err.message);
-      }
-    };
-    reader.readAsText(file);
+    try {
+      const project = await readJsonImportFile(file, 'project');
+      applyProjectPackageToState(state, project);
+      saveState(state);
+      emit(EVENTS.STATE_CHANGE, { path: 'action_renderPage', value: true });
+    } catch (err) {
+      alert('Invalid project file: ' + err.message);
+    } finally {
+      loadInput.value = '';
+    }
   });
   const loadBtn = document.createElement('button');
   loadBtn.className = 'seq-btn';
@@ -440,21 +440,32 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
   loadKitInput.type = 'file';
   loadKitInput.accept = '.json';
   loadKitInput.style.display = 'none';
-  loadKitInput.addEventListener('change', () => {
+  loadKitInput.addEventListener('change', async () => {
     const file = loadKitInput.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const kit = JSON.parse(e.target.result);
-        getActivePattern(state).kit = kit;
-        saveState(state);
-        emit(EVENTS.STATE_CHANGE, { path: 'action_renderPage', value: true });
-      } catch (err) {
-        alert('Invalid kit file: ' + err.message);
+    try {
+      const kit = await readJsonImportFile(file, 'kit');
+      const pattern = { ...getActivePattern(state), kit };
+      if (
+        !executeStudioCommand(
+          {
+            type: 'replace-pattern',
+            bankIndex: state.activeBank,
+            patternIndex: state.activePattern,
+            pattern,
+          },
+          'Kit imported',
+        )
+      ) {
+        throw new Error('Kit could not be applied');
       }
-    };
-    reader.readAsText(file);
+      saveState(state);
+      emit(EVENTS.STATE_CHANGE, { path: 'action_renderPage', value: true });
+    } catch (err) {
+      alert('Invalid kit file: ' + err.message);
+    } finally {
+      loadKitInput.value = '';
+    }
   });
   const loadKitBtn = document.createElement('button');
   loadKitBtn.className = 'seq-btn';

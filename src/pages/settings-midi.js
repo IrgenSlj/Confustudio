@@ -1,6 +1,7 @@
 // src/pages/settings-midi.js — MIDI config section
 
 import { saveState } from '../state.js';
+import { readJsonImportFile } from '../security/runtime-validation.js';
 
 export function renderMidiSection(container, state, emit) {
   // ── MIDI Output Routing section ──────────────────────────────────────────
@@ -271,23 +272,20 @@ export function renderMidiSection(container, state, emit) {
   importMidiInput.type = 'file';
   importMidiInput.accept = '.json';
   importMidiInput.style.display = 'none';
-  importMidiInput.addEventListener('change', () => {
+  importMidiInput.addEventListener('change', async () => {
     const file = importMidiInput.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const map = JSON.parse(ev.target.result);
-        if (typeof map !== 'object' || Array.isArray(map)) throw new Error('Expected an object');
-        state.midiLearnMap = map;
-        saveState(state);
-        renderMidiLearnTable();
-        emit('state:change', { path: 'midiLearnMap', value: map });
-      } catch (err) {
-        alert('Invalid MIDI map file: ' + err.message);
-      }
-    };
-    reader.readAsText(file);
+    try {
+      const map = await readJsonImportFile(file, 'midi-map');
+      state.midiLearnMap = map;
+      saveState(state);
+      renderMidiLearnTable();
+      emit('state:change', { path: 'midiLearnMap', value: map });
+    } catch (err) {
+      alert('Invalid MIDI map file: ' + err.message);
+    } finally {
+      importMidiInput.value = '';
+    }
   });
   const importMidiBtn = document.createElement('button');
   importMidiBtn.className = 'seq-btn';

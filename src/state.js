@@ -8,6 +8,7 @@ import {
   queuePersistAssets,
   scheduleAssetHydration,
 } from './asset-store.js';
+import { validateProjectImport } from './security/runtime-validation.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -410,6 +411,7 @@ export function applyProjectPackageToState(state, packageOrProject) {
   if (!state || typeof state !== 'object') {
     throw new TypeError('state is required');
   }
+  validateProjectImport(packageOrProject);
   const snapshot =
     packageOrProject?.state && typeof packageOrProject.state === 'object'
       ? packageOrProject.state
@@ -878,6 +880,7 @@ export function loadState() {
     const raw = activeKey ? localStorage.getItem(activeKey) : null;
     if (raw) {
       const parsedInput = JSON.parse(raw);
+      validateProjectImport(parsedInput);
       const parsedProject = unwrapProjectPackage(parsedInput);
       const parsed = parsedProject?.banks ? { project: parsedProject } : parsedInput;
       // Restore sampleBuffer = null on all tracks (was stripped on save)
@@ -985,6 +988,7 @@ function deepMerge(target, source) {
   const base = target && typeof target === 'object' ? target : {};
   const result = { ...base };
   for (const key of Object.keys(source)) {
+    if (key === '__proto__' || key === 'prototype' || key === 'constructor') continue;
     const srcVal = source[key];
     const tgtVal = base[key];
     if (srcVal !== null && typeof srcVal === 'object' && tgtVal !== null && typeof tgtVal === 'object') {

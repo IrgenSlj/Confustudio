@@ -14,6 +14,7 @@ import {
   saveState,
 } from './state.js';
 import { getGenreStepWeights } from './pages/pattern-tools.js';
+import { validateStudioCommand, validateStudioCommandBatch } from './security/command-validation.js';
 
 function clamp(value, min, max, fallback = min) {
   const num = Number(value);
@@ -195,7 +196,7 @@ export function captureCommandState(state) {
  */
 export function executeStudioCommand(state, command, parentSignalId = null) {
   if (!state || typeof state !== 'object') throw new TypeError('state is required');
-  if (!command || typeof command !== 'object') throw new TypeError('command must be an object');
+  validateStudioCommand(command);
 
   const type = String(command.type || '').trim();
   const bankIndex = clamp(command.bankIndex ?? state.activeBank, 0, BANK_COUNT - 1, state.activeBank ?? 0);
@@ -686,6 +687,7 @@ function executeAndRecord(state, command, parentSignalId) {
 }
 
 export function executeStudioCommands(state, commands = []) {
+  validateStudioCommandBatch(commands);
   const results = [];
   let changed = false;
   // Start from cursor position so new commands branch from undo point

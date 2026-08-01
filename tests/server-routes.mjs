@@ -86,6 +86,23 @@ const server = await startServer();
 try {
   const home = await fetch(`${server.baseUrl}/`);
   assert(home.ok, 'Home route failed', { status: home.status });
+  const expectedHeaders = {
+    'content-security-policy':
+      "default-src 'self'; base-uri 'none'; connect-src 'self'; font-src 'self' data:; form-action 'self'; frame-ancestors 'none'; frame-src 'none'; img-src 'self' data: blob:; manifest-src 'self'; media-src 'self' data: blob:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:",
+    'cross-origin-embedder-policy': 'require-corp',
+    'cross-origin-opener-policy': 'same-origin',
+    'cross-origin-resource-policy': 'same-origin',
+    'permissions-policy': 'camera=(), geolocation=(), microphone=(self), midi=(self), payment=(), usb=()',
+    'referrer-policy': 'no-referrer',
+    'x-content-type-options': 'nosniff',
+    'x-frame-options': 'DENY',
+  };
+  for (const [name, value] of Object.entries(expectedHeaders)) {
+    assert(home.headers.get(name) === value, `Security header mismatch: ${name}`, {
+      expected: value,
+      actual: home.headers.get(name),
+    });
+  }
   const homeHtml = await home.text();
   assert(homeHtml.includes('CONFUstudio'), 'Home page does not contain studio branding');
 

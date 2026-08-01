@@ -61,7 +61,12 @@ export function createDSPModule(pluginId, params) {
     justify-content: space-between;
     align-items: center;
   `;
-  title.innerHTML = `<span>${plugin.label}</span><span style="font-size:9px;color:var(--text-muted)">${plugin.type}</span>`;
+  const titleLabel = document.createElement('span');
+  titleLabel.textContent = plugin.label;
+  const titleType = document.createElement('span');
+  titleType.style.cssText = 'font-size:9px;color:var(--text-muted)';
+  titleType.textContent = plugin.type;
+  title.append(titleLabel, titleType);
   container.appendChild(title);
 
   // Port indicators
@@ -88,7 +93,9 @@ export function createDSPModule(pluginId, params) {
       color: ${color};
       cursor: crosshair;
     `;
-    dot.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:var(--radius-full);background:${color};border:1px solid rgba(255,255,255,0.2)"></span> ${port.label}`;
+    const indicator = document.createElement('span');
+    indicator.style.cssText = `display:inline-block;width:8px;height:8px;border-radius:var(--radius-full);background:${color};border:1px solid rgba(255,255,255,0.2)`;
+    dot.append(indicator, document.createTextNode(` ${port.label}`));
     portBar.appendChild(dot);
   }
   container.appendChild(portBar);

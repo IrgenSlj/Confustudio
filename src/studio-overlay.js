@@ -4,6 +4,7 @@ import {
   fetchAssistantContext,
   fetchAssistantProviders,
 } from './assistant-client.js';
+import { escapeHtml } from './security/dom.js';
 
 let _overlay = null;
 
@@ -46,37 +47,46 @@ export function openOverlay(hideZoomLens, title, content) {
   const body = overlay.querySelector('.studio-overlay-body');
   body.replaceChildren();
   if (typeof content === 'string') {
-    body.innerHTML = content;
+    body.textContent = content;
   } else if (content) {
     body.append(content);
   }
   overlay.classList.remove('hidden');
 }
 
+function createOverlayCopy(message) {
+  const copy = document.createElement('div');
+  copy.className = 'studio-overlay-copy';
+  copy.textContent = message;
+  return copy;
+}
+
 export async function openManualOverlay(hideZoomLens) {
-  openOverlay(hideZoomLens, 'Guide', '<div class="studio-overlay-copy">Loading guide…</div>');
+  openOverlay(hideZoomLens, 'Guide', createOverlayCopy('Loading guide…'));
   try {
     const context = await fetchAssistantContext();
     const app = context?.app || {};
     const assistant = context?.assistant || {};
     const manual = context?.manual || {};
     const pages = manual.pages || [];
-    const signalFlow = (manual.audioAndControl?.routing || []).map((item) => `<li>${item}</li>`).join('');
-    const pageItems = pages.map((page) => `<li><strong>${page.title}</strong>: ${page.purpose}</li>`).join('');
+    const signalFlow = (manual.audioAndControl?.routing || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('');
+    const pageItems = pages
+      .map((page) => `<li><strong>${escapeHtml(page.title)}</strong>: ${escapeHtml(page.purpose)}</li>`)
+      .join('');
     const quickStart = [
       'Power the audio engine, set BPM, and choose a page for the current task.',
       'Build or edit the pattern, then shape the selected track in Sound and Mixer.',
       'Use Scenes and Arranger to turn loops into a performance or song structure.',
       'Call the Assistant when you want producer-style direction grounded in the current project.',
     ]
-      .map((step) => `<li>${step}</li>`)
+      .map((step) => `<li>${escapeHtml(step)}</li>`)
       .join('');
     const assistantModes = (assistant.skills || [])
-      .map((skill) => `<li><strong>${skill.id}</strong>: ${skill.purpose}</li>`)
+      .map((skill) => `<li><strong>${escapeHtml(skill.id)}</strong>: ${escapeHtml(skill.purpose)}</li>`)
       .join('');
     const wrapEl = document.createElement('div');
     wrapEl.innerHTML = `
-      <div class="studio-overlay-copy">${app.description || 'CONFUstudio is a browser-first studio shell for sequencing, sampling, synthesis, routing, and performance.'}</div>
+      <div class="studio-overlay-copy">${escapeHtml(app.description || 'CONFUstudio is a browser-first studio shell for sequencing, sampling, synthesis, routing, and performance.')}</div>
       <nav class="studio-manual-index">
         <button type="button" class="active" data-manual-tab="manual-quickstart">Quick Start</button>
         <button type="button" data-manual-tab="manual-overview">Overview</button>
@@ -101,7 +111,7 @@ export async function openManualOverlay(hideZoomLens) {
         </section>
         <section class="studio-overlay-card studio-manual-section hidden" id="manual-overview">
           <h4>Studio Overview</h4>
-          <p>${assistant.contextSummary || 'Use CONFUsynth for sequencing, sampling, synthesis, routing, and mix decisions across the studio.'}</p>
+          <p>${escapeHtml(assistant.contextSummary || 'Use CONFUsynth for sequencing, sampling, synthesis, routing, and mix decisions across the studio.')}</p>
         </section>
         <section class="studio-overlay-card studio-manual-section hidden" id="manual-pages">
           <h4>Page Reference</h4>
@@ -117,7 +127,7 @@ export async function openManualOverlay(hideZoomLens) {
         </section>
         <section class="studio-overlay-card studio-manual-section hidden" id="manual-rules">
           <h4>Operating Rules</h4>
-          <ul>${(manual.assistantGuardrails || []).map((rule) => `<li>${rule}</li>`).join('')}</ul>
+          <ul>${(manual.assistantGuardrails || []).map((rule) => `<li>${escapeHtml(rule)}</li>`).join('')}</ul>
         </section>
       </div>
     `;
@@ -134,11 +144,7 @@ export async function openManualOverlay(hideZoomLens) {
     });
     openOverlay(hideZoomLens, 'Guide', wrapEl);
   } catch (error) {
-    openOverlay(
-      hideZoomLens,
-      'Guide',
-      `<div class="studio-overlay-copy">${error?.message || 'Guide unavailable.'}</div>`,
-    );
+    openOverlay(hideZoomLens, 'Guide', createOverlayCopy(error?.message || 'Guide unavailable.'));
   }
 }
 

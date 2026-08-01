@@ -6,7 +6,7 @@
 
 **Owner:** project maintainer
 
-**Implementation state:** provider egress complete; browser trust-boundary work next
+**Implementation state:** provider egress and browser boundaries complete; abuse controls next
 
 This document defines the order of work, acceptance gates, and target stack. It
 supersedes older phase ordering in the code, AI, and design briefs. The briefs
@@ -398,6 +398,7 @@ security, and selected audio checks without running the same stage twice.
 
 ## 9. Current Boundary
 
-Phase 0 was completed under issue #10 and provider egress under issue #11.
-Development continues with PR 3, `security/02-browser-boundaries`, under issue #12.
+Phase 0 was completed under issue #10, provider egress under issue #11, and browser
+trust boundaries under issue #12. Development continues with PR 4,
+`security/03-abuse-controls`, under issue #13.
 Public AI execution remains default-off and no later phase may bypass the gates.

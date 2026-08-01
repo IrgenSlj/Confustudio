@@ -2,6 +2,7 @@
 import { openSampleBrowser } from '../sample-browser.js';
 import { TRACK_COLORS } from '../state.js';
 import { makeSampleLoader } from './sound-sample.js';
+import { escapeHtml, finiteNumber } from '../security/dom.js';
 
 const MACHINES = ['tone', 'noise', 'sample', 'midi', 'plaits', 'clouds', 'rings'];
 const WAVEFORMS = ['sine', 'triangle', 'sawtooth', 'square'];
@@ -214,10 +215,11 @@ function drawFilterResponse(canvas, cutoff, resonance, filterType, color) {
 
 function makeSlider(label, param, min, max, step, value, emit, trackIndex) {
   const row = document.createElement('label');
+  const safeValue = finiteNumber(value, min);
   row.innerHTML = `
     <span>${label}</span>
-    <output>${Number(value).toFixed(step < 1 ? 2 : 0)}</output>
-    <input type="range" min="${min}" max="${max}" step="${step}" value="${value}">
+    <output>${safeValue.toFixed(step < 1 ? 2 : 0)}</output>
+    <input type="range" min="${min}" max="${max}" step="${step}" value="${safeValue}">
   `;
   const input = row.querySelector('input');
   const output = row.querySelector('output');
@@ -565,8 +567,8 @@ export default {
     header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-shrink:0';
     const machineType = (track.machine ?? 'tone').toLowerCase();
     const badgeColors = MACHINE_BADGE_COLORS[machineType] ?? { bg: '#555', text: '#fff' };
-    header.innerHTML = `<span class="page-title" style="margin:0">Sound — ${track.name}</span>
-      <span class="machine-badge" style="background:${badgeColors.bg};color:${badgeColors.text}">${machineType.toUpperCase()}</span>`;
+    header.innerHTML = `<span class="page-title" style="margin:0">Sound — ${escapeHtml(track.name)}</span>
+      <span class="machine-badge" style="background:${badgeColors.bg};color:${badgeColors.text}">${escapeHtml(machineType.toUpperCase())}</span>`;
     container.append(header);
 
     // ── Sub-tab bar ──────────────────────────────────────────────────────────

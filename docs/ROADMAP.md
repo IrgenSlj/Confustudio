@@ -1,6 +1,6 @@
 # CONFUstudio Roadmap
 
-**Status:** Phase 0 complete; Phase 1 security work is next
+**Status:** Phase 0 complete; Phase 1 security work is active
 
 **Updated:** 2026-07-31
 
@@ -21,8 +21,9 @@ Legend: `[x]` complete, `[~]` in progress or partial, `[ ]` not started,
 - [x] Maintainer approval to begin development.
 - [!] Public hosted-provider deployment is blocked by Phase 1 security work.
 
-The next implementation batch is `security/02-browser-boundaries`, tracked in
-[#12](https://github.com/IrgenSlj/Confustudio/issues/12).
+Provider egress and browser trust boundaries are complete. The next implementation
+batch is `security/03-abuse-controls`, tracked in
+[#13](https://github.com/IrgenSlj/Confustudio/issues/13).
 
 ## Phase 0: Baselines and Release Freeze
 
@@ -41,9 +42,10 @@ The next implementation batch is `security/02-browser-boundaries`, tracked in
 - [x] Block SSRF, redirect escape, and private-network access in hosted routes.
 - [x] Separate loopback-only local providers from the future public API.
 - [ ] Add authentication, origin/CSRF checks, rate limits, budgets, and audit events.
-- [ ] Add CSP and the remaining browser security headers.
-- [ ] Replace untrusted HTML interpolation with safe text/template rendering.
-- [ ] Validate projects, commands, provider outputs, manifests, and filenames.
+- [x] Add CSP and the remaining browser security headers.
+- [x] Replace imported/persisted HTML interpolation with safe text/template rendering.
+- [~] Validate projects, commands, provider outputs, and filenames; external
+  manifest schemas remain for the typed core/toolchain work.
 - [ ] Make save/quota failures visible to users.
 - [ ] Resolve the high-severity development dependency audit finding.
 - [ ] Pass Gate P1; keep public AI disabled.
