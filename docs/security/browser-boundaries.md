@@ -90,11 +90,12 @@ style policy must be tightened.
 
 ## Residual Risk And Rollback
 
-Public assistant use is still prohibited. Authentication, origin/CSRF policy,
-rate limits, quotas, spending budgets, and audit events remain issue #13. Save and
-quota error UX, dependency remediation, external manifest schemas, strict
-TypeScript boundaries, and removal of remaining direct state mutation are later
-work items.
+Public assistant use is still prohibited. The interim authentication and abuse
+controls are documented separately and do not replace a hosted identity system.
+External manifest schemas, strict TypeScript boundaries, and removal of remaining
+direct state mutation are later work items. Project saves now report saved,
+sparse-recovery, and failed states; audio-asset persistence failures use the same
+visible status channel.
 
 Rollback is to disable imports and assistant writes, then revert the boundary
 adapters. This change does not migrate or rewrite stored project data.

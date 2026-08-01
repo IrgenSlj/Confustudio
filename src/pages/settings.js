@@ -1610,10 +1610,21 @@ export default {
 
     // ── Auto-save indicator ──────────────────────────────────────────────────
     const saveStatusDiv = document.createElement('div');
-    saveStatusDiv.style.cssText = 'font-family:var(--font-mono);font-size:0.5rem;color:var(--muted);padding:4px 0 2px';
+    const persistenceStatus = state._persistenceStatus ?? 'idle';
+    const persistenceColor =
+      persistenceStatus === 'failed'
+        ? 'var(--record)'
+        : persistenceStatus === 'recovered'
+          ? 'var(--accent)'
+          : 'var(--muted)';
+    saveStatusDiv.style.cssText = `font-family:var(--font-mono);font-size:0.5rem;color:${persistenceColor};padding:4px 0 2px`;
     saveStatusDiv.dataset.settingsTab = 'SYSTEM';
+    saveStatusDiv.dataset.persistenceStatus = persistenceStatus;
     const lastSave = state._lastSaveTime ? new Date(state._lastSaveTime).toLocaleTimeString() : 'Never';
-    saveStatusDiv.textContent = `Auto-save: ${lastSave}`;
+    saveStatusDiv.textContent =
+      persistenceStatus === 'failed' || persistenceStatus === 'recovered' || persistenceStatus === 'saving'
+        ? state._persistenceMessage
+        : `Auto-save: ${lastSave}`;
     container.append(saveStatusDiv);
 
     // ── Export Mix (WAV download) ─────────────────────────────────────────────

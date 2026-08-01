@@ -37,8 +37,6 @@ Gate P1 closure before `core/01-vite-typescript`, issue
 
 Scope:
 
-- Surface local project and audio-asset save failures to the user without hiding
-  sparse fallback recovery.
 - Re-run the complete Phase 1 security, boundary, server, and browser evidence.
 - Obtain independent review of provider egress, imports/rendering, commands, session,
   origin/CSRF, limits, and audit redaction.

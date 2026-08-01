@@ -85,6 +85,8 @@ Generally out of scope:
 - Imported projects and provider output are untrusted data.
 - Imported JSON must pass the bounded runtime validator before normalization or mutation.
 - UI and assistant command batches must pass the same command allowlist before mutation.
+- Project and audio-asset persistence failures must surface through the shared
+  user-visible status channel; console-only failure is not accepted.
 - Secrets must never appear in browser responses, logs, traces, fixtures, project
   packages, URLs, or arbitrary outbound requests.
 

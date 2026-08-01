@@ -1,3 +1,5 @@
+import { reportPersistenceStatus } from './persistence-status.js';
+
 const DB_NAME = 'confustudio-assets-v1';
 const DB_VERSION = 1;
 const PROJECT_STORE = 'projects';
@@ -405,6 +407,11 @@ export function queuePersistAssets(state) {
     .then(() => persistToIndexedDb(snapshot, mergeOnly))
     .catch((error) => {
       console.warn('[CONFUstudio] Asset persistence failed:', error);
+      reportPersistenceStatus(
+        state,
+        'failed',
+        'Audio assets could not be saved. Export a project backup before closing.',
+      );
     });
 
   return persistChain;

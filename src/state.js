@@ -9,6 +9,7 @@ import {
   scheduleAssetHydration,
 } from './asset-store.js';
 import { validateProjectImport } from './security/runtime-validation.js';
+import { reportPersistenceStatus } from './persistence-status.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -673,7 +674,15 @@ export function interpolateScenes(state) {
 
 function stripRuntime(state) {
   // Deep-clone the serializable parts; exclude AudioBuffers and runtime refs.
-  const { _assetHydrationPending, _assetHydrationComplete, _pendingPortableAssets, ...runtimeSafeState } = state;
+  const {
+    _assetHydrationPending,
+    _assetHydrationComplete,
+    _pendingPortableAssets,
+    _persistenceStatus,
+    _persistenceMessage,
+    _persistenceStatusAt,
+    ...runtimeSafeState
+  } = state;
   const plain = {
     ...runtimeSafeState,
     audioContext: null,
@@ -757,31 +766,42 @@ function sparsifyState(value, baseline) {
  * Debounced (400 ms) localStorage write.
  */
 export function saveState(state) {
+  reportPersistenceStatus(state, 'saving', 'Saving project...');
   if (_saveTimer !== null) {
     clearTimeout(_saveTimer);
   }
   _saveTimer = setTimeout(() => {
     _saveTimer = null;
-    try {
-      state._lastSaveTime = Date.now();
-      const serializable = stripRuntime(state);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
-      void queuePersistAssets(state);
-    } catch (err) {
-      if (err?.name === 'QuotaExceededError') {
-        try {
-          const serializable = sparsifyState(stripRuntime(state), getDefaultStateTemplate()) ?? {};
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
-          void queuePersistAssets(state);
-          return;
-        } catch (fallbackErr) {
-          console.warn('[CONFUstudio] saveState failed after sparse fallback:', fallbackErr);
-        }
-      } else {
-        console.warn('[CONFUstudio] saveState failed:', err);
-      }
-    }
+    persistStateNow(state);
   }, 400);
+}
+
+export function persistStateNow(state, storage = globalThis.localStorage) {
+  try {
+    const serializable = stripRuntime(state);
+    storage.setItem(STORAGE_KEY, JSON.stringify(serializable));
+    state._lastSaveTime = Date.now();
+    reportPersistenceStatus(state, 'saved', 'Project saved.');
+    void queuePersistAssets(state);
+    return { status: 'saved' };
+  } catch (error) {
+    if (error?.name === 'QuotaExceededError') {
+      try {
+        const serializable = sparsifyState(stripRuntime(state), getDefaultStateTemplate()) ?? {};
+        storage.setItem(STORAGE_KEY, JSON.stringify(serializable));
+        state._lastSaveTime = Date.now();
+        reportPersistenceStatus(state, 'recovered', 'Storage quota reached; the project was saved compactly.');
+        void queuePersistAssets(state);
+        return { status: 'recovered' };
+      } catch (fallbackError) {
+        console.warn('[CONFUstudio] saveState failed after sparse fallback:', fallbackError);
+      }
+    } else {
+      console.warn('[CONFUstudio] saveState failed:', error);
+    }
+    reportPersistenceStatus(state, 'failed', 'Project auto-save failed. Export a backup before closing.');
+    return { status: 'failed' };
+  }
 }
 
 /**

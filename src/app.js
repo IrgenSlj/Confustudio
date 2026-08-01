@@ -29,6 +29,7 @@ import { initHistoryUI } from './history-ui.js';
 import { shouldTriggerStep } from './kernel/event-compiler.js';
 import { getStepDurationSeconds } from './kernel/transport.js';
 import { escapeHtml, safeFilenameSegment } from './security/dom.js';
+import { PERSISTENCE_STATUS_EVENT } from './persistence-status.js';
 
 // Page modules
 import patternPage from './pages/pattern.js';
@@ -344,6 +345,18 @@ let state = loadState() || createAppState();
 state._playingNotes = new Set(); // live note feedback for piano
 state._pressedKeys = new Set(); // live key feedback for graphical keyboard
 window.__CONFUSTUDIO__.state = state;
+
+window.addEventListener(PERSISTENCE_STATUS_EVENT, (event) => {
+  const detail = event.detail || {};
+  const indicator = document.querySelector('[data-persistence-status]');
+  if (indicator) {
+    indicator.textContent = detail.message || 'Persistence status changed.';
+    indicator.style.color =
+      detail.status === 'failed' ? 'var(--record)' : detail.status === 'recovered' ? 'var(--accent)' : 'var(--muted)';
+  }
+  if (detail.status === 'failed') showToast(detail.message, 6000);
+  if (detail.status === 'recovered') showToast(detail.message, 4000);
+});
 
 let _activeKnobIndex = null; // which knob is currently being dragged
 let _activeKnobTimer = null;

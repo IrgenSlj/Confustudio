@@ -470,6 +470,37 @@ try {
     assert(state.scrollTop === 0, `${tab} page did not reset scroll position on tab switch`, state);
   }
 
+  const persistenceFailure = await page.evaluate(() => {
+    const message = 'Project auto-save failed. Export a backup before closing.';
+    const appState = window.__CONFUSTUDIO__.state;
+    appState._persistenceStatus = 'failed';
+    appState._persistenceMessage = message;
+    window.dispatchEvent(
+      new CustomEvent('confustudio:persistence-status', {
+        detail: { status: 'failed', message, updatedAt: Date.now() },
+      }),
+    );
+    const indicator = document.querySelector('[data-persistence-status]');
+    const toast = document.querySelector('#toast-msg');
+    return {
+      indicatorText: indicator?.textContent,
+      indicatorColor: indicator?.style.color,
+      toastText: toast?.textContent,
+      toastOpacity: toast?.style.opacity,
+    };
+  });
+  assert(
+    persistenceFailure.indicatorText?.includes('auto-save failed') &&
+      persistenceFailure.indicatorColor === 'var(--record)',
+    'Persistence failure did not update the durable Settings indicator',
+    persistenceFailure,
+  );
+  assert(
+    persistenceFailure.toastText?.includes('auto-save failed') && persistenceFailure.toastOpacity === '1',
+    'Persistence failure did not surface an immediate toast',
+    persistenceFailure,
+  );
+
   assert(consoleErrors.length === 0, 'Browser reported runtime errors', { consoleErrors });
   console.log(JSON.stringify({ ok: true, baseUrl: BASE_URL }, null, 2));
 } catch (error) {

@@ -400,5 +400,5 @@ security, and selected audio checks without running the same stage twice.
 
 Phase 0 was completed under issue #10. Phase 1 provider egress, browser boundaries,
 and interim abuse controls were completed under issues #11-#13. Public AI execution
-remains default-off. Gate P1 save/quota visibility and independent review must
-finish before PR 5, `core/01-vite-typescript`, begins under issue #14.
+remains default-off. Gate P1 independent review must finish before PR 5,
+`core/01-vite-typescript`, begins under issue #14.
