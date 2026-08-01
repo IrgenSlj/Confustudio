@@ -89,7 +89,8 @@ have automated evidence:
 - [ ] `crossOriginIsolated === true` where required by the audio runtime.
 - [x] CSP, frame, content-type, referrer, and permissions policies on the current server.
 - [ ] Exact provider origin/path allowlist and redirect rejection.
-- [ ] Authentication, authorization, CSRF, origin, rate, quota, and budget tests.
+- [~] Interim session, CSRF, origin, rate, quota, and budget tests; production
+  identity, authorization, and durable enforcement remain Phase 6.
 - [ ] No secret in browser responses, logs, traces, URLs, or arbitrary egress.
 - [ ] Database, migration, backup, deletion, and recovery procedures.
 - [ ] Health, readiness, structured logging, alerting, and incident rollback.

@@ -21,9 +21,9 @@ Legend: `[x]` complete, `[~]` in progress or partial, `[ ]` not started,
 - [x] Maintainer approval to begin development.
 - [!] Public hosted-provider deployment is blocked by Phase 1 security work.
 
-Provider egress and browser trust boundaries are complete. The next implementation
-batch is `security/03-abuse-controls`, tracked in
-[#13](https://github.com/IrgenSlj/Confustudio/issues/13).
+The three ordered Phase 1 security batches are complete. Gate P1 remains blocked on
+dependency cleanup and independent security review before `core/01-vite-typescript`
+([#14](https://github.com/IrgenSlj/Confustudio/issues/14)) begins.
 
 ## Phase 0: Baselines and Release Freeze
 
@@ -41,7 +41,8 @@ batch is `security/03-abuse-controls`, tracked in
 - [x] Fix hosted-provider credential exfiltration and arbitrary `baseUrl` use.
 - [x] Block SSRF, redirect escape, and private-network access in hosted routes.
 - [x] Separate loopback-only local providers from the future public API.
-- [ ] Add authentication, origin/CSRF checks, rate limits, budgets, and audit events.
+- [x] Add the interim session skeleton, origin/CSRF checks, rate limits, budgets,
+      provider timeout, and redacted audit events.
 - [x] Add CSP and the remaining browser security headers.
 - [x] Replace imported/persisted HTML interpolation with safe text/template rendering.
 - [~] Validate projects, commands, provider outputs, and filenames; external

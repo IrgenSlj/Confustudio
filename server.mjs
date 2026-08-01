@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 import { buildManualToolSurface } from './src/harness/tools/registry.js';
 import { validateStudioCommandBatch } from './src/security/command-validation.js';
+import { createAssistantSecurity } from './src/server/assistant-security.mjs';
 import { createAssistantProxyError, postProviderJson, resolveProviderEndpoint } from './src/server/provider-egress.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -21,6 +22,11 @@ const assistantProxyEnabled = ['1', 'true', 'yes'].includes(
 );
 const allowTestProviderOrigins =
   process.env.NODE_ENV === 'test' && process.env.CONFUSTUDIO_ALLOW_TEST_PROVIDER_ORIGINS === '1';
+const assistantSecurity = createAssistantSecurity({
+  host,
+  port,
+  assistantEnabled: assistantProxyEnabled,
+});
 const PROVIDER_ALIASES = {
   local: 'local-openai',
   'local-openai-compatible': 'local-openai',
@@ -223,11 +229,13 @@ function buildAssistantContextEnvelope() {
     // surface, always in sync with the command bus (no hand-maintained drift).
     commandTools: buildManualToolSurface(),
     endpoints: {
+      session: '/api/auth/session',
       chat: '/api/assistant/chat',
       actions: '/api/assistant/actions/plan',
       context: '/api/assistant/context',
       providers: '/api/assistant/providers',
     },
+    authentication: assistantSecurity.publicMetadata(),
   };
 }
 
@@ -461,8 +469,10 @@ async function requestAssistantProvider(body, systemPrompt) {
   const messages = normalizeAssistantMessages(body);
   const temperatureValue = Number(body.temperature);
   const maxTokensValue = Number(body.maxTokens);
-  const temperature = Number.isFinite(temperatureValue) ? temperatureValue : 0.7;
-  const maxTokens = Number.isFinite(maxTokensValue) ? maxTokensValue : 300;
+  const temperature = Number.isFinite(temperatureValue) ? Math.max(0, Math.min(2, temperatureValue)) : 0.7;
+  const maxTokens = Number.isFinite(maxTokensValue)
+    ? Math.max(1, Math.min(assistantSecurity.config.maxOutputTokens, Math.floor(maxTokensValue)))
+    : 300;
 
   if (!providerConfig) {
     const requestedProvider = normalizeProviderName(body.provider) || 'auto';
@@ -504,6 +514,7 @@ async function requestAssistantProvider(body, systemPrompt) {
       {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       },
+      { timeoutMs: assistantSecurity.config.upstreamTimeoutMs },
     );
 
     if (!response.ok) {
@@ -536,6 +547,7 @@ async function requestAssistantProvider(body, systemPrompt) {
         'x-api-key': process.env.ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01',
       },
+      { timeoutMs: assistantSecurity.config.upstreamTimeoutMs },
     );
 
     if (!response.ok) {
@@ -558,6 +570,7 @@ async function requestAssistantProvider(body, systemPrompt) {
         max_tokens: maxTokens,
       },
       providerConfig.apiKey ? { Authorization: `Bearer ${providerConfig.apiKey}` } : {},
+      { timeoutMs: assistantSecurity.config.upstreamTimeoutMs },
     );
 
     if (!response.ok) {
@@ -571,15 +584,20 @@ async function requestAssistantProvider(body, systemPrompt) {
     const endpoint = await resolveProviderEndpoint(providerConfig, 'api/chat', {
       allowTestProviderOrigins,
     });
-    const { response, data } = await postProviderJson(endpoint, {
-      model: body.model || providerConfig.model,
-      messages: toOpenAIChatMessages(systemPrompt, messages),
-      options: {
-        temperature,
-        num_predict: maxTokens,
+    const { response, data } = await postProviderJson(
+      endpoint,
+      {
+        model: body.model || providerConfig.model,
+        messages: toOpenAIChatMessages(systemPrompt, messages),
+        options: {
+          temperature,
+          num_predict: maxTokens,
+        },
+        stream: false,
       },
-      stream: false,
-    });
+      {},
+      { timeoutMs: assistantSecurity.config.upstreamTimeoutMs },
+    );
 
     if (!response.ok) {
       throw createProviderStatusError(providerConfig.id, response.status);
@@ -602,6 +620,7 @@ async function handleAssistantProviders(_req, res) {
     assistantProxyEnabled,
     defaultProvider: defaultAssistantProvider,
     providers: buildPublicProviderCatalog(),
+    authentication: assistantSecurity.publicMetadata(),
   });
 }
 
@@ -635,13 +654,27 @@ const SECURITY_HEADERS = {
   'X-Frame-Options': 'DENY',
 };
 
-function sendJson(res, statusCode, data) {
+function sendJson(res, statusCode, data, extraHeaders = {}) {
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
     ...SECURITY_HEADERS,
+    ...extraHeaders,
   });
   res.end(JSON.stringify(data));
+}
+
+function handleAssistantSession(req, res) {
+  try {
+    const session = assistantSecurity.issueSession(req);
+    sendJson(res, 200, session.body, session.headers);
+  } catch (error) {
+    sendJson(res, error.statusCode || 500, {
+      error: error.message,
+      ...(error.code ? { code: error.code } : {}),
+      ...(error.payload || {}),
+    });
+  }
 }
 
 function rejectDisabledAssistantProxy(res) {
@@ -739,12 +772,20 @@ async function serveFile(res, filePath) {
 }
 
 async function handleAssistant(req, res) {
+  let session = null;
   try {
+    session = assistantSecurity.authorizeMutation(req, 'assistant.chat');
     const body = await readJsonBody(req);
+    const budget = assistantSecurity.reserveRequest(session, body, 'assistant.chat');
+    body.maxTokens = budget.maxOutputTokens;
     assertServerOwnedProviderConfiguration(body);
     const result = await requestAssistantProvider(body, buildAssistantSystemPrompt(body.context));
+    assistantSecurity.recordOutcome(session, 'assistant.chat', 'succeeded', { provider: result.provider });
     sendJson(res, 200, result);
   } catch (error) {
+    if (session) {
+      assistantSecurity.recordOutcome(session, 'assistant.chat', 'failed', { code: error.code });
+    }
     sendJson(res, error.statusCode || 500, {
       error: error.message,
       ...(error.code ? { code: error.code } : {}),
@@ -754,8 +795,12 @@ async function handleAssistant(req, res) {
 }
 
 async function handleAssistantActionPlan(req, res) {
+  let session = null;
   try {
+    session = assistantSecurity.authorizeMutation(req, 'assistant.actions.plan');
     const body = await readJsonBody(req);
+    const budget = assistantSecurity.reserveRequest(session, body, 'assistant.actions.plan');
+    body.maxTokens = budget.maxOutputTokens;
     assertServerOwnedProviderConfiguration(body);
     body.message = typeof body.message === 'string' ? body.message : '';
     body.messages = [{ role: 'user', content: body.message }];
@@ -780,6 +825,7 @@ async function handleAssistantActionPlan(req, res) {
         502,
       );
     }
+    assistantSecurity.recordOutcome(session, 'assistant.actions.plan', 'succeeded', { provider: result.provider });
     sendJson(res, 200, {
       provider: result.provider,
       model: result.model,
@@ -788,6 +834,9 @@ async function handleAssistantActionPlan(req, res) {
       text: result.text,
     });
   } catch (error) {
+    if (session) {
+      assistantSecurity.recordOutcome(session, 'assistant.actions.plan', 'failed', { code: error.code });
+    }
     sendJson(res, error.statusCode || 500, {
       error: error.message,
       ...(error.code ? { code: error.code } : {}),
@@ -803,6 +852,15 @@ const server = http.createServer(async (req, res) => {
   // dependency-free — returns before any file or upstream work.
   if (req.method === 'GET' && url.pathname === '/healthz') {
     sendJson(res, 200, { ok: true, service: 'confustudio' });
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/auth/session') {
+    if (!assistantProxyEnabled) {
+      rejectDisabledAssistantProxy(res);
+      return;
+    }
+    handleAssistantSession(req, res);
     return;
   }
 

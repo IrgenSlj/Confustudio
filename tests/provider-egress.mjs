@@ -77,10 +77,30 @@ async function startConfustudio(env = {}) {
   };
 }
 
+const securitySessions = new Map();
+
+async function assistantSecurityHeaders(baseUrl) {
+  if (!securitySessions.has(baseUrl)) {
+    const origin = new URL(baseUrl).origin;
+    const response = await fetch(`${baseUrl}/api/auth/session`, {
+      method: 'POST',
+      headers: { Origin: origin },
+    });
+    const payload = await response.json();
+    assert(response.ok, 'Local assistant session bootstrap failed', { status: response.status, payload });
+    securitySessions.set(baseUrl, {
+      Origin: origin,
+      Cookie: response.headers.get('set-cookie').split(';', 1)[0],
+      'X-CSRF-Token': payload.csrfToken,
+    });
+  }
+  return securitySessions.get(baseUrl);
+}
+
 async function requestAssistant(baseUrl, body) {
   const response = await fetch(`${baseUrl}/api/assistant/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await assistantSecurityHeaders(baseUrl)) },
     body: JSON.stringify(body),
   });
   return { response, payload: await response.json() };
@@ -89,7 +109,7 @@ async function requestAssistant(baseUrl, body) {
 async function requestActionPlan(baseUrl, body) {
   const response = await fetch(`${baseUrl}/api/assistant/actions/plan`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await assistantSecurityHeaders(baseUrl)) },
     body: JSON.stringify(body),
   });
   return { response, payload: await response.json() };
@@ -129,6 +149,9 @@ const upstream = http.createServer(async (req, res) => {
       }),
     );
     return;
+  }
+  if (upstreamMode === 'slow') {
+    await delay(250);
   }
 
   res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -173,6 +196,7 @@ try {
     LOCAL_AI_API_KEY: 'SERVER_OWNED_LOCAL_TEST_CREDENTIAL',
     LOCAL_AI_MODEL: 'test-local-model',
     ASSISTANT_PROVIDER: 'openai',
+    CONFUSTUDIO_UPSTREAM_TIMEOUT_MS: '100',
   });
 
   const providersResponse = await fetch(`${configuredApp.baseUrl}/api/assistant/providers`);
@@ -288,6 +312,14 @@ try {
     'Missing invalid assistant command error code',
     invalidPlan.payload,
   );
+
+  upstreamMode = 'slow';
+  const timedOut = await requestAssistant(configuredApp.baseUrl, {
+    provider: 'openai',
+    message: 'Enforce the upstream time budget.',
+  });
+  assert(timedOut.response.status === 504, 'Slow provider response should time out', timedOut.payload);
+  assert(timedOut.payload.code === 'UPSTREAM_TIMEOUT', 'Missing upstream timeout error code', timedOut.payload);
 
   privateHostedApp = await startConfustudio({
     NODE_ENV: 'development',

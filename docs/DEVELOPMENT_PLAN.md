@@ -6,7 +6,7 @@
 
 **Owner:** project maintainer
 
-**Implementation state:** provider egress and browser boundaries complete; abuse controls next
+**Implementation state:** ordered Phase 1 security batches complete; Gate P1 review pending
 
 This document defines the order of work, acceptance gates, and target stack. It
 supersedes older phase ordering in the code, AI, and design briefs. The briefs
@@ -398,7 +398,7 @@ security, and selected audio checks without running the same stage twice.
 
 ## 9. Current Boundary
 
-Phase 0 was completed under issue #10, provider egress under issue #11, and browser
-trust boundaries under issue #12. Development continues with PR 4,
-`security/03-abuse-controls`, under issue #13.
-Public AI execution remains default-off and no later phase may bypass the gates.
+Phase 0 was completed under issue #10. Phase 1 provider egress, browser boundaries,
+and interim abuse controls were completed under issues #11-#13. Public AI execution
+remains default-off. Gate P1 dependency cleanup and independent review must finish
+before PR 5, `core/01-vite-typescript`, begins under issue #14.

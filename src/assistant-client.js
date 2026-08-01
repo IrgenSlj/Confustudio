@@ -2,6 +2,7 @@ const ASSISTANT_API_ROOT = '/api/assistant';
 
 let cachedContextPromise = null;
 let cachedProvidersPromise = null;
+let cachedSessionPromise = null;
 
 async function readJson(response) {
   const text = await response.text();
@@ -13,16 +14,48 @@ async function readJson(response) {
   }
 }
 
-async function requestJson(path, options = {}) {
+async function ensureAssistantSession(forceRefresh = false) {
+  if (!forceRefresh && cachedSessionPromise) return cachedSessionPromise;
+  cachedSessionPromise = fetch('/api/auth/session', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+  }).then(async (response) => {
+    const data = await readJson(response);
+    if (!response.ok) {
+      const error = new Error(data?.error || `Assistant authentication failed with ${response.status}`);
+      error.status = response.status;
+      error.data = data;
+      throw error;
+    }
+    return data;
+  });
+  cachedSessionPromise.catch(() => {
+    cachedSessionPromise = null;
+  });
+  return cachedSessionPromise;
+}
+
+async function requestJson(path, options = {}, allowAuthRetry = true) {
+  const method = String(options.method || 'GET').toUpperCase();
+  const requiresSession = !['GET', 'HEAD', 'OPTIONS'].includes(method);
+  const session = requiresSession ? await ensureAssistantSession() : null;
   const response = await fetch(`${ASSISTANT_API_ROOT}${path}`, {
+    credentials: 'same-origin',
     headers: {
       'Content-Type': 'application/json',
+      ...(session?.csrfToken ? { 'X-CSRF-Token': session.csrfToken } : {}),
       ...(options.headers || {}),
     },
     ...options,
   });
 
   const data = await readJson(response);
+  if (response.status === 401 && requiresSession && allowAuthRetry) {
+    cachedSessionPromise = null;
+    await ensureAssistantSession(true);
+    return requestJson(path, options, false);
+  }
   if (!response.ok) {
     const error = new Error(data?.error || `Assistant request failed with ${response.status}`);
     error.status = response.status;
@@ -31,6 +64,10 @@ async function requestJson(path, options = {}) {
   }
 
   return data;
+}
+
+export function resetAssistantSession() {
+  cachedSessionPromise = null;
 }
 
 export async function fetchAssistantContext(forceRefresh = false) {

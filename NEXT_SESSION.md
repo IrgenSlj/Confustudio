@@ -1,6 +1,6 @@
 # CONFUstudio Next Session
 
-**State:** browser trust boundaries complete; Phase 1 abuse controls next
+**State:** ordered security batches complete; Gate P1 closure next
 
 **Branch:** `main`
 
@@ -21,30 +21,35 @@
   schemas, atomic command allowlists, assistant-plan validation, safe persisted
   rendering, filename normalization, CSP/browser headers, and hostile Chromium
   regressions.
+- `security/03-abuse-controls`,
+  [#13](https://github.com/IrgenSlj/Confustudio/issues/13): loopback/non-loopback
+  session policy, strict origins and CSRF, rate/quota/token/cost/time budgets,
+  redacted audit events, browser session bootstrap, and abuse regressions.
 
-Policies: [`docs/security/provider-egress.md`](./docs/security/provider-egress.md)
-and [`docs/security/browser-boundaries.md`](./docs/security/browser-boundaries.md).
+Policies: [`docs/security/provider-egress.md`](./docs/security/provider-egress.md),
+[`docs/security/browser-boundaries.md`](./docs/security/browser-boundaries.md),
+and [`docs/security/assistant-abuse-controls.md`](./docs/security/assistant-abuse-controls.md).
 
 ## Next Batch
 
-`security/03-abuse-controls`, issue
-[#13](https://github.com/IrgenSlj/Confustudio/issues/13).
+Gate P1 closure before `core/01-vite-typescript`, issue
+[#14](https://github.com/IrgenSlj/Confustudio/issues/14).
 
 Scope:
 
-- Keep assistant routes default-off and define the authenticated session skeleton.
-- Enforce strict allowed origins and CSRF protection on mutation routes.
-- Add per-user rate limits, quotas, request/token/time budgets, and spending caps.
-- Emit bounded, redacted security audit events without prompts, credentials, or project data.
-- Cover anonymous access, origin/CSRF denial, rate/quota exhaustion, budgets, and audit redaction.
-- Preserve the loopback development workflow without weakening the future public boundary.
+- Resolve the remaining high-severity development dependency audit finding.
+- Re-run the complete Phase 1 security, boundary, server, and browser evidence.
+- Obtain independent review of provider egress, imports/rendering, commands, session,
+  origin/CSRF, limits, and audit redaction.
+- Keep public assistant deployment disabled; do not interpret the interim shared
+  access credential as production user authentication.
 
-Do not add Vite, project schema v4, reducer/history, UI redesign, audio changes,
-or a production deployment. Those remain separate issues and gates.
+Do not begin Vite, project schema v4, reducer/history, UI redesign, audio changes,
+or a production deployment until Gate P1 is signed off.
 
 ## Release Block
 
-Provider egress and browser boundaries are contained, but the current assistant
-bridge still has no user authentication, CSRF/origin policy, per-user quotas,
-rate limits, spending caps, or audit trail. Public assistant deployment remains
-prohibited.
+The current bridge has an interim single-process control skeleton, not production
+user identity, durable quota storage, distributed rate limiting, or operational
+audit infrastructure. Public assistant deployment remains prohibited until the
+separate hosted API and Gate P6 are complete.

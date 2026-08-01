@@ -93,6 +93,8 @@ Provider destinations and optional local-provider credentials are server-owned;
 see [`docs/security/provider-egress.md`](./docs/security/provider-egress.md).
 Import, command, rendering, and CSP rules are recorded in
 [`docs/security/browser-boundaries.md`](./docs/security/browser-boundaries.md).
+Session, origin/CSRF, rate, quota, token/cost/time budget, and audit rules are in
+[`docs/security/assistant-abuse-controls.md`](./docs/security/assistant-abuse-controls.md).
 
 The current test suite is useful but does not yet prove audio quality,
 accessibility, multi-browser behavior, history correctness, or deployment safety.

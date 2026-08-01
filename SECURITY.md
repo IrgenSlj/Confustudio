@@ -13,12 +13,16 @@ are loopback-only, and upstream responses are bounded and normalized. Imported
 projects and persisted values now cross bounded runtime schemas and safe rendering
 adapters; command batches and assistant plans share a fail-closed allowlist; the
 server applies a tested CSP and browser-header baseline. Missing public API
-authentication and abuse controls remain the active release blocker.
+infrastructure remains the active release blocker: the current server now has an
+interim session, origin/CSRF, rate/quota/budget, timeout, and redacted-audit
+skeleton, but not production user identity or durable distributed enforcement.
 
 The provider policy and residual risks are documented in
 [`docs/security/provider-egress.md`](./docs/security/provider-egress.md). Browser
 rendering, imports, commands, CSP, and their remaining limitations are documented
 in [`docs/security/browser-boundaries.md`](./docs/security/browser-boundaries.md).
+The interim assistant session and abuse-control contract is documented in
+[`docs/security/assistant-abuse-controls.md`](./docs/security/assistant-abuse-controls.md).
 
 ## Reporting a Vulnerability
 
@@ -69,6 +73,9 @@ Generally out of scope:
 - Assistant POST routes are disabled unless
   `CONFUSTUDIO_ENABLE_ASSISTANT_PROXY=1` is set. This kill switch is containment,
   not authorization or an egress defense.
+- Loopback development may bootstrap an ephemeral local session. Non-loopback
+  assistant use requires an explicit access credential and exact allowed origins.
+- The interim shared access credential is not production user authentication.
 - Provider URLs and keys are server configuration. Browser `baseUrl` and `apiKey`
   fields are rejected.
 - Hosted provider URLs require public HTTPS destinations and never follow redirects.
