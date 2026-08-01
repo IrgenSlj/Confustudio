@@ -25,6 +25,8 @@ The three ordered Phase 1 security batches and automated closure items are
 complete. Gate P1 remains blocked on independent security review before
 `core/01-vite-typescript`
 ([#14](https://github.com/IrgenSlj/Confustudio/issues/14)) begins.
+The scoped review packet and signoff template are in
+[`security/phase-1-review.md`](./security/phase-1-review.md).
 
 ## Phase 0: Baselines and Release Freeze
 

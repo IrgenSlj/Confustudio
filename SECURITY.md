@@ -23,6 +23,9 @@ rendering, imports, commands, CSP, and their remaining limitations are documente
 in [`docs/security/browser-boundaries.md`](./docs/security/browser-boundaries.md).
 The interim assistant session and abuse-control contract is documented in
 [`docs/security/assistant-abuse-controls.md`](./docs/security/assistant-abuse-controls.md).
+Gate P1 review scope, reproducible evidence, accepted residuals, and the independent
+signoff template are in
+[`docs/security/phase-1-review.md`](./docs/security/phase-1-review.md).
 
 ## Reporting a Vulnerability
 

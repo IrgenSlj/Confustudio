@@ -43,6 +43,9 @@ Scope:
 - Keep public assistant deployment disabled; do not interpret the interim shared
   access credential as production user authentication.
 
+Review packet:
+[`docs/security/phase-1-review.md`](./docs/security/phase-1-review.md).
+
 Do not begin Vite, project schema v4, reducer/history, UI redesign, audio changes,
 or a production deployment until Gate P1 is signed off.
 
