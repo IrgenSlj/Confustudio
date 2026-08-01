@@ -4,7 +4,7 @@
 
 **Owning issue:** [#12](https://github.com/IrgenSlj/Confustudio/issues/12)
 
-**Updated:** 2026-07-31
+**Updated:** 2026-08-01
 
 This policy covers persisted and imported data, browser rendering, command dispatch,
 assistant-generated command plans, filenames, and browser response headers. It is

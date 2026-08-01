@@ -6,6 +6,8 @@
 
 **Owner:** project maintainer
 
+**Updated:** 2026-08-01
+
 **Implementation state:** ordered Phase 1 security batches complete; Gate P1 review pending
 
 This document defines the order of work, acceptance gates, and target stack. It

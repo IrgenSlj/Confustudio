@@ -2,12 +2,13 @@
 
 **Status:** local evaluation only; public assistant deployment blocked
 
-**Updated:** 2026-07-31
+**Updated:** 2026-08-01
 
 The previous container instructions exposed the static application and assistant
-proxy as one public service. That topology is not approved. The current proxy can
-attach server credentials to a client-selected destination and does not yet have
-the authentication, quota, origin, or egress controls required for public use.
+proxy as one public service. That topology is not approved. The current bridge has
+tested provider egress, browser, session, origin/CSRF, quota, budget, timeout, and
+audit boundaries, but still combines concerns and uses one in-memory operator
+principal. Those interim controls do not make it a public service.
 
 See [`../SECURITY.md`](../SECURITY.md) and Phase 6 of
 [`DEVELOPMENT_PLAN.md`](./DEVELOPMENT_PLAN.md).
@@ -28,16 +29,19 @@ Assistant POST routes are disabled by default. Local test sessions must opt in
 with `CONFUSTUDIO_ENABLE_ASSISTANT_PROXY=1`; never set it on a public deployment
 of the current server.
 
-The temporary bridge now fixes provider destinations server-side, rejects
-redirect/private-host escape, restricts local providers to loopback, and bounds
-responses. Authentication and abuse controls are still absent, so this does not
-change the public deployment prohibition. See
-[`security/provider-egress.md`](./security/provider-egress.md).
+The temporary bridge fixes provider destinations and models server-side, rejects
+redirect/private-host escape, restricts local providers to loopback, bounds
+requests/responses, and applies an interim session and abuse-control policy. Public
+deployment remains prohibited because production identity, durable/distributed
+enforcement, operational audit infrastructure, and the separate hosted API do not
+exist. See [`security/provider-egress.md`](./security/provider-egress.md) and
+[`security/assistant-abuse-controls.md`](./security/assistant-abuse-controls.md).
 
 Useful checks:
 
 ```bash
 curl http://127.0.0.1:4173/healthz
+npm run audit:deps
 npm test
 ```
 
@@ -88,7 +92,7 @@ have automated evidence:
 - [ ] Fresh, returning-user, offline, service-worker update, and rollback boots.
 - [ ] `crossOriginIsolated === true` where required by the audio runtime.
 - [x] CSP, frame, content-type, referrer, and permissions policies on the current server.
-- [ ] Exact provider origin/path allowlist and redirect rejection.
+- [x] Exact server-owned provider origin/path policy and redirect rejection.
 - [~] Interim session, CSRF, origin, rate, quota, and budget tests; production
   identity, authorization, and durable enforcement remain Phase 6.
 - [ ] No secret in browser responses, logs, traces, URLs, or arbitrary egress.

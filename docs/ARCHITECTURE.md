@@ -2,7 +2,7 @@
 
 **Status:** target architecture and migration constraints
 
-**Updated:** 2026-07-31
+**Updated:** 2026-08-01
 
 **Plan:** [`DEVELOPMENT_PLAN.md`](./DEVELOPMENT_PLAN.md)
 
@@ -38,7 +38,9 @@ root baseline or deterministic replay contract. Some persistent writes bypass it
 The graph is also included in serialization despite being described as runtime-only.
 
 The assistant server combines static hosting, local provider bridging, and hosted
-provider proxying. That shared boundary is unsuitable for public deployment.
+provider proxying. Provider egress, browser inputs, commands, sessions, origin/CSRF,
+limits, and audit output now have interim tested policies, but the shared process
+and in-memory operator session remain unsuitable for public deployment.
 
 ## Architectural Invariants
 

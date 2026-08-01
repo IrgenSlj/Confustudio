@@ -4,7 +4,7 @@
 
 **Owning issue:** [#13](https://github.com/IrgenSlj/Confustudio/issues/13)
 
-**Updated:** 2026-07-31
+**Updated:** 2026-08-01
 
 This policy protects the current `server.mjs` assistant bridge until the separate
 hosted API in Phase 6 replaces it. It is intentionally dependency-free and

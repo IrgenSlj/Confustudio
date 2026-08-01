@@ -11,11 +11,12 @@ project with generated audio.
 
 ## Current Status
 
-The repository is executing a gated foundation reset. Phase 0 baselines are
-complete and Phase 1 security work is active. The current prototype has broad
-features and a distinctive hardware-inspired interface, but its state/history,
-persistence, transport/audio ownership, UI rendering, and public assistant security
-boundaries are not ready for further feature expansion or public AI deployment.
+The repository is executing a gated foundation reset. Phase 0 baselines and the
+automated Phase 1 security work are complete. Gate P1 is waiting for independent
+review before Phase 2 begins. The current prototype has broad features and a
+distinctive hardware-inspired interface, but its state/history, persistence,
+transport/audio ownership, and UI architecture are not ready for feature expansion
+or public AI deployment.
 
 Development follows the approved plan:
 
@@ -25,6 +26,8 @@ Development follows the approved plan:
 - [`NEXT_SESSION.md`](./NEXT_SESSION.md): next approved batch only.
 - [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md): current and target boundaries.
 - [`SECURITY.md`](./SECURITY.md): current deployment restrictions.
+- [`docs/security/phase-1-review.md`](./docs/security/phase-1-review.md): evidence
+  and signoff checklist required before Phase 2.
 
 Do not publicly expose the current assistant proxy or configure it with production
 provider credentials.
@@ -82,6 +85,7 @@ Checks:
 ```bash
 npm run lint
 npm run format
+npm run audit:deps
 npm test
 npm run baseline    # characterization report; timings are not CI thresholds
 ```
@@ -96,9 +100,9 @@ Import, command, rendering, and CSP rules are recorded in
 Session, origin/CSRF, rate, quota, token/cost/time budget, and audit rules are in
 [`docs/security/assistant-abuse-controls.md`](./docs/security/assistant-abuse-controls.md).
 
-The current test suite is useful but does not yet prove audio quality,
-accessibility, multi-browser behavior, history correctness, or deployment safety.
-The development plan adds those gates.
+The current suite covers the security boundary in Chromium, but does not yet prove
+audio quality, full accessibility, Firefox/WebKit behavior, history correctness,
+or production deployment safety. The development plan adds those gates.
 
 ## Target Stack
 

@@ -1,8 +1,8 @@
 # CONFUstudio Roadmap
 
-**Status:** Phase 0 complete; Phase 1 security work is active
+**Status:** automated Phase 1 work complete; independent Gate P1 review pending
 
-**Updated:** 2026-07-31
+**Updated:** 2026-08-01
 
 This is the live status tracker for the canonical
 [`DEVELOPMENT_PLAN.md`](./DEVELOPMENT_PLAN.md). That plan owns ordering,
@@ -19,7 +19,7 @@ Legend: `[x]` complete, `[~]` in progress or partial, `[ ]` not started,
 - [x] Product direction and stack migration documented.
 - [x] Existing briefs and guides reconciled with the new authority hierarchy.
 - [x] Maintainer approval to begin development.
-- [!] Public hosted-provider deployment is blocked by Phase 1 security work.
+- [!] Public hosted-provider deployment remains blocked through Gate P6.
 
 The three ordered Phase 1 security batches and automated closure items are
 complete. Gate P1 remains blocked on independent security review before

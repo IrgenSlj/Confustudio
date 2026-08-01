@@ -1,5 +1,7 @@
 # Security Policy
 
+**Updated:** 2026-08-01
+
 ## Current Security Status
 
 CONFUstudio is in early development. Only the latest commit on `main` is

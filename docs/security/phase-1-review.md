@@ -4,7 +4,7 @@
 
 **Status:** automated evidence complete; independent signoff pending
 
-**Prepared:** 2026-07-31
+**Prepared:** 2026-08-01
 
 This packet defines the review scope and acceptance evidence for Gate P1 in
 [`../DEVELOPMENT_PLAN.md`](../DEVELOPMENT_PLAN.md). The implementer must not fill
