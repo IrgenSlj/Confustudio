@@ -49,6 +49,7 @@
     "test:boundaries": "node tests/trust-boundaries.mjs && node tests/browser-boundaries.mjs",
     "test:ui-smoke": "node tests/ui-smoke.mjs",
     "baseline": "node scripts/measure-baseline.mjs",
+    "audit:deps": "npm audit --audit-level=high",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --check .",

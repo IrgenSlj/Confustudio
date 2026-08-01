@@ -21,8 +21,8 @@ Legend: `[x]` complete, `[~]` in progress or partial, `[ ]` not started,
 - [x] Maintainer approval to begin development.
 - [!] Public hosted-provider deployment is blocked by Phase 1 security work.
 
-The three ordered Phase 1 security batches are complete. Gate P1 remains blocked on
-dependency cleanup and independent security review before `core/01-vite-typescript`
+The three ordered Phase 1 security batches are complete. Gate P1 remains blocked
+on save/quota failure visibility and independent security review before `core/01-vite-typescript`
 ([#14](https://github.com/IrgenSlj/Confustudio/issues/14)) begins.
 
 ## Phase 0: Baselines and Release Freeze
@@ -48,7 +48,8 @@ dependency cleanup and independent security review before `core/01-vite-typescri
 - [~] Validate projects, commands, provider outputs, and filenames; external
   manifest schemas remain for the typed core/toolchain work.
 - [ ] Make save/quota failures visible to users.
-- [ ] Resolve the high-severity development dependency audit finding.
+- [x] Resolve the high-severity development dependency audit finding and gate CI
+      on high/critical advisories.
 - [ ] Pass Gate P1; keep public AI disabled.
 
 ## Phase 2: Deterministic Project Core
