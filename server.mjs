@@ -349,19 +349,26 @@ function readJsonBody(req, maxBytes = 128 * 1024) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let total = 0;
+    let settled = false;
 
     req.on('data', (chunk) => {
+      if (settled) return;
       total += chunk.length;
       if (total > maxBytes) {
         const error = new Error('Request body too large');
         error.statusCode = 413;
-        req.destroy(error);
+        error.code = 'REQUEST_BODY_TOO_LARGE';
+        settled = true;
+        chunks.length = 0;
+        reject(error);
         return;
       }
       chunks.push(chunk);
     });
 
     req.on('end', () => {
+      if (settled) return;
+      settled = true;
       if (total === 0) {
         resolve({});
         return;
@@ -371,11 +378,14 @@ function readJsonBody(req, maxBytes = 128 * 1024) {
         resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
       } catch (error) {
         error.statusCode = 400;
+        error.code = 'INVALID_JSON_BODY';
         reject(error);
       }
     });
 
-    req.on('error', reject);
+    req.on('error', (error) => {
+      if (!settled) reject(error);
+    });
   });
 }
 
@@ -487,6 +497,10 @@ async function requestAssistantProvider(body, systemPrompt) {
     throw error;
   }
 
+  if (body.model !== undefined && body.model !== null && body.model !== providerConfig.model) {
+    throw createAssistantProxyError('Assistant models are configured on the server', 'PROVIDER_MODEL_FORBIDDEN', 400);
+  }
+
   if (messages.length === 0) {
     const error = new Error('message or messages is required');
     error.statusCode = 400;
@@ -506,7 +520,7 @@ async function requestAssistantProvider(body, systemPrompt) {
     const { response, data } = await postProviderJson(
       endpoint,
       {
-        model: body.model || providerConfig.model,
+        model: providerConfig.model,
         input: toOpenAIResponsesInput(systemPrompt, messages),
         temperature,
         max_output_tokens: maxTokens,
@@ -521,7 +535,7 @@ async function requestAssistantProvider(body, systemPrompt) {
       throw createProviderStatusError(providerConfig.id, response.status);
     }
 
-    return providerResult(providerConfig.id, body.model || providerConfig.model, extractOpenAIText(data));
+    return providerResult(providerConfig.id, providerConfig.model, extractOpenAIText(data));
   }
 
   if (providerConfig.id === 'anthropic') {
@@ -537,7 +551,7 @@ async function requestAssistantProvider(body, systemPrompt) {
     const { response, data } = await postProviderJson(
       endpoint,
       {
-        model: body.model || providerConfig.model,
+        model: providerConfig.model,
         max_tokens: maxTokens,
         temperature,
         system: systemPrompt,
@@ -554,7 +568,7 @@ async function requestAssistantProvider(body, systemPrompt) {
       throw createProviderStatusError(providerConfig.id, response.status);
     }
 
-    return providerResult(providerConfig.id, body.model || providerConfig.model, extractAnthropicText(data));
+    return providerResult(providerConfig.id, providerConfig.model, extractAnthropicText(data));
   }
 
   if (providerConfig.id === 'local-openai') {
@@ -564,7 +578,7 @@ async function requestAssistantProvider(body, systemPrompt) {
     const { response, data } = await postProviderJson(
       endpoint,
       {
-        model: body.model || providerConfig.model,
+        model: providerConfig.model,
         messages: toOpenAIChatMessages(systemPrompt, messages),
         temperature,
         max_tokens: maxTokens,
@@ -577,7 +591,7 @@ async function requestAssistantProvider(body, systemPrompt) {
       throw createProviderStatusError(providerConfig.id, response.status);
     }
 
-    return providerResult(providerConfig.id, body.model || providerConfig.model, extractChatCompletionText(data));
+    return providerResult(providerConfig.id, providerConfig.model, extractChatCompletionText(data));
   }
 
   if (providerConfig.id === 'ollama') {
@@ -587,7 +601,7 @@ async function requestAssistantProvider(body, systemPrompt) {
     const { response, data } = await postProviderJson(
       endpoint,
       {
-        model: body.model || providerConfig.model,
+        model: providerConfig.model,
         messages: toOpenAIChatMessages(systemPrompt, messages),
         options: {
           temperature,
@@ -603,7 +617,7 @@ async function requestAssistantProvider(body, systemPrompt) {
       throw createProviderStatusError(providerConfig.id, response.status);
     }
 
-    return providerResult(providerConfig.id, body.model || providerConfig.model, extractOllamaText(data));
+    return providerResult(providerConfig.id, providerConfig.model, extractOllamaText(data));
   }
 
   const error = new Error(`Provider transport not implemented: ${providerConfig.id}`);

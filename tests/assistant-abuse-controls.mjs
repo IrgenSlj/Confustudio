@@ -248,6 +248,26 @@ try {
     'X-CSRF-Token': login.payload.csrfToken,
     'Content-Type': 'application/json',
   };
+  const invalidJson = await readResponse(
+    await fetch(`${app.baseUrl}/api/assistant/chat`, {
+      method: 'POST',
+      headers: authorizedHeaders,
+      body: '{invalid',
+    }),
+  );
+  assert.equal(invalidJson.response.status, 400);
+  assert.equal(invalidJson.payload.code, 'INVALID_JSON_BODY');
+
+  const oversized = await readResponse(
+    await fetch(`${app.baseUrl}/api/assistant/chat`, {
+      method: 'POST',
+      headers: authorizedHeaders,
+      body: JSON.stringify({ message: 'x'.repeat(132 * 1024) }),
+    }),
+  );
+  assert.equal(oversized.response.status, 413);
+  assert.equal(oversized.payload.code, 'REQUEST_BODY_TOO_LARGE');
+
   const first = await readResponse(
     await fetch(`${app.baseUrl}/api/assistant/chat`, {
       method: 'POST',

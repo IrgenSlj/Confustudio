@@ -24,6 +24,7 @@ The browser may not send:
 
 - `baseUrl` or any other provider destination.
 - `apiKey` or another provider credential.
+- A model identifier; models are fixed by server configuration.
 - Redirect policy, response limits, or network policy.
 
 Requests containing forbidden provider configuration fail with
@@ -72,7 +73,8 @@ the server environment, not the project or browser payload.
 - Outbound redirects use `manual` mode and fail with `UPSTREAM_REDIRECT_REJECTED`.
 - Provider responses are limited to 1 MiB while streaming. Declared and actual
   oversize bodies fail with `UPSTREAM_RESPONSE_TOO_LARGE`.
-- Requests time out after 60 seconds and fail with `UPSTREAM_TIMEOUT`.
+- Requests time out after the bounded `CONFUSTUDIO_UPSTREAM_TIMEOUT_MS` deadline
+  (30 seconds by default) and fail with `UPSTREAM_TIMEOUT`.
 - Upstream status and transport errors are normalized. Raw response bodies and
   internal debug fields are not reflected.
 - Successful browser responses contain only `provider`, `model`, and extracted `text`.
@@ -93,7 +95,9 @@ Do not set this flag outside tests. It is ignored unless `NODE_ENV` is exactly
 ## Residual Risk
 
 The temporary bridge is disabled unless
-`CONFUSTUDIO_ENABLE_ASSISTANT_PROXY=1` is set. Even with this egress policy, it is
-local-development only because it has no user authentication, CSRF/origin policy,
-per-user rate limiting, quota, spending cap, or audit trail. Those remain blocking
-work in issues #12, #13, and #34.
+`CONFUSTUDIO_ENABLE_ASSISTANT_PROXY=1` is set. Issue #13 added an interim
+single-process session and abuse-control layer, documented in
+[`assistant-abuse-controls.md`](./assistant-abuse-controls.md). It is not
+production user authentication, durable quota accounting, or operational audit
+infrastructure. The separate hosted API in issue #34 remains mandatory for public
+use.

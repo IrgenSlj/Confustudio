@@ -40,6 +40,8 @@ authorization, revocation, persistent/distributed sessions, and secret storage.
 Reservations happen before provider egress. Provider failures still consume the
 reservation so retries cannot bypass limits. Limits are applied to the principal,
 not a session cookie, so creating a new session does not reset usage.
+Provider models are server-owned; a browser cannot select a higher-cost model and
+invalidate the configured spend estimate.
 
 | Environment variable              |    Default | Meaning                                                          |
 | --------------------------------- | ---------: | ---------------------------------------------------------------- |
@@ -60,7 +62,8 @@ Production quotas must use provider-confirmed usage and a durable per-user ledge
 
 Stable denials include `AUTHENTICATION_REQUIRED`, `ORIGIN_FORBIDDEN`,
 `CSRF_TOKEN_INVALID`, `RATE_LIMIT_EXCEEDED`, request/daily token limits, daily
-request quota, daily spend budget, and `UPSTREAM_TIMEOUT`.
+request quota, daily spend budget, body-size/JSON errors, model override, and
+`UPSTREAM_TIMEOUT`.
 
 ## Audit Contract
 

@@ -264,6 +264,20 @@ try {
     upstreamRequests[2],
   );
 
+  const beforeModelOverride = upstreamRequests.length;
+  const modelOverride = await requestAssistant(configuredApp.baseUrl, {
+    provider: 'openai',
+    model: 'client-selected-expensive-model',
+    message: 'Attempt a model override.',
+  });
+  assert(modelOverride.response.status === 400, 'Client model override should be rejected', modelOverride.payload);
+  assert(
+    modelOverride.payload.code === 'PROVIDER_MODEL_FORBIDDEN',
+    'Missing model override error',
+    modelOverride.payload,
+  );
+  assert(upstreamRequests.length === beforeModelOverride, 'Model override reached provider egress', upstreamRequests);
+
   const beforeOverride = upstreamRequests.length;
   const override = await requestAssistant(configuredApp.baseUrl, {
     provider: 'openai',

@@ -27,9 +27,13 @@ function isLoopbackHost(host) {
 }
 
 function constantTimeEqual(left, right) {
-  const leftBuffer = Buffer.from(String(left || ''));
-  const rightBuffer = Buffer.from(String(right || ''));
-  return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
+  const leftBuffer = createHash('sha256')
+    .update(String(left || ''))
+    .digest();
+  const rightBuffer = createHash('sha256')
+    .update(String(right || ''))
+    .digest();
+  return timingSafeEqual(leftBuffer, rightBuffer);
 }
 
 function parseCookies(header = '') {
