@@ -96,6 +96,15 @@ These are release blockers or later planned boundaries, not claims of completion
 - Audit output has no durable integrity, retention, alerting, or access-control system.
 - CSP still permits inline styles while the legacy UI uses style attributes; inline
   scripts are not permitted.
+- Hosted egress validates resolved addresses and then `fetch` resolves the hostname
+  again independently, so a DNS rebind between check and connect is not prevented.
+  Destinations are server-owned environment configuration, not browser input.
+- A loopback bind issues assistant sessions without an access credential, and the
+  `Origin` header it relies on is trivially set by non-browser clients. Placing a
+  reverse proxy or port forward in front of a loopback bind therefore exposes an
+  unauthenticated assistant; startup warns about this.
+- The session table evicts oldest-first once it reaches 1000 entries, so whoever can
+  reach the session endpoint can evict live sessions.
 - External module manifests and the sparse project v4 schema await typed core work.
 - The current eager localStorage project model remains oversized pending Phase 2.
 - An independent review can still reject any residual item as too severe for P1.

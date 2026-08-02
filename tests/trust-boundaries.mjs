@@ -157,9 +157,75 @@ assert.equal(atomicState.bpm, initialBpm, 'A rejected command batch must not par
   }
 }
 
+// ── keyboardVelocity is unschema'd state and must be coerced at every read ──
+// It reaches an HTML attribute in renderPiano and the note-trigger velocity
+// path, so a restored string must not survive as a string.
+{
+  const { readKeyboardVelocity } = await import('../src/keyboard.js');
+  const hostile = '1"><img src=x onerror="globalThis.__pwned=true">';
+  for (const [input, expected] of [
+    [hostile, 1],
+    ['not a number', 1],
+    [undefined, 1],
+    [null, 1],
+    [NaN, 1],
+    [Infinity, 1],
+    [{}, 1],
+    [[], 1], // Number([]) is 0 — must fall back, not clamp to the minimum
+    [null, 1], // Number(null) is 0 — same
+    ['', 1],
+    ['   ', 1],
+    [true, 1],
+    [5, 1], // clamped to max
+    [-3, 0.05], // clamped to min
+    ['0.5', 0.5], // numeric strings still work
+    [0.5, 0.5],
+  ]) {
+    const actual = readKeyboardVelocity({ keyboardVelocity: input });
+    assert.equal(typeof actual, 'number', `keyboardVelocity must coerce to a number for ${JSON.stringify(input)}`);
+    assert.ok(Number.isFinite(actual), `keyboardVelocity must be finite for ${JSON.stringify(input)}`);
+    assert.equal(actual, expected, `keyboardVelocity mismatch for ${JSON.stringify(input)}`);
+  }
+  assert.equal(readKeyboardVelocity(undefined), 1, 'A missing state must not throw');
+  assert.ok(!String(readKeyboardVelocity({ keyboardVelocity: hostile })).includes('<'), 'Markup must never survive');
+
+  // loadState() must also repair the stored value, so a hostile scalar does not
+  // sit in state waiting for some future reader that forgets to coerce.
+  const store = new Map();
+  const previousLocalStorage = globalThis.localStorage;
+  globalThis.localStorage = {
+    getItem: (key) => (store.has(key) ? store.get(key) : null),
+    setItem: (key, value) => store.set(key, String(value)),
+    removeItem: (key) => store.delete(key),
+    clear: () => store.clear(),
+  };
+  try {
+    const { loadState, STORAGE_KEY } = await import('../src/state.js');
+    store.set(
+      STORAGE_KEY,
+      JSON.stringify({
+        project: { name: 'vel', banks: [{ name: 'A', patterns: [{ name: 'p', kit: { tracks: [{ name: 't1' }] } }] }] },
+        keyboardVelocity: hostile,
+      }),
+    );
+    const restored = loadState();
+    assert.equal(typeof restored?.keyboardVelocity, 'number', 'Restored keyboardVelocity must be repaired to a number');
+    assert.equal(restored.keyboardVelocity, 1, 'A hostile keyboardVelocity must fall back to the default');
+  } finally {
+    if (previousLocalStorage === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = previousLocalStorage;
+  }
+}
+
 console.log(
   JSON.stringify(
-    { ok: true, hostileTextStayedLiteral: true, commandBatchAtomic: true, legacyV2RestoreValidated: true },
+    {
+      ok: true,
+      hostileTextStayedLiteral: true,
+      commandBatchAtomic: true,
+      legacyV2RestoreValidated: true,
+      keyboardVelocityCoerced: true,
+    },
     null,
     2,
   ),

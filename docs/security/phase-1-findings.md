@@ -66,7 +66,7 @@ chrome outside that subtree would not be seen. F-1 sat in exactly this gap and
 the suite stayed green. Node-level regression added with F-1; the `#page-content`
 scoping is unchanged and noted below.
 
-## F-3 — Unescaped attribute interpolation in unreachable code (Low) — OPEN
+## F-3 — Unescaped attribute interpolation in unreachable code (Low) — FIXED
 
 `src/keyboard.js:1019` interpolates persisted state into an HTML attribute with
 no escaping:
@@ -86,7 +86,12 @@ by a Chromium repro that could not reach the sink. It is a latent defect that
 becomes live the moment `#kbd-piano` is added. Note that `script-src 'self'`
 would still block an injected inline handler, so CSP is the backstop.
 
-## F-4 — Hosted egress re-resolves DNS after validation (Low) — OPEN
+**Resolved** by `readKeyboardVelocity()`, which coerces and clamps at all eight
+read sites rather than trusting persisted state. That also closes a second-order
+bug on the same key: a non-numeric value reached `applyVelocityCurve` and the
+note-trigger path, producing a `NaN` velocity in the audio engine.
+
+## F-4 — Hosted egress re-resolves DNS after validation (Low) — ACCEPTED RISK
 
 `assertHostedProviderDestination` resolves the hostname and rejects non-public
 addresses, then `postProviderJson` calls `fetch(url)`, which performs its **own**
@@ -95,10 +100,12 @@ leaving a DNS-rebinding window between check and connect.
 
 Severity is low here because hosted destinations come from server-owned
 environment variables, not browser input, so exploiting it requires the operator
-to have configured an attacker-controlled hostname. Worth listing in accepted
-residual risk, which currently does not mention it.
+to have configured an attacker-controlled hostname. Now listed in the accepted
+residual risk of [`phase-1-review.md`](./phase-1-review.md). A real fix means
+pinning the validated address for the connection, which needs a custom lookup
+hook this dependency-free server does not have today; deferred, not forgotten.
 
-## F-5 — Loopback bind issues sessions without a credential (Low) — OPEN
+## F-5 — Loopback bind issues sessions without a credential (Low) — MITIGATED + ACCEPTED RISK
 
 `createAssistantSecurity` treats a loopback bind as development: `issueSession`
 sets `principalId = 'loopback-development'` and skips the bearer-token check
@@ -109,12 +116,16 @@ So an operator who binds `HOST=127.0.0.1` behind a reverse proxy — the standar
 deployment shape — exposes an **unauthenticated** assistant to anyone who can
 reach the proxy. This is partially covered by existing docs
 (`assistant-abuse-controls.md` line 19, `DEPLOY.md` line 56 "Do not offer the
-current proxy to other machines"), but the reverse-proxy case is not called out,
-and public assistant deployment is prohibited anyway. Recommend an explicit
-warning, or requiring a credential whenever `CONFUSTUDIO_ENABLE_ASSISTANT_PROXY=1`
-regardless of bind address.
+current proxy to other machines"), but the reverse-proxy case was not called out,
+and public assistant deployment is prohibited anyway.
 
-## F-6 — Session table evicts oldest-first (Informational) — OPEN
+**Mitigated:** startup now warns explicitly when the assistant proxy is enabled
+on a loopback bind, naming the reverse-proxy/port-forward case. The unauthenticated
+local bootstrap itself is deliberate and stays, so this remains accepted residual
+risk. Requiring a credential regardless of bind address would be the stronger fix
+and belongs with the Phase 6 hosted API, which replaces this bridge entirely.
+
+## F-6 — Session table evicts oldest-first (Informational) — ACCEPTED RISK
 
 `pruneSessions` runs `while (sessions.size >= 1000) sessions.delete(first)`,
 dropping the oldest session by insertion order. Whoever can call the session
@@ -134,9 +145,11 @@ migration semantics under a security fix would be the wrong place for it.
 F-1 was a High finding against the reviewed commit. Per the packet, "Gate P1
 passes only with no unresolved critical/high finding."
 
-- With PR #35 merged, F-1 is resolved and no open critical/high finding remains
-  from this pass.
-- F-3 through F-6 are Low/Informational and are candidates for the accepted
-  residual-risk list rather than blockers.
+- F-1 is resolved on `main` (PR #35). No open critical/high finding remains from
+  this pass.
+- F-2 and F-3 are fixed. F-4, F-5 and F-6 are Low/Informational and are now
+  recorded in the accepted residual risk of
+  [`phase-1-review.md`](./phase-1-review.md); F-5 also gained a startup warning.
 - **An independent reviewer still has to perform and record the signoff.** This
-  pass does not substitute for it.
+  pass does not substitute for it, and a reviewer may still reject any residual
+  item as too severe for P1.

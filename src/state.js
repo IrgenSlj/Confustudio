@@ -889,8 +889,28 @@ function repairState(state) {
   state.activeBank = Math.max(0, Math.min((banks?.length ?? 1) - 1, state.activeBank ?? 0));
   state.activePattern = Math.max(0, Math.min((patterns?.length ?? 1) - 1, state.activePattern ?? 0));
   state.selectedTrackIndex = Math.max(0, Math.min((tracks?.length ?? 1) - 1, state.selectedTrackIndex ?? 0));
+  // Unschema'd scalar off a restored project: repair it here so stored state
+  // holds a number, rather than leaving a non-numeric value for every reader.
+  state.keyboardVelocity = normalizeKeyboardVelocity(state.keyboardVelocity);
 
   return state;
+}
+
+export const MIN_KEYBOARD_VELOCITY = 0.05;
+
+// keyboardVelocity has no import schema behind it, so a restored project can
+// carry any JSON type here. Number(null) and Number([]) are 0, which would clamp
+// to the minimum rather than fall back to the default, so only numbers and
+// non-blank numeric strings count as a value at all.
+export function normalizeKeyboardVelocity(value) {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return 1;
+    return Math.max(MIN_KEYBOARD_VELOCITY, Math.min(1, value));
+  }
+  if (typeof value !== 'string' || value.trim() === '') return 1;
+  const velocity = Number(value);
+  if (!Number.isFinite(velocity)) return 1;
+  return Math.max(MIN_KEYBOARD_VELOCITY, Math.min(1, velocity));
 }
 
 // Object.assign copies with [[Set]] semantics, so a JSON-parsed own "__proto__"
