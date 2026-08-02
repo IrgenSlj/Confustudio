@@ -1,0 +1,14 @@
+{
+  "//": [
+    "core/07-mutation-migration ratchet baseline. Direct persistent mutations",
+    "that still bypass the reducer. This may only go DOWN.",
+    "",
+    "Gate P2 requires 'no persistent direct mutation remains', i.e. zero.",
+    "When you route a workflow through the reducer, lower this number.",
+    "`slack` is how far below the baseline the count may drift before the test",
+    "insists you tighten it, so the ratchet cannot silently leave slack behind."
+  ],
+  "totalDirectMutationSites": 131,
+  "slack": 10,
+  "measuredAt": "2026-08-02"
+}
