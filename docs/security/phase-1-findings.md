@@ -150,6 +150,9 @@ passes only with no unresolved critical/high finding."
 - F-2 and F-3 are fixed. F-4, F-5 and F-6 are Low/Informational and are now
   recorded in the accepted residual risk of
   [`phase-1-review.md`](./phase-1-review.md); F-5 also gained a startup warning.
-- **An independent reviewer still has to perform and record the signoff.** This
-  pass does not substitute for it, and a reviewer may still reject any residual
-  item as too severe for P1.
+- **Gate P1 signed off PASS on 2026-08-02** by the repository owner, who
+  accepted F-4, F-5 and F-6 as residual risk after they were put to them
+  explicitly. See the Signoff block in
+  [`phase-1-review.md`](./phase-1-review.md), including its recorded limits —
+  this is the owner accepting risk on a documented basis, not an arms-length
+  third-party review.
