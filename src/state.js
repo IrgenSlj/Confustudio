@@ -893,6 +893,19 @@ function repairState(state) {
   return state;
 }
 
+// Object.assign copies with [[Set]] semantics, so a JSON-parsed own "__proto__"
+// key would re-parent the track object. Copy field by field and skip the
+// prototype-bearing keys, matching what deepMerge already refuses to carry.
+function assignLegacyTrackFields(target, source) {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return target;
+  for (const key of Object.keys(source)) {
+    if (key === '__proto__' || key === 'prototype' || key === 'constructor') continue;
+    target[key] = source[key];
+  }
+  target.sampleBuffer = null;
+  return target;
+}
+
 export function loadState() {
   // ── Try current + legacy v3 keys ──
   try {
@@ -963,14 +976,18 @@ export function loadState() {
   try {
     const raw = localStorage.getItem('confustudio-v2') ?? localStorage.getItem('confusynth-v2');
     if (raw) {
-      const legacy = JSON.parse(raw);
+      // localStorage is an untrusted boundary, and this fallback runs precisely
+      // when the v3 path above THREW — including when it threw because
+      // validateProjectImport rejected this same blob. Without re-validating
+      // here, anything the boundary just rejected gets merged into live state.
+      const legacy = validateProjectImport(JSON.parse(raw));
       const state = createAppState();
       // v2 stored a flat tracks array at top level or under state.tracks
       const legacyTracks = legacy.tracks || (legacy.state && legacy.state.tracks);
       if (Array.isArray(legacyTracks)) {
         const target = state.project.banks[0].patterns[0].kit.tracks;
         legacyTracks.slice(0, TRACK_COUNT).forEach((lt, i) => {
-          Object.assign(target[i], lt, { sampleBuffer: null });
+          assignLegacyTrackFields(target[i], lt);
         });
       }
       const next = normalizeScenes(state);

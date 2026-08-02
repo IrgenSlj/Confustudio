@@ -95,4 +95,72 @@ assertBoundaryCode(
 );
 assert.equal(atomicState.bpm, initialBpm, 'A rejected command batch must not partially mutate state');
 
-console.log(JSON.stringify({ ok: true, hostileTextStayedLiteral: true, commandBatchAtomic: true }, null, 2));
+// ── Legacy v2 localStorage restore must not bypass the import boundary ──
+// loadState()'s v2 fallback runs exactly when the v3 path threw, including when
+// it threw because validateProjectImport rejected the blob. Regression: that
+// fallback used to re-parse and Object.assign the rejected data into state,
+// which both defeated the schema and let a JSON-parsed "__proto__" re-parent
+// the track object.
+{
+  const store = new Map();
+  const previousLocalStorage = globalThis.localStorage;
+  globalThis.localStorage = {
+    getItem: (key) => (store.has(key) ? store.get(key) : null),
+    setItem: (key, value) => store.set(key, String(value)),
+    removeItem: (key) => store.delete(key),
+    clear: () => store.clear(),
+  };
+
+  try {
+    const { loadState } = await import('../src/state.js');
+
+    // Over-limit name (schema bound is 120) => the v3 boundary rejects this.
+    const overLimitName = 'x'.repeat(5000);
+    const hostileV2 = `{"tracks":[{"__proto__":{"INHERITED_FROM_ATTACKER":true},"volume":"NOT_A_NUMBER","name":"${overLimitName}"}]}`;
+    assertBoundaryCode(() => validateProjectImport(JSON.parse(hostileV2)), 'DANGEROUS_OBJECT_KEY');
+    // ...and rejects the same blob on the string bound alone, without the key.
+    assertBoundaryCode(
+      () => validateProjectImport({ tracks: [{ volume: 'NOT_A_NUMBER', name: overLimitName }] }),
+      'IMPORT_STRING_LIMIT',
+    );
+
+    store.clear();
+    store.set('confustudio-v2', hostileV2);
+    const rejectedState = loadState();
+    const rejectedTrack = rejectedState?.project?.banks?.[0]?.patterns?.[0]?.kit?.tracks?.[0];
+    if (rejectedTrack) {
+      assert.notEqual(rejectedTrack.volume, 'NOT_A_NUMBER', 'Rejected v2 data must not reach app state');
+      assert.notEqual(rejectedTrack.name?.length, 5000, 'Rejected v2 data must not reach app state');
+      assert.equal(
+        Object.getPrototypeOf(rejectedTrack),
+        Object.prototype,
+        'Legacy v2 restore must not re-parent a track object',
+      );
+      assert.equal(rejectedTrack.INHERITED_FROM_ATTACKER, undefined, 'Attacker prototype must not be reachable');
+    }
+    assert.equal({}.INHERITED_FROM_ATTACKER, undefined, 'Object.prototype must stay clean');
+
+    // A schema-valid v2 blob must still load cleanly. Note it is consumed by the
+    // v3 branch above (which accepts a bare `tracks` array and merges it as
+    // top-level state), so the legacy branch is only ever reached by data that
+    // FAILED validation -- which is exactly why it must validate before merging.
+    store.clear();
+    store.set('confustudio-v2', JSON.stringify({ tracks: [{ volume: 0.25, name: 'legacy' }] }));
+    const benignState = loadState();
+    const benignTrack = benignState?.project?.banks?.[0]?.patterns?.[0]?.kit?.tracks?.[0];
+    assert.ok(benignState, 'A valid legacy v2 project must still produce state');
+    assert.equal(typeof benignTrack?.volume, 'number', 'Restored tracks must keep schema-correct types');
+    assert.equal(Object.getPrototypeOf(benignTrack), Object.prototype, 'Restored tracks must keep a clean prototype');
+  } finally {
+    if (previousLocalStorage === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = previousLocalStorage;
+  }
+}
+
+console.log(
+  JSON.stringify(
+    { ok: true, hostileTextStayedLiteral: true, commandBatchAtomic: true, legacyV2RestoreValidated: true },
+    null,
+    2,
+  ),
+);
