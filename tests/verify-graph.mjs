@@ -4,8 +4,10 @@
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 
+import { pickTestPort } from './helpers/port.mjs';
+
 function startServer() {
-  const port = 4300 + Math.floor(Math.random() * 1000);
+  const port = pickTestPort(4300);
   const child = spawn('node', ['server.mjs'], {
     cwd: process.cwd(),
     env: { ...process.env, PORT: String(port), OPENAI_API_KEY: '', ANTHROPIC_API_KEY: '' },

@@ -11,6 +11,8 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 import { chromium } from 'playwright';
 
+import { pickTestPort } from './helpers/port.mjs';
+
 function assert(condition, message, details = null) {
   if (!condition) {
     const error = new Error(message);
@@ -20,7 +22,7 @@ function assert(condition, message, details = null) {
 }
 
 async function startServer() {
-  const port = 5300 + Math.floor(Math.random() * 1000);
+  const port = pickTestPort(5300);
   const child = spawn('node', ['server.mjs'], {
     cwd: process.cwd(),
     env: { ...process.env, HOST: '127.0.0.1', PORT: String(port) },

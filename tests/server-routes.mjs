@@ -4,6 +4,8 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 import { buildManualToolSurface } from '../src/harness/tools/registry.js';
 
+import { pickTestPort } from './helpers/port.mjs';
+
 function assert(condition, message, details = null) {
   if (!condition) {
     const error = new Error(message);
@@ -13,7 +15,7 @@ function assert(condition, message, details = null) {
 }
 
 async function startServer() {
-  const port = 4300 + Math.floor(Math.random() * 1000);
+  const port = pickTestPort(4300);
   const child = spawn('node', ['server.mjs'], {
     cwd: process.cwd(),
     env: {

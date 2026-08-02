@@ -3,6 +3,8 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 
+import { pickTestPort } from './helpers/port.mjs';
+
 let BASE_URL = process.env.CONFUSYNTH_BASE_URL || '';
 
 function assert(condition, message, details = null) {
@@ -27,7 +29,7 @@ async function clearBrowserState(page) {
 }
 
 async function startServer() {
-  const port = 4300 + Math.floor(Math.random() * 1000);
+  const port = pickTestPort(4300);
   const child = spawn('node', ['server.mjs'], {
     cwd: process.cwd(),
     env: {

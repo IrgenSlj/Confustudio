@@ -77,7 +77,7 @@ const comparable = (project) => JSON.stringify({ ...project, revision: 0 });
 // ── Recording after an undo truncates the redo branch ────────────────────────
 {
   const project = buildProject();
-  let history = createHistory(project);
+  const history = createHistory(project);
   const first = recordBatch(history, project, [envelope('toggle-step', ['trk_1'], { index: 1 })]);
   const undone = undo(first.history, first.project);
   const second = recordBatch(undone.history, undone.project, [envelope('toggle-step', ['trk_2'], { index: 2 })]);
