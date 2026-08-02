@@ -509,12 +509,15 @@ export class AudioEngine {
         console.warn(`AudioWorklet ${path} failed:`, err);
       }
     };
+    // Resolved relative to this module so the bundler rewrites them to the
+    // hashed asset URLs; a literal /src/ path 404s in a production build and
+    // the only symptom is missing sound.
     await Promise.all([
-      load('/src/worklets/resampler-worklet.js', '_workletReady'),
-      load('/src/worklets/bitcrusher-worklet.js', '_bitcrusherReady'),
-      load('/src/worklets/plaits-worklet.js', '_plaitsReady'),
-      load('/src/worklets/clouds-worklet.js', '_cloudsReady'),
-      load('/src/worklets/rings-worklet.js', '_ringsReady'),
+      load(new URL('./worklets/resampler-worklet.js', import.meta.url).href, '_workletReady'),
+      load(new URL('./worklets/bitcrusher-worklet.js', import.meta.url).href, '_bitcrusherReady'),
+      load(new URL('./worklets/plaits-worklet.js', import.meta.url).href, '_plaitsReady'),
+      load(new URL('./worklets/clouds-worklet.js', import.meta.url).href, '_cloudsReady'),
+      load(new URL('./worklets/rings-worklet.js', import.meta.url).href, '_ringsReady'),
     ]);
   }
 

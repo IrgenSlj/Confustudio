@@ -1,5 +1,12 @@
 export const PERSISTENCE_STATUS_EVENT = 'confustudio:persistence-status';
 
+/**
+ * Records the outcome of a persistence attempt on the state and broadcasts it.
+ *
+ * @param {Record<string, unknown> | null | undefined} state
+ * @param {'saving' | 'saved' | 'recovered' | 'failed'} status
+ * @param {string} [message]
+ */
 export function reportPersistenceStatus(state, status, message) {
   const detail = {
     status,

@@ -13,6 +13,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = __dirname;
 const publicDir = path.join(rootDir, 'public');
 const docsDir = path.join(rootDir, 'docs');
+const distDir = path.join(rootDir, 'dist');
+// Serving the build is opt-in by its mere existence, so `rm -rf dist` is the
+// rollback: this server then serves the sources exactly as it did before.
+const serveBuiltAssets = existsSync(path.join(distDir, 'index.html'));
 const port = Number(process.env.PORT || 4173);
 // Bind loopback for local dev (safe default), but all interfaces in
 // production so container platforms can route to us. HOST wins if set.
@@ -762,6 +766,19 @@ async function handleLinkState(req, res) {
   }
 }
 
+// Maps a request path onto a file inside dist/, or null when the build has no
+// such file so the caller can fall through to the source tree. Resolves the
+// candidate and confirms it is still contained by dist/ before touching disk,
+// so a crafted path cannot read outside the build output.
+function resolveBuiltAsset(pathname) {
+  const relative = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
+  if (!relative) return null;
+  const candidate = path.resolve(distDir, relative);
+  if (candidate !== distDir && !candidate.startsWith(distDir + path.sep)) return null;
+  if (!existsSync(candidate)) return null;
+  return candidate;
+}
+
 async function serveFile(res, filePath) {
   if (!existsSync(filePath)) {
     res.writeHead(404, SECURITY_HEADERS);
@@ -916,6 +933,17 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // A production build is served from dist/ when one exists; otherwise the
+  // sources are served directly, which is both the dev flow and the documented
+  // rollback path (delete dist/ and this server behaves exactly as before).
+  if (serveBuiltAssets) {
+    const built = resolveBuiltAsset(url.pathname);
+    if (built) {
+      await serveFile(res, built);
+      return;
+    }
+  }
+
   if (url.pathname === '/' || url.pathname === '/index.html') {
     await serveFile(res, path.join(rootDir, 'index.html'));
     return;
@@ -923,6 +951,13 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === '/sw.js') {
     await serveFile(res, path.join(publicDir, 'sw.js'));
+    return;
+  }
+
+  // public/ assets are addressed from the site root so the built output and the
+  // sources share one URL space (Vite copies public/ to the build root).
+  if (url.pathname === '/icon.svg' || url.pathname === '/manifest.webmanifest') {
+    await serveFile(res, path.join(publicDir, path.basename(url.pathname)));
     return;
   }
 

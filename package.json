@@ -33,11 +33,16 @@
   "scripts": {
     "start": "node server.mjs",
     "dev": "node --watch server.mjs",
-    "test": "npm run lint && npm run test:types && npm run test:syntax && npm run test:kernel && npm run test:score && npm run test:perception && npm run test:spectrum && npm run test:harness && npm run test:loop && npm run test:branch && npm run test:state && npm run test:baseline && npm run test:security && npm run test:boundaries && npm run test:server && npm run test:ui-smoke",
+    "dev:vite": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "npm run lint && npm run test:types && npm run test:types:strict && npm run test:build && npm run test:syntax && npm run test:kernel && npm run test:score && npm run test:perception && npm run test:spectrum && npm run test:harness && npm run test:loop && npm run test:branch && npm run test:state && npm run test:baseline && npm run test:security && npm run test:boundaries && npm run test:server && npm run test:ui-smoke",
     "test:types": "tsc -p jsconfig.json",
+    "test:types:strict": "tsc -p tsconfig.strict.json",
     "test:perception": "node tests/loudness.mjs",
     "test:spectrum": "node tests/spectrum.mjs",
     "test:syntax": "node tests/syntax-check.mjs",
+    "test:build": "node tests/build-output.mjs",
     "test:kernel": "node tests/kernel-event-compiler.mjs",
     "test:score": "node tests/score-roundtrip.mjs",
     "test:harness": "node tests/harness-tools.mjs",
@@ -66,6 +71,7 @@
     "globals": "^17.6.0",
     "playwright": "^1.59.1",
     "prettier": "^3.8.3",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vite": "^7.3.6"
   }
 }
