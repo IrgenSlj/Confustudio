@@ -2,7 +2,7 @@
 
 **Gate:** P1, Security and trust boundaries
 
-**Status:** automated evidence complete; independent signoff pending
+**Status:** PASS — signed off 2026-08-02 (see Signoff)
 
 **Prepared:** 2026-08-01
 
@@ -111,17 +111,36 @@ These are release blockers or later planned boundaries, not claims of completion
 
 ## Signoff
 
-Complete this section in a follow-up review commit:
-
 ```text
-Reviewer:
-Date:
-Reviewed commit:
-Critical findings:
-High findings:
+Reviewer:          IrgenSlj (repository owner), on an agent-assisted review pass
+Date:              2026-08-02
+Reviewed commit:   0f0efd7
+Critical findings: 0
+High findings:     1 — F-1, legacy v2 restore bypassed the import boundary.
+                   Resolved in #35 before signoff; no unresolved high finding.
 Required follow-ups:
-Gate P1 result: PASS / FAIL
+                   F-4 hosted egress re-resolves DNS after validation — accepted
+                     residual risk; real fix is address pinning, revisit with the
+                     Phase 6 hosted API.
+                   F-5 loopback bind issues sessions without a credential —
+                     accepted; startup warns, deliberate local bootstrap.
+                   F-6 session table evicts oldest-first — accepted.
+Gate P1 result:    PASS
 ```
+
+Basis and limits of this signoff, recorded honestly so a later reader can judge
+its weight:
+
+- Findings and evidence are in [`phase-1-findings.md`](./phase-1-findings.md).
+  The threat checklist above was worked against `6e5ea29`, the full automated
+  evidence was re-run, and the production-startup failure was checked manually.
+- The reviewer of record is the repository owner, who accepted F-4, F-5 and F-6
+  as residual risk after they were put to them explicitly. The supporting pass
+  was performed by an agent that also authored the change set — so this is
+  **not** an arms-length third-party review, and it should not be represented as
+  one. It is the owner accepting the risk on a documented basis.
+- A genuine external review remains worthwhile before any public exposure, and
+  is a prerequisite of Gate P6 regardless of this result.
 
 Gate P1 passes only with no unresolved critical/high finding. Passing P1 does not
 authorize public AI deployment; that remains blocked until Gate P6 and issue #34.
