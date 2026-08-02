@@ -1,7 +1,7 @@
 # CONFUstudio Next Session
 
-**State:** Gate P1 signed off. Phase 2's core is built and **entirely dormant** —
-two decisions are blocking before anything flips over.
+**State:** Gate P1 signed off. Phase 2's core is built and dormant; `core/07`
+routing has started and needs no flag flip. One live bug found ([#47]).
 
 **Branch:** `main`
 
@@ -80,18 +80,36 @@ until it is made.
 
 Latency budgets pass: edit p95 13.1 ms (budget 16), undo/redo ~3 ms (budget 32).
 
-### 2. Flip ordering for `core/07`
+### 2. RESOLVED — `core/07` needs no flag flip
 
-`core/07` is the first item that cannot hide behind a dormant flag: it routes
-live UI writes through the reducer, so returning users' projects meet the new
-code for real.
+An earlier note here claimed `core/07` was the first item that could not stay
+dormant, and asked for a flip ordering. **That was wrong.** Routing UI writes
+through the _current_ command bus is a pure refactor: no v4 flip, no data
+migration. The v4 reducer swap is a separate, later change.
 
-`npm run test:mutation-ratchet` measures the scope: **131 direct persistent
-mutations across 18 files**, worst in `src/pages/`. The ratchet allows that count
-to fall but never rise, so the work can proceed workflow by workflow.
+Work has started (#48). `npm run test:mutation-ratchet` tracks it:
 
-Suggested order, not yet agreed: record store first (data at rest, reversible via
-the persisted pre-migration backup), then mutation routing.
+    unroutedDirectMutations: 128   (from 131)
+    routedFallbacks: 3
+
+The pattern is in `src/pages/settings-project.js`: call the bus, keep the direct
+write as a `routed-fallback`-marked compatibility path. Routed writes are counted
+separately rather than exempted, so the metric cannot flatter the work. Continue
+workflow by workflow; no decision needed.
+
+### 3. Undo is broken in the live app ([#47])
+
+Toggle a step, press Ctrl+Z — nothing happens. Same for project metadata, same
+via the programmatic API, silent. Pre-existing, unrelated to Phase 2.
+
+This weakens a Gate P2 claim: "undo/redo fuzz tests pass" is true of the **new**
+controller from `core/04`, which is dormant. The green check and what users
+experience describe different code.
+
+Two options, deliberately not chosen: patch v3 history now, or prioritise
+switching on the exact-history controller. See [#47].
+
+[#47]: https://github.com/IrgenSlj/Confustudio/issues/47
 
 ## Also open
 
