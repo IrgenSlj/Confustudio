@@ -49,7 +49,7 @@
     "test:loop": "node tests/harness-loop.mjs",
     "test:state": "node tests/state-commands.mjs && node tests/persistence-status.mjs",
     "test:project-v4": "node tests/project-v4.mjs",
-    "test:commands": "node tests/command-reducer.mjs && node tests/command-history.mjs",
+    "test:commands": "node tests/command-reducer.mjs && node tests/command-history.mjs && node tests/command-proposal.mjs",
     "test:server": "node tests/server-routes.mjs",
     "test:baseline": "node tests/baseline-fixtures.mjs && node tests/assistant-proxy-gate.mjs",
     "test:security": "node tests/provider-policy.mjs && node tests/provider-egress.mjs && node tests/assistant-abuse-controls.mjs",
