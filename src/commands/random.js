@@ -20,7 +20,14 @@ export function createSeededRandom(seed) {
   };
 }
 
-/** Deterministic integer in [min, max]. */
+/**
+ * Deterministic integer in [min, max].
+ *
+ * @param {() => number} random
+ * @param {number} min
+ * @param {number} max
+ * @returns {number}
+ */
 export function randomInt(random, min, max) {
   return min + Math.floor(random() * (max - min + 1));
 }
