@@ -23,5 +23,11 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true
   },
-  "files": ["src/constants.js", "src/security/dom.js", "src/persistence-status.js"]
+  "files": [
+    "src/constants.js",
+    "src/security/dom.js",
+    "src/persistence-status.js",
+    "src/commands/random.js",
+    "src/harness/ir.js"
+  ]
 }

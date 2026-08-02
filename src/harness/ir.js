@@ -25,16 +25,16 @@ export const TURN = Object.freeze({ TOOL_USE: 'tool_use', TEXT: 'text' });
 
 /**
  * @typedef {object} ToolCall
- * @property {string} callId — stable id assigned by the provider (echoed in the result)
- * @property {string} name — tool name (must exist in the registry)
- * @property {object} args — raw arguments (validated by the loop)
+ * @property {string} callId - stable id assigned by the provider (echoed in the result)
+ * @property {string} name - tool name (must exist in the registry)
+ * @property {object} args - raw arguments (validated by the loop)
  */
 
 /**
  * @typedef {object} ToolResult
  * @property {string} callId
  * @property {boolean} ok
- * @property {object} [data] — on success, e.g. { summary }
+ * @property {object} [data] - on success, e.g. { summary }
  * @property {{ code: string, message: string, hint?: string }} [error]
  */
 
@@ -47,6 +47,9 @@ export const TURN = Object.freeze({ TOOL_USE: 'tool_use', TEXT: 'text' });
  * @returns {ToolResult}
  */
 export function toolResult(callId, ok, data = null, error = null) {
+  // Annotated so the optional fields below are part of the type. Without this
+  // the literal narrows to { callId, ok } and the assignments are errors.
+  /** @type {ToolResult} */
   const r = { callId, ok };
   if (data != null) r.data = data;
   if (error != null) r.error = error;
@@ -55,20 +58,27 @@ export function toolResult(callId, ok, data = null, error = null) {
 
 /**
  * Build a tool error object.
- * @param {string} code — one of ERROR_CODES
+ * @param {string} code - one of ERROR_CODES
  * @param {string} message
- * @param {string} [hint] — actionable, model-facing
+ * @param {string} [hint] - actionable, model-facing
  */
 export function toolError(code, message, hint) {
+  /** @type {{ code: string, message: string, hint?: string }} */
   const e = { code, message };
   if (hint) e.hint = hint;
   return e;
 }
 
-/** Convenience turn constructors (used by adapters + the mock provider). */
+/**
+ * Convenience turn constructors (used by adapters + the mock provider).
+ *
+ * @param {ToolCall[]} calls
+ * @param {string} [text]
+ */
 export function toolUseTurn(calls, text) {
   return { type: TURN.TOOL_USE, calls, ...(text ? { text } : {}) };
 }
+/** @param {string} text */
 export function textTurn(text) {
   return { type: TURN.TEXT, text };
 }
