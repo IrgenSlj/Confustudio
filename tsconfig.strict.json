@@ -1,0 +1,27 @@
+{
+  "//": [
+    "Strict boundary. jsconfig.json keeps the legacy tree checkable at a loose",
+    "setting; this file is the ratchet. Modules listed here type-check under",
+    "full strict, and `npm test` fails if that stops being true.",
+    "",
+    "To widen the boundary: add JSDoc types to a module until it passes, then",
+    "add it to `files` below. Do not relax any compiler option to admit one --",
+    "the point is that everything in here is genuinely strict."
+  ],
+  "compilerOptions": {
+    "checkJs": true,
+    "allowJs": true,
+    "noEmit": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true
+  },
+  "files": ["src/constants.js", "src/security/dom.js", "src/persistence-status.js"]
+}

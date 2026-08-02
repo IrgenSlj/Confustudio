@@ -1,22 +1,19 @@
 // Bump this on every release so returning users purge stale precached assets
 // on the next activate. A static cache name was the root cause of stale-shell
 // "blank page" reports — keep it moving.
-const CACHE_NAME = 'confustudio-v4';
-const APP_SHELL = [
-  '/',
-  '/index.html',
-  '/src/app.js',
-  '/src/assistant-client.js',
-  '/src/styles.css',
-  '/src/css/tokens.css',
-  '/public/manifest.webmanifest',
-];
+const CACHE_NAME = 'confustudio-v5';
+// Only URLs that exist both when serving sources and when serving a production
+// build. Bundled entry points are hashed, so naming /src/app.js here would 404
+// in a build — and addAll() rejects as a unit, which would fail install
+// outright and leave the app with no service worker at all.
+const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(CACHE_NAME)
-      .then((cache) => cache.addAll(APP_SHELL))
+      // Added individually so one missing entry cannot abort the install.
+      .then((cache) => Promise.allSettled(APP_SHELL.map((url) => cache.add(url))))
       .then(() => self.skipWaiting()),
   );
 });
@@ -39,6 +36,9 @@ self.addEventListener('fetch', (event) => {
     (url.pathname === '/' ||
       url.pathname === '/index.html' ||
       url.pathname.startsWith('/src/') ||
+      // Hashed build output. Network-first like the sources: a new build
+      // changes the filenames anyway, and stale shells were the original bug.
+      url.pathname.startsWith('/assets/') ||
       url.pathname.startsWith('/docs/'));
 
   if (isAppSource) {

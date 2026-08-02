@@ -47,6 +47,33 @@ npm test
 
 The studio itself should work without any provider configuration.
 
+## Production Build
+
+`server.mjs` serves `dist/` when a build exists and the sources otherwise. Both
+modes are verified to behave identically, so building is optional locally.
+
+```bash
+npm run build      # hashed assets into dist/
+npm start          # serves dist/ because it now exists
+rm -rf dist        # rollback: back to serving sources, no other change
+```
+
+`npm run dev:vite` runs the Vite dev server instead of `server.mjs`. It sends the
+same COOP/COEP headers, because AudioWorklet needs cross-origin isolation and the
+two dev paths must not diverge.
+
+Two build details are load-bearing and are enforced by `npm run test:build`:
+
+- Worklets are referenced with `new URL('./worklets/…', import.meta.url)`, never a
+  literal `/src/` path, which would 404 once assets are hashed.
+- Worklets are never inlined. Assets below Vite's 4 KB inline limit become `data:`
+  URLs, and the CSP is `script-src 'self'`, so an inlined worklet fails
+  `audioWorklet.addModule()` at runtime. A dead worklet's only symptom is missing
+  sound, so this is checked rather than assumed.
+
+The container build is multi-stage: assets are built in a stage that has npm, and
+the runtime image still installs nothing and runs only Node stdlib.
+
 ## Prohibited Until the Security Gate Passes
 
 - Do not run the current container on a public interface.

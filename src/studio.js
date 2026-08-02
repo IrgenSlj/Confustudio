@@ -28,6 +28,13 @@ import {
 
 import { getOverlay, closeOverlay, openManualOverlay, openAssistantOverlay } from './studio-overlay.js';
 
+// A shadow root cannot see the document's stylesheets, so the zoom lens links
+// styles.css itself. new URL(..., import.meta.url) resolves natively when the
+// sources are served directly and is rewritten to the hashed asset by the
+// bundler — unlike a `?url` import, which only a bundler can resolve and which
+// breaks serving raw sources (the documented rollback path).
+const studioStylesUrl = new URL('./styles.css', import.meta.url).href;
+
 // studio.js — studio canvas: zoom, pan, module placement
 export function initStudio() {
   const wrap = document.getElementById('studio-wrap');
@@ -118,7 +125,7 @@ export function initStudio() {
 
     const shadow = _zoomLensHost.attachShadow({ mode: 'open' });
     shadow.innerHTML = `
-      <link rel="stylesheet" href="/src/styles.css">
+      <link rel="stylesheet" href="${studioStylesUrl}">
       <style>
         .lens-shell {
           position: relative;

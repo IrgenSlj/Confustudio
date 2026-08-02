@@ -1,12 +1,16 @@
 // Modular Engine — compiles signalGraph into Web Audio nodes
 import { getPlugin } from './plugins/index.js';
 
+// Resolved relative to this module rather than hardcoded to /src/, so the
+// bundler rewrites them to the hashed asset URLs in a production build. A
+// literal path silently 404s once the worklets are emitted under /assets/,
+// and a failed worklet only shows up as missing sound.
 const WORKLET_MODULES = [
-  '/src/worklets/resampler-worklet.js',
-  '/src/worklets/bitcrusher-worklet.js',
-  '/src/worklets/plaits-worklet.js',
-  '/src/worklets/clouds-worklet.js',
-  '/src/worklets/rings-worklet.js',
+  new URL('./worklets/resampler-worklet.js', import.meta.url).href,
+  new URL('./worklets/bitcrusher-worklet.js', import.meta.url).href,
+  new URL('./worklets/plaits-worklet.js', import.meta.url).href,
+  new URL('./worklets/clouds-worklet.js', import.meta.url).href,
+  new URL('./worklets/rings-worklet.js', import.meta.url).href,
 ];
 
 export class ModularEngine {
