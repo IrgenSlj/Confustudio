@@ -6,9 +6,10 @@
     "Gate P2 requires 'no persistent direct mutation remains', i.e. zero.",
     "When you route a workflow through the reducer, lower this number.",
     "`slack` is how far below the baseline the count may drift before the test",
-    "insists you tighten it, so the ratchet cannot silently leave slack behind."
+    "insists you tighten it, so the ratchet cannot silently leave slack behind.",
+    "2026-08-03: settings-project metadata routed through set-project-meta (131 -> 128)."
   ],
-  "totalDirectMutationSites": 131,
+  "totalDirectMutationSites": 128,
   "slack": 10,
-  "measuredAt": "2026-08-02"
+  "measuredAt": "2026-08-03"
 }

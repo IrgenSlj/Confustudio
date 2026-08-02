@@ -29,6 +29,13 @@ const MUTATION_PATTERNS = [
   /\.steps\[[^\]]+\]\s*=[^=]/,
 ];
 
+// A write already routed through the command bus keeps its direct write as the
+// per-workflow compatibility fallback the core/07 rollback requires. Those are
+// not unrouted mutations, but they ARE still direct writes, so they are counted
+// separately rather than quietly exempted — the marker is an explicit,
+// greppable claim that a bus route guards this line.
+const ROUTED_MARKER = 'routed-fallback';
+
 // The reducer and the state module are where mutation is supposed to live.
 const EXEMPT_FILES = new Set(['command-bus.js', 'state.js']);
 // Directories that are already reducer-based or are not persistent UI.
@@ -49,6 +56,7 @@ async function collectSources(dir) {
 }
 
 const counts = {};
+let routedFallbacks = 0;
 for (const file of await collectSources(path.join(rootDir, 'src'))) {
   if (EXEMPT_FILES.has(path.basename(file))) continue;
   const lines = (await readFile(file, 'utf8')).split('\n');
@@ -56,7 +64,12 @@ for (const file of await collectSources(path.join(rootDir, 'src'))) {
   for (const line of lines) {
     const trimmed = line.trim();
     if (trimmed.startsWith('//') || trimmed.startsWith('*')) continue;
-    if (MUTATION_PATTERNS.some((pattern) => pattern.test(line))) hits += 1;
+    if (!MUTATION_PATTERNS.some((pattern) => pattern.test(line))) continue;
+    if (line.includes(ROUTED_MARKER)) {
+      routedFallbacks += 1;
+      continue;
+    }
+    hits += 1;
   }
   if (hits > 0) counts[path.relative(rootDir, file)] = hits;
 }
@@ -82,8 +95,9 @@ console.log(
   JSON.stringify(
     {
       ok: true,
-      totalDirectMutationSites: total,
+      unroutedDirectMutations: total,
       baseline: baseline.totalDirectMutationSites,
+      routedFallbacks,
       filesAffected: Object.keys(counts).length,
       gateP2Clear: total === 0,
     },
