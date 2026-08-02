@@ -71,8 +71,8 @@ scoping is unchanged and noted below.
 `src/keyboard.js:1019` interpolates persisted state into an HTML attribute with
 no escaping:
 
-```js
-value = '${state.keyboardVelocity ?? 1}';
+```text
+<input type="range" class="kbd-vel-slider" ... value="${state.keyboardVelocity ?? 1}">
 ```
 
 `keyboardVelocity` is a top-level state key covered by **no** schema —
