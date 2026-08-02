@@ -5,6 +5,17 @@
 // Z-M = sequencer steps 10-16     (pattern) / black piano notes (sound, roll)
 // Space = play / pause
 
+import { normalizeKeyboardVelocity } from './state.js';
+
+// ─── Velocity accessor ────────────────────────────────────────────────────────
+
+// repairState() normalizes keyboardVelocity on load, but reading it raw here
+// once let a string reach both the audio path (NaN velocity) and an HTML
+// attribute in renderPiano. Stay defensive at the point of use too.
+export function readKeyboardVelocity(state) {
+  return normalizeKeyboardVelocity(state?.keyboardVelocity);
+}
+
 // ─── Velocity curve transform ─────────────────────────────────────────────────
 
 function applyVelocityCurve(rawVel, curve) {
@@ -1016,11 +1027,11 @@ export function renderPiano(containerEl, state) {
   velBar.className = 'kbd-vel-bar';
   velBar.innerHTML = `
     <label class="kbd-vel-label">VEL</label>
-    <input type="range" class="kbd-vel-slider" min="0.05" max="1" step="0.01" value="${state.keyboardVelocity ?? 1}">
-    <span class="kbd-vel-val">${Math.round((state.keyboardVelocity ?? 1) * 127)}</span>
+    <input type="range" class="kbd-vel-slider" min="0.05" max="1" step="0.01" value="${readKeyboardVelocity(state)}">
+    <span class="kbd-vel-val">${Math.round(readKeyboardVelocity(state) * 127)}</span>
   `;
   velBar.querySelector('input').addEventListener('input', (e) => {
-    state.keyboardVelocity = parseFloat(e.target.value);
+    state.keyboardVelocity = readKeyboardVelocity({ keyboardVelocity: e.target.value });
     velBar.querySelector('span').textContent = Math.round(state.keyboardVelocity * 127);
   });
   pianoContainer.append(velBar);
@@ -1052,7 +1063,7 @@ export function initPianoTouch(pianoContainerEl, state, emit) {
       const relY = (touch.clientY - rect.top) / rect.height;
       return Math.max(0.3, Math.min(1, 1 - relY * 0.7));
     }
-    return state.keyboardVelocity ?? 1;
+    return readKeyboardVelocity(state);
   }
 
   function _midiFromEl(el) {
@@ -1068,7 +1079,7 @@ export function initPianoTouch(pianoContainerEl, state, emit) {
   function _triggerNote(keyEl, touch) {
     const midi = _midiFromEl(keyEl);
     if (midi == null) return;
-    const rawVel = touch ? _getVelocityFromTouch(touch, keyEl) : (state.keyboardVelocity ?? 1);
+    const rawVel = touch ? _getVelocityFromTouch(touch, keyEl) : readKeyboardVelocity(state);
     const velocity = applyVelocityCurve(rawVel, state.velocityCurve ?? 'linear');
     const voicing = CHORD_VOICINGS[state.kbdChordMode ?? 'off'] ?? [];
     const trackOverride = _resolveTrack(midi);
@@ -1275,13 +1286,13 @@ export function initKeyboard(state, emit, trackColors = []) {
       // Ctrl+Up/Down → velocity adjust
       if (e.code === 'ArrowUp') {
         e.preventDefault();
-        state.keyboardVelocity = Math.min(1, Math.round(((state.keyboardVelocity ?? 1) + 0.1) * 100) / 100);
+        state.keyboardVelocity = Math.min(1, Math.round((readKeyboardVelocity(state) + 0.1) * 100) / 100);
         emit('keyboard:velocityChange', { velocity: state.keyboardVelocity });
         return;
       }
       if (e.code === 'ArrowDown') {
         e.preventDefault();
-        state.keyboardVelocity = Math.max(0.05, Math.round(((state.keyboardVelocity ?? 1) - 0.1) * 100) / 100);
+        state.keyboardVelocity = Math.max(0.05, Math.round((readKeyboardVelocity(state) - 0.1) * 100) / 100);
         emit('keyboard:velocityChange', { velocity: state.keyboardVelocity });
         return;
       }
@@ -1325,7 +1336,7 @@ export function initKeyboard(state, emit, trackColors = []) {
       if (offset != null) {
         let midiNote = 60 + (state.octaveShift ?? 0) * 12 + offset;
         if (state.scaleLock) midiNote = snapToScale(midiNote, state.scale ?? 0);
-        const velocity = applyVelocityCurve(state.keyboardVelocity ?? 1, state.velocityCurve ?? 'linear');
+        const velocity = applyVelocityCurve(readKeyboardVelocity(state), state.velocityCurve ?? 'linear');
         const voicing = CHORD_VOICINGS[state.kbdChordMode ?? 'off'] ?? [];
 
         // Split keyboard: temporarily redirect to appropriate track
@@ -1396,7 +1407,7 @@ export function initKeyboard(state, emit, trackColors = []) {
       const offset = NOTE_KEY_OFFSETS[e.code];
       if (offset != null) {
         const midiNote = 60 + (state.octaveShift ?? 0) * 12 + offset;
-        const velocity = applyVelocityCurve(state.keyboardVelocity ?? 1, state.velocityCurve ?? 'linear');
+        const velocity = applyVelocityCurve(readKeyboardVelocity(state), state.velocityCurve ?? 'linear');
         _emit('note:preview', { note: midiNote, velocity });
         _emit('step:record', { note: midiNote, velocity });
         return;

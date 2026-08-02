@@ -975,4 +975,15 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(port, host, () => {
   console.log(`CONFUstudio listening on http://${host}:${port}`);
+  // A loopback bind is treated as development: /api/auth/session issues a
+  // session with no access credential. Origin is the only remaining gate, and
+  // any non-browser client sets that freely — so fronting this bind with a
+  // reverse proxy exposes an UNAUTHENTICATED assistant to whoever reaches it.
+  if (assistantProxyEnabled && assistantSecurity.isLoopback) {
+    console.warn(
+      '[CONFUstudio] Assistant proxy is enabled on a loopback bind and issues sessions WITHOUT a credential. ' +
+        'Do not place a reverse proxy or port forward in front of this process. ' +
+        'For any non-loopback exposure, bind non-loopback so CONFUSTUDIO_ACCESS_TOKEN and CONFUSTUDIO_ALLOWED_ORIGINS are enforced.',
+    );
+  }
 });
