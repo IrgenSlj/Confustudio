@@ -254,9 +254,14 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
   container.append(metaSection);
 
   // Wire metadata inputs
+  // Routed through the command bus, with the direct write retained as the
+  // per-workflow compatibility fallback (core/07). Same shape the BPM handler
+  // below already uses: if the bus is unavailable, behaviour is unchanged.
   metaSection.querySelector('#proj-name-input').addEventListener('input', (e) => {
     if (state.project) {
-      state.project.name = e.target.value;
+      if (!executeStudioCommand({ type: 'set-project-meta', name: e.target.value }, 'Renamed project')) {
+        state.project.name = e.target.value; // routed-fallback
+      }
       const topbarEl = document.getElementById('project-name');
       if (topbarEl) topbarEl.textContent = e.target.value || 'CONFUstudio';
       saveState(state);
@@ -264,7 +269,9 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
   });
   metaSection.querySelector('#proj-author-input').addEventListener('blur', (e) => {
     if (state.project) {
-      state.project.author = e.target.value;
+      if (!executeStudioCommand({ type: 'set-project-meta', author: e.target.value }, 'Updated project author')) {
+        state.project.author = e.target.value; // routed-fallback
+      }
       saveState(state);
     }
   });
@@ -280,7 +287,11 @@ export function renderProjectSection(container, state, emit, publishLinkBpm) {
   });
   metaSection.querySelector('#proj-desc-input').addEventListener('blur', (e) => {
     if (state.project) {
-      state.project.description = e.target.value;
+      if (
+        !executeStudioCommand({ type: 'set-project-meta', description: e.target.value }, 'Updated project description')
+      ) {
+        state.project.description = e.target.value; // routed-fallback
+      }
       saveState(state);
     }
   });
